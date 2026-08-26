@@ -1,26 +1,178 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-heading: 'Fraunces', Georgia, serif;
+  --font-playfair: 'Playfair Display', serif;
+  --font-outfit: 'Outfit', sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  
+  --color-paper: #F3EDE4;
+  --color-ink: #4A4238;
+  --color-coral: #D4826A;
+  --color-peach: #E8C4A0;
+  --color-lavender: #B8A9C9;
+  --color-sage: #8FA98F;
+  --color-v3d-red: #E14759;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --background: #F3EDE4;
+  --foreground: #4A4238;
+}
+
+html, body {
+  background-color: #F3EDE4;
+  color: #4A4238;
+  max-width: 100%;
+  overflow-x: clip;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+@supports not (overflow-x: clip) {
+  html, body {
+    overflow-x: hidden;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Lenis Smooth Scroll Configuration */
+html.lenis, body.lenis {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Custom Editorial Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #E8DFD3;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C4B5A5;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D4826A;
+}
+
+/* Firefox */
+html, body {
+  scrollbar-width: thin;
+  scrollbar-color: #C4B5A5 #E8DFD3;
+}
+
+/* 3D Animations & Keyframes */
+@keyframes v3d-rotate3d {
+  0%   { transform: rotateY(0deg); }
+  50%  { transform: rotateY(360deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+@keyframes v3d-text-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+@keyframes v3d-float {
+  0%, 100% { transform: translateY(0px); }
+  50%      { transform: translateY(-8px); }
+}
+
+.animate-v3d-rotate {
+  animation: v3d-rotate3d 8s ease-in-out infinite !important;
+  transform-style: preserve-3d;
+}
+
+.animate-v3d-pulse {
+  animation: v3d-text-pulse 2s ease-in-out infinite !important;
+}
+
+.animate-v3d-float {
+  animation: v3d-float 4s ease-in-out infinite;
+}
+
+/* Editorial & Serif Typography */
+.font-serif {
+  font-family: var(--font-serif), Georgia, serif;
+}
+
+.font-outfit {
+  font-family: var(--font-outfit), sans-serif;
+}
+
+.font-playfair {
+  font-family: var(--font-playfair), serif;
+}
+
+.italic-wave {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  color: #D4826A;
+}
+
+/* Glass Cards & Containers */
+.glass-pill {
+  background: rgba(243, 237, 228, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(74, 66, 56, 0.08);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(74, 66, 56, 0.08);
+  box-shadow: 0 10px 30px -10px rgba(74, 66, 56, 0.05);
+}
+
+.glass-card:hover {
+  border-color: rgba(212, 130, 106, 0.35);
+  box-shadow: 0 20px 40px -15px rgba(74, 66, 56, 0.1);
+}
+
+.v3d-glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(74, 66, 56, 0.1);
+  box-shadow: 0 15px 35px -10px rgba(74, 66, 56, 0.08);
+}
+
+.v3d-glass-card:hover {
+  border-color: rgba(212, 130, 106, 0.4);
+  box-shadow: 0 20px 45px -12px rgba(212, 130, 106, 0.15);
+}
+
+/* 3D Carousel Perspective Track */
+.carousel-3d-wrapper {
+  perspective: 1200px;
+  perspective-origin: center center;
+}
+
+.carousel-3d-card {
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s ease;
+}
+
+.carousel-3d-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 40px -10px rgba(74, 66, 56, 0.2);
 }
