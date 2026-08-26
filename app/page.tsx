@@ -59,10 +59,16 @@ export default function Home() {
 
       if (descentEl) {
         const descentTop = descentEl.offsetTop;
-        const descentHeight = descentEl.offsetHeight;
-        const totalSpan = descentTop + descentHeight - window.innerHeight * 0.5;
-        const progress = Math.min(Math.max(scrollY / (totalSpan || 1), 0), 1);
-        setScrollProgress(progress);
+        const descentHeight = descentEl.offsetHeight - window.innerHeight;
+        
+        if (scrollY < descentTop) {
+          setScrollProgress(0);
+        } else if (scrollY >= descentTop && scrollY <= descentTop + descentHeight) {
+          const progress = (scrollY - descentTop) / (descentHeight || 1);
+          setScrollProgress(Math.min(Math.max(progress, 0), 1));
+        } else {
+          setScrollProgress(1);
+        }
       }
 
       // Smooth canvas visibility: active during Hero & Descent,
@@ -104,7 +110,7 @@ export default function Home() {
         onClose={() => setInspectedDetail(null)}
       />
 
-      {/* Phase 2: Fixed 3D WebGL Background Layer with Scroll Handoff */}
+      {/* Phase 2: Fixed 3D WebGL Background Layer with 360 Orbital Camera */}
       <SceneCanvas
         scrollProgress={scrollProgress}
         isLoaded={!isLoading}
@@ -117,11 +123,14 @@ export default function Home() {
 
       {/* Main Narrative Content Flow */}
       <main className="relative z-10">
-        {/* Phase 3: Hero Section (Transparent over 3D Sky & Islands) */}
+        {/* Phase 3: Hero Section */}
         <HeroSection />
 
-        {/* Phase 3: 3D Descent Journey (4 Island Milestones with [Inspect Architecture]) */}
-        <DescentSection onInspect={(detail) => setInspectedDetail(detail)} />
+        {/* Phase 3: Pinned 3D Orbit & Milestone Narrative Stage */}
+        <DescentSection
+          scrollProgress={scrollProgress}
+          onInspect={(detail) => setInspectedDetail(detail)}
+        />
 
         {/* Phase 4: Canvas Handoff → Flat Editorial Content Sections */}
         <div className="relative z-10 bg-[#F3EDE4] shadow-2xl transition-colors duration-500">

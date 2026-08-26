@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { motion } from 'motion/react';
 
 interface UseCase {
   role: string;
@@ -42,7 +43,13 @@ export const UseCasesSection: React.FC = () => {
       className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto"
     >
       {/* Header */}
-      <div className="max-w-2xl space-y-4">
+      <motion.div
+        initial={{ opacity: 0, y: 28 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+        transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+        className="max-w-2xl space-y-4"
+      >
         <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60">
           <span className="w-1.5 h-1.5 rounded-full bg-[#8FA98F]" />
           Built For Your Entire Team
@@ -50,14 +57,22 @@ export const UseCasesSection: React.FC = () => {
         <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] font-normal leading-tight">
           Clarity tailored to how you work.
         </h2>
-      </div>
+      </motion.div>
 
-      {/* 4 Persona Cards */}
+      {/* 4 Persona Cards with Staggered Entrance */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
         {USE_CASES.map((uc, idx) => (
-          <div
+          <motion.div
             key={idx}
-            className="glass-card rounded-3xl p-8 md:p-10 space-y-4 border border-[#4A4238]/10 hover:border-[#8FA98F]/40 transition-all duration-300"
+            initial={{ opacity: 0, y: 32 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+            transition={{
+              duration: 0.7,
+              delay: idx * 0.12,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            className="glass-card rounded-3xl p-8 md:p-10 space-y-4 border border-[#4A4238]/10 hover:border-[#8FA98F]/40 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1.5"
           >
             <div className="flex items-center justify-between">
               <span className="font-serif text-2xl text-[#4A4238] font-normal">
@@ -73,7 +88,7 @@ export const UseCasesSection: React.FC = () => {
             <p className="text-sm text-[#4A4238]/70 leading-relaxed pt-2">
               {uc.detail}
             </p>
-          </div>
+          </motion.div>
         ))}
       </div>
     </section>

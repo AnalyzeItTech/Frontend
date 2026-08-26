@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { motion } from 'motion/react';
 
 interface ComparisonRow {
   topic: string;
@@ -38,7 +39,13 @@ export const ComparisonSection: React.FC = () => {
       className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto"
     >
       {/* Header */}
-      <div className="max-w-2xl space-y-4">
+      <motion.div
+        initial={{ opacity: 0, y: 28 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+        transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+        className="max-w-2xl space-y-4"
+      >
         <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60">
           <span className="w-1.5 h-1.5 rounded-full bg-[#D4826A]" />
           Why Calm Matters
@@ -52,10 +59,16 @@ export const ComparisonSection: React.FC = () => {
         <p className="text-base text-[#4A4238]/70">
           Dashboards were built for displaying widgets, not making decisions. AnalyzeIt replaces screen fatigue with quiet clarity.
         </p>
-      </div>
+      </motion.div>
 
       {/* Comparison Table / Card Container */}
-      <div className="glass-card rounded-3xl overflow-hidden border border-[#4A4238]/10 divide-y divide-[#4A4238]/8">
+      <motion.div
+        initial={{ opacity: 0, y: 32 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+        transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+        className="glass-card rounded-3xl overflow-hidden border border-[#4A4238]/10 divide-y divide-[#4A4238]/8 shadow-sm"
+      >
         {/* Table Header */}
         <div className="grid grid-cols-1 md:grid-cols-2 bg-[#F3EDE4]/90 p-6 md:px-10 text-xs font-mono uppercase tracking-wider text-[#4A4238]/70">
           <div className="flex items-center gap-2">
@@ -95,7 +108,7 @@ export const ComparisonSection: React.FC = () => {
             </div>
           </div>
         ))}
-      </div>
+      </motion.div>
     </section>
   );
 };

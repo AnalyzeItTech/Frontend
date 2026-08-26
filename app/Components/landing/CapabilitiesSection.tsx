@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { motion } from 'motion/react';
 
 interface Capability {
   id: string;
@@ -78,7 +79,13 @@ export const CapabilitiesSection: React.FC = () => {
       className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-20 pointer-events-auto"
     >
       {/* Section Header */}
-      <div className="max-w-2xl space-y-4">
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+        transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+        className="max-w-2xl space-y-4"
+      >
         <div className="inline-flex items-center gap-2 text-xs font-mono tracking-[0.25em] uppercase text-[#D4826A]">
           <span className="w-2 h-2 rounded-full bg-[#D4826A]" />
           Core Capabilities
@@ -89,14 +96,22 @@ export const CapabilitiesSection: React.FC = () => {
             without the noise.
           </em>
         </h2>
-      </div>
+      </motion.div>
 
-      {/* 4 Pillars Grid */}
+      {/* 4 Pillars Grid with Staggered Scroll Reveal */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
-        {CAPABILITIES.map((cap) => (
-          <div
+        {CAPABILITIES.map((cap, idx) => (
+          <motion.div
             key={cap.id}
-            className="glass-card rounded-3xl p-8 md:p-10 space-y-8 flex flex-col justify-between transition-all duration-300 transform hover:-translate-y-1 border border-[#4A4238]/10"
+            initial={{ opacity: 0, y: 35 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+            transition={{
+              duration: 0.7,
+              delay: idx * 0.12,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            className="glass-card rounded-3xl p-8 md:p-10 space-y-8 flex flex-col justify-between transition-all duration-300 transform hover:-translate-y-1.5 hover:shadow-xl border border-[#4A4238]/10"
           >
             <div className="space-y-6">
               <div className="flex items-center justify-between">
@@ -140,7 +155,7 @@ export const CapabilitiesSection: React.FC = () => {
                 {cap.calloutDesc}
               </span>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
     </section>

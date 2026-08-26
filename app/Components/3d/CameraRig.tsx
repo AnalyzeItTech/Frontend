@@ -9,13 +9,13 @@ interface CameraRigProps {
   isLoaded?: boolean;
 }
 
-// 4 deep island waypoints across the descent (alternating right / left)
-const WAYPOINTS = [
-  { p: 0.0, pos: [0, 4.8, 11.5], target: [0, 0.5, 0] },             // 00 // Hero Overview
-  { p: 0.25, pos: [0.5, -3.5, 5.0], target: [2.2, -4.0, -1.0] },    // 01 // Reports Engine (Right)
-  { p: 0.5, pos: [-0.5, -9.5, 5.0], target: [-2.2, -10.0, -1.0] },  // 02 // Forecasts (Left)
-  { p: 0.75, pos: [0.5, -15.5, 5.0], target: [2.2, -16.0, -1.0] },  // 03 // Monitoring (Right)
-  { p: 1.0, pos: [-0.5, -21.5, 5.0], target: [-2.2, -22.0, -1.0] }, // 04 // Conversational Query (Left)
+// 5 Key Spiral Orbit Stages with comfortable framing distance (Never over-zooms at Milestone 4)
+const SPIRAL_WAYPOINTS = [
+  { p: 0.0, angle: 0.0, radius: 12.2, y: 2.2, targetX: 0.0, targetY: 0.0 },              // 00 // Hero Wide Overview
+  { p: 0.22, angle: Math.PI * 0.48, radius: 10.4, y: 2.4, targetX: 0.3, targetY: 0.1 },  // 01 // Reports Engine (East Facet)
+  { p: 0.47, angle: Math.PI * 0.96, radius: 9.8, y: 1.8, targetX: -0.3, targetY: 0.1 },  // 02 // Forecast Horizons (North Facet)
+  { p: 0.72, angle: Math.PI * 1.44, radius: 9.4, y: 2.2, targetX: 0.2, targetY: 0.1 },   // 03 // Anomaly Graph (West Facet)
+  { p: 0.95, angle: Math.PI * 1.85, radius: 8.8, y: 1.6, targetX: -0.2, targetY: 0.1 },  // 04 // Query Lineage (Comfortable close framing, never clips)
 ];
 
 export const CameraRig: React.FC<CameraRigProps> = ({
@@ -23,14 +23,14 @@ export const CameraRig: React.FC<CameraRigProps> = ({
   isLoaded = true,
 }) => {
   const { camera, pointer } = useThree();
-  const targetPos = useRef(new THREE.Vector3(0, 4.8, 11.5));
-  const targetLookAt = useRef(new THREE.Vector3(0, 0.5, 0));
-  const currentLookAt = useRef(new THREE.Vector3(0, 0.5, 0));
+  const targetPos = useRef(new THREE.Vector3(0, 2.2, 12.2));
+  const targetLookAt = useRef(new THREE.Vector3(0, 0.0, 0));
+  const currentLookAt = useRef(new THREE.Vector3(0, 0.0, 0));
   const entranceFactor = useRef(0);
 
   useEffect(() => {
     if (isLoaded) {
-      camera.position.set(0, 4.8, 11.5);
+      camera.position.set(0, 2.2, 12.2);
     }
   }, [isLoaded, camera]);
 
@@ -44,14 +44,14 @@ export const CameraRig: React.FC<CameraRigProps> = ({
       entranceFactor.current = THREE.MathUtils.lerp(entranceFactor.current, 1, 0.04);
     }
 
-    // Find bounding waypoints
-    let p1 = WAYPOINTS[0];
-    let p2 = WAYPOINTS[WAYPOINTS.length - 1];
+    // Find bounding spiral waypoints
+    let p1 = SPIRAL_WAYPOINTS[0];
+    let p2 = SPIRAL_WAYPOINTS[SPIRAL_WAYPOINTS.length - 1];
 
-    for (let i = 0; i < WAYPOINTS.length - 1; i++) {
-      if (p >= WAYPOINTS[i].p && p <= WAYPOINTS[i + 1].p) {
-        p1 = WAYPOINTS[i];
-        p2 = WAYPOINTS[i + 1];
+    for (let i = 0; i < SPIRAL_WAYPOINTS.length - 1; i++) {
+      if (p >= SPIRAL_WAYPOINTS[i].p && p <= SPIRAL_WAYPOINTS[i + 1].p) {
+        p1 = SPIRAL_WAYPOINTS[i];
+        p2 = SPIRAL_WAYPOINTS[i + 1];
         break;
       }
     }
@@ -60,30 +60,32 @@ export const CameraRig: React.FC<CameraRigProps> = ({
     const factor = THREE.MathUtils.clamp((p - p1.p) / span, 0, 1);
     const ease = factor * factor * (3 - 2 * factor);
 
-    const x = THREE.MathUtils.lerp(p1.pos[0], p2.pos[0], ease);
-    const y = THREE.MathUtils.lerp(p1.pos[1], p2.pos[1], ease);
-    const z = THREE.MathUtils.lerp(p1.pos[2], p2.pos[2], ease);
+    const angle = THREE.MathUtils.lerp(p1.angle, p2.angle, ease);
+    const radius = THREE.MathUtils.lerp(p1.radius, p2.radius, ease);
+    const elevation = THREE.MathUtils.lerp(p1.y, p2.y, ease);
+    const focalX = THREE.MathUtils.lerp(p1.targetX, p2.targetX, ease);
+    const focalY = THREE.MathUtils.lerp(p1.targetY, p2.targetY, ease);
 
-    const lookX = THREE.MathUtils.lerp(p1.target[0], p2.target[0], ease);
-    const lookY = THREE.MathUtils.lerp(p1.target[1], p2.target[1], ease);
-    const lookZ = THREE.MathUtils.lerp(p1.target[2], p2.target[2], ease);
+    // Compute spiral coordinates
+    const orbitX = Math.sin(angle) * radius;
+    const orbitZ = Math.cos(angle) * radius;
 
-    // Subtle floating breath
-    const floatY = Math.sin(time * 0.35) * 0.08;
-    const floatX = Math.cos(time * 0.25) * 0.05;
+    // Subtle floating breath motion
+    const floatY = Math.sin(time * 0.35) * 0.05;
+    const floatX = Math.cos(time * 0.25) * 0.03;
 
     // Gentle pointer parallax
-    const mouseX = pointer.x * 0.3;
-    const mouseY = pointer.y * 0.2;
+    const mouseX = pointer.x * 0.2;
+    const mouseY = pointer.y * 0.15;
 
-    const finalX = THREE.MathUtils.lerp(0, x + mouseX + floatX, entranceFactor.current);
-    const finalY = THREE.MathUtils.lerp(4.8, y + mouseY + floatY, entranceFactor.current);
-    const finalZ = THREE.MathUtils.lerp(11.5, z, entranceFactor.current);
+    const finalX = THREE.MathUtils.lerp(0, orbitX + mouseX + floatX, entranceFactor.current);
+    const finalY = THREE.MathUtils.lerp(2.2, elevation + mouseY + floatY, entranceFactor.current);
+    const finalZ = THREE.MathUtils.lerp(12.2, orbitZ, entranceFactor.current);
 
     targetPos.current.set(finalX, finalY, finalZ);
-    targetLookAt.current.set(lookX + mouseX * 0.1, lookY + mouseY * 0.1, lookZ);
+    targetLookAt.current.set(focalX + mouseX * 0.06, focalY + mouseY * 0.06, 0);
 
-    const damp = Math.min(delta * 4.0, 0.2);
+    const damp = Math.min(delta * 4.0, 0.22);
     camera.position.lerp(targetPos.current, damp);
     currentLookAt.current.lerp(targetLookAt.current, damp);
     camera.lookAt(currentLookAt.current);

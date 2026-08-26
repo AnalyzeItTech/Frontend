@@ -24,9 +24,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
         if (prev > 88) inc = Math.random() * 1.2 + 0.4;
         const next = Math.min(prev + inc, 100);
 
-        if (next < 30) setStatus('LOADING 3D ATMOSPHERE');
-        else if (next < 60) setStatus('CALIBRATING ISLANDS');
-        else if (next < 90) setStatus('WEAVING DATA FLOWS');
+        if (next < 30) setStatus('CALIBRATING ATMOSPHERE');
+        else if (next < 60) setStatus('PREPARING ISLANDS');
+        else if (next < 90) setStatus('CONNECTING DATA FLOWS');
         else setStatus('EXPERIENCE READY');
 
         return next;
@@ -102,7 +102,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
           {Math.floor(progress)}%
         </div>
         <div className="text-[11px] font-mono tracking-widest text-[#4A4238]/50 uppercase">
-          AnalyzeIt · Spatial Intelligence
+          AnalyzeIt · Analytics, made calm
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { motion } from 'motion/react';
 
 interface PricingTier {
   name: string;
@@ -64,7 +65,13 @@ export const PricingTeaserSection: React.FC = () => {
       className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto"
     >
       {/* Header */}
-      <div className="text-center max-w-2xl mx-auto space-y-4">
+      <motion.div
+        initial={{ opacity: 0, y: 28 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+        transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+        className="text-center max-w-2xl mx-auto space-y-4"
+      >
         <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60">
           <span className="w-1.5 h-1.5 rounded-full bg-[#D4826A]" />
           Simple, Transparent Plans
@@ -75,21 +82,29 @@ export const PricingTeaserSection: React.FC = () => {
         <p className="text-base text-[#4A4238]/70">
           14-day free trial on all plans. No credit card required.
         </p>
-      </div>
+      </motion.div>
 
-      {/* 3 Tiers Grid */}
+      {/* 3 Tiers Grid with Staggered Entrance */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-        {TIERS.map((tier) => (
-          <div
+        {TIERS.map((tier, idx) => (
+          <motion.div
             key={tier.name}
-            className={`rounded-3xl p-8 md:p-10 flex flex-col justify-between space-y-8 transition-all duration-300 ${
+            initial={{ opacity: 0, y: 35 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+            transition={{
+              duration: 0.7,
+              delay: idx * 0.15,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            className={`rounded-3xl p-8 md:p-10 flex flex-col justify-between space-y-8 transition-all duration-300 transform hover:-translate-y-1.5 hover:shadow-xl ${
               tier.popular
                 ? 'bg-[#F3EDE4] border-2 border-[#D4826A] shadow-md relative'
                 : 'glass-card border border-[#4A4238]/10 hover:border-[#4A4238]/20'
             }`}
           >
             {tier.popular && (
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-[#D4826A] text-[#F3EDE4] text-xs font-mono uppercase tracking-wider">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-[#D4826A] text-[#F3EDE4] text-xs font-mono uppercase tracking-wider shadow-sm">
                 Most Popular
               </div>
             )}
@@ -129,15 +144,15 @@ export const PricingTeaserSection: React.FC = () => {
 
             <Link
               href="/login"
-              className={`w-full py-3 rounded-full text-center text-sm font-medium transition-all duration-200 ${
+              className={`w-full py-3 rounded-full text-center text-sm font-medium transition-all duration-200 shadow-xs ${
                 tier.popular
-                  ? 'bg-[#D4826A] hover:bg-[#C2735C] text-[#F3EDE4] shadow-xs'
+                  ? 'bg-[#D4826A] hover:bg-[#C2735C] text-[#F3EDE4] shadow-sm'
                   : 'bg-[#4A4238] hover:bg-[#383129] text-[#F3EDE4]'
               }`}
             >
               {tier.cta}
             </Link>
-          </div>
+          </motion.div>
         ))}
       </div>
     </section>

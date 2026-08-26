@@ -11,7 +11,7 @@ const FAQS: FAQItem[] = [
   {
     question: 'What data sources can I connect?',
     answer:
-      'AnalyzeIt connects directly with PostgreSQL, MySQL, Snowflake, BigQuery, ClickHouse, Stripe billing streams, and direct CSV/spreadsheet files. We add new connectors regularly based on user requests.',
+      'AnalyzeIt connects directly with PostgreSQL, MySQL, Snowflake, BigQuery, ClickHouse, Stripe billing streams, and CSV/spreadsheet uploads. All database connections use strictly read-only credentials and encrypted tunnels.',
   },
   {
     question: 'Do I need technical or SQL knowledge to use AnalyzeIt?',
@@ -26,20 +26,29 @@ const FAQS: FAQItem[] = [
   {
     question: 'How is my data protected?',
     answer:
-      'AnalyzeIt connects using strictly read-only credentials and encrypts all network communication and stored configurations with industry standard encryption. Your private business data is never used to train public language models.',
+      'AnalyzeIt connects using strictly read-only credentials and encrypts all network communication and stored configurations with AES-256 encryption. Your private business data is never used to train public language models.',
   },
   {
     question: 'Can my whole team collaborate in one workspace?',
     answer:
-      'Yes. You can invite teammates with configurable permissions, share investigation threads, and set up automated digests delivered directly to your team’s Slack or email channels.',
+      'Yes. You can invite teammates with configurable permissions, share investigation threads, and set up automated digests delivered directly to your team’s Slack, Notion, or email channels.',
   },
 ];
 
 export const FAQSection: React.FC = () => {
-  const [openIdx, setOpenIdx] = useState<number | null>(0);
+  // Store open state as a set of indices so users can open multiple or view all answers
+  const [openSet, setOpenSet] = useState<Set<number>>(new Set([0, 1]));
 
   const toggle = (idx: number) => {
-    setOpenIdx(openIdx === idx ? null : idx);
+    setOpenSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      return next;
+    });
   };
 
   return (
@@ -61,7 +70,7 @@ export const FAQSection: React.FC = () => {
       {/* Accordion */}
       <div className="space-y-4">
         {FAQS.map((faq, idx) => {
-          const isOpen = openIdx === idx;
+          const isOpen = openSet.has(idx);
           return (
             <div
               key={idx}
@@ -71,12 +80,13 @@ export const FAQSection: React.FC = () => {
                 type="button"
                 onClick={() => toggle(idx)}
                 className="w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-white/20 transition-colors"
+                aria-expanded={isOpen}
               >
                 <span className="font-serif text-xl md:text-2xl text-[#4A4238] font-normal">
                   {faq.question}
                 </span>
                 <span
-                  className={`text-[#D4826A] text-xl font-light transition-transform duration-300 ${
+                  className={`text-[#D4826A] text-2xl font-light transition-transform duration-300 ${
                     isOpen ? 'rotate-45' : 'rotate-0'
                   }`}
                 >
@@ -85,7 +95,7 @@ export const FAQSection: React.FC = () => {
               </button>
 
               {isOpen && (
-                <div className="px-6 pb-6 pt-1 text-sm md:text-base text-[#4A4238]/75 leading-relaxed border-t border-[#4A4238]/6">
+                <div className="px-6 pb-6 pt-1 text-sm md:text-base text-[#4A4238]/75 leading-relaxed border-t border-[#4A4238]/6 animate-in fade-in duration-200">
                   {faq.answer}
                 </div>
               )}

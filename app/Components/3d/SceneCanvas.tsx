@@ -3,120 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Sparkles } from '@react-three/drei';
+import * as THREE from 'three';
 import { SkyDome } from './SkyDome';
 import { CloudLayers } from './CloudLayers';
-import { LightTrails } from './LightTrails';
-import { IslandInstance, IslandInstanceProps } from './HeroIslandModel';
+import { CentralCrystalModel } from './CentralCrystalModel';
 import { CameraRig } from './CameraRig';
 import { DrawerDetail } from '../landing/InspectDrawer';
-
-// 4 Milestone Islands positioned opposite to their HTML cards, all rendered with heroisland.glb
-const DESCENT_ISLANDS: IslandInstanceProps[] = [
-  {
-    id: 'reports',
-    label: '01 // REPORTS ENGINE',
-    position: [3.2, -4.0, -1.0], // Card is on left, Island is on right
-    scale: 3.6,
-    rotationY: 0.4,
-    bobSpeed: 0.32,
-    bobPhase: 0,
-    activeScrollRange: [0.15, 0.38],
-    detail: {
-      category: 'REPORTS ENGINE',
-      title: 'Automated Executive Narratives',
-      subtitle: 'Living summaries delivered to Slack, Notion & Email',
-      narrative:
-        'Monitors ongoing business metrics and generates human-readable executive summaries with cited data points delivered directly to team communication channels.',
-      metrics: [
-        { label: 'Format', value: 'Narrative Digest' },
-        { label: 'Delivery', value: 'Slack & Email' },
-      ],
-      steps: [
-        'Syncs data warehouses and billing streams in read-only mode',
-        'Calculates multi-dimensional period-over-period deltas',
-        'Synthesizes natural language briefings with verified data citations',
-      ],
-    },
-  },
-  {
-    id: 'forecasts',
-    label: '02 // PROBABILISTIC FORECASTS',
-    position: [-3.2, -10.0, -1.0], // Card is on right, Island is on left
-    scale: 3.8,
-    rotationY: 1.6,
-    bobSpeed: 0.3,
-    bobPhase: 1.8,
-    activeScrollRange: [0.38, 0.62],
-    detail: {
-      category: 'FORECAST HORIZONS',
-      title: 'Probabilistic Trajectory Models',
-      subtitle: 'Forward-looking confidence ranges without statistical complexity',
-      narrative:
-        'Continuously adapts projection envelopes to seasonal variance, trend momentum, and holiday baselines without requiring custom model scripting.',
-      metrics: [
-        { label: 'Horizon', value: '30-Day Rolling' },
-        { label: 'Confidence', value: 'Adaptive Range' },
-      ],
-      steps: [
-        'Analyzes multi-year baseline seasonality and variance cycles',
-        'Calculates dynamic upper and lower projection boundaries',
-        'Supports natural language parameter simulation in real time',
-      ],
-    },
-  },
-  {
-    id: 'monitoring',
-    label: '03 // ANOMALY MONITORING',
-    position: [3.2, -16.0, -1.0], // Card is on left, Island is on right
-    scale: 3.6,
-    rotationY: 2.8,
-    bobSpeed: 0.34,
-    bobPhase: 3.4,
-    activeScrollRange: [0.62, 0.85],
-    detail: {
-      category: 'ANOMALY GRAPH',
-      title: 'Contextual Anomaly Suppression',
-      subtitle: 'Root-cause attribution that eliminates alarm fatigue',
-      narrative:
-        'Cross-correlates simultaneous metric deviations across the entire schema, identifying the upstream origin before flooding teams with duplicate alerts.',
-      metrics: [
-        { label: 'Detection', value: 'Multi-Metric Graph' },
-        { label: 'Attribution', value: 'Root Cause Pinpoint' },
-      ],
-      steps: [
-        'Learns normal variance across multi-table metric graphs',
-        'Isolates root cause disruptions from downstream cascading noise',
-        'Delivers contextual action summaries before metric impacts widen',
-      ],
-    },
-  },
-  {
-    id: 'exploration',
-    label: '04 // CONVERSATIONAL QUERY',
-    position: [-3.2, -22.0, -1.0], // Card is on right, Island is on left
-    scale: 4.0,
-    rotationY: 4.2,
-    bobSpeed: 0.28,
-    bobPhase: 4.9,
-    activeScrollRange: [0.85, 1.05],
-    detail: {
-      category: 'EXPLORATION',
-      title: 'Conversational Data Lineage',
-      subtitle: 'Instant ad-hoc exploration in natural language',
-      narrative:
-        'Empowers any teammate to ask follow-up questions, slice dimensions, and drill down into anomalies with fully verified query execution.',
-      metrics: [
-        { label: 'Interface', value: 'Natural Language' },
-        { label: 'Transparency', value: 'Direct Verified SQL' },
-      ],
-      steps: [
-        'Converts natural phrasing into optimized database queries',
-        'Validates semantic query schemas against warehouse metadata',
-        'Outputs conversational summaries with accompanying raw data tables',
-      ],
-    },
-  },
-];
 
 interface SceneCanvasProps {
   scrollProgress: number;
@@ -163,8 +55,6 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
     );
   }
 
-  const islandPositions = DESCENT_ISLANDS.map((i) => i.position);
-
   return (
     <div
       id="playcanvas-wrapper"
@@ -173,53 +63,37 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
       }`}
     >
       <Canvas
-        camera={{ position: [0, 4.8, 11.5], fov: 50, near: 0.1, far: 100 }}
+        camera={{ position: [0, 2.8, 11.5], fov: 48, near: 0.1, far: 100 }}
         gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
         dpr={[1, 1.5]}
       >
-        {/* Generous daylight and sunset illumination to reveal full model colors */}
+        {/* Soft, warm, 100% offline Three.js lighting */}
         <ambientLight intensity={1.1} color="#FFFFFF" />
         <hemisphereLight intensity={0.7} groundColor="#E8DFD3" color="#D5C5E5" />
-        <directionalLight position={[12, 18, 10]} intensity={1.6} color="#FFF5EB" />
-        <directionalLight position={[-10, -6, -8]} intensity={0.5} color="#C5B8D8" />
+        <directionalLight position={[12, 16, 10]} intensity={1.4} color="#FFF5EB" />
+        <directionalLight position={[-10, -6, -8]} intensity={0.45} color="#C5B8D8" />
 
         {/* Dynamic Sky Gradient Dome */}
         <SkyDome scrollProgress={scrollProgress} />
         <CloudLayers />
 
-        {/* Floating Atmosphere Motes */}
+        {/* Floating Atmosphere Motes with Brownian Motion */}
         <Sparkles
-          count={60}
-          scale={[18, 26, 16]}
+          count={65}
+          scale={[22, 18, 22]}
           size={3.0}
           speed={0.25}
           opacity={0.6}
           color="#E8C4A0"
         />
 
-        {/* 1. Hero Overview Island (heroisland.glb with full vibrant colors) */}
-        <IslandInstance
-          position={[2.5, 0.4, -1.5]}
-          scale={4.2}
-          rotationY={0}
-          bobSpeed={0.35}
-          bobPhase={0}
+        {/* Single Central Abstract Faceted Crystal Form */}
+        <CentralCrystalModel
+          scrollProgress={scrollProgress}
+          onSelectHotspot={onSelectHotspot}
         />
 
-        {/* 2. All 4 Milestone Descent Islands (heroisland.glb instances with scroll-gated hotspots) */}
-        {DESCENT_ISLANDS.map((island) => (
-          <IslandInstance
-            key={island.id}
-            {...island}
-            currentScroll={scrollProgress}
-            onSelectHotspot={onSelectHotspot}
-          />
-        ))}
-
-        {/* Connected Soft Light Trail Filaments */}
-        <LightTrails islandPoints={islandPositions} />
-
-        {/* Camera Trajectory & Swoop */}
+        {/* Spiral Contracting Camera Orbit & Focal Tracking */}
         <CameraRig
           scrollProgress={scrollProgress}
           isLoaded={isLoaded}
