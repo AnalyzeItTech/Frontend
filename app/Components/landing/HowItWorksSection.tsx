@@ -48,14 +48,14 @@ export const HowItWorksSection: React.FC = () => {
         transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         className="text-center max-w-2xl mx-auto space-y-4"
       >
-        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60">
+        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
           <span className="w-1.5 h-1.5 rounded-full bg-[#8FA98F]" />
           Three Steps to Clarity
         </div>
-        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] font-normal">
+        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#EDE6DC] font-normal">
           How it works
         </h2>
-        <p className="text-base text-[#4A4238]/70">
+        <p className="text-base text-[#4A4238]/70 dark:text-[#EDE6DC]/70">
           No training seminars, no SQL certification, and no fragile dashboards to maintain.
         </p>
       </motion.div>
@@ -73,27 +73,27 @@ export const HowItWorksSection: React.FC = () => {
               delay: idx * 0.15,
               ease: [0.16, 1, 0.3, 1],
             }}
-            className="glass-card rounded-3xl p-8 space-y-5 relative border border-[#4A4238]/10 hover:border-[#D4826A]/30 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1.5"
+            className="glass-card rounded-3xl p-8 space-y-5 relative border border-[#4A4238]/10 dark:border-white/10 hover:border-[#D4826A]/30 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1.5"
           >
             <div className="flex items-center justify-between">
               <span className="font-serif text-3xl text-[#D4826A] font-normal">
                 {s.step}
               </span>
-              <span className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/50">
+              <span className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/50 dark:text-white/50">
                 Step {idx + 1}
               </span>
             </div>
 
             <div className="space-y-2">
-              <h3 className="font-serif text-2xl text-[#4A4238] font-normal">
+              <h3 className="font-serif text-2xl text-[#4A4238] dark:text-[#EDE6DC] font-normal">
                 {s.title}
               </h3>
-              <p className="text-sm font-medium text-[#4A4238]">
+              <p className="text-sm font-medium text-[#4A4238] dark:text-[#EDE6DC]">
                 {s.tagline}
               </p>
             </div>
 
-            <p className="text-sm text-[#4A4238]/70 leading-relaxed">
+            <p className="text-sm text-[#4A4238]/70 dark:text-[#EDE6DC]/70 leading-relaxed">
               {s.description}
             </p>
           </motion.div>

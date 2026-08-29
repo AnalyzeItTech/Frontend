@@ -36,7 +36,6 @@ const FAQS: FAQItem[] = [
 ];
 
 export const FAQSection: React.FC = () => {
-  // Store open state as a set of indices so users can open multiple or view all answers
   const [openSet, setOpenSet] = useState<Set<number>>(new Set([0, 1]));
 
   const toggle = (idx: number) => {
@@ -58,11 +57,11 @@ export const FAQSection: React.FC = () => {
     >
       {/* Header */}
       <div className="text-center space-y-4">
-        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60">
+        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
           <span className="w-1.5 h-1.5 rounded-full bg-[#8FA98F]" />
           Common Questions
         </div>
-        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] font-normal">
+        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#EDE6DC] font-normal">
           Frequently asked questions
         </h2>
       </div>
@@ -74,15 +73,15 @@ export const FAQSection: React.FC = () => {
           return (
             <div
               key={idx}
-              className="glass-card rounded-2xl overflow-hidden border border-[#4A4238]/10 transition-all duration-200"
+              className="glass-card rounded-2xl overflow-hidden border border-[#4A4238]/10 dark:border-white/10 transition-all duration-200"
             >
               <button
                 type="button"
                 onClick={() => toggle(idx)}
-                className="w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-white/20 transition-colors"
+                className="w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-white/20 dark:hover:bg-white/05 transition-colors"
                 aria-expanded={isOpen}
               >
-                <span className="font-serif text-xl md:text-2xl text-[#4A4238] font-normal">
+                <span className="font-serif text-xl md:text-2xl text-[#4A4238] dark:text-[#EDE6DC] font-normal">
                   {faq.question}
                 </span>
                 <span
@@ -95,7 +94,7 @@ export const FAQSection: React.FC = () => {
               </button>
 
               {isOpen && (
-                <div className="px-6 pb-6 pt-1 text-sm md:text-base text-[#4A4238]/75 leading-relaxed border-t border-[#4A4238]/6 animate-in fade-in duration-200">
+                <div className="px-6 pb-6 pt-1 text-sm md:text-base text-[#4A4238]/75 dark:text-[#EDE6DC]/75 leading-relaxed border-t border-[#4A4238]/6 dark:border-white/08 animate-in fade-in duration-200">
                   {faq.answer}
                 </div>
               )}

@@ -220,12 +220,12 @@ export const DescentSection: React.FC<DescentSectionProps> = ({
                     scale: 0.95,
                   }}
                   transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-                  className="max-w-md pointer-events-auto glass-card p-6 md:p-8 rounded-3xl space-y-4 border border-[#4A4238]/10 shadow-lg"
+                  className="max-w-md pointer-events-auto glass-card p-6 md:p-8 rounded-3xl space-y-4 border border-[#4A4238]/10 dark:border-white/10 shadow-lg"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-[#8FA98F] animate-pulse" />
-                      <span className="text-[10px] font-mono tracking-wider uppercase text-[#4A4238]/60">
+                      <span className="text-[10px] font-mono tracking-wider uppercase text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
                         {currentItem.category}
                       </span>
                     </div>
@@ -234,20 +234,20 @@ export const DescentSection: React.FC<DescentSectionProps> = ({
                     </span>
                   </div>
 
-                  <h3 className="font-serif text-2xl sm:text-3xl text-[#4A4238] font-normal tracking-tight">
+                  <h3 className="font-serif text-2xl sm:text-3xl text-[#4A4238] dark:text-[#EDE6DC] font-normal tracking-tight">
                     {currentItem.name}
                   </h3>
 
-                  <p className="text-xs sm:text-sm text-[#4A4238]/75 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#4A4238]/75 dark:text-[#EDE6DC]/75 leading-relaxed">
                     {currentItem.tagline}
                   </p>
 
                   {onInspect && (
-                    <div className="pt-3 border-t border-[#4A4238]/8">
+                    <div className="pt-3 border-t border-[#4A4238]/8 dark:border-white/10">
                       <button
                         type="button"
                         onClick={() => onInspect(currentItem.detail)}
-                        className="group inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-[#4A4238] hover:text-[#D4826A] transition-colors cursor-pointer py-1"
+                        className="group inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-[#4A4238] dark:text-[#EDE6DC] hover:text-[#D4826A] transition-colors cursor-pointer py-1"
                       >
                         <span>[ INSPECT ARCHITECTURE ]</span>
                         <span className="transform group-hover:translate-x-1.5 transition-transform duration-200">
@@ -287,7 +287,7 @@ export const DescentSection: React.FC<DescentSectionProps> = ({
                     scale: 0.95,
                   }}
                   transition={{ duration: 0.65, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-                  className="max-w-sm pointer-events-auto p-6 rounded-3xl bg-[#F3EDE4]/85 backdrop-blur-md border border-[#4A4238]/10 space-y-4 shadow-sm"
+                  className="max-w-sm pointer-events-auto p-6 rounded-3xl bg-[#F3EDE4]/85 dark:bg-[#1E1A17]/85 backdrop-blur-md border border-[#4A4238]/10 dark:border-white/10 space-y-4 shadow-sm"
                 >
                   <div className="text-[10px] font-mono tracking-widest uppercase text-[#D4826A]">
                     {currentItem.telemetry.eyebrow}
@@ -297,19 +297,19 @@ export const DescentSection: React.FC<DescentSectionProps> = ({
                     {currentItem.telemetry.specs.map((s, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between text-xs py-1 border-b border-[#4A4238]/6"
+                        className="flex items-center justify-between text-xs py-1 border-b border-[#4A4238]/6 dark:border-white/08"
                       >
-                        <span className="text-[#4A4238]/60 font-mono text-[11px]">
+                        <span className="text-[#4A4238]/60 dark:text-[#EDE6DC]/60 font-mono text-[11px]">
                           {s.label}
                         </span>
-                        <span className="font-serif text-[#4A4238] font-medium text-sm">
+                        <span className="font-serif text-[#4A4238] dark:text-[#EDE6DC] font-medium text-sm">
                           {s.value}
                         </span>
                       </div>
                     ))}
                   </div>
 
-                  <p className="text-[11px] text-[#4A4238]/65 leading-relaxed pt-1">
+                  <p className="text-[11px] text-[#4A4238]/65 dark:text-[#EDE6DC]/65 leading-relaxed pt-1">
                     {currentItem.telemetry.note}
                   </p>
                 </motion.div>
@@ -319,14 +319,14 @@ export const DescentSection: React.FC<DescentSectionProps> = ({
         </AnimatePresence>
 
         {/* Milestone Indicator Bar Centered at Bottom */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 pointer-events-auto px-4 py-2 rounded-full bg-[#F3EDE4]/80 backdrop-blur-md border border-[#4A4238]/10 shadow-xs">
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 pointer-events-auto px-4 py-2 rounded-full bg-[#F3EDE4]/80 dark:bg-[#1E1A17]/80 backdrop-blur-md border border-[#4A4238]/10 dark:border-white/10 shadow-xs">
           {HIGHLIGHTS.map((h, i) => (
             <span
               key={h.id}
               className={`transition-all duration-300 rounded-full ${
                 activeIndex === i
                   ? 'w-6 h-2 bg-[#D4826A]'
-                  : 'w-2 h-2 bg-[#4A4238]/20'
+                  : 'w-2 h-2 bg-[#4A4238]/20 dark:bg-white/20'
               }`}
             />
           ))}

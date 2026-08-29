@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { ThemeToggle } from '../ui/ThemeToggle';
 
 export const Navbar: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -39,10 +41,14 @@ export const Navbar: React.FC = () => {
             href="/"
             className="flex items-center gap-2 group cursor-pointer"
           >
-            <span className="w-2.5 h-2.5 rounded-full bg-[#D4826A] transition-transform duration-300 group-hover:scale-125" />
-            <span className="font-serif text-lg tracking-tight font-normal text-[#4A4238]">
-              AnalyzeIt
-            </span>
+            <Image
+              src="/logo.png"
+              alt="AnalyzeIt"
+              width={130}
+              height={30}
+              className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation Links */}
@@ -85,16 +91,17 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Auth Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <ThemeToggle />
             <Link
-              href="/login"
-              className="text-xs text-[#4A4238]/75 hover:text-[#4A4238] font-medium px-3 py-1.5 transition-colors"
+              href="/Dashboard"
+              className="text-xs text-[#4A4238]/75 dark:text-[#EDE6DC]/75 hover:text-[#4A4238] dark:hover:text-white font-medium px-3 py-1.5 transition-colors"
             >
-              Sign in
+              Dashboard
             </Link>
             <Link
               href="/login"
-              className="text-xs bg-[#4A4238] hover:bg-[#383129] text-[#F3EDE4] font-medium px-4 py-1.5 rounded-full transition-all duration-200 shadow-xs"
+              className="text-xs bg-[#4A4238] hover:bg-[#383129] dark:bg-[#EDE6DC] dark:hover:bg-white dark:text-[#161311] text-[#F3EDE4] font-medium px-4 py-1.5 rounded-full transition-all duration-200 shadow-xs"
             >
               Get started
             </Link>

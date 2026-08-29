@@ -27,22 +27,22 @@ export const InspectDrawer: React.FC<InspectDrawerProps> = ({
       {/* Dark Ambient Backdrop */}
       <div
         onClick={onClose}
-        className="absolute inset-0 bg-[#4A4238]/30 backdrop-blur-xs transition-opacity duration-300"
+        className="absolute inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-xs transition-opacity duration-300"
       />
 
       {/* Slide-out Panel */}
-      <div className="relative w-full max-w-lg bg-[#F3EDE4] text-[#4A4238] h-full shadow-2xl p-8 sm:p-12 overflow-y-auto z-10 border-l border-[#4A4238]/10 flex flex-col justify-between space-y-8 animate-in slide-in-from-right duration-300">
+      <div className="relative w-full max-w-lg bg-[#F3EDE4] dark:bg-[#1C1815] text-[#4A4238] dark:text-[#EDE6DC] h-full shadow-2xl p-8 sm:p-12 overflow-y-auto z-10 border-l border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between space-y-8 animate-in slide-in-from-right duration-300">
         {/* Header & Signature Diagonal Arrow Close Button */}
         <div className="space-y-6">
-          <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#4A4238]/10">
+          <div className="flex items-start justify-between gap-4 pb-4 border-b border-[#4A4238]/10 dark:border-white/10">
             <div className="space-y-1">
               <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-[#D4826A] font-medium">
                 [ ARCHITECTURE SPEC ] // {detail.category}
               </span>
-              <h2 className="font-serif text-2xl sm:text-3xl text-[#4A4238] font-normal tracking-tight">
+              <h2 className="font-serif text-2xl sm:text-3xl text-[#4A4238] dark:text-[#EDE6DC] font-normal tracking-tight">
                 {detail.title}
               </h2>
-              <p className="text-xs sm:text-sm text-[#4A4238]/70 font-medium">
+              <p className="text-xs sm:text-sm text-[#4A4238]/70 dark:text-[#EDE6DC]/70 font-medium">
                 {detail.subtitle}
               </p>
             </div>
@@ -51,7 +51,7 @@ export const InspectDrawer: React.FC<InspectDrawerProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-10 h-10 rounded-full bg-[#4A4238]/5 hover:bg-[#D4826A] hover:text-white border border-[#4A4238]/10 flex items-center justify-center p-2.5 transition-all duration-200 cursor-pointer shrink-0 text-[#4A4238]"
+              className="w-10 h-10 rounded-full bg-[#4A4238]/5 dark:bg-white/10 hover:bg-[#D4826A] hover:text-white dark:hover:bg-[#D4826A] border border-[#4A4238]/10 dark:border-white/10 flex items-center justify-center p-2.5 transition-all duration-200 cursor-pointer shrink-0 text-[#4A4238] dark:text-[#EDE6DC]"
               title="Close Panel"
             >
               <svg viewBox="0 0 19.1 29.1" className="w-full h-full fill-current">
@@ -62,7 +62,7 @@ export const InspectDrawer: React.FC<InspectDrawerProps> = ({
           </div>
 
           {/* Narrative Overview */}
-          <div className="text-xs sm:text-sm text-[#4A4238]/80 leading-relaxed font-normal">
+          <div className="text-xs sm:text-sm text-[#4A4238]/80 dark:text-[#EDE6DC]/80 leading-relaxed font-normal">
             {detail.narrative}
           </div>
 
@@ -71,9 +71,9 @@ export const InspectDrawer: React.FC<InspectDrawerProps> = ({
             {detail.metrics.map((m, idx) => (
               <div
                 key={idx}
-                className="p-4 rounded-2xl bg-white/60 border border-[#4A4238]/8 space-y-1"
+                className="p-4 rounded-2xl bg-white/60 dark:bg-white/05 border border-[#4A4238]/8 dark:border-white/10 space-y-1"
               >
-                <div className="text-[10px] font-mono uppercase text-[#4A4238]/50">
+                <div className="text-[10px] font-mono uppercase text-[#4A4238]/50 dark:text-white/50">
                   {m.label}
                 </div>
                 <div className="font-serif text-lg text-[#D4826A] font-medium">
@@ -84,14 +84,14 @@ export const InspectDrawer: React.FC<InspectDrawerProps> = ({
           </div>
 
           {/* Execution Pipeline Steps */}
-          <div className="space-y-3 pt-4 border-t border-[#4A4238]/10">
+          <div className="space-y-3 pt-4 border-t border-[#4A4238]/10 dark:border-white/10">
             <div className="text-[10px] font-mono uppercase tracking-widest text-[#D4826A]">
               Automated Data Pipeline
             </div>
             {detail.steps.map((step, idx) => (
               <div
                 key={idx}
-                className="flex items-start gap-3 text-xs sm:text-sm text-[#4A4238]/80 p-3 rounded-2xl bg-white/40 border border-[#4A4238]/6"
+                className="flex items-start gap-3 text-xs sm:text-sm text-[#4A4238]/80 dark:text-[#EDE6DC]/80 p-3 rounded-2xl bg-white/40 dark:bg-white/05 border border-[#4A4238]/6 dark:border-white/08"
               >
                 <span className="w-5 h-5 rounded-full bg-[#8FA98F]/20 text-[#8FA98F] flex items-center justify-center text-xs font-mono shrink-0 mt-0.5 font-medium">
                   {idx + 1}
@@ -102,18 +102,17 @@ export const InspectDrawer: React.FC<InspectDrawerProps> = ({
           </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="pt-6 border-t border-[#4A4238]/10 flex items-center justify-between">
-          <span className="text-[10px] font-mono text-[#4A4238]/50 uppercase">
-            Live Warehouse Connection Verified
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-full bg-[#4A4238] hover:bg-[#383129] text-[#F3EDE4] text-xs font-mono uppercase tracking-wider transition-colors cursor-pointer"
+        {/* Footer CTAs */}
+        <div className="pt-6 border-t border-[#4A4238]/10 dark:border-white/10 flex items-center justify-between gap-4">
+          <div className="text-[11px] font-mono text-[#4A4238]/50 dark:text-white/50">
+            Ready to test live data?
+          </div>
+          <a
+            href="/login"
+            className="px-6 py-3 rounded-full bg-[#D4826A] hover:bg-[#C2735C] text-white text-xs font-mono uppercase tracking-wider transition-colors shadow-xs"
           >
-            Close Spec
-          </button>
+            Start exploring free →
+          </a>
         </div>
       </div>
     </div>

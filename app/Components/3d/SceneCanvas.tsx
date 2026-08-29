@@ -9,6 +9,7 @@ import { CloudLayers } from './CloudLayers';
 import { CentralCrystalModel } from './CentralCrystalModel';
 import { CameraRig } from './CameraRig';
 import { DrawerDetail } from '../landing/InspectDrawer';
+import { useTheme } from '../ui/ThemeProvider';
 
 interface SceneCanvasProps {
   scrollProgress: number;
@@ -25,6 +26,8 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
 }) => {
   const [mounted, setMounted] = useState(false);
   const [isCapable, setIsCapable] = useState(true);
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   useEffect(() => {
     setMounted(true);
@@ -45,13 +48,13 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
 
   if (!mounted) {
     return (
-      <div className="fixed inset-0 w-full h-full z-0 bg-gradient-to-b from-[#B8A9C9] via-[#E8C4A0] to-[#F3EDE4] pointer-events-none" />
+      <div className="fixed inset-0 w-full h-full z-0 bg-gradient-to-b from-[#B8A9C9] via-[#E8C4A0] to-[#F3EDE4] dark:from-[#1C1525] dark:via-[#2A1E18] dark:to-[#161311] pointer-events-none" />
     );
   }
 
   if (!isCapable) {
     return (
-      <div className="fixed inset-0 w-full h-full z-0 bg-gradient-to-b from-[#B8A9C9] via-[#E8C4A0] to-[#F3EDE4] pointer-events-none transition-opacity duration-1000" />
+      <div className="fixed inset-0 w-full h-full z-0 bg-gradient-to-b from-[#B8A9C9] via-[#E8C4A0] to-[#F3EDE4] dark:from-[#1C1525] dark:via-[#2A1E18] dark:to-[#161311] pointer-events-none transition-opacity duration-1000" />
     );
   }
 
@@ -67,24 +70,36 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
         gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
         dpr={[1, 1.5]}
       >
-        {/* Soft, warm, 100% offline Three.js lighting */}
-        <ambientLight intensity={1.1} color="#FFFFFF" />
-        <hemisphereLight intensity={0.7} groundColor="#E8DFD3" color="#D5C5E5" />
-        <directionalLight position={[12, 16, 10]} intensity={1.4} color="#FFF5EB" />
-        <directionalLight position={[-10, -6, -8]} intensity={0.45} color="#C5B8D8" />
+        {/* Adaptive Three.js lighting for Light / Dark Mode */}
+        <ambientLight intensity={isDark ? 0.7 : 1.1} color={isDark ? '#FFFFFF' : '#FFFFFF'} />
+        <hemisphereLight
+          intensity={isDark ? 0.5 : 0.7}
+          groundColor={isDark ? '#161311' : '#E8DFD3'}
+          color={isDark ? '#8A7A9E' : '#D5C5E5'}
+        />
+        <directionalLight
+          position={[12, 16, 10]}
+          intensity={isDark ? 1.8 : 1.4}
+          color={isDark ? '#FFE5CC' : '#FFF5EB'}
+        />
+        <directionalLight
+          position={[-10, -6, -8]}
+          intensity={isDark ? 0.6 : 0.45}
+          color={isDark ? '#5C4A70' : '#C5B8D8'}
+        />
 
-        {/* Dynamic Sky Gradient Dome */}
+        {/* Dynamic Sky Gradient Dome with Dark Mode */}
         <SkyDome scrollProgress={scrollProgress} />
         <CloudLayers />
 
-        {/* Floating Atmosphere Motes with Brownian Motion */}
+        {/* Floating Atmosphere Motes */}
         <Sparkles
           count={65}
           scale={[22, 18, 22]}
-          size={3.0}
+          size={isDark ? 3.5 : 3.0}
           speed={0.25}
-          opacity={0.6}
-          color="#E8C4A0"
+          opacity={isDark ? 0.75 : 0.6}
+          color={isDark ? '#D4826A' : '#E8C4A0'}
         />
 
         {/* Single Central Abstract Faceted Crystal Form */}

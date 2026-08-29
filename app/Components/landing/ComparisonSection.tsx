@@ -46,17 +46,17 @@ export const ComparisonSection: React.FC = () => {
         transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         className="max-w-2xl space-y-4"
       >
-        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60">
+        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
           <span className="w-1.5 h-1.5 rounded-full bg-[#D4826A]" />
           Why Calm Matters
         </div>
-        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] font-normal leading-tight">
+        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#EDE6DC] font-normal leading-tight">
           Most analytics tools make you{' '}
           <em className="font-serif italic text-[#D4826A]">
             work for the answer.
           </em>
         </h2>
-        <p className="text-base text-[#4A4238]/70">
+        <p className="text-base text-[#4A4238]/70 dark:text-[#EDE6DC]/70">
           Dashboards were built for displaying widgets, not making decisions. AnalyzeIt replaces screen fatigue with quiet clarity.
         </p>
       </motion.div>
@@ -67,12 +67,12 @@ export const ComparisonSection: React.FC = () => {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
         transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-        className="glass-card rounded-3xl overflow-hidden border border-[#4A4238]/10 divide-y divide-[#4A4238]/8 shadow-sm"
+        className="glass-card rounded-3xl overflow-hidden border border-[#4A4238]/10 dark:border-white/10 divide-y divide-[#4A4238]/8 dark:divide-white/08 shadow-sm"
       >
         {/* Table Header */}
-        <div className="grid grid-cols-1 md:grid-cols-2 bg-[#F3EDE4]/90 p-6 md:px-10 text-xs font-mono uppercase tracking-wider text-[#4A4238]/70">
+        <div className="grid grid-cols-1 md:grid-cols-2 bg-[#F3EDE4]/90 dark:bg-[#1E1916]/90 p-6 md:px-10 text-xs font-mono uppercase tracking-wider text-[#4A4238]/70 dark:text-[#EDE6DC]/70 border-b border-[#4A4238]/08 dark:border-white/08">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#4A4238]/30" />
+            <span className="w-2 h-2 rounded-full bg-[#4A4238]/30 dark:bg-white/30" />
             The Traditional Way
           </div>
           <div className="hidden md:flex items-center gap-2 text-[#D4826A]">
@@ -85,24 +85,24 @@ export const ComparisonSection: React.FC = () => {
         {COMPARISONS.map((row, idx) => (
           <div
             key={idx}
-            className="grid grid-cols-1 md:grid-cols-2 p-6 md:p-10 gap-6 md:gap-12 hover:bg-white/30 transition-colors"
+            className="grid grid-cols-1 md:grid-cols-2 p-6 md:p-10 gap-6 md:gap-12 hover:bg-white/30 dark:hover:bg-white/05 transition-colors"
           >
             {/* The Old Way */}
             <div className="space-y-1.5">
-              <div className="text-xs font-mono text-[#4A4238]/50 uppercase tracking-wider">
+              <div className="text-xs font-mono text-[#4A4238]/50 dark:text-white/50 uppercase tracking-wider">
                 {row.topic}
               </div>
-              <p className="text-sm md:text-base text-[#4A4238]/70 leading-relaxed">
+              <p className="text-sm md:text-base text-[#4A4238]/70 dark:text-[#EDE6DC]/70 leading-relaxed">
                 {row.oldWay}
               </p>
             </div>
 
             {/* With AnalyzeIt */}
-            <div className="space-y-1.5 pt-4 md:pt-0 border-t md:border-t-0 border-[#4A4238]/6">
+            <div className="space-y-1.5 pt-4 md:pt-0 border-t md:border-t-0 border-[#4A4238]/6 dark:border-white/08">
               <div className="md:hidden text-xs font-mono text-[#D4826A] uppercase tracking-wider">
                 With AnalyzeIt
               </div>
-              <p className="text-sm md:text-base text-[#4A4238] font-medium leading-relaxed">
+              <p className="text-sm md:text-base text-[#4A4238] dark:text-[#EDE6DC] font-medium leading-relaxed">
                 {row.analyzeIt}
               </p>
             </div>

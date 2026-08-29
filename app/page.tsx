@@ -94,7 +94,7 @@ export default function Home() {
   return (
     <div
       id="main-content"
-      className="relative min-h-screen bg-transparent text-[#4A4238] selection:bg-[#D4826A]/30 selection:text-[#4A4238] overflow-x-hidden"
+      className="relative min-h-screen bg-transparent text-ink selection:bg-coral/30 selection:text-ink overflow-x-hidden"
     >
       {/* Phase 1: Precision SVG 3D Loading Screen */}
       {isLoading && (
@@ -133,7 +133,7 @@ export default function Home() {
         />
 
         {/* Phase 4: Canvas Handoff → Flat Editorial Content Sections */}
-        <div className="relative z-10 bg-[#F3EDE4] shadow-2xl transition-colors duration-500">
+        <div className="relative z-10 bg-[#F3EDE4] dark:bg-[#161311] text-[#4A4238] dark:text-[#EDE6DC] shadow-2xl transition-colors duration-500">
           {/* 1. Core 4 Capabilities Pillars */}
           <CapabilitiesSection />
 

@@ -51,7 +51,7 @@ export const NavRail: React.FC = () => {
 
   return (
     <nav className="fixed left-6 top-1/2 -translate-y-1/2 z-40 hidden xl:flex flex-col gap-3 pointer-events-none">
-      <div className="flex flex-col gap-3 p-3 rounded-full glass-pill border border-[#4A4238]/10 pointer-events-auto shadow-xs">
+      <div className="flex flex-col gap-3 p-3 rounded-full glass-pill border border-[#4A4238]/10 dark:border-white/10 pointer-events-auto shadow-xs">
         {NAV_POINTS.map((pt) => {
           const isActive = activeSection === pt.targetId;
           return (
@@ -66,7 +66,7 @@ export const NavRail: React.FC = () => {
                 className={`w-2 h-2 rounded-full transition-all duration-300 ${
                   isActive
                     ? 'bg-[#D4826A] scale-150 shadow-xs shadow-[#D4826A]'
-                    : 'bg-[#4A4238]/25 group-hover:bg-[#4A4238]/60 group-hover:scale-125'
+                    : 'bg-[#4A4238]/25 dark:bg-white/30 group-hover:bg-[#4A4238]/60 dark:group-hover:bg-white/70 group-hover:scale-125'
                 }`}
               />
 
@@ -74,8 +74,8 @@ export const NavRail: React.FC = () => {
               <span
                 className={`absolute left-7 whitespace-nowrap text-[11px] font-mono tracking-wider transition-all duration-200 uppercase pointer-events-none rounded-md px-2 py-0.5 ${
                   isActive
-                    ? 'text-[#4A4238] font-medium opacity-100 bg-[#F3EDE4]/95 border border-[#4A4238]/10 shadow-xs translate-x-0'
-                    : 'text-[#4A4238]/60 opacity-0 group-hover:opacity-100 bg-[#F3EDE4]/90 -translate-x-1 group-hover:translate-x-0'
+                    ? 'text-[#4A4238] dark:text-[#EDE6DC] font-medium opacity-100 bg-[#F3EDE4]/95 dark:bg-[#1E1916]/95 border border-[#4A4238]/10 dark:border-white/10 shadow-xs translate-x-0'
+                    : 'text-[#4A4238]/60 dark:text-white/60 opacity-0 group-hover:opacity-100 bg-[#F3EDE4]/90 dark:bg-[#1E1916]/90 -translate-x-1 group-hover:translate-x-0'
                 }`}
               >
                 {pt.label}
