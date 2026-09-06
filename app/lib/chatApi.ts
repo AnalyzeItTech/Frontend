@@ -13,14 +13,36 @@ export interface StreamEvent {
 
 export interface WidgetSpec {
   id: string;
-  type: 'line_chart' | 'bar_chart' | 'metric_card' | 'table';
-  title: string;
+  // Unified Generative UI envelope
+  render_mode?: 'native' | 'sandboxed';
+  component?: 'metric_card' | 'line_chart' | 'bar_chart' | 'table' | string;
+  props?: Record<string, unknown>;
+  code?: string; // Reserved for sandboxed iframe mode (Option A)
+
+  // Top-level fields (for backward compatibility)
+  type?: 'line_chart' | 'bar_chart' | 'metric_card' | 'table' | string;
+  title?: string;
   metric?: string;
   value?: string;
   change?: string;
   positive?: boolean;
   data?: Array<Record<string, unknown>>;
   position?: { x: number; y: number; w: number; h: number };
+}
+
+/**
+ * Centralized data resolver for widgets.
+ * Extracts data from props or top-level spec, and acts as the future hook for dynamic dataset slicing.
+ */
+export async function resolveWidgetData(
+  widget: WidgetSpec,
+  _projectId?: string
+): Promise<Array<Record<string, unknown>>> {
+  const candidate = widget.props?.data || widget.data;
+  if (Array.isArray(candidate)) {
+    return candidate as Array<Record<string, unknown>>;
+  }
+  return [];
 }
 
 export interface ProjectLayoutData {

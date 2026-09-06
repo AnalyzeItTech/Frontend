@@ -44,27 +44,34 @@ const EarthGlobe = dynamic(
 // --- Sandboxed Audited Widget Components (Fixed Component Whitelist) ---
 
 function MetricCardWidget({ widget }: { widget: WidgetSpec }) {
+  const p = widget.props || widget;
+  const metric = (p.metric as string) || widget.metric || 'Metric';
+  const title = (p.title as string) || widget.title || 'Metric';
+  const value = (p.value as string) || widget.value || '0';
+  const change = (p.change as string) || widget.change;
+  const positive = p.positive ?? widget.positive;
+
   return (
     <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all">
       <div>
         <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block mb-1">
-          {widget.metric || 'Metric'}
+          {metric}
         </span>
         <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
-          {widget.title}
+          {title}
         </h3>
       </div>
       <div className="mt-4 flex items-baseline justify-between">
         <span className="font-serif text-2xl sm:text-3xl font-bold text-[#4A4238] dark:text-white">
-          {widget.value || '0'}
+          {value}
         </span>
-        {widget.change && (
+        {change && (
           <span
             className={`text-xs font-mono font-semibold flex items-center gap-1 ${
-              widget.positive !== false ? 'text-[#8FA98F]' : 'text-[#E14759]'
+              positive !== false ? 'text-[#8FA98F]' : 'text-[#E14759]'
             }`}
           >
-            {widget.change}
+            {change}
           </span>
         )}
       </div>
@@ -73,7 +80,10 @@ function MetricCardWidget({ widget }: { widget: WidgetSpec }) {
 }
 
 function LineChartWidget({ widget }: { widget: WidgetSpec }) {
-  const data = (widget.data as Array<{ date?: string; value?: number }>) || [
+  const p = widget.props || widget;
+  const metric = (p.metric as string) || widget.metric || 'Trend Line';
+  const title = (p.title as string) || widget.title || 'Trend Line';
+  const data = (p.data as Array<{ date?: string; value?: number }>) || (widget.data as Array<{ date?: string; value?: number }>) || [
     { date: 'Jan', value: 30 },
     { date: 'Feb', value: 45 },
     { date: 'Mar', value: 60 },
@@ -93,10 +103,10 @@ function LineChartWidget({ widget }: { widget: WidgetSpec }) {
       <div className="flex items-center justify-between mb-3">
         <div>
           <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
-            {widget.metric || 'Trend Line'}
+            {metric}
           </span>
           <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
-            {widget.title}
+            {title}
           </h3>
         </div>
         <span className="text-xs font-mono text-[#D4826A] bg-[#D4826A]/10 px-2 py-0.5 rounded-full">
@@ -140,7 +150,10 @@ function LineChartWidget({ widget }: { widget: WidgetSpec }) {
 }
 
 function BarChartWidget({ widget }: { widget: WidgetSpec }) {
-  const data = (widget.data as Array<{ date?: string; label?: string; value?: number }>) || [
+  const p = widget.props || widget;
+  const metric = (p.metric as string) || widget.metric || 'Comparative Bar';
+  const title = (p.title as string) || widget.title || 'Comparative Bar';
+  const data = (p.data as Array<{ date?: string; label?: string; value?: number }>) || (widget.data as Array<{ date?: string; label?: string; value?: number }>) || [
     { label: 'Q1', value: 40 },
     { label: 'Q2', value: 65 },
     { label: 'Q3', value: 85 },
@@ -153,10 +166,10 @@ function BarChartWidget({ widget }: { widget: WidgetSpec }) {
       <div className="flex items-center justify-between mb-3">
         <div>
           <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
-            {widget.metric || 'Comparative Bar'}
+            {metric}
           </span>
           <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
-            {widget.title}
+            {title}
           </h3>
         </div>
       </div>
@@ -184,7 +197,10 @@ function BarChartWidget({ widget }: { widget: WidgetSpec }) {
 }
 
 function TableWidget({ widget }: { widget: WidgetSpec }) {
-  const rows = (widget.data as Array<Record<string, unknown>>) || [
+  const p = widget.props || widget;
+  const metric = (p.metric as string) || widget.metric || 'Tabular Data';
+  const title = (p.title as string) || widget.title || 'Tabular Data';
+  const rows = (p.data as Array<Record<string, unknown>>) || (widget.data as Array<Record<string, unknown>>) || [
     { region: 'US-East', status: 'Optimal', latency: '22ms' },
     { region: 'EU-Central', status: 'Optimal', latency: '28ms' },
     { region: 'AP-South', status: 'Optimal', latency: '41ms' },
@@ -195,10 +211,10 @@ function TableWidget({ widget }: { widget: WidgetSpec }) {
     <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm">
       <div className="mb-3">
         <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
-          {widget.metric || 'Tabular Data'}
+          {metric}
         </span>
         <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
-          {widget.title}
+          {title}
         </h3>
       </div>
       <div className="overflow-x-auto">
@@ -232,23 +248,72 @@ function TableWidget({ widget }: { widget: WidgetSpec }) {
   );
 }
 
-function SandboxedWidgetRenderer({ widget }: { widget: WidgetSpec }) {
-  switch (widget.type) {
-    case 'metric_card':
-      return <MetricCardWidget widget={widget} />;
-    case 'line_chart':
-      return <LineChartWidget widget={widget} />;
-    case 'bar_chart':
-      return <BarChartWidget widget={widget} />;
-    case 'table':
-      return <TableWidget widget={widget} />;
-    default:
-      return (
-        <div className="glass-card rounded-2xl p-4 border border-dashed border-red-400 text-xs text-red-500 font-mono">
-          Unknown widget type: {(widget as any).type}
+// ── Native Component Registry ──────────────────────────────────────────────
+const NATIVE_WIDGET_REGISTRY: Record<
+  string,
+  React.ComponentType<{ widget: WidgetSpec }>
+> = {
+  metric_card: MetricCardWidget,
+  line_chart: LineChartWidget,
+  bar_chart: BarChartWidget,
+  table: TableWidget,
+};
+
+// ── Sandboxed Frame Component (Option A Ready) ──────────────────────────────
+function SandboxedFrameWidget({ widget }: { widget: WidgetSpec }) {
+  const p = widget.props || widget;
+  const title = String(p.title || widget.title || 'Sandboxed Widget');
+
+  return (
+    <div className="glass-card rounded-2xl p-4 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm relative overflow-hidden">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-mono text-[#D4826A] uppercase tracking-wider bg-[#D4826A]/10 px-2 py-0.5 rounded-full">
+          Sandboxed Frame
+        </span>
+        <span className="text-xs font-mono opacity-50">{widget.component || 'Custom'}</span>
+      </div>
+      {widget.code ? (
+        <iframe
+          srcDoc={widget.code}
+          sandbox="allow-scripts"
+          className="w-full flex-1 border-0 rounded-lg bg-transparent"
+          title={title}
+        />
+      ) : (
+        <div className="flex items-center justify-center flex-1 text-xs font-mono text-[#4A4238]/60 dark:text-white/60">
+          Sandboxed container ready (waiting for code payload)
         </div>
-      );
+      )}
+    </div>
+  );
+}
+
+// ── Main Mode Dispatcher ───────────────────────────────────────────────────
+function SandboxedWidgetRenderer({ widget }: { widget: WidgetSpec }) {
+  const mode = widget.render_mode || 'native';
+
+  if (mode === 'native') {
+    const compKey = widget.component || widget.type || 'metric_card';
+    const Component = NATIVE_WIDGET_REGISTRY[compKey];
+    if (Component) {
+      return <Component widget={widget} />;
+    }
+    return (
+      <div className="glass-card rounded-2xl p-4 border border-dashed border-red-400 text-xs text-red-500 font-mono">
+        Unknown native widget component: {String(compKey)}
+      </div>
+    );
   }
+
+  if (mode === 'sandboxed') {
+    return <SandboxedFrameWidget widget={widget} />;
+  }
+
+  return (
+    <div className="glass-card rounded-2xl p-4 border border-dashed border-amber-400 text-xs text-amber-500 font-mono">
+      Unsupported render mode: {String(mode)}
+    </div>
+  );
 }
 
 interface PinnedSheet {
@@ -770,8 +835,18 @@ export default function DashboardPage() {
                     </div>
                     <p className="text-sm font-serif text-[#4A4238] dark:text-[#EDE6DC]">
                       Proposal: <span className="font-semibold capitalize">{pendingProposal.action.replace('_', ' ')}</span> of type{' '}
-                      <span className="font-semibold text-[#D4826A]">{pendingProposal.widget_spec.type}</span> (
-                      <em>&quot;{pendingProposal.widget_spec.title}&quot;</em>)
+                      <span className="font-semibold text-[#D4826A]">
+                        {pendingProposal.widget_spec.component || pendingProposal.widget_spec.type}
+                      </span>{' '}
+                      (
+                      <em>
+                        &quot;
+                        {(pendingProposal.widget_spec.props?.title as string) ||
+                          pendingProposal.widget_spec.title ||
+                          'Untitled'}
+                        &quot;
+                      </em>
+                      )
                     </p>
                     <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
                       Action ID: {pendingProposal.action_id} · Safety Gate: User Confirmation Required
