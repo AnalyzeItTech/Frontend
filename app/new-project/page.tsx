@@ -120,20 +120,70 @@ export default function NewProjectPage() {
         toolLog.push(`${tool}: ${summary}`);
       }
       if (event.event === 'model_delta') {
-        const delta = (event.payload.text as string) || '';
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantId ? { ...m, content: m.content + delta, toolActivity: [...toolLog] } : m
-          )
-        );
+        const rawDelta = event.payload.text;
+        const delta =
+          typeof rawDelta === 'string'
+            ? rawDelta
+            : Array.isArray(rawDelta)
+            ? rawDelta.map((p) => (typeof p === 'object' && p && 'text' in p ? (p as { text: string }).text : String(p))).join('')
+            : '';
+        if (delta) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: m.content + delta, toolActivity: [...toolLog] } : m
+            )
+          );
+        }
       }
       if (event.event === 'final') {
-        const finalText = (event.payload.text as string) || '';
+        const rawFinal = event.payload.text;
+        const finalText =
+          typeof rawFinal === 'string'
+            ? rawFinal
+            : Array.isArray(rawFinal)
+            ? rawFinal.map((p) => (typeof p === 'object' && p && 'text' in p ? (p as { text: string }).text : String(p))).join('')
+            : '';
         const artifacts = (event.payload.artifacts as Array<{ filename: string; type: string }>) || [];
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, content: finalText, toolActivity: [...toolLog], artifacts, streaming: false }
+              ? { ...m, content: finalText || m.content, toolActivity: [...toolLog], artifacts, streaming: false }
+              : m
+          )
+        );
+      }
+      if (event.event === 'error') {
+        const errMsg =
+          (event.payload.message as string) ||
+          (event.payload.error as string) ||
+          (event.payload.detail as string) ||
+          'Agent encountered an unexpected error.';
+        setStreamStatus(`Error: ${errMsg}`);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content: m.content
+                    ? `${m.content}\n\n⚠️ Error: ${errMsg}`
+                    : `⚠️ The agent encountered an error while processing your request:\n\n${errMsg}`,
+                  toolActivity: [...toolLog, `Error: ${errMsg}`],
+                  streaming: false,
+                }
+              : m
+          )
+        );
+      }
+      if (event.event === 'run_cancelled') {
+        setStreamStatus('Run cancelled.');
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content: m.content ? `${m.content}\n\n[Run cancelled by user]` : 'Request was cancelled.',
+                  streaming: false,
+                }
               : m
           )
         );
@@ -150,24 +200,30 @@ export default function NewProjectPage() {
       });
       setRunId(result.runId);
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId
-            ? {
-                ...m,
-                content: result.finalText || m.content,
-                artifacts: result.artifacts,
-                streaming: false,
-              }
-            : m
-        )
+        prev.map((m) => {
+          if (m.id !== assistantId) return m;
+          const content =
+            result.finalText ||
+            m.content ||
+            'The agent completed the request, but no text response was returned. Please verify that Backend A and Model are running.';
+          return {
+            ...m,
+            content,
+            artifacts: result.artifacts.length ? result.artifacts : m.artifacts,
+            streaming: false,
+          };
+        })
       );
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantId
             ? {
                 ...m,
-                content: `Unable to reach the analysis backend. Is Backend A running on port 8000?\n\n${err instanceof Error ? err.message : 'Unknown error'}`,
+                content: m.content
+                  ? `${m.content}\n\n⚠️ Error: ${errMsg}`
+                  : `⚠️ Unable to complete request.\n\n${errMsg}\n\nPlease ensure Backend A (port 8000) and Model (port 8001) are up and running.`,
                 streaming: false,
               }
             : m
@@ -340,8 +396,8 @@ export default function NewProjectPage() {
                       } p-5 rounded-2xl rounded-tl-xs text-sm leading-relaxed shadow-sm`
                 }`}
               >
-                <div className="leading-relaxed">
-                  {msg.content}
+                <div className="leading-relaxed whitespace-pre-wrap">
+                  {msg.content || (msg.streaming ? '' : 'No content generated.')}
                   {msg.streaming && (
                     <span className="inline-block w-1.5 h-4 ml-0.5 bg-[#D4826A] animate-pulse align-middle" />
                   )}

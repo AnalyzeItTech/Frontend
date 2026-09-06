@@ -85,7 +85,29 @@ export async function streamChat(options: ChatOptions): Promise<{
   let buffer = '';
   let resolvedRunId = runId || '';
   let finalText = '';
+  let streamError = '';
   const artifacts: Array<{ filename: string; type: string }> = [];
+
+  const parseTextPayload = (raw: unknown): string => {
+    if (typeof raw === 'string') return raw;
+    if (Array.isArray(raw)) {
+      return raw
+        .map((part) => {
+          if (typeof part === 'string') return part;
+          if (part && typeof part === 'object') {
+            if ('text' in part && typeof (part as { text: unknown }).text === 'string') {
+              return (part as { text: string }).text;
+            }
+          }
+          return '';
+        })
+        .join('');
+    }
+    if (raw && typeof raw === 'object' && 'text' in raw && typeof (raw as { text: unknown }).text === 'string') {
+      return (raw as { text: string }).text;
+    }
+    return '';
+  };
 
   while (true) {
     const { done, value } = await reader.read();
@@ -97,21 +119,38 @@ export async function streamChat(options: ChatOptions): Promise<{
 
     for (const line of lines) {
       if (!line.trim()) continue;
-      const event: StreamEvent = JSON.parse(line);
-      onEvent?.(event);
+      try {
+        const event: StreamEvent = JSON.parse(line);
+        onEvent?.(event);
 
-      if (event.event === 'run_id') {
-        resolvedRunId = (event.payload.run_id as string) || resolvedRunId;
-      }
-      if (event.event === 'model_delta') {
-        finalText += (event.payload.text as string) || '';
-      }
-      if (event.event === 'final') {
-        finalText = (event.payload.text as string) || finalText;
-        const arts = (event.payload.artifacts as Array<{ filename: string; type: string }>) || [];
-        artifacts.push(...arts);
+        if (event.event === 'run_id') {
+          resolvedRunId = (event.payload.run_id as string) || resolvedRunId;
+        }
+        if (event.event === 'model_delta') {
+          finalText += parseTextPayload(event.payload.text);
+        }
+        if (event.event === 'final') {
+          const parsed = parseTextPayload(event.payload.text);
+          finalText = parsed || finalText;
+          const arts = (event.payload.artifacts as Array<{ filename: string; type: string }>) || [];
+          artifacts.push(...arts);
+        }
+        if (event.event === 'error') {
+          const msg =
+            (event.payload.message as string) ||
+            (event.payload.error as string) ||
+            (event.payload.detail as string) ||
+            'Backend returned an error';
+          streamError = msg;
+        }
+      } catch (parseErr) {
+        console.warn('Failed to parse stream line:', line, parseErr);
       }
     }
+  }
+
+  if (!finalText && streamError) {
+    throw new Error(streamError);
   }
 
   return { runId: resolvedRunId, finalText, artifacts };
