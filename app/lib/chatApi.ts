@@ -76,6 +76,7 @@ export interface ChatOptions {
 
 export async function streamChat(options: ChatOptions): Promise<{
   runId: string;
+  projectId?: string;
   finalText: string;
   artifacts: Array<{ filename: string; type: string }>;
 }> {
@@ -106,6 +107,7 @@ export async function streamChat(options: ChatOptions): Promise<{
   const decoder = new TextDecoder();
   let buffer = '';
   let resolvedRunId = runId || '';
+  let resolvedProjectId = projectId || '';
   let finalText = '';
   let streamError = '';
   const artifacts: Array<{ filename: string; type: string }> = [];
@@ -147,6 +149,7 @@ export async function streamChat(options: ChatOptions): Promise<{
 
         if (event.event === 'run_id') {
           resolvedRunId = (event.payload.run_id as string) || resolvedRunId;
+          resolvedProjectId = (event.payload.project_id as string) || resolvedProjectId;
         }
         if (event.event === 'model_delta') {
           finalText += parseTextPayload(event.payload.text);
@@ -175,7 +178,7 @@ export async function streamChat(options: ChatOptions): Promise<{
     throw new Error(streamError);
   }
 
-  return { runId: resolvedRunId, finalText, artifacts };
+  return { runId: resolvedRunId, projectId: resolvedProjectId, finalText, artifacts };
 }
 
 export function getArtifactUrl(artifactId: string): string {

@@ -46,6 +46,7 @@ export default function NewProjectPage() {
   const [isThinking, setIsThinking] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
   const [runId, setRunId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | undefined>(undefined);
   const [activeTools, setActiveTools] = useState<string[]>([]);
   const [streamStatus, setStreamStatus] = useState('');
 
@@ -194,11 +195,15 @@ export default function NewProjectPage() {
       const result = await streamChat({
         message: text,
         runId,
+        projectId,
         projectTitle,
         incognito: isIncognito,
         onEvent: handleEvent,
       });
       setRunId(result.runId);
+      if (result.projectId) {
+        setProjectId(result.projectId);
+      }
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== assistantId) return m;

@@ -696,6 +696,7 @@ export default function DashboardPage() {
 
   // Active Scoped Project & Generative Canvas State
   const [activeProjectId, setActiveProjectId] = useState<string>('default');
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [activeProjectName, setActiveProjectName] = useState<string>('Pricing Tier Sensitivity Audit');
   const [layoutVersion, setLayoutVersion] = useState<number>(1);
   const [updatedBy, setUpdatedBy] = useState<string>('system');
@@ -782,9 +783,10 @@ export default function DashboardPage() {
     setIsAgentRunning(true);
     setAgentStatus('Agent analyzing request & evaluating layout…');
     try {
-      await streamChat({
+      const res = await streamChat({
         message: text,
         projectId: activeProjectId,
+        runId: activeRunId || undefined,
         onEvent: (event) => {
           if (event.event === 'ui_proposal') {
             const proposal = event.payload as unknown as UIProposalPayload;
@@ -795,6 +797,9 @@ export default function DashboardPage() {
           }
         },
       });
+      if (res.runId) {
+        setActiveRunId(res.runId);
+      }
     } catch (err) {
       console.error(err);
       setAgentStatus('Connection to agent failed');
