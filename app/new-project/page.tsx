@@ -20,6 +20,7 @@ import {
 } from '@tabler/icons-react';
 import { ThemeToggle } from '../Components/ui/ThemeToggle';
 import { useTheme } from '../Components/ui/ThemeProvider';
+import { streamChat, type StreamEvent } from '../lib/chatApi';
 
 interface Message {
   id: string;
@@ -29,6 +30,9 @@ interface Message {
   metrics?: Array<{ label: string; value: string; change?: string; positive?: boolean }>;
   sqlSnippet?: string;
   incognito?: boolean;
+  toolActivity?: string[];
+  artifacts?: Array<{ filename: string; type: string }>;
+  streaming?: boolean;
 }
 
 export default function NewProjectPage() {
@@ -41,6 +45,9 @@ export default function NewProjectPage() {
   const [inputMessage, setInputMessage] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
+  const [runId, setRunId] = useState<string | null>(null);
+  const [activeTools, setActiveTools] = useState<string[]>([]);
+  const [streamStatus, setStreamStatus] = useState('');
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -62,9 +69,9 @@ export default function NewProjectPage() {
     scrollToBottom();
   }, [messages, isThinking]);
 
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputMessage).trim();
-    if (!text) return;
+    if (!text || isThinking) return;
 
     const userMsg: Message = {
       id: `user-${Date.now()}`,
@@ -74,65 +81,103 @@ export default function NewProjectPage() {
       incognito: isIncognito,
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const assistantId = `bot-${Date.now()}`;
+    const assistantPlaceholder: Message = {
+      id: assistantId,
+      sender: 'assistant',
+      content: '',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      incognito: isIncognito,
+      toolActivity: [],
+      streaming: true,
+    };
+
+    setMessages((prev) => [...prev, userMsg, assistantPlaceholder]);
     setInputMessage('');
     setIsThinking(true);
+    setActiveTools([]);
+    setStreamStatus('Connecting to agent…');
 
-    // Dynamic intelligent response simulation
-    setTimeout(() => {
-      let botMsg: Message;
-      const lower = text.toLowerCase();
+    const toolLog: string[] = [];
 
-      if (lower.includes('churn') || lower.includes('retention')) {
-        botMsg = {
-          id: `bot-${Date.now()}`,
-          sender: 'assistant',
-          content:
-            'I analyzed the Q3 subscriber cohorts. Enterprise tier churn remained stable at 1.2%, but mid-tier self-serve accounts saw a 4.1% uptick following the August billing policy change.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          metrics: [
-            { label: 'Net Retention', value: '118.4%', change: '+2.1%', positive: true },
-            { label: 'Self-Serve Churn', value: '4.1%', change: '+1.4%', positive: false },
-            { label: 'ARR at Risk', value: '$42,500', change: '-8.2%', positive: true },
-          ],
-          sqlSnippet: `SELECT cohort_month, tier, COUNT(id) AS active_users,
-       SUM(mrr) AS cohort_revenue,
-       (1.0 - (churned_count / total_count)) * 100 AS retention_rate
-FROM subscriptions
-WHERE cohort_month >= '2026-07-01'
-GROUP BY 1, 2 ORDER BY 1 DESC;`,
-          incognito: isIncognito,
-        };
-      } else if (lower.includes('funnel') || lower.includes('checkout') || lower.includes('drop')) {
-        botMsg = {
-          id: `bot-${Date.now()}`,
-          sender: 'assistant',
-          content:
-            'Anomaly localized on Step 3 (Payment Verification). A 6.4% drop-off was concentrated on Safari iOS 17.4 devices due to an autofill iframe timeout.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          metrics: [
-            { label: 'Checkout Success', value: '88.3%', change: '-6.4%', positive: false },
-            { label: 'Affected Users', value: '1,420', change: '+340', positive: false },
-          ],
-          incognito: isIncognito,
-        };
-      } else {
-        botMsg = {
-          id: `bot-${Date.now()}`,
-          sender: 'assistant',
-          content: `I've initialized the dataset query model for "${text}". All tables and continuous streams are ready for interactive exploratory drill-down.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          metrics: [
-            { label: 'Tables Ingested', value: '14', positive: true },
-            { label: 'Query Latency', value: '18ms', positive: true },
-          ],
-          incognito: isIncognito,
-        };
+    const handleEvent = (event: StreamEvent) => {
+      if (event.event === 'run_id') {
+        setRunId(event.payload.run_id as string);
       }
+      if (event.event === 'route_decision') {
+        const path = event.payload.path as string;
+        setStreamStatus(path === 'direct' ? 'Generating response…' : 'Running agent with tools…');
+      }
+      if (event.event === 'tool_call') {
+        const tool = event.payload.tool as string;
+        toolLog.push(`Calling ${tool}…`);
+        setActiveTools((prev) => [...prev, tool]);
+        setStreamStatus(`Running ${tool}…`);
+      }
+      if (event.event === 'tool_result') {
+        const tool = event.payload.tool as string;
+        const summary = (event.payload.summary as string) || 'Done';
+        toolLog.push(`${tool}: ${summary}`);
+      }
+      if (event.event === 'model_delta') {
+        const delta = (event.payload.text as string) || '';
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, content: m.content + delta, toolActivity: [...toolLog] } : m
+          )
+        );
+      }
+      if (event.event === 'final') {
+        const finalText = (event.payload.text as string) || '';
+        const artifacts = (event.payload.artifacts as Array<{ filename: string; type: string }>) || [];
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: finalText, toolActivity: [...toolLog], artifacts, streaming: false }
+              : m
+          )
+        );
+      }
+    };
 
-      setMessages((prev) => [...prev, botMsg]);
+    try {
+      const result = await streamChat({
+        message: text,
+        runId,
+        projectTitle,
+        incognito: isIncognito,
+        onEvent: handleEvent,
+      });
+      setRunId(result.runId);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                content: result.finalText || m.content,
+                artifacts: result.artifacts,
+                streaming: false,
+              }
+            : m
+        )
+      );
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                content: `Unable to reach the analysis backend. Is Backend A running on port 8000?\n\n${err instanceof Error ? err.message : 'Unknown error'}`,
+                streaming: false,
+              }
+            : m
+        )
+      );
+    } finally {
       setIsThinking(false);
-    }, 1100);
+      setActiveTools([]);
+      setStreamStatus('');
+    }
   };
 
   const handleFileUpload = () => {
@@ -295,7 +340,49 @@ GROUP BY 1, 2 ORDER BY 1 DESC;`,
                       } p-5 rounded-2xl rounded-tl-xs text-sm leading-relaxed shadow-sm`
                 }`}
               >
-                <div className="leading-relaxed">{msg.content}</div>
+                <div className="leading-relaxed">
+                  {msg.content}
+                  {msg.streaming && (
+                    <span className="inline-block w-1.5 h-4 ml-0.5 bg-[#D4826A] animate-pulse align-middle" />
+                  )}
+                </div>
+
+                {/* Tool activity log */}
+                {msg.toolActivity && msg.toolActivity.length > 0 && (
+                  <div className="pt-2 space-y-1">
+                    {msg.toolActivity.map((line, idx) => (
+                      <div
+                        key={idx}
+                        className={`text-[11px] font-mono px-2 py-1 rounded-lg ${
+                          isIncognito
+                            ? 'bg-purple-950/40 text-purple-300'
+                            : 'bg-black/5 dark:bg-white/5 text-[#4A4238]/70 dark:text-[#EDE6DC]/70'
+                        }`}
+                      >
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Generated artifacts */}
+                {msg.artifacts && msg.artifacts.length > 0 && (
+                  <div className="pt-2 flex flex-wrap gap-2">
+                    {msg.artifacts.map((art, idx) => (
+                      <span
+                        key={idx}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono border ${
+                          isIncognito
+                            ? 'bg-purple-950/80 border-purple-500/30 text-purple-200'
+                            : 'bg-white/80 dark:bg-white/10 border-[#4A4238]/15 dark:border-white/15'
+                        }`}
+                      >
+                        <IconFileSpreadsheet size={13} className="text-[#D4826A]" />
+                        {art.filename}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {/* Metric Summary Cards */}
                 {msg.metrics && msg.metrics.length > 0 && (
@@ -375,7 +462,10 @@ GROUP BY 1, 2 ORDER BY 1 DESC;`,
                 }`}
               >
                 <span className="w-2 h-2 rounded-full bg-[#D4826A] animate-ping" />
-                <span>Synthesizing data stream and hypotheses…</span>
+                <span>{streamStatus || 'Synthesizing data stream and hypotheses…'}</span>
+                {activeTools.length > 0 && (
+                  <span className="opacity-60">({activeTools.join(', ')})</span>
+                )}
               </div>
             </motion.div>
           )}

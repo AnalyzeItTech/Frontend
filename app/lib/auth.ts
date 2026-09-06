@@ -1,0 +1,117 @@
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  created_at?: string;
+}
+
+export interface AuthResult {
+  token: string;
+  user: UserProfile;
+}
+
+const TOKEN_KEY = 'analyzeit_token';
+const USER_KEY = 'analyzeit_user';
+
+export function getStoredToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function getStoredUser(): UserProfile | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthSession(token: string, user: UserProfile): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export function clearAuthSession(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+export function getAuthHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+export async function login(email: string, password: string): Promise<AuthResult> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: 'Sign in failed' }));
+    throw new Error(errorData.detail || `Sign in failed (${res.status})`);
+  }
+
+  const data: AuthResult = await res.json();
+  setAuthSession(data.token, data.user);
+  return data;
+}
+
+export async function register(name: string, email: string, password: string): Promise<AuthResult> {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: 'Registration failed' }));
+    throw new Error(errorData.detail || `Registration failed (${res.status})`);
+  }
+
+  const data: AuthResult = await res.json();
+  setAuthSession(data.token, data.user);
+  return data;
+}
+
+export async function fetchMe(): Promise<UserProfile | null> {
+  const token = getStoredToken();
+  if (!token) return null;
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      if (res.status === 401) {
+        clearAuthSession();
+      }
+      return null;
+    }
+    const user: UserProfile = await res.json();
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    }
+    return user;
+  } catch {
+    return null;
+  }
+}
+
+export function logout(): void {
+  clearAuthSession();
+}

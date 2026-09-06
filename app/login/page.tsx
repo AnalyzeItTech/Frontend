@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { ThemeToggle } from '../Components/ui/ThemeToggle';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -15,7 +16,9 @@ import {
   IconBrandGoogle,
   IconBrandGithub,
   IconCheck,
+  IconAlertCircle,
 } from '@tabler/icons-react';
+import { login, register } from '../lib/auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Tab = 'login' | 'register';
@@ -150,12 +153,13 @@ const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [generalError, setGeneralError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const validate = () => {
     const e: typeof errors = {};
     if (!email.trim()) e.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Enter a valid email';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = 'Enter a valid email';
     if (!password) e.password = 'Password is required';
     else if (password.length < 6) e.password = 'Minimum 6 characters';
     setErrors(e);
@@ -164,15 +168,27 @@ const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setGeneralError('');
     if (!validate()) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    onSuccess();
+    try {
+      await login(email.trim(), password);
+      onSuccess();
+    } catch (err: unknown) {
+      setGeneralError(err instanceof Error ? err.message : 'Sign in failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      {generalError && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 font-mono">
+          <IconAlertCircle size={16} className="flex-shrink-0" />
+          <span>{generalError}</span>
+        </div>
+      )}
       <Field
         id="login-email"
         label="Email"
@@ -260,13 +276,14 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
     confirm?: string;
     agreed?: string;
   }>({});
+  const [generalError, setGeneralError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const validate = () => {
     const e: typeof errors = {};
     if (!name.trim()) e.name = 'Name is required';
     if (!email.trim()) e.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Enter a valid email';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = 'Enter a valid email';
     if (!password) e.password = 'Password is required';
     else if (password.length < 8) e.password = 'Minimum 8 characters';
     if (!confirm) e.confirm = 'Please confirm your password';
@@ -278,15 +295,27 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setGeneralError('');
     if (!validate()) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1400));
-    setLoading(false);
-    onSuccess();
+    try {
+      await register(name.trim(), email.trim(), password);
+      onSuccess();
+    } catch (err: unknown) {
+      setGeneralError(err instanceof Error ? err.message : 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      {generalError && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 font-mono">
+          <IconAlertCircle size={16} className="flex-shrink-0" />
+          <span>{generalError}</span>
+        </div>
+      )}
       <Field
         id="reg-name"
         label="Full Name"
@@ -409,33 +438,44 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
 };
 
 // ─── Success State ────────────────────────────────────────────────────────────
-const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.96 }}
-    animate={{ opacity: 1, scale: 1 }}
-    className="flex flex-col items-center justify-center gap-5 py-12 text-center"
-  >
-    <div className="w-16 h-16 rounded-full bg-[#8FA98F]/20 flex items-center justify-center">
-      <IconCheck size={32} className="text-[#4A7C59] dark:text-[#8FA98F]" />
-    </div>
-    <div>
-      <h3 className="font-serif text-xl text-[#4A4238] dark:text-[#EDE6DC] mb-1">
-        {tab === 'login' ? 'Welcome back!' : 'Account created!'}
-      </h3>
-      <p className="text-sm text-[#4A4238]/55 dark:text-[#EDE6DC]/55">
-        {tab === 'login'
-          ? "You're signed in. Redirecting to your dashboard…"
-          : 'Your account is ready. Redirecting you now…'}
-      </p>
-    </div>
-    <Link
-      href="/Dashboard"
-      className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[#D4826A] hover:text-[#C0734E] transition-colors mt-2"
+const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => {
+  const router = useRouter();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.push('/Dashboard');
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [router]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex flex-col items-center justify-center gap-5 py-12 text-center"
     >
-      Go to Dashboard <IconArrowRight size={13} />
-    </Link>
-  </motion.div>
-);
+      <div className="w-16 h-16 rounded-full bg-[#8FA98F]/20 flex items-center justify-center">
+        <IconCheck size={32} className="text-[#4A7C59] dark:text-[#8FA98F]" />
+      </div>
+      <div>
+        <h3 className="font-serif text-xl text-[#4A4238] dark:text-[#EDE6DC] mb-1">
+          {tab === 'login' ? 'Welcome back!' : 'Account created!'}
+        </h3>
+        <p className="text-sm text-[#4A4238]/55 dark:text-[#EDE6DC]/55">
+          {tab === 'login'
+            ? "You're signed in. Redirecting to your dashboard…"
+            : 'Your account is ready. Redirecting you now…'}
+        </p>
+      </div>
+      <Link
+        href="/Dashboard"
+        className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[#D4826A] hover:text-[#C0734E] transition-colors mt-2"
+      >
+        Go to Dashboard <IconArrowRight size={13} />
+      </Link>
+    </motion.div>
+  );
+};
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function LoginPage() {
