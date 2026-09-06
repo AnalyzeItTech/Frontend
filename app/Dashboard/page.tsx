@@ -31,6 +31,7 @@ import {
   applyUIAction,
   getProjects,
   streamChat,
+  resolveWidgetData,
   type WidgetSpec,
   type UIProposalPayload,
 } from '../lib/chatApi';
@@ -259,29 +260,370 @@ const NATIVE_WIDGET_REGISTRY: Record<
   table: TableWidget,
 };
 
-// ── Sandboxed Frame Component (Option A Ready) ──────────────────────────────
-function SandboxedFrameWidget({ widget }: { widget: WidgetSpec }) {
+// ── Option A: Sandboxed HTML Harness Generator ──────────────────────────────
+function generateSandboxedHtml(
+  widget: WidgetSpec,
+  initialData: Array<Record<string, unknown>>,
+  theme: string
+): string {
+  const p = widget.props || widget;
+  const title = String(p.title || widget.title || 'Sandboxed Widget');
+  const metric = String(p.metric || widget.metric || 'Custom View');
+  const isDark = theme === 'dark';
+
+  const bgColor = isDark ? '#1C1917' : '#FAF6F0';
+  const textColor = isDark ? '#EDE6DC' : '#4A4238';
+  const mutedColor = isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(74, 66, 56, 0.6)';
+  const borderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(74, 66, 56, 0.1)';
+  const accentColor = '#D4826A';
+
+  // Strict CSP: hard-block outbound network calls (fetch, XHR, sendBeacon), nested frames, and form submission
+  const cspMeta = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">`;
+
+  const bridgeScript = `
+    <script>
+      (function() {
+        // Cross-frame error forwarding bridge
+        window.onerror = function(message, source, lineno, colno, error) {
+          window.parent.postMessage({
+            type: 'WIDGET_ERROR',
+            widgetId: ${JSON.stringify(widget.id)},
+            error: String(message || error)
+          }, '*');
+          return false;
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+          window.parent.postMessage({
+            type: 'WIDGET_ERROR',
+            widgetId: ${JSON.stringify(widget.id)},
+            error: String(event.reason?.message || event.reason || 'Unhandled Promise Rejection')
+          }, '*');
+        });
+
+        // AnalyzeIt Client Sandbox API
+        window.AnalyzeIt = {
+          data: ${JSON.stringify(initialData)},
+          emitAction: function(action, payload) {
+            window.parent.postMessage({
+              type: 'WIDGET_ACTION',
+              widgetId: ${JSON.stringify(widget.id)},
+              action: action,
+              payload: payload
+            }, '*');
+          }
+        };
+
+        // Listen for data updates pushed from parent dashboard
+        window.addEventListener('message', function(event) {
+          if (event.data && event.data.type === 'UPDATE_DATA') {
+            window.AnalyzeIt.data = event.data.payload;
+            var liveView = document.getElementById('bridge-data-status');
+            if (liveView) {
+              liveView.textContent = 'Data synced (' + (event.data.payload ? event.data.payload.length : 0) + ' items)';
+            }
+            if (typeof window.onDataUpdate === 'function') {
+              window.onDataUpdate(event.data.payload);
+            }
+          }
+        });
+
+        // Notify parent that sandbox bridge is ready
+        window.parent.postMessage({
+          type: 'WIDGET_READY',
+          widgetId: ${JSON.stringify(widget.id)}
+        }, '*');
+      })();
+    </script>
+  `;
+
+  if (widget.code && widget.code.trim()) {
+    // If the code contains a full html document, inject CSP and bridge script into head
+    if (widget.code.includes('<html') || widget.code.includes('<!DOCTYPE')) {
+      if (widget.code.includes('<head>')) {
+        return widget.code.replace('<head>', `<head>\n  ${cspMeta}\n  ${bridgeScript}`);
+      }
+      if (widget.code.includes('</head>')) {
+        return widget.code.replace('</head>', `  ${cspMeta}\n  ${bridgeScript}\n</head>`);
+      }
+      return `<!DOCTYPE html><html><head>${cspMeta}${bridgeScript}</head><body>${widget.code}</body></html>`;
+    }
+    // Otherwise wrap snippet
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  ${cspMeta}
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: ${bgColor}; color: ${textColor}; padding: 12px; font-size: 13px; }
+  </style>
+  ${bridgeScript}
+</head>
+<body>
+  <div id="root">${widget.code}</div>
+</body>
+</html>`;
+  }
+
+  // Interactive default Option A sandbox harness when no custom code string is provided yet
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  ${cspMeta}
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body {
+      background: transparent;
+      color: ${textColor};
+      padding: 10px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      background: ${accentColor}1A;
+      color: ${accentColor};
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .card {
+      background: ${isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'};
+      border: 1px solid ${borderColor};
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid ${borderColor};
+      font-size: 11px;
+    }
+    .data-row:last-child { border-bottom: none; }
+    .btn {
+      background: ${accentColor};
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: monospace;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn-danger {
+      background: transparent;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #ef4444;
+    }
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
+  </style>
+  ${bridgeScript}
+</head>
+<body>
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <span class="badge">Isolated Frame · postMessage</span>
+    <span style="font-size: 10px; color: ${mutedColor}; font-family: monospace;">origin: null</span>
+  </div>
+  <div class="card">
+    <div style="font-weight: 600; font-size: 13px; margin-bottom: 2px;">${title}</div>
+    <div style="font-size: 10px; color: ${mutedColor}; text-transform: uppercase; letter-spacing: 0.05em;">${metric}</div>
+    <div id="bridge-data-status" style="font-size: 10px; color: ${accentColor}; font-family: monospace; margin-top: 4px;">
+      Bridge Initialized (${initialData.length} records)
+    </div>
+  </div>
+  <div class="card" style="flex: 1;">
+    <div style="font-size: 10px; font-weight: 600; margin-bottom: 6px; color: ${mutedColor};">DATA EXTRACT VIA BRIDGE:</div>
+    <div id="data-view">
+      ${
+        initialData.length > 0
+          ? initialData
+              .slice(0, 3)
+              .map(
+                (row) => `
+            <div class="data-row">
+              <span>${Object.keys(row)[0]}: ${String(Object.values(row)[0])}</span>
+              <span style="font-weight: 600;">${String(Object.values(row)[1] ?? '')}</span>
+            </div>`
+              )
+              .join('')
+          : `<div style="color: ${mutedColor}; font-style: italic;">No static records passed</div>`
+      }
+    </div>
+  </div>
+  <div style="display: flex; gap: 8px; justify-content: flex-end;">
+    <button class="btn" onclick="window.AnalyzeIt.emitAction('ping', { timestamp: Date.now() })">
+      Ping Parent
+    </button>
+    <button class="btn btn-danger" onclick="window.AnalyzeIt.emitAction('delete', { id: ${JSON.stringify(widget.id)} })">
+      Delete Widget
+    </button>
+  </div>
+</body>
+</html>`;
+}
+
+// ── Sandboxed Frame Component (Option A Implementation) ──────────────────────
+function SandboxedFrameWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const { theme } = useTheme();
+  const iframeRef = React.useRef<HTMLIFrameElement>(null);
+  const [iframeReady, setIframeReady] = React.useState(false);
+  const [iframeError, setIframeError] = React.useState<string | null>(null);
+  const [resolvedData, setResolvedData] = React.useState<Array<Record<string, unknown>>>([]);
+  const [lastActionStatus, setLastActionStatus] = React.useState<string | null>(null);
+  const [reloadKey, setReloadKey] = React.useState(0);
+
   const p = widget.props || widget;
   const title = String(p.title || widget.title || 'Sandboxed Widget');
 
+  // Centralized data resolution via chatApi hook
+  useEffect(() => {
+    let isMounted = true;
+    resolveWidgetData(widget).then((data) => {
+      if (isMounted) setResolvedData(data);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [widget]);
+
+  // Post updated data to iframe whenever data resolves or changes
+  useEffect(() => {
+    if (iframeReady && iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        { type: 'UPDATE_DATA', payload: resolvedData },
+        '*'
+      );
+    }
+  }, [iframeReady, resolvedData]);
+
+  // Cross-frame postMessage listener & error boundary
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Security: Strictly verify the event sender matches this iframe's contentWindow
+      if (!iframeRef.current || event.source !== iframeRef.current.contentWindow) {
+        return;
+      }
+
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+
+      if (data.type === 'WIDGET_READY') {
+        setIframeReady(true);
+        setIframeError(null);
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: 'UPDATE_DATA', payload: resolvedData },
+          '*'
+        );
+      } else if (data.type === 'WIDGET_ERROR') {
+        setIframeError(String(data.error || data.message || 'Error occurred inside sandboxed frame'));
+      } else if (data.type === 'WIDGET_ACTION') {
+        const { action, payload } = data;
+        setLastActionStatus(`Bridge: ${action} @ ${new Date().toLocaleTimeString()}`);
+        if (onWidgetAction) {
+          onWidgetAction(widget.id, action, payload);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [widget.id, resolvedData, onWidgetAction]);
+
+  const MAX_SANDBOX_CODE_CHARS = 50000;
+  const isOversized = Boolean(widget.code && widget.code.length > MAX_SANDBOX_CODE_CHARS);
+
+  const srcDoc = React.useMemo(() => {
+    if (isOversized) return '';
+    return generateSandboxedHtml(widget, resolvedData, theme);
+  }, [widget, resolvedData, theme, reloadKey, isOversized]);
+
   return (
-    <div className="glass-card rounded-2xl p-4 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm relative overflow-hidden">
+    <div className="glass-card rounded-2xl p-4 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm relative overflow-hidden min-h-[220px]">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-mono text-[#D4826A] uppercase tracking-wider bg-[#D4826A]/10 px-2 py-0.5 rounded-full">
-          Sandboxed Frame
-        </span>
-        <span className="text-xs font-mono opacity-50">{widget.component || 'Custom'}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-[#D4826A] uppercase tracking-wider bg-[#D4826A]/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <IconShieldLock size={11} />
+            Sandboxed Frame
+          </span>
+          {iframeReady && !isOversized && (
+            <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded">
+              Bridge Connected
+            </span>
+          )}
+        </div>
+        <span className="text-xs font-mono opacity-50">{widget.component || 'Option A'}</span>
       </div>
-      {widget.code ? (
-        <iframe
-          srcDoc={widget.code}
-          sandbox="allow-scripts"
-          className="w-full flex-1 border-0 rounded-lg bg-transparent"
-          title={title}
-        />
+
+      {isOversized ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-center space-y-2">
+          <div className="flex items-center gap-1.5 text-xs font-mono text-amber-500 font-semibold">
+            <IconAlertTriangle size={14} />
+            Code Payload Exceeds Size Cap
+          </div>
+          <p className="text-[11px] font-mono text-amber-500/80 max-w-full break-words">
+            Widget code ({widget.code?.length.toLocaleString()} characters) exceeds the 50,000-character safety limit.
+          </p>
+        </div>
+      ) : iframeError ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-center space-y-2">
+          <div className="flex items-center gap-1.5 text-xs font-mono text-red-500 font-semibold">
+            <IconAlertTriangle size={14} />
+            Sandboxed Error Caught
+          </div>
+          <p className="text-[11px] font-mono text-red-500/80 max-w-full break-words">
+            {iframeError}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setIframeError(null);
+              setReloadKey((k) => k + 1);
+            }}
+            className="px-2.5 py-1 text-[10px] font-mono rounded-lg bg-red-500/20 text-red-600 dark:text-red-300 hover:bg-red-500/30 transition-colors"
+          >
+            Reload Frame
+          </button>
+        </div>
       ) : (
-        <div className="flex items-center justify-center flex-1 text-xs font-mono text-[#4A4238]/60 dark:text-white/60">
-          Sandboxed container ready (waiting for code payload)
+        <div className="flex-1 relative w-full min-h-[140px] rounded-xl overflow-hidden bg-black/5 dark:bg-white/5 border border-[#4A4238]/5 dark:border-white/5">
+          <iframe
+            key={reloadKey}
+            ref={iframeRef}
+            srcDoc={srcDoc}
+            sandbox="allow-scripts"
+            className="w-full h-full border-0 absolute inset-0 bg-transparent"
+            title={title}
+          />
+        </div>
+      )}
+
+      {lastActionStatus && (
+        <div className="mt-1.5 text-[10px] font-mono text-[#D4826A] truncate">
+          {lastActionStatus}
         </div>
       )}
     </div>
@@ -289,7 +631,13 @@ function SandboxedFrameWidget({ widget }: { widget: WidgetSpec }) {
 }
 
 // ── Main Mode Dispatcher ───────────────────────────────────────────────────
-function SandboxedWidgetRenderer({ widget }: { widget: WidgetSpec }) {
+function SandboxedWidgetRenderer({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
   const mode = widget.render_mode || 'native';
 
   if (mode === 'native') {
@@ -306,7 +654,7 @@ function SandboxedWidgetRenderer({ widget }: { widget: WidgetSpec }) {
   }
 
   if (mode === 'sandboxed') {
-    return <SandboxedFrameWidget widget={widget} />;
+    return <SandboxedFrameWidget widget={widget} onWidgetAction={onWidgetAction} />;
   }
 
   return (
@@ -487,6 +835,15 @@ export default function DashboardPage() {
     } catch (err) {
       console.error('Failed to reject proposal:', err);
       setPendingProposal(null);
+    }
+  };
+
+  const handleWidgetAction = (widgetId: string, action: string, _payload?: unknown) => {
+    if (action === 'delete' || action === 'remove_widget') {
+      setCurrentLayout((prev) => ({
+        ...prev,
+        widgets: prev.widgets.filter((w) => w.id !== widgetId),
+      }));
     }
   };
 
@@ -892,7 +1249,10 @@ export default function DashboardPage() {
                       : 'col-span-1'
                   }
                 >
-                  <SandboxedWidgetRenderer widget={widget} />
+                  <SandboxedWidgetRenderer
+                    widget={widget}
+                    onWidgetAction={handleWidgetAction}
+                  />
                 </div>
               ))}
             </div>
