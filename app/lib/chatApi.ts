@@ -11,23 +11,76 @@ export interface StreamEvent {
   payload: Record<string, unknown>;
 }
 
-export interface WidgetSpec {
-  id: string;
-  // Unified Generative UI envelope
-  render_mode?: 'native' | 'sandboxed';
-  component?: 'metric_card' | 'line_chart' | 'bar_chart' | 'table' | string;
-  props?: Record<string, unknown>;
-  code?: string; // Reserved for sandboxed iframe mode (Option A)
+export type WidgetType = 'metric_card' | 'line_chart' | 'bar_chart' | 'table' | 'sandboxed';
 
-  // Top-level fields (for backward compatibility)
-  type?: 'line_chart' | 'bar_chart' | 'metric_card' | 'table' | string;
+export interface BaseWidgetSpec {
+  id: string;
+  render_mode?: 'native' | 'sandboxed';
+  component?: WidgetType | string;
+  type?: WidgetType | string;
   title?: string;
   metric?: string;
-  value?: string;
+  position?: { x: number; y: number; w: number; h: number };
+  props?: Record<string, unknown>;
+  code?: string;
+  data?: Array<Record<string, unknown>> | Array<{ date?: string; label?: string; value?: number }>;
+  value?: string | number;
   change?: string;
   positive?: boolean;
+}
+
+export interface MetricCardWidgetSpec extends BaseWidgetSpec {
+  type?: 'metric_card';
+  component?: 'metric_card';
+  value?: string | number;
+  change?: string;
+  positive?: boolean;
+}
+
+export interface LineChartWidgetSpec extends BaseWidgetSpec {
+  type?: 'line_chart';
+  component?: 'line_chart';
+  data?: Array<{ date?: string; value?: number }>;
+}
+
+export interface BarChartWidgetSpec extends BaseWidgetSpec {
+  type?: 'bar_chart';
+  component?: 'bar_chart';
+  data?: Array<{ label?: string; date?: string; value?: number }>;
+}
+
+export interface TableWidgetSpec extends BaseWidgetSpec {
+  type?: 'table';
+  component?: 'table';
   data?: Array<Record<string, unknown>>;
-  position?: { x: number; y: number; w: number; h: number };
+}
+
+export interface SandboxedFrameWidgetSpec extends BaseWidgetSpec {
+  type?: 'sandboxed';
+  component?: 'sandboxed';
+  code?: string;
+  csp?: string[];
+  data?: Array<Record<string, unknown>>;
+}
+
+export type WidgetSpec =
+  | MetricCardWidgetSpec
+  | LineChartWidgetSpec
+  | BarChartWidgetSpec
+  | TableWidgetSpec
+  | SandboxedFrameWidgetSpec;
+
+export type ProposalStatus = 'pending' | 'applying' | 'applied' | 'rejected' | 'error';
+
+export interface ManagedProposal {
+  actionId: string;
+  projectId: string;
+  action: string;
+  widgetSpec: WidgetSpec;
+  requiresConfirmation: boolean;
+  status: ProposalStatus;
+  createdAt: number;
+  error?: string;
 }
 
 /**
@@ -62,6 +115,7 @@ export interface UIProposalPayload {
   action_id?: string;
   widget_spec: WidgetSpec;
   requires_confirmation: boolean;
+  created_at?: number;
 }
 
 export interface ChatOptions {
