@@ -200,12 +200,12 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
     >
       {/* Central Rotating Faceted Quartz Crystal Form */}
       <group ref={crystalRef}>
-        {/* Pass 1: Rear Facets (Rich warm terracotta amber base) */}
+        {/* Pass 1: Rear Facets (Rich warm dark coral amber base) */}
         <mesh>
           <icosahedronGeometry args={[2.0, 0]} />
           <meshPhysicalMaterial
-            color="#E2876A"
-            emissive="#D4826A"
+            color="#D97863"
+            emissive="#824A3D"
             emissiveIntensity={0.35}
             roughness={0.22}
             metalness={0.08}
@@ -216,12 +216,12 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
           />
         </mesh>
 
-        {/* Pass 2: Luminescent Inner Core (Glowing warm amber heart) */}
+        {/* Pass 2: Luminescent Inner Core (Glowing deep coral heart) */}
         <mesh ref={coreRef} position={[0, 0, 0]}>
           <octahedronGeometry args={[0.72, 0]} />
           <meshStandardMaterial
-            color="#D4826A"
-            emissive="#FF6B50"
+            color="#824A3D"
+            emissive="#D97863"
             emissiveIntensity={2.0}
             roughness={0.15}
             metalness={0.1}
@@ -236,12 +236,12 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
           position={[0, 0, 0]}
         />
 
-        {/* Pass 3: Front Facets (Vibrant warm rose-amber quartz with specular polish) */}
+        {/* Pass 3: Front Facets (Vibrant warm light-coral quartz with specular polish) */}
         <mesh castShadow receiveShadow>
           <icosahedronGeometry args={[2.0, 0]} />
           <meshPhysicalMaterial
-            color="#F5A27E"
-            emissive="#E08264"
+            color="#EBA58F"
+            emissive="#D97863"
             emissiveIntensity={0.25}
             roughness={0.12}
             metalness={0.06}
@@ -254,11 +254,11 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
           />
         </mesh>
 
-        {/* Pass 4: Shimmering Warm Gold Wireframe Facet Outlines */}
+        {/* Pass 4: Shimmering Warm Gold Wireframe Facet Outlines / Highlight */}
         <mesh scale={[1.002, 1.002, 1.002]}>
           <icosahedronGeometry args={[2.0, 0]} />
           <meshBasicMaterial
-            color="#FFAE8A"
+            color="#F1C0AD"
             wireframe={true}
             transparent={true}
             opacity={0.55}
@@ -274,9 +274,9 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
       >
         <torusGeometry args={[2.85, 0.014, 16, 96]} />
         <meshBasicMaterial
-          color="#E07A5F"
+          color="#EBA58F"
           transparent={true}
-          opacity={hovered ? 0.65 : 0.42}
+          opacity={hovered ? 0.55 : 0.35}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
@@ -288,9 +288,9 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
       >
         <torusGeometry args={[3.6, 0.012, 16, 96]} />
         <meshBasicMaterial
-          color="#C47A8A"
+          color="#EBA58F"
           transparent={true}
-          opacity={hovered ? 0.55 : 0.35}
+          opacity={hovered ? 0.5 : 0.35}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
@@ -302,7 +302,7 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
             <octahedronGeometry args={[1, 0]} />
             <meshPhysicalMaterial
               color="#F29E74"
-              emissive="#D4826A"
+              emissive="#E3836C"
               emissiveIntensity={0.3}
               roughness={0.15}
               metalness={0.08}
@@ -322,13 +322,13 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
             onClick={() =>
               onSelectHotspot && onSelectHotspot(activeMilestone.detail)
             }
-            className="group cursor-pointer flex items-center gap-2 px-4 py-2 rounded-full bg-[#F3EDE4]/95 backdrop-blur-md border border-[#4A4238]/15 hover:border-[#D4826A] shadow-md hover:scale-105 transition-all duration-300 pointer-events-auto whitespace-nowrap animate-in fade-in zoom-in-90"
+            className="group cursor-pointer flex items-center gap-2 px-4 py-2 rounded-full bg-[#F3EDE4]/95 dark:bg-[#211E1C]/95 backdrop-blur-md border border-[#4A4238]/15 dark:border-[#3A3430] hover:border-[#E3836C] shadow-md hover:scale-105 transition-all duration-300 pointer-events-auto whitespace-nowrap animate-in fade-in zoom-in-90"
           >
-            <span className="w-2 h-2 rounded-full bg-[#D4826A] animate-ping" />
-            <span className="text-[11px] font-mono uppercase tracking-wider text-[#4A4238] font-medium group-hover:text-[#D4826A]">
+            <span className="w-2 h-2 rounded-full bg-[#E3836C] animate-ping" />
+            <span className="text-[11px] font-mono uppercase tracking-wider text-[#4A4238] dark:text-[#F4EDE5] font-medium group-hover:text-[#E3836C]">
               {activeMilestone.label}
             </span>
-            <span className="text-xs text-[#D4826A] group-hover:translate-x-0.5 transition-transform">
+            <span className="text-xs text-[#E3836C] group-hover:translate-x-0.5 transition-transform">
               →
             </span>
           </button>

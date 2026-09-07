@@ -102,8 +102,8 @@ function createEditorialEarthTextures(isDark: boolean) {
   // 1. Ocean Color: Clear separation from landmass
   if (isDark) {
     const oceanGrad = ctx.createRadialGradient(width / 2, height / 2, 100, width / 2, height / 2, width);
-    oceanGrad.addColorStop(0, '#161311');
-    oceanGrad.addColorStop(1, '#0C0A09');
+    oceanGrad.addColorStop(0, '#171514');
+    oceanGrad.addColorStop(1, '#0F0E0D');
     ctx.fillStyle = oceanGrad;
   } else {
     const oceanGrad = ctx.createRadialGradient(width / 2, height / 2, 100, width / 2, height / 2, width);
@@ -135,7 +135,7 @@ function createEditorialEarthTextures(isDark: boolean) {
     if (isDark) {
       ctx.fillStyle = '#2E2721';
       ctx.fill();
-      ctx.strokeStyle = '#D4826A';
+      ctx.strokeStyle = '#E3836C';
       ctx.lineWidth = 2.0;
       ctx.stroke();
     } else {
@@ -426,7 +426,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
     scene.add(sunLight);
     sunLightRef.current = sunLight;
 
-    const rimLight = new THREE.DirectionalLight(0xd4826a, isDark ? 0.8 : 0.5);
+    const rimLight = new THREE.DirectionalLight(0xe3836c, isDark ? 0.8 : 0.5);
     rimLight.position.set(-12, -6, -10);
     scene.add(rimLight);
     rimLightRef.current = rimLight;
@@ -466,7 +466,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
         }
       `,
       uniforms: {
-        glowColor: { value: new THREE.Color(isDark ? 0xd4826a : 0x8fa98f) },
+        glowColor: { value: new THREE.Color(isDark ? 0xe3836c : 0x8fa98f) },
       },
       side: THREE.BackSide,
       blending: THREE.AdditiveBlending,
@@ -492,7 +492,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
     gridGroupRef.current = gridGroup;
 
     const gridMat = new THREE.LineBasicMaterial({
-      color: isDark ? 0xd4826a : 0x4a4238,
+      color: isDark ? 0xe3836c : 0x4a4238,
       transparent: true,
       opacity: isDark ? 0.08 : 0.09,
     });
@@ -520,7 +520,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
 
     const hubMarkers: THREE.Mesh[] = [];
     const pinGeo = new THREE.SphereGeometry(0.045, 16, 16);
-    const pinMat = new THREE.MeshBasicMaterial({ color: 0xd4826a });
+    const pinMat = new THREE.MeshBasicMaterial({ color: 0xe3836c });
     const ringGeo = new THREE.RingGeometry(0.055, 0.075, 24);
     const ringMat = new THREE.MeshBasicMaterial({
       color: 0xffa07a,
@@ -555,7 +555,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
 
       const tubeGeo = new THREE.TubeGeometry(curve, 44, 0.0065, 8, false);
       const tubeMat = new THREE.MeshBasicMaterial({
-        color: 0xd4826a,
+        color: 0xe3836c,
         transparent: true,
         opacity: isExpanded ? 0.45 : 0.25,
       });
@@ -734,7 +734,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
       oldCloudMap?.dispose();
     }
 
-    atmosphereMat.uniforms.glowColor.value.set(isDark ? 0xd4826a : 0x8fa98f);
+    atmosphereMat.uniforms.glowColor.value.set(isDark ? 0xe3836c : 0x8fa98f);
     if (ambientLight) ambientLight.intensity = isDark ? 1.0 : 1.3;
     if (sunLight) sunLight.intensity = isDark ? 2.4 : 2.2;
     if (rimLight) rimLight.intensity = isDark ? 0.8 : 0.5;
@@ -765,8 +765,8 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
 
       {/* Loading Skeleton */}
       {!isSceneReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-xs font-mono text-xs text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
-          <span className="w-3 h-3 rounded-full bg-[#D4826A] animate-ping mr-2" />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-xs font-mono text-xs text-[#4A4238]/60 dark:text-[#91867E]">
+          <span className="w-3 h-3 rounded-full bg-[#E3836C] animate-ping mr-2" />
           <span>Initializing 3D Planetary WebGL…</span>
         </div>
       )}
@@ -777,10 +777,10 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
           <button
             type="button"
             onClick={() => onToggleExpand(true)}
-            className="flex items-center gap-2.5 px-4 py-2.5 rounded-full glass-card hover:border-[#D4826A]/50 text-xs font-mono text-[#4A4238] dark:text-[#EDE6DC] shadow-lg backdrop-blur-xl transition-all transform hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D4826A]/50"
+            className="flex items-center gap-2.5 px-4 py-2.5 rounded-full glass-card dark:bg-[#211E1C]/80 dark:border-[#3A3430] hover:border-[#E3836C]/50 text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] shadow-lg backdrop-blur-xl transition-all transform hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E3836C]/50"
           >
-            <span className="w-2.5 h-2.5 rounded-full bg-[#D4826A] animate-pulse" />
-            <IconWorld size={16} className="text-[#D4826A]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#E3836C] animate-pulse" />
+            <IconWorld size={16} className="text-[#E3836C]" />
             <span>Google Earth View · Expand</span>
           </button>
         </div>
@@ -798,7 +798,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
               <button
                 type="button"
                 onClick={() => onToggleExpand(false)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/90 dark:bg-[#24201D]/90 text-[#4A4238] dark:text-[#EDE6DC] border border-[#4A4238]/15 dark:border-white/15 shadow-2xl backdrop-blur-xl font-mono text-xs uppercase tracking-wider transition-all transform hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D4826A]/50 shrink-0"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/90 dark:bg-[#211E1C]/90 text-[#4A4238] dark:text-[#F4EDE5] border border-[#4A4238]/15 dark:border-[#3A3430] shadow-2xl backdrop-blur-xl font-mono text-xs uppercase tracking-wider transition-all transform hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E3836C]/50 shrink-0"
               >
                 <IconX size={16} />
                 <span>Close</span>
@@ -806,8 +806,8 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
 
               {/* ─── INTERACTIVE SEARCH BAR FOR GLOBE ─────────────────────── */}
               <div className="relative flex-1 sm:w-80">
-                <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl glass-card backdrop-blur-xl border border-[#4A4238]/15 dark:border-white/15 shadow-xl transition-all focus-within:border-[#D4826A] focus-within:ring-2 focus-within:ring-[#D4826A]/30">
-                  <IconSearch size={15} className="text-[#D4826A] shrink-0" />
+                <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl glass-card backdrop-blur-xl border border-[#4A4238]/15 dark:border-[#3A3430] shadow-xl transition-all focus-within:border-[#E3836C] focus-within:ring-2 focus-within:ring-[#E3836C]/30">
+                  <IconSearch size={15} className="text-[#E3836C] shrink-0" />
                   <input
                     ref={searchInputRef}
                     type="text"
@@ -818,7 +818,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
                     }}
                     onFocus={() => setIsSearchOpen(true)}
                     placeholder="Search city, country, region…"
-                    className="w-full bg-transparent text-xs font-mono text-[#4A4238] dark:text-[#EDE6DC] placeholder-[#4A4238]/40 dark:placeholder-white/40 focus:outline-none"
+                    className="w-full bg-transparent text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] placeholder-[#4A4238]/40 dark:placeholder-[#80766F] focus:outline-none"
                   />
                   {searchQuery && (
                     <button
@@ -827,7 +827,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
                         setSearchQuery('');
                         setIsSearchOpen(false);
                       }}
-                      className="text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white cursor-pointer"
+                      className="text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-white cursor-pointer"
                     >
                       <IconX size={13} />
                     </button>
@@ -836,7 +836,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
 
                 {/* Autocomplete Dropdown */}
                 {isSearchOpen && filteredLocations.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl glass-card border border-[#4A4238]/15 dark:border-white/15 shadow-2xl backdrop-blur-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl glass-card dark:bg-[#302B28]/95 border border-[#4A4238]/15 dark:border-[#504740] shadow-2xl backdrop-blur-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="p-1.5 space-y-0.5 max-h-60 overflow-y-auto">
                       {filteredLocations.map((loc) => (
                         <button
@@ -846,16 +846,16 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
                           className="w-full px-3 py-2 text-left rounded-xl hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-between text-xs font-mono transition-colors cursor-pointer group"
                         >
                           <div>
-                            <span className="font-serif text-sm text-[#4A4238] dark:text-[#EDE6DC] group-hover:text-[#D4826A] transition-colors block">
+                            <span className="font-serif text-sm text-[#4A4238] dark:text-[#F4EDE5] group-hover:text-[#ED967F] transition-colors block">
                               {loc.name}
                             </span>
-                            <span className="text-[10px] text-[#4A4238]/50 dark:text-[#EDE6DC]/50">
+                            <span className="text-[10px] text-[#4A4238]/50 dark:text-[#91867E]">
                               {loc.country} · {loc.region}
                             </span>
                           </div>
                           <div className="text-right">
-                            <span className="text-[10px] text-[#D4826A] font-bold block">{loc.ping}</span>
-                            <span className="text-[9px] text-[#4A4238]/40 dark:text-white/40">
+                            <span className="text-[10px] text-[#E3836C] font-bold block">{loc.ping}</span>
+                            <span className="text-[9px] text-[#4A4238]/40 dark:text-[#91867E]">
                               {loc.lat.toFixed(1)}°, {loc.lon.toFixed(1)}°
                             </span>
                           </div>
@@ -868,8 +868,8 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
             </div>
 
             {/* Google Earth "Fly To" City Chips */}
-            <div className="hidden lg:flex items-center gap-1.5 p-1.5 rounded-2xl glass-card backdrop-blur-xl border border-[#4A4238]/15 dark:border-white/15 overflow-x-auto max-w-full">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#D4826A] px-2 font-bold flex items-center gap-1">
+            <div className="hidden lg:flex items-center gap-1.5 p-1.5 rounded-2xl glass-card backdrop-blur-xl border border-[#4A4238]/15 dark:border-[#3A3430] overflow-x-auto max-w-full">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#E3836C] px-2 font-bold flex items-center gap-1">
                 <IconMapPin size={12} /> Hubs:
               </span>
               {MAJOR_HUBS.map((hub) => (
@@ -877,10 +877,10 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
                   key={hub.name}
                   type="button"
                   onClick={() => flyToCity(hub)}
-                  className={`px-3 py-1 rounded-xl text-xs font-mono whitespace-nowrap transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40 ${
+                  className={`px-3 py-1 rounded-xl text-xs font-mono whitespace-nowrap transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40 ${
                     selectedHub?.name === hub.name
-                      ? 'bg-[#D4826A] text-white font-bold shadow-xs'
-                      : 'hover:bg-black/5 dark:hover:bg-white/10 text-[#4A4238]/70 dark:text-[#EDE6DC]/70'
+                      ? 'bg-[#E3836C] text-white font-bold shadow-xs'
+                      : 'hover:bg-black/5 dark:hover:bg-white/10 text-[#4A4238]/70 dark:text-[#C5B9AE]'
                   }`}
                 >
                   {hub.name}
@@ -896,7 +896,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
             <button
               type="button"
               onClick={resetNorth}
-              className="p-3 rounded-2xl glass-card text-[#D4826A] hover:border-[#D4826A]/50 shadow-xl backdrop-blur-xl transition-all transform hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40"
+              className="p-3 rounded-2xl glass-card text-[#E3836C] hover:border-[#E3836C]/50 shadow-xl backdrop-blur-xl transition-all transform hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40"
               title={`Compass Heading: ${compassHeading}° (Click to reset North)`}
             >
               <div style={{ transform: `rotate(${-compassHeading}deg)`, transition: 'transform 0.15s ease-out' }}>
@@ -905,11 +905,11 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
             </button>
 
             {/* Zoom In & Zoom Out Buttons */}
-            <div className="flex flex-col rounded-2xl glass-card border border-[#4A4238]/15 dark:border-white/15 shadow-xl backdrop-blur-xl overflow-hidden">
+            <div className="flex flex-col rounded-2xl glass-card border border-[#4A4238]/15 dark:border-[#3A3430] shadow-xl backdrop-blur-xl overflow-hidden">
               <button
                 type="button"
                 onClick={() => handleZoom(-1.4)}
-                className="p-3 hover:bg-black/5 dark:hover:bg-white/10 text-[#4A4238] dark:text-[#EDE6DC] transition-colors cursor-pointer border-b border-[#4A4238]/10 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40"
+                className="p-3 hover:bg-black/5 dark:hover:bg-white/10 text-[#4A4238] dark:text-[#F4EDE5] transition-colors cursor-pointer border-b border-[#4A4238]/10 dark:border-[#3A3430] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40"
                 title="Zoom In"
               >
                 <IconPlus size={18} />
@@ -917,7 +917,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
               <button
                 type="button"
                 onClick={() => handleZoom(1.4)}
-                className="p-3 hover:bg-black/5 dark:hover:bg-white/10 text-[#4A4238] dark:text-[#EDE6DC] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40"
+                className="p-3 hover:bg-black/5 dark:hover:bg-white/10 text-[#4A4238] dark:text-[#F4EDE5] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40"
                 title="Zoom Out"
               >
                 <IconMinus size={18} />
@@ -925,14 +925,14 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
             </div>
 
             {/* Layer Toggles: Grid View, Clouds, Telemetry */}
-            <div className="flex flex-col rounded-2xl glass-card border border-[#4A4238]/15 dark:border-white/15 shadow-xl backdrop-blur-xl p-1 gap-1">
+            <div className="flex flex-col rounded-2xl glass-card border border-[#4A4238]/15 dark:border-[#3A3430] shadow-xl backdrop-blur-xl p-1 gap-1">
               <button
                 type="button"
                 onClick={() => setShowGrid((v) => !v)}
-                className={`p-2.5 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40 ${
+                className={`p-2.5 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40 ${
                   showGrid
-                    ? 'bg-[#D4826A] text-white'
-                    : 'text-[#4A4238]/50 dark:text-[#EDE6DC]/50 hover:text-[#4A4238] dark:hover:text-white'
+                    ? 'bg-[#E3836C] text-white'
+                    : 'text-[#4A4238]/50 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-white'
                 }`}
                 title="Toggle Latitude/Longitude Grid Lines"
               >
@@ -942,10 +942,10 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
               <button
                 type="button"
                 onClick={() => setShowClouds((v) => !v)}
-                className={`p-2.5 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40 ${
+                className={`p-2.5 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40 ${
                   showClouds
-                    ? 'bg-[#D4826A] text-white'
-                    : 'text-[#4A4238]/50 dark:text-[#EDE6DC]/50 hover:text-[#4A4238] dark:hover:text-white'
+                    ? 'bg-[#E3836C] text-white'
+                    : 'text-[#4A4238]/50 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-white'
                 }`}
                 title="Toggle Atmospheric Clouds"
               >
@@ -955,10 +955,10 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
               <button
                 type="button"
                 onClick={() => setShowTelemetry((v) => !v)}
-                className={`p-2.5 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40 ${
+                className={`p-2.5 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40 ${
                   showTelemetry
-                    ? 'bg-[#D4826A] text-white'
-                    : 'text-[#4A4238]/50 dark:text-[#EDE6DC]/50 hover:text-[#4A4238] dark:hover:text-white'
+                    ? 'bg-[#E3836C] text-white'
+                    : 'text-[#4A4238]/50 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-white'
                 }`}
                 title="Toggle Telemetry Flight Arcs"
               >
@@ -973,13 +973,13 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
             
             {/* Selected City or Hover Pinpoint */}
             {selectedHub ? (
-              <div className="p-4 rounded-2xl glass-card border border-[#4A4238]/15 dark:border-white/15 shadow-2xl backdrop-blur-2xl max-w-sm w-full space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="p-4 rounded-2xl glass-card border border-[#4A4238]/15 dark:border-[#3A3430] shadow-2xl backdrop-blur-2xl max-w-sm w-full space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-serif text-base font-semibold text-[#4A4238] dark:text-[#EDE6DC]">
+                    <h4 className="font-serif text-base font-semibold text-[#4A4238] dark:text-[#F4EDE5]">
                       {selectedHub.name}
                     </h4>
-                    <span className="text-[10px] font-mono text-[#4A4238]/50 dark:text-[#EDE6DC]/50">
+                    <span className="text-[10px] font-mono text-[#4A4238]/50 dark:text-[#91867E]">
                       {selectedHub.country} · {selectedHub.region} · {selectedHub.lat.toFixed(2)}°, {selectedHub.lon.toFixed(2)}°
                     </span>
                   </div>
@@ -987,10 +987,10 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
                     {selectedHub.status}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1 border-t border-[#4A4238]/10 dark:border-white/10">
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1 border-t border-[#4A4238]/10 dark:border-[#3A3430]">
                   <div>
                     <span className="text-[10px] opacity-50 block">Round-trip Ping</span>
-                    <span className="font-bold text-[#D4826A]">{selectedHub.ping}</span>
+                    <span className="font-bold text-[#E3836C]">{selectedHub.ping}</span>
                   </div>
                   <div>
                     <span className="text-[10px] opacity-50 block">Telemetry Bandwidth</span>
@@ -999,22 +999,22 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
                 </div>
               </div>
             ) : cursorCoords ? (
-              <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl glass-card text-xs font-mono text-[#4A4238]/80 dark:text-[#EDE6DC]/80 shadow-lg">
-                <IconActivity size={14} className="text-[#D4826A]" />
+              <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl glass-card text-xs font-mono text-[#4A4238]/80 dark:text-[#C5B9AE] shadow-lg">
+                <IconActivity size={14} className="text-[#E3836C]" />
                 <span>
                   Cursor: {cursorCoords.lat.toFixed(2)}°{cursorCoords.lat >= 0 ? 'N' : 'S'}, {Math.abs(cursorCoords.lon).toFixed(2)}°{cursorCoords.lon >= 0 ? 'E' : 'W'}
                 </span>
               </div>
             ) : (
-              <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl glass-card text-xs font-mono text-[#4A4238]/70 dark:text-[#EDE6DC]/70 shadow-lg">
-                <IconActivity size={14} className="text-[#D4826A]" />
+              <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl glass-card text-xs font-mono text-[#4A4238]/70 dark:text-[#C5B9AE] shadow-lg">
+                <IconActivity size={14} className="text-[#E3836C]" />
                 <span>Click or search any city to fly camera &amp; inspect metrics</span>
               </div>
             )}
 
             {/* Bottom Google Earth Coordinate & Altitude Telemetry Status Bar */}
-            <div className="flex items-center gap-3 px-4 py-2.5 rounded-full glass-card border border-[#4A4238]/15 dark:border-white/15 shadow-xl backdrop-blur-xl font-mono text-xs text-[#4A4238]/80 dark:text-[#EDE6DC]/80">
-              <span>Heading: <strong className="text-[#D4826A]">{compassHeading}°</strong></span>
+            <div className="flex items-center gap-3 px-4 py-2.5 rounded-full glass-card border border-[#4A4238]/15 dark:border-[#3A3430] shadow-xl backdrop-blur-xl font-mono text-xs text-[#4A4238]/80 dark:text-[#C5B9AE]">
+              <span>Heading: <strong className="text-[#E3836C]">{compassHeading}°</strong></span>
               <span className="opacity-40">|</span>
               <span>Altitude: <strong>{cameraAltitude.toLocaleString()} km</strong></span>
               <span className="opacity-40">|</span>

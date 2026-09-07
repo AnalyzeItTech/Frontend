@@ -50,11 +50,11 @@ export const UseCasesSection: React.FC = () => {
         transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         className="max-w-2xl space-y-4"
       >
-        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
+        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#91867E]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#8FA98F]" />
           Built For Your Entire Team
         </div>
-        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#EDE6DC] font-normal leading-tight">
+        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#F4EDE5] font-normal leading-tight">
           Clarity tailored to how you work.
         </h2>
       </motion.div>
@@ -72,20 +72,20 @@ export const UseCasesSection: React.FC = () => {
               delay: idx * 0.12,
               ease: [0.16, 1, 0.3, 1],
             }}
-            className="glass-card rounded-3xl p-8 md:p-10 space-y-4 border border-[#4A4238]/10 dark:border-white/10 hover:border-[#8FA98F]/40 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1.5"
+            className="glass-card rounded-3xl p-8 md:p-10 space-y-4 border border-[#4A4238]/10 dark:border-[#3A3430] dark:bg-[#211E1C] hover:border-[#8FA98F]/40 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1.5"
           >
             <div className="flex items-center justify-between">
-              <span className="font-serif text-2xl text-[#4A4238] dark:text-[#EDE6DC] font-normal">
+              <span className="font-serif text-2xl text-[#4A4238] dark:text-[#F4EDE5] font-normal">
                 {uc.role}
               </span>
               <span className="w-2 h-2 rounded-full bg-[#8FA98F]" />
             </div>
 
-            <p className="text-base font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+            <p className="text-base font-medium text-[#4A4238] dark:text-[#F4EDE5]">
               &ldquo;{uc.tagline}&rdquo;
             </p>
 
-            <p className="text-sm text-[#4A4238]/70 dark:text-[#EDE6DC]/70 leading-relaxed pt-2">
+            <p className="text-sm text-[#4A4238]/70 dark:text-[#C5B9AE] leading-relaxed pt-2">
               {uc.detail}
             </p>
           </motion.div>

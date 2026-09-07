@@ -57,7 +57,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
   return (
     <div
       id="v3d-loader"
-      className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#F3EDE4] transition-opacity duration-600 ${
+      className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#F3EDE4] dark:bg-[#171514] transition-opacity duration-600 ${
         isHiding ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
       }`}
     >
@@ -77,7 +77,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
             cy="120"
             r={radius}
             fill="transparent"
-            stroke="#D4826A"
+            stroke="#E3836C"
             strokeWidth="3.5"
             strokeLinecap="round"
             strokeDasharray={circumference}
@@ -88,20 +88,20 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
 
         {/* 3D Rotating Geometric Logo Prism */}
         <div className="relative w-20 h-20 flex items-center justify-center animate-v3d-rotate z-10">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#D4826A] via-[#E8C4A0] to-[#B8A9C9] shadow-lg shadow-[#D4826A]/30 transform rotate-45 animate-pulse" />
-          <div className="absolute w-7 h-7 rounded-lg bg-[#F3EDE4] transform rotate-12" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#E3836C] via-[#E8C4A0] to-[#B8A9C9] shadow-lg shadow-[#E3836C]/30 transform rotate-45 animate-pulse" />
+          <div className="absolute w-7 h-7 rounded-lg bg-[#F3EDE4] dark:bg-[#211E1C] transform rotate-12" />
         </div>
       </div>
 
       {/* Status & Counter */}
       <div className="text-center space-y-2">
-        <div className="text-xs font-mono tracking-[0.25em] uppercase text-[#D4826A] animate-v3d-pulse">
+        <div className="text-xs font-mono tracking-[0.25em] uppercase text-[#E3836C] animate-v3d-pulse">
           {status}
         </div>
-        <div className="font-serif text-3xl md:text-4xl text-[#4A4238] font-normal tracking-tight">
+        <div className="font-serif text-3xl md:text-4xl text-[#4A4238] dark:text-[#F4EDE5] font-normal tracking-tight">
           {Math.floor(progress)}%
         </div>
-        <div className="text-[11px] font-mono tracking-widest text-[#4A4238]/50 uppercase">
+        <div className="text-[11px] font-mono tracking-widest text-[#4A4238]/50 dark:text-[#91867E] uppercase">
           AnalyzeIt · Analytics, made calm
         </div>
       </div>

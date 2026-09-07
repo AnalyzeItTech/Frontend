@@ -48,13 +48,13 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
 
   if (!mounted) {
     return (
-      <div className="fixed inset-0 w-full h-full z-0 bg-gradient-to-b from-[#B8A9C9] via-[#E8C4A0] to-[#F3EDE4] dark:from-[#1C1525] dark:via-[#2A1E18] dark:to-[#161311] pointer-events-none" />
+      <div className="fixed inset-0 w-full h-full z-0 bg-gradient-to-b from-[#B8A9C9] via-[#E8C4A0] to-[#F3EDE4] dark:from-[#211B19] dark:via-[#29211E] dark:to-[#171514] pointer-events-none" />
     );
   }
 
   if (!isCapable) {
     return (
-      <div className="fixed inset-0 w-full h-full z-0 bg-gradient-to-b from-[#B8A9C9] via-[#E8C4A0] to-[#F3EDE4] dark:from-[#1C1525] dark:via-[#2A1E18] dark:to-[#161311] pointer-events-none transition-opacity duration-1000" />
+      <div className="fixed inset-0 w-full h-full z-0 bg-gradient-to-b from-[#B8A9C9] via-[#E8C4A0] to-[#F3EDE4] dark:from-[#211B19] dark:via-[#29211E] dark:to-[#171514] pointer-events-none transition-opacity duration-1000" />
     );
   }
 
@@ -74,7 +74,7 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
         <ambientLight intensity={isDark ? 0.7 : 1.1} color={isDark ? '#FFFFFF' : '#FFFFFF'} />
         <hemisphereLight
           intensity={isDark ? 0.5 : 0.7}
-          groundColor={isDark ? '#161311' : '#E8DFD3'}
+          groundColor={isDark ? '#171514' : '#E8DFD3'}
           color={isDark ? '#8A7A9E' : '#D5C5E5'}
         />
         <directionalLight
@@ -99,7 +99,7 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
           size={isDark ? 3.5 : 3.0}
           speed={0.25}
           opacity={isDark ? 0.75 : 0.6}
-          color={isDark ? '#D4826A' : '#E8C4A0'}
+          color={isDark ? '#E3836C' : '#E8C4A0'}
         />
 
         {/* Single Central Abstract Faceted Crystal Form */}

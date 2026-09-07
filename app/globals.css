@@ -12,38 +12,113 @@
   
   --color-paper: #F3EDE4;
   --color-ink: #4A4238;
-  --color-coral: #D4826A;
-  --color-peach: #E8C4A0;
+  --color-coral: #E3836C;
+  --color-peach: #EBA58F;
   --color-lavender: #B8A9C9;
   --color-sage: #8FA98F;
-  --color-v3d-red: #E14759;
+  --color-v3d-red: #D97870;
 
-  --color-dark-paper: #161311;
-  --color-dark-surface: #221E1B;
-  --color-dark-ink: #EDE6DC;
-  --color-dark-muted: #A3998E;
+  /* Warm Charcoal & Surface Tokens for Dark Mode */
+  --color-dark-bg: #171514;
+  --color-dark-surface: #211E1C;
+  --color-dark-surface-2: #292522;
+  --color-dark-surface-3: #302B28;
+  --color-dark-border: #3A3430;
+  --color-dark-border-strong: #504740;
+  --color-dark-text-primary: #F4EDE5;
+  --color-dark-text-secondary: #C5B9AE;
+  --color-dark-text-muted: #91867E;
+  --color-dark-text-disabled: #625851;
+  --color-dark-brand: #E3836C;
+  --color-dark-brand-hover: #ED967F;
+  --color-dark-brand-pressed: #C96F5A;
+  --color-dark-brand-soft: #5A332C;
+
+  /* Backward compatibility aliases */
+  --color-dark-paper: #171514;
+  --color-dark-ink: #F4EDE5;
 }
 
 :root {
+  --bg: #F3EDE4;
+  --surface: #FFFFFF;
+  --surface-2: #F8F3ED;
+  --surface-3: #EDE4D8;
+  --border: rgba(74, 66, 56, 0.12);
+  --border-strong: rgba(74, 66, 56, 0.25);
+  --text-primary: #4A4238;
+  --text-secondary: #6B6155;
+  --text-muted: #8F8477;
+  --text-disabled: #B4A89A;
+  --brand: #E3836C;
+  --brand-hover: #ED967F;
+  --brand-pressed: #C96F5A;
+  --brand-soft: #FBF0ED;
+  --brand-light: #EBA58F;
+  --nav-bg: #E9DDD2;
+  --nav-text: #403934;
+
+  --chart-1: #E3836C;
+  --chart-2: #EBA58F;
+  --chart-3: #9EBBB0;
+  --chart-4: #91AEB5;
+  --chart-5: #C8A878;
+  --chart-6: #A99BB5;
+  --chart-7: #D3C29D;
+
+  --success: #9EBB9A;
+  --warning: #D9AD70;
+  --error: #D97870;
+  --info: #91AEB5;
+
   --background: #F3EDE4;
   --foreground: #4A4238;
   --card: rgba(255, 255, 255, 0.65);
-  --border: rgba(74, 66, 56, 0.1);
   --muted: rgba(74, 66, 56, 0.6);
-  --accent: #D4826A;
+  --accent: #E3836C;
 }
 
 .dark {
-  --background: #161311;
-  --foreground: #EDE6DC;
-  --card: rgba(34, 30, 27, 0.75);
-  --border: rgba(237, 230, 220, 0.12);
-  --muted: rgba(237, 230, 220, 0.6);
-  --accent: #D4826A;
+  --bg: #171514;
+  --surface: #211E1C;
+  --surface-2: #292522;
+  --surface-3: #302B28;
+  --border: #3A3430;
+  --border-strong: #504740;
+  --text-primary: #F4EDE5;
+  --text-secondary: #C5B9AE;
+  --text-muted: #91867E;
+  --text-disabled: #625851;
+  --brand: #E3836C;
+  --brand-hover: #ED967F;
+  --brand-pressed: #C96F5A;
+  --brand-soft: #5A332C;
+  --brand-light: #EBA58F;
+  --nav-bg: #E9DDD2;
+  --nav-text: #403934;
+
+  --chart-1: #E3836C;
+  --chart-2: #EBA58F;
+  --chart-3: #9EBBB0;
+  --chart-4: #91AEB5;
+  --chart-5: #C8A878;
+  --chart-6: #A99BB5;
+  --chart-7: #D3C29D;
+
+  --success: #9EBB9A;
+  --warning: #D9AD70;
+  --error: #D97870;
+  --info: #91AEB5;
+
+  --background: #171514;
+  --foreground: #F4EDE5;
+  --card: #211E1C;
+  --muted: #91867E;
+  --accent: #E3836C;
 }
 
 html, body {
-  background-color: var(--background);
+  background-color: var(--bg);
   color: var(--foreground);
   max-width: 100%;
   overflow-x: clip;
@@ -84,7 +159,7 @@ html.lenis, body.lenis {
 }
 
 .dark ::-webkit-scrollbar-track {
-  background: #1C1917;
+  background: #171514;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -93,11 +168,15 @@ html.lenis, body.lenis {
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #3D352E;
+  background: #3A3430;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #D4826A;
+  background: #E3836C;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #ED967F;
 }
 
 /* Firefox */
@@ -107,7 +186,7 @@ html, body {
 }
 
 .dark html, .dark body {
-  scrollbar-color: #3D352E #1C1917;
+  scrollbar-color: #3A3430 #171514;
 }
 
 /* 3D Animations & Keyframes */
@@ -157,24 +236,27 @@ html, body {
   font-family: var(--font-serif), Georgia, serif;
   font-style: italic;
   font-weight: 400;
-  color: #D4826A;
+  color: #E3836C;
 }
 
 /* Glass Cards & Containers */
 .glass-pill {
-  background: rgba(243, 237, 228, 0.75);
+  background: #E9DDD2;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(74, 66, 56, 0.08);
+  border: 1px solid rgba(64, 57, 52, 0.12);
+  color: #403934;
 }
 
 .dark .glass-pill {
-  background: rgba(30, 26, 23, 0.85);
-  border-color: rgba(237, 230, 220, 0.12);
+  background: #E9DDD2;
+  border-color: rgba(64, 57, 52, 0.15);
+  color: #403934;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.65);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(74, 66, 56, 0.08);
@@ -183,19 +265,19 @@ html, body {
 }
 
 .dark .glass-card {
-  background: rgba(34, 30, 27, 0.7);
-  border-color: rgba(237, 230, 220, 0.1);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+  background: #211E1C;
+  border-color: #3A3430;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
 }
 
 .glass-card:hover {
-  border-color: rgba(212, 130, 106, 0.35);
+  border-color: rgba(227, 131, 108, 0.35);
   box-shadow: 0 20px 40px -15px rgba(74, 66, 56, 0.1);
 }
 
 .dark .glass-card:hover {
-  border-color: rgba(212, 130, 106, 0.45);
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+  border-color: rgba(227, 131, 108, 0.4);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
 }
 
 .v3d-glass-card {
@@ -207,14 +289,19 @@ html, body {
 }
 
 .dark .v3d-glass-card {
-  background: rgba(34, 30, 27, 0.8);
-  border-color: rgba(237, 230, 220, 0.14);
-  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.4);
+  background: #211E1C;
+  border-color: #3A3430;
+  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.5);
 }
 
 .v3d-glass-card:hover {
-  border-color: rgba(212, 130, 106, 0.4);
-  box-shadow: 0 20px 45px -12px rgba(212, 130, 106, 0.15);
+  border-color: rgba(227, 131, 108, 0.4);
+  box-shadow: 0 20px 45px -12px rgba(227, 131, 108, 0.15);
+}
+
+.dark .v3d-glass-card:hover {
+  border-color: rgba(227, 131, 108, 0.45);
+  box-shadow: 0 20px 45px -12px rgba(0, 0, 0, 0.6);
 }
 
 /* 3D Carousel Perspective Track */

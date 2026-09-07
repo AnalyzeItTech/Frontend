@@ -86,13 +86,13 @@ export const CapabilitiesSection: React.FC = () => {
         transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         className="max-w-2xl space-y-4"
       >
-        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-[0.25em] uppercase text-[#D4826A]">
-          <span className="w-2 h-2 rounded-full bg-[#D4826A]" />
+        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-[0.25em] uppercase text-[#E3836C]">
+          <span className="w-2 h-2 rounded-full bg-[#E3836C]" />
           Core Capabilities
         </div>
-        <h2 className="font-serif text-4xl sm:text-5xl font-normal text-[#4A4238] dark:text-[#EDE6DC] leading-tight">
+        <h2 className="font-serif text-4xl sm:text-5xl font-normal text-[#4A4238] dark:text-[#F4EDE5] leading-tight">
           Everything you need to understand your business,{' '}
-          <em className="font-serif italic text-[#D4826A]">
+          <em className="font-serif italic text-[#E3836C]">
             without the noise.
           </em>
         </h2>
@@ -111,35 +111,35 @@ export const CapabilitiesSection: React.FC = () => {
               delay: idx * 0.12,
               ease: [0.16, 1, 0.3, 1],
             }}
-            className="glass-card rounded-3xl p-8 md:p-10 space-y-8 flex flex-col justify-between transition-all duration-300 transform hover:-translate-y-1.5 hover:shadow-xl border border-[#4A4238]/10 dark:border-white/10"
+            className="glass-card rounded-3xl p-8 md:p-10 space-y-8 flex flex-col justify-between transition-all duration-300 transform hover:-translate-y-1.5 hover:shadow-xl border border-[#4A4238]/10 dark:border-[#3A3430]"
           >
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono uppercase tracking-widest text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
+                <span className="text-[11px] font-mono uppercase tracking-widest text-[#4A4238]/60 dark:text-[#91867E]">
                   {cap.category}
                 </span>
-                <span className="w-2 h-2 rounded-full bg-[#8FA98F]" />
+                <span className="w-2 h-2 rounded-full bg-[#9EBB9A]" />
               </div>
 
-              <h3 className="font-serif text-2xl md:text-3xl text-[#4A4238] dark:text-[#EDE6DC] font-normal leading-snug">
+              <h3 className="font-serif text-2xl md:text-3xl text-[#4A4238] dark:text-[#F4EDE5] font-normal leading-snug">
                 {cap.headline}
               </h3>
 
-              <p className="text-sm md:text-base text-[#4A4238]/75 dark:text-[#EDE6DC]/75 font-normal leading-relaxed">
+              <p className="text-sm md:text-base text-[#4A4238]/75 dark:text-[#C5B9AE] font-normal leading-relaxed">
                 {cap.body}
               </p>
 
               {/* 3-Bullet Checklist */}
-              <div className="pt-4 space-y-3 border-t border-[#4A4238]/8 dark:border-white/10">
-                <div className="text-[11px] font-mono uppercase tracking-wider text-[#4A4238]/50 dark:text-white/50">
+              <div className="pt-4 space-y-3 border-t border-[#4A4238]/8 dark:border-[#3A3430]">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-[#4A4238]/50 dark:text-[#91867E]">
                   How it works
                 </div>
                 {cap.bullets.map((bullet, bIdx) => (
                   <div
                     key={bIdx}
-                    className="flex items-start gap-2.5 text-xs sm:text-sm text-[#4A4238]/85 dark:text-[#EDE6DC]/85"
+                    className="flex items-start gap-2.5 text-xs sm:text-sm text-[#4A4238]/85 dark:text-[#C5B9AE]"
                   >
-                    <span className="text-[#8FA98F] text-sm mt-0.5">✓</span>
+                    <span className="text-[#9EBB9A] text-sm mt-0.5">✓</span>
                     <span>{bullet}</span>
                   </div>
                 ))}
@@ -147,11 +147,11 @@ export const CapabilitiesSection: React.FC = () => {
             </div>
 
             {/* Stat Callout Badge */}
-            <div className="p-4 rounded-2xl bg-[#F3EDE4]/80 dark:bg-white/05 border border-[#4A4238]/8 dark:border-white/10 flex items-baseline gap-3">
-              <span className="font-serif text-2xl md:text-3xl font-medium text-[#D4826A]">
+            <div className="p-4 rounded-2xl bg-[#F3EDE4]/80 dark:bg-[#292522] border border-[#4A4238]/8 dark:border-[#3A3430] flex items-baseline gap-3">
+              <span className="font-serif text-2xl md:text-3xl font-medium text-[#E3836C]">
                 {cap.callout}
               </span>
-              <span className="text-xs text-[#4A4238]/70 dark:text-[#EDE6DC]/70 leading-tight">
+              <span className="text-xs text-[#4A4238]/70 dark:text-[#C5B9AE] leading-tight">
                 {cap.calloutDesc}
               </span>
             </div>

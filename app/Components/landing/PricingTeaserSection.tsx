@@ -72,14 +72,14 @@ export const PricingTeaserSection: React.FC = () => {
         transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         className="text-center max-w-2xl mx-auto space-y-4"
       >
-        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#D4826A]" />
+        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#91867E]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#E3836C]" />
           Simple, Transparent Plans
         </div>
-        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#EDE6DC] font-normal">
+        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#F4EDE5] font-normal">
           Fair pricing for quiet focus.
         </h2>
-        <p className="text-base text-[#4A4238]/70 dark:text-[#EDE6DC]/70">
+        <p className="text-base text-[#4A4238]/70 dark:text-[#C5B9AE]">
           14-day free trial on all plans. No credit card required.
         </p>
       </motion.div>
@@ -99,43 +99,43 @@ export const PricingTeaserSection: React.FC = () => {
             }}
             className={`rounded-3xl p-8 md:p-10 flex flex-col justify-between space-y-8 transition-all duration-300 transform hover:-translate-y-1.5 hover:shadow-xl ${
               tier.popular
-                ? 'bg-[#F3EDE4] dark:bg-[#241F1C] border-2 border-[#D4826A] shadow-md relative'
-                : 'glass-card border border-[#4A4238]/10 dark:border-white/10 hover:border-[#4A4238]/20 dark:hover:border-white/20'
+                ? 'bg-[#F3EDE4] dark:bg-[#5A332C] border-2 border-[#E3836C] dark:border-[#8A4D40] shadow-md relative text-[#4A4238] dark:text-[#F4EDE5]'
+                : 'glass-card border border-[#4A4238]/10 dark:border-[#3A3430] hover:border-[#4A4238]/20 dark:hover:border-[#E3836C]/40'
             }`}
           >
             {tier.popular && (
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-[#D4826A] text-white text-xs font-mono uppercase tracking-wider shadow-sm">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-[#E3836C] text-[#FFF7F1] text-xs font-mono uppercase tracking-wider shadow-sm">
                 Most Popular
               </div>
             )}
 
             <div className="space-y-6">
               <div>
-                <h3 className="font-serif text-2xl text-[#4A4238] dark:text-[#EDE6DC] font-normal">
+                <h3 className="font-serif text-2xl text-[#4A4238] dark:text-[#F4EDE5] font-normal">
                   {tier.name}
                 </h3>
-                <p className="text-xs text-[#4A4238]/70 dark:text-[#EDE6DC]/70 mt-1">
+                <p className="text-xs text-[#4A4238]/70 dark:text-[#C5B9AE] mt-1">
                   {tier.tagline}
                 </p>
               </div>
 
               <div className="flex items-baseline gap-1">
-                <span className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#EDE6DC] font-medium">
+                <span className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#F4EDE5] font-medium">
                   {tier.price}
                 </span>
                 {tier.period && (
-                  <span className="text-sm text-[#4A4238]/60 dark:text-[#EDE6DC]/60">{tier.period}</span>
+                  <span className="text-sm text-[#4A4238]/60 dark:text-[#91867E]">{tier.period}</span>
                 )}
               </div>
 
               {/* Feature List */}
-              <div className="space-y-2.5 pt-4 border-t border-[#4A4238]/8 dark:border-white/10">
+              <div className="space-y-2.5 pt-4 border-t border-[#4A4238]/8 dark:border-[#3A3430]">
                 {tier.features.map((feat, fIdx) => (
                   <div
                     key={fIdx}
-                    className="flex items-start gap-2.5 text-sm text-[#4A4238]/80 dark:text-[#EDE6DC]/80"
+                    className="flex items-start gap-2.5 text-sm text-[#4A4238]/80 dark:text-[#C5B9AE]"
                   >
-                    <span className="text-[#8FA98F] text-sm">✓</span>
+                    <span className="text-[#9EBB9A] text-sm">✓</span>
                     <span>{feat}</span>
                   </div>
                 ))}
@@ -146,8 +146,8 @@ export const PricingTeaserSection: React.FC = () => {
               href="/login"
               className={`w-full py-3 rounded-full text-center text-sm font-medium transition-all duration-200 shadow-xs ${
                 tier.popular
-                  ? 'bg-[#D4826A] hover:bg-[#C2735C] text-white shadow-sm'
-                  : 'bg-[#4A4238] hover:bg-[#383129] dark:bg-[#EDE6DC] dark:hover:bg-white text-[#F3EDE4] dark:text-[#161311]'
+                  ? 'bg-[#E3836C] hover:bg-[#ED967F] active:bg-[#C96F5A] text-[#FFF7F1] shadow-sm'
+                  : 'bg-[#4A4238] hover:bg-[#383129] dark:bg-[#292522] dark:border dark:border-[#504740] dark:hover:bg-[#302B28] text-[#F3EDE4] dark:text-[#F4EDE5]'
               }`}
             >
               {tier.cta}

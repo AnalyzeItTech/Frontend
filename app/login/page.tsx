@@ -52,12 +52,12 @@ const Field: React.FC<FieldProps> = ({
   <div className="flex flex-col gap-1.5">
     <label
       htmlFor={id}
-      className="text-xs font-mono tracking-wider uppercase text-[#4A4238]/60 dark:text-[#EDE6DC]/60"
+      className="text-xs font-mono tracking-wider uppercase text-[#4A4238]/60 dark:text-[#91867E]"
     >
       {label}
     </label>
     <div className="relative">
-      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4A4238]/40 dark:text-white/40 pointer-events-none">
+      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4A4238]/40 dark:text-[#91867E] pointer-events-none">
         {icon}
       </span>
       <input
@@ -67,20 +67,20 @@ const Field: React.FC<FieldProps> = ({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         autoComplete={autoComplete}
-        className={`w-full pl-10 ${rightElement ? 'pr-10' : 'pr-4'} py-3 rounded-xl bg-white/60 dark:bg-white/05 border text-sm text-[#4A4238] dark:text-[#EDE6DC] placeholder-[#4A4238]/30 dark:placeholder-white/30 focus:outline-none focus:ring-2 transition-all duration-200 ${
+        className={`w-full pl-10 ${rightElement ? 'pr-10' : 'pr-4'} py-3 rounded-xl bg-white/60 dark:bg-[#292522] border text-sm text-[#4A4238] dark:text-[#F4EDE5] placeholder-[#4A4238]/30 dark:placeholder-[#80766F] focus:outline-none focus:ring-2 transition-all duration-200 ${
           error
-            ? 'border-red-400/60 focus:ring-red-300/40'
-            : 'border-[#4A4238]/10 dark:border-white/10 focus:ring-[#D4826A]/30 focus:border-[#D4826A]/40'
+            ? 'border-red-400/60 dark:border-[#D97870]/60 focus:ring-red-300/40 dark:focus:ring-[#D97870]/30'
+            : 'border-[#4A4238]/10 dark:border-[#3A3430] focus:ring-[#E3836C]/30 focus:border-[#E3836C]/40'
         }`}
       />
       {rightElement && (
-        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#4A4238]/40 dark:text-white/40">
+        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#4A4238]/40 dark:text-[#91867E]">
           {rightElement}
         </span>
       )}
     </div>
     {error && (
-      <p className="text-xs text-red-500 dark:text-red-400 font-mono mt-0.5">{error}</p>
+      <p className="text-xs text-red-500 dark:text-[#D97870] font-mono mt-0.5">{error}</p>
     )}
   </div>
 );
@@ -94,11 +94,11 @@ function getPasswordStrength(pw: string): { score: number; label: string; color:
   if (/[0-9]/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
   const levels: Array<{ label: string; color: string }> = [
-    { label: 'Too short', color: '#E14759' },
-    { label: 'Weak', color: '#E14759' },
-    { label: 'Fair', color: '#C4A06A' },
-    { label: 'Good', color: '#8FA98F' },
-    { label: 'Strong', color: '#4A7C59' },
+    { label: 'Too short', color: '#D97870' },
+    { label: 'Weak', color: '#D97870' },
+    { label: 'Fair', color: '#D9AD70' },
+    { label: 'Good', color: '#9EBB9A' },
+    { label: 'Strong', color: '#9EBB9A' },
   ];
   return { score, ...levels[score] };
 }
@@ -131,7 +131,7 @@ const OAuthButton: React.FC<{
 }> = ({ icon, label }) => (
   <button
     type="button"
-    className="flex items-center justify-center gap-2.5 w-full py-2.5 rounded-xl border border-[#4A4238]/12 dark:border-white/12 bg-white/50 dark:bg-white/05 hover:bg-white/80 dark:hover:bg-white/10 hover:border-[#4A4238]/20 dark:hover:border-white/20 text-xs font-medium text-[#4A4238] dark:text-[#EDE6DC] transition-all duration-200 cursor-pointer"
+    className="flex items-center justify-center gap-2.5 w-full py-2.5 rounded-xl border border-[#4A4238]/12 dark:border-[#3A3430] bg-white/50 dark:bg-[#292522] hover:bg-white/80 dark:hover:bg-[#302B28] hover:border-[#4A4238]/20 dark:hover:border-[#504740] text-xs font-medium text-[#4A4238] dark:text-[#F4EDE5] transition-all duration-200 cursor-pointer shadow-xs"
   >
     {icon}
     {label}
@@ -141,9 +141,9 @@ const OAuthButton: React.FC<{
 // ─── Divider ──────────────────────────────────────────────────────────────────
 const Divider = () => (
   <div className="flex items-center gap-3">
-    <span className="flex-1 h-px bg-[#4A4238]/10 dark:bg-white/10" />
-    <span className="text-xs font-mono text-[#4A4238]/35 dark:text-white/35 uppercase tracking-wider">or</span>
-    <span className="flex-1 h-px bg-[#4A4238]/10 dark:bg-white/10" />
+    <span className="flex-1 h-px bg-[#4A4238]/10 dark:bg-[#3A3430]" />
+    <span className="text-xs font-mono text-[#4A4238]/35 dark:text-[#91867E] uppercase tracking-wider">or</span>
+    <span className="flex-1 h-px bg-[#4A4238]/10 dark:bg-[#3A3430]" />
   </div>
 );
 
@@ -184,7 +184,7 @@ const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       {generalError && (
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 font-mono">
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 dark:bg-[#382522] border border-red-500/20 dark:border-[#D97870]/30 text-xs text-red-600 dark:text-[#D97870] font-mono">
           <IconAlertCircle size={16} className="flex-shrink-0" />
           <span>{generalError}</span>
         </div>
@@ -216,7 +216,7 @@ const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
             <button
               type="button"
               onClick={() => setShowPw((v) => !v)}
-              className="cursor-pointer hover:text-[#4A4238] dark:hover:text-white transition-colors"
+              className="cursor-pointer hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors"
             >
               {showPw ? <IconEyeOff size={16} /> : <IconEye size={16} />}
             </button>
@@ -225,7 +225,7 @@ const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
         <div className="flex justify-end">
           <button
             type="button"
-            className="text-xs text-[#D4826A] hover:text-[#C0734E] font-mono transition-colors cursor-pointer"
+            className="text-xs text-[#E3836C] hover:text-[#ED967F] font-mono transition-colors cursor-pointer"
           >
             Forgot password?
           </button>
@@ -235,7 +235,7 @@ const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
       <button
         type="submit"
         disabled={loading}
-        className="group flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-sm font-medium tracking-wide transition-all duration-200 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer mt-1"
+        className="group flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-sm font-medium tracking-wide transition-all duration-200 shadow-xs disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer mt-1"
       >
         {loading ? (
           <span className="flex items-center gap-2">
@@ -311,7 +311,7 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       {generalError && (
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 font-mono">
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 dark:bg-[#382522] border border-red-500/20 dark:border-[#D97870]/30 text-xs text-red-600 dark:text-[#D97870] font-mono">
           <IconAlertCircle size={16} className="flex-shrink-0" />
           <span>{generalError}</span>
         </div>
@@ -353,7 +353,7 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
             <button
               type="button"
               onClick={() => setShowPw((v) => !v)}
-              className="cursor-pointer hover:text-[#4A4238] dark:hover:text-white transition-colors"
+              className="cursor-pointer hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors"
             >
               {showPw ? <IconEyeOff size={16} /> : <IconEye size={16} />}
             </button>
@@ -375,7 +375,7 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
           <button
             type="button"
             onClick={() => setShowConfirm((v) => !v)}
-            className="cursor-pointer hover:text-[#4A4238] dark:hover:text-white transition-colors"
+            className="cursor-pointer hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors"
           >
             {showConfirm ? <IconEyeOff size={16} /> : <IconEye size={16} />}
           </button>
@@ -391,28 +391,28 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
             onClick={() => setAgreed((v) => !v)}
             className={`mt-0.5 w-4 h-4 rounded flex-shrink-0 border flex items-center justify-center transition-all duration-200 cursor-pointer ${
               agreed
-                ? 'bg-[#D4826A] border-[#D4826A]'
-                : 'bg-white/60 dark:bg-white/05 border-[#4A4238]/20 dark:border-white/20 group-hover:border-[#D4826A]/40'
+                ? 'bg-[#E3836C] border-[#E3836C]'
+                : 'bg-white/60 dark:bg-[#292522] border-[#4A4238]/20 dark:border-[#3A3430] group-hover:border-[#E3836C]/40'
             }`}
           >
             {agreed && <IconCheck size={10} stroke={3} className="text-white" />}
           </button>
-          <span className="text-xs text-[#4A4238]/60 dark:text-[#EDE6DC]/60 leading-relaxed">
+          <span className="text-xs text-[#4A4238]/60 dark:text-[#C5B9AE] leading-relaxed">
             I agree to the{' '}
-            <button type="button" className="text-[#D4826A] hover:underline cursor-pointer">Terms of Service</button>
+            <button type="button" className="text-[#E3836C] hover:text-[#ED967F] hover:underline cursor-pointer">Terms of Service</button>
             {' '}and{' '}
-            <button type="button" className="text-[#D4826A] hover:underline cursor-pointer">Privacy Policy</button>
+            <button type="button" className="text-[#E3836C] hover:text-[#ED967F] hover:underline cursor-pointer">Privacy Policy</button>
           </span>
         </label>
         {errors.agreed && (
-          <p className="text-xs text-red-500 dark:text-red-400 font-mono ml-6">{errors.agreed}</p>
+          <p className="text-xs text-red-500 dark:text-[#D97870] font-mono ml-6">{errors.agreed}</p>
         )}
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="group flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-sm font-medium tracking-wide transition-all duration-200 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer mt-1"
+        className="group flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-sm font-medium tracking-wide transition-all duration-200 shadow-xs disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer mt-1"
       >
         {loading ? (
           <span className="flex items-center gap-2">
@@ -454,14 +454,14 @@ const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => {
       animate={{ opacity: 1, scale: 1 }}
       className="flex flex-col items-center justify-center gap-5 py-12 text-center"
     >
-      <div className="w-16 h-16 rounded-full bg-[#8FA98F]/20 flex items-center justify-center">
-        <IconCheck size={32} className="text-[#4A7C59] dark:text-[#8FA98F]" />
+      <div className="w-16 h-16 rounded-full bg-[#8FA98F]/20 dark:bg-[#283329] flex items-center justify-center">
+        <IconCheck size={32} className="text-[#4A7C59] dark:text-[#9EBB9A]" />
       </div>
       <div>
-        <h3 className="font-serif text-xl text-[#4A4238] dark:text-[#EDE6DC] mb-1">
+        <h3 className="font-serif text-xl text-[#4A4238] dark:text-[#F4EDE5] mb-1">
           {tab === 'login' ? 'Welcome back!' : 'Account created!'}
         </h3>
-        <p className="text-sm text-[#4A4238]/55 dark:text-[#EDE6DC]/55">
+        <p className="text-sm text-[#4A4238]/55 dark:text-[#C5B9AE]">
           {tab === 'login'
             ? "You're signed in. Redirecting to your dashboard…"
             : 'Your account is ready. Redirecting you now…'}
@@ -469,7 +469,7 @@ const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => {
       </div>
       <Link
         href="/Dashboard"
-        className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[#D4826A] hover:text-[#C0734E] transition-colors mt-2"
+        className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[#E3836C] hover:text-[#ED967F] transition-colors mt-2"
       >
         Go to Dashboard <IconArrowRight size={13} />
       </Link>
@@ -485,7 +485,7 @@ export default function LoginPage() {
   const handleSuccess = () => setSuccess(true);
 
   return (
-    <div className="min-h-screen bg-[#F3EDE4] dark:bg-[#161311] text-[#4A4238] dark:text-[#EDE6DC] flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-[#F3EDE4] dark:bg-[#171514] text-[#4A4238] dark:text-[#F4EDE5] flex flex-col transition-colors duration-300">
       {/* Minimal top nav */}
       <nav className="flex items-center justify-between px-6 sm:px-10 py-5">
         <Link href="/" className="flex items-center gap-2 group">
@@ -502,7 +502,7 @@ export default function LoginPage() {
           <ThemeToggle />
           <Link
             href="/"
-            className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/50 dark:text-[#EDE6DC]/50 hover:text-[#4A4238] dark:hover:text-white transition-colors"
+            className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/50 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors"
           >
             ← Back to home
           </Link>
@@ -521,16 +521,16 @@ export default function LoginPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.28 }}
-                className="font-serif text-3xl sm:text-4xl text-[#4A4238] dark:text-[#EDE6DC] mb-2"
+                className="font-serif text-3xl sm:text-4xl text-[#4A4238] dark:text-[#F4EDE5] mb-2"
               >
                 {tab === 'login' ? (
-                  <>Welcome <span className="italic text-[#D4826A]">back</span></>
+                  <>Welcome <span className="italic text-[#E3836C]">back</span></>
                 ) : (
-                  <>Join <span className="italic text-[#D4826A]">AnalyzeIt</span></>
+                  <>Join <span className="italic text-[#E3836C]">AnalyzeIt</span></>
                 )}
               </motion.h1>
             </AnimatePresence>
-            <p className="text-sm text-[#4A4238]/50 dark:text-[#EDE6DC]/50">
+            <p className="text-sm text-[#4A4238]/50 dark:text-[#91867E]">
               {tab === 'login'
                 ? 'Sign in to your workspace'
                 : 'Create a free account to get started'}
@@ -538,11 +538,11 @@ export default function LoginPage() {
           </div>
 
           {/* Glass card */}
-          <div className="glass-card rounded-2xl p-6 sm:p-8 shadow-lg">
+          <div className="glass-card dark:bg-[#211E1C] dark:border dark:border-[#3A3430] rounded-2xl p-6 sm:p-8 shadow-xl">
             {!success ? (
               <>
                 {/* Tab switcher */}
-                <div className="flex gap-1 p-1 bg-black/5 dark:bg-white/10 rounded-xl mb-6">
+                <div className="flex gap-1 p-1 bg-black/5 dark:bg-[#292522] border border-transparent dark:border-[#3A3430] rounded-xl mb-6">
                   {(['login', 'register'] as Tab[]).map((t) => (
                     <button
                       key={t}
@@ -550,8 +550,8 @@ export default function LoginPage() {
                       onClick={() => { setTab(t); setSuccess(false); }}
                       className={`flex-1 py-2 rounded-lg text-xs font-mono uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                         tab === t
-                          ? 'bg-white dark:bg-[#2B2622] shadow-sm text-[#4A4238] dark:text-white font-semibold'
-                          : 'text-[#4A4238]/45 dark:text-white/45 hover:text-[#4A4238] dark:hover:text-white'
+                          ? 'bg-white dark:bg-[#302B28] shadow-xs text-[#4A4238] dark:text-[#F4EDE5] font-semibold border border-[#4A4238]/10 dark:border-[#504740]'
+                          : 'text-[#4A4238]/45 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
                       }`}
                     >
                       {t === 'login' ? 'Sign In' : 'Register'}
@@ -577,18 +577,18 @@ export default function LoginPage() {
                 </AnimatePresence>
 
                 {/* Bottom toggle */}
-                <p className="text-center text-xs text-[#4A4238]/45 dark:text-white/45 mt-6">
+                <p className="text-center text-xs text-[#4A4238]/45 dark:text-[#91867E] mt-6">
                   {tab === 'login' ? (
                     <>
                       Don&apos;t have an account?{' '}
-                      <button type="button" onClick={() => setTab('register')} className="text-[#D4826A] hover:text-[#C0734E] font-medium transition-colors cursor-pointer">
+                      <button type="button" onClick={() => setTab('register')} className="text-[#E3836C] hover:text-[#ED967F] font-medium transition-colors cursor-pointer">
                         Create one
                       </button>
                     </>
                   ) : (
                     <>
                       Already have an account?{' '}
-                      <button type="button" onClick={() => setTab('login')} className="text-[#D4826A] hover:text-[#C0734E] font-medium transition-colors cursor-pointer">
+                      <button type="button" onClick={() => setTab('login')} className="text-[#E3836C] hover:text-[#ED967F] font-medium transition-colors cursor-pointer">
                         Sign in
                       </button>
                     </>
@@ -600,7 +600,7 @@ export default function LoginPage() {
             )}
           </div>
 
-          <p className="text-center text-xs text-[#4A4238]/30 dark:text-white/30 mt-6 font-mono">
+          <p className="text-center text-xs text-[#4A4238]/30 dark:text-[#91867E]/60 mt-6 font-mono">
             Protected with end-to-end encryption
           </p>
         </div>

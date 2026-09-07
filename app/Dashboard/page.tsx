@@ -32,6 +32,15 @@ import {
   IconFolder,
   IconFolderPlus,
   IconKey,
+  IconDownload,
+  IconFileTypePdf,
+  IconFileTypePpt,
+  IconFileSpreadsheet,
+  IconFileTypeDoc,
+  IconShare,
+  IconChevronDown,
+  IconPlayerPlay,
+  IconInfoCircle,
 } from '@tabler/icons-react';
 import { ThemeToggle } from '../Components/ui/ThemeToggle';
 import { useTheme } from '../Components/ui/ThemeProvider';
@@ -42,6 +51,7 @@ import {
   createProject,
   updateProject,
   deleteProject,
+  updateProjectLayout,
   streamChat,
   resolveWidgetData,
   type WidgetSpec,
@@ -57,6 +67,17 @@ import {
   type UserProfile,
 } from '../lib/auth';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
+import {
+  exportDashboardToPdf,
+  exportDashboardToPptx,
+  exportDashboardToXlsx,
+  exportDashboardToDocx,
+  copyShareableLink,
+} from '../lib/exportUtils';
+import {
+  CURATED_TEMPLATES,
+  type DashboardTemplate,
+} from '../lib/dashboardTemplates';
 
 const EarthGlobe = dynamic(
   () => import('../Components/3d/EarthGlobe').then((mod) => mod.EarthGlobe),
@@ -93,6 +114,17 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [serverProjects, setServerProjects] = useState<ProjectSummary[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(true);
+
+  // ─── Export Menu & Toast State ───────────────────────────────────────────────
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [exportToastMsg, setExportToastMsg] = useState<string | null>(null);
+
+  // ─── Curated Templates State ─────────────────────────────────────────────────
+  const [activeTemplateCategory, setActiveTemplateCategory] = useState<string>('All');
+  const [isApplyingTemplate, setIsApplyingTemplate] = useState<string | null>(null);
+
+  // ─── Incognito Explainer Tooltip State ───────────────────────────────────────
+  const [showIncognitoTooltip, setShowIncognitoTooltip] = useState(false);
 
   // ─── Modals State ────────────────────────────────────────────────────────────
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
@@ -160,7 +192,7 @@ export default function DashboardPage() {
           }
         } else {
           setActiveProjectId(null);
-          setActiveProjectName('No Active Workspace');
+          setActiveProjectName('Workspace Canvas');
           setCurrentLayout({ widgets: [] });
         }
       } catch (err) {
@@ -219,6 +251,29 @@ export default function DashboardPage() {
     }
   };
 
+  const handleUseTemplate = async (template: DashboardTemplate) => {
+    if (isApplyingTemplate) return;
+    setIsApplyingTemplate(template.id);
+    try {
+      const created = await createProject(template.name, user?.id);
+      if (template.widgets.length > 0) {
+        await updateProjectLayout(created.id, 1, { widgets: template.widgets }, 'user');
+      }
+      setServerProjects((prev) => [created, ...prev]);
+      setActiveProjectId(created.id);
+      setActiveProjectName(created.name);
+      setCurrentLayout({ widgets: template.widgets });
+      setLayoutVersion(1);
+      setExportToastMsg(`Project created from "${template.name}" template!`);
+      setTimeout(() => setExportToastMsg(null), 3000);
+      router.push(`/new-project?projectId=${created.id}`);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to instantiate template project');
+    } finally {
+      setIsApplyingTemplate(null);
+    }
+  };
+
   const handleRenameSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!projectToRename || !renameName.trim() || isRenamingProject) return;
@@ -255,7 +310,7 @@ export default function DashboardPage() {
           handleSelectProject(remaining[0]);
         } else {
           setActiveProjectId(null);
-          setActiveProjectName('No Active Workspace');
+          setActiveProjectName('Workspace Canvas');
           setCurrentLayout({ widgets: [] });
         }
       }
@@ -418,11 +473,12 @@ export default function DashboardPage() {
         if (projectToRename) setProjectToRename(null);
         if (projectToDelete) setProjectToDelete(null);
         if (isUserSettingsOpen) setIsUserSettingsOpen(false);
+        if (isExportMenuOpen) setIsExportMenuOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isGlobeExpanded, isNewProjectOpen, projectToRename, projectToDelete, isUserSettingsOpen]);
+  }, [isGlobeExpanded, isNewProjectOpen, projectToRename, projectToDelete, isUserSettingsOpen, isExportMenuOpen]);
 
   const filteredProjects = serverProjects.filter(
     (p) =>
@@ -431,13 +487,23 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="relative min-h-screen bg-[#F3EDE4] dark:bg-[#161311] text-[#4A4238] dark:text-[#EDE6DC] transition-colors duration-500 overflow-x-hidden">
+    <div className="relative min-h-screen bg-[#F3EDE4] dark:bg-[#171514] text-[#4A4238] dark:text-[#F4EDE5] transition-colors duration-500 overflow-x-hidden">
       
-      {/* ─── LAYER 1: 3D EARTH GLOBE BACKGROUND & EXPANDED MODAL ──────────── */}
-      <EarthGlobe
-        isExpanded={isGlobeExpanded}
-        onToggleExpand={setIsGlobeExpanded}
-      />
+      {/* ─── LAYER 1: FULLSCREEN 3D EARTH MODAL (ON DEMAND ONLY) ─────────── */}
+      {isGlobeExpanded && (
+        <EarthGlobe
+          isExpanded={true}
+          onToggleExpand={setIsGlobeExpanded}
+        />
+      )}
+
+      {/* Backdrop for open dropdowns */}
+      {isExportMenuOpen && (
+        <div
+          className="fixed inset-0 z-20 cursor-default"
+          onClick={() => setIsExportMenuOpen(false)}
+        />
+      )}
 
       {/* ─── LAYER 2: FLOATING DASHBOARD DECK ─────────────────────────────── */}
       <div
@@ -446,7 +512,7 @@ export default function DashboardPage() {
         }`}
       >
         {/* Top Header Navbar */}
-        <header className="sticky top-0 z-30 px-6 sm:px-10 py-4 flex items-center justify-between border-b border-[#4A4238]/08 dark:border-white/08 bg-[#F3EDE4]/75 dark:bg-[#161311]/75 backdrop-blur-md">
+        <header className="sticky top-0 z-30 px-6 sm:px-10 py-4 flex items-center justify-between border-b border-[#4A4238]/08 dark:border-[#3A3430] bg-[#F3EDE4]/75 dark:bg-[#171514]/80 backdrop-blur-md">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2.5 group">
               <Image
@@ -457,13 +523,123 @@ export default function DashboardPage() {
                 className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
                 priority
               />
-              <span className="hidden sm:inline-block text-[11px] font-mono uppercase tracking-widest text-[#4A4238]/40 dark:text-white/40 ml-1">
+              <span className="hidden sm:inline-block text-[11px] font-mono uppercase tracking-widest text-[#4A4238]/40 dark:text-[#91867E] ml-1">
                 Workspace
               </span>
             </Link>
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Export / Document Generation Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-full border border-[#4A4238]/15 dark:border-[#3A3430] hover:border-[#E3836C] dark:hover:border-[#E3836C] bg-white/60 dark:bg-[#211E1C] text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] transition-all cursor-pointer shadow-xs"
+              >
+                <IconDownload size={14} className="text-[#E3836C]" />
+                <span className="hidden sm:inline">Export / Generate</span>
+                <span className="sm:hidden">Export</span>
+                <IconChevronDown size={12} className={`transition-transform duration-200 ${isExportMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {isExportMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 6, scale: 0.96 }}
+                    className="absolute right-0 mt-2 w-64 rounded-2xl glass-card border border-[#4A4238]/15 dark:border-[#3A3430] bg-[#F3EDE4] dark:bg-[#211E1C] shadow-2xl p-2 z-50 space-y-1"
+                  >
+                    <div className="px-3 py-1.5 border-b border-[#4A4238]/10 dark:border-[#3A3430]">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#91867E]">
+                        Executive Document Suite
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsExportMenuOpen(false);
+                        exportDashboardToPdf(activeProjectName, currentLayout.widgets);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] hover:text-[#E3836C] transition-colors cursor-pointer text-left"
+                    >
+                      <IconFileTypePdf size={16} className="text-red-500 shrink-0" />
+                      <div>
+                        <div className="font-semibold">Printable PDF Report</div>
+                        <div className="text-[10px] text-[#91867E]">High-DPI editorial print layout</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsExportMenuOpen(false);
+                        exportDashboardToPptx(activeProjectName, currentLayout.widgets);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] hover:text-[#E3836C] transition-colors cursor-pointer text-left"
+                    >
+                      <IconFileTypePpt size={16} className="text-amber-500 shrink-0" />
+                      <div>
+                        <div className="font-semibold">Slide Deck (Presentation)</div>
+                        <div className="text-[10px] text-[#91867E]">Executive HTML5 presentation</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsExportMenuOpen(false);
+                        exportDashboardToXlsx(activeProjectName, currentLayout.widgets);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] hover:text-[#E3836C] transition-colors cursor-pointer text-left"
+                    >
+                      <IconFileSpreadsheet size={16} className="text-emerald-500 shrink-0" />
+                      <div>
+                        <div className="font-semibold">Spreadsheet (XLSX / Data)</div>
+                        <div className="text-[10px] text-[#91867E]">Multi-table workbook export</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsExportMenuOpen(false);
+                        exportDashboardToDocx(activeProjectName, currentLayout.widgets);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] hover:text-[#E3836C] transition-colors cursor-pointer text-left"
+                    >
+                      <IconFileTypeDoc size={16} className="text-blue-500 shrink-0" />
+                      <div>
+                        <div className="font-semibold">Narrative Brief (Word)</div>
+                        <div className="text-[10px] text-[#91867E]">Editable Word / Docs brief</div>
+                      </div>
+                    </button>
+
+                    <div className="pt-1 border-t border-[#4A4238]/10 dark:border-[#3A3430]">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setIsExportMenuOpen(false);
+                          await copyShareableLink(activeProjectId);
+                          setExportToastMsg('Shareable link copied to clipboard!');
+                          setTimeout(() => setExportToastMsg(null), 3000);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#E3836C] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] transition-colors cursor-pointer text-left"
+                      >
+                        <IconShare size={16} className="shrink-0" />
+                        <div>
+                          <div className="font-semibold">Copy Shareable Link</div>
+                          <div className="text-[10px] text-[#91867E]">Direct link to active canvas</div>
+                        </div>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             {/* New Project CTA Button */}
             <button
               type="button"
@@ -471,9 +647,9 @@ export default function DashboardPage() {
                 setNewProjectName('');
                 setIsNewProjectOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#4A4238] hover:bg-[#383129] dark:bg-[#EDE6DC] dark:hover:bg-white dark:text-[#161311] text-[#F3EDE4] text-xs font-mono uppercase tracking-wider transition-all shadow-sm transform hover:scale-[1.02] cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#4A4238] hover:bg-[#383129] dark:bg-[#E9DDD2] dark:hover:bg-[#F4EDE5] dark:text-[#302824] text-[#F3EDE4] text-xs font-mono uppercase tracking-wider transition-all shadow-sm transform hover:scale-[1.02] cursor-pointer"
             >
-              <IconPlus size={14} className="text-[#D4826A]" />
+              <IconPlus size={14} className="text-[#E3836C]" />
               <span>New Project</span>
             </button>
 
@@ -490,14 +666,14 @@ export default function DashboardPage() {
                     setEditName(user.name || '');
                     setIsUserSettingsOpen(true);
                   }}
-                  className="w-8 h-8 rounded-full bg-[#E8C4A0] dark:bg-[#3D352E] border border-[#4A4238]/20 dark:border-white/15 flex items-center justify-center font-mono text-xs font-bold text-[#4A4238] dark:text-[#EDE6DC] hover:ring-2 hover:ring-[#D4826A]/40 transition-all cursor-pointer"
+                  className="w-8 h-8 rounded-full bg-[#E8C4A0] dark:bg-[#302B28] border border-[#4A4238]/20 dark:border-[#504740] flex items-center justify-center font-mono text-xs font-bold text-[#4A4238] dark:text-[#F4EDE5] hover:ring-2 hover:ring-[#E3836C]/40 transition-all cursor-pointer"
                   title={`Account Settings: ${user.name} (${user.email})`}
                 >
                   {user.name ? user.name.slice(0, 2).toUpperCase() : 'US'}
                 </button>
                 <button
                   onClick={handleLogout}
-                  className="text-[11px] font-mono uppercase tracking-wider text-[#4A4238]/50 dark:text-[#EDE6DC]/50 hover:text-red-500 transition-colors cursor-pointer"
+                  className="text-[11px] font-mono uppercase tracking-wider text-[#4A4238]/50 dark:text-[#C5B9AE]/50 hover:text-red-500 transition-colors cursor-pointer"
                   title="Sign out of your account"
                 >
                   Sign Out
@@ -506,7 +682,7 @@ export default function DashboardPage() {
             ) : (
               <Link
                 href="/login"
-                className="text-xs font-mono uppercase tracking-wider text-[#D4826A] hover:text-[#C0734E] hover:underline font-semibold"
+                className="text-xs font-mono uppercase tracking-wider text-[#E3836C] hover:text-[#ED967F] hover:underline font-semibold"
               >
                 Sign In
               </Link>
@@ -517,164 +693,391 @@ export default function DashboardPage() {
         {/* Main Workspace Content */}
         <main className="flex-1 p-6 sm:p-10 max-w-7xl w-full mx-auto space-y-8">
           
-          {/* Welcome Greeting */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div>
-              <div className="text-xs font-mono text-[#D4826A] uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                <IconSparkles size={13} /> Continuous Intelligence Engine
-              </div>
-              <h1 className="font-serif text-3xl sm:text-4xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
-                Good day,{' '}
-                <span className="italic text-[#D4826A]">
-                  {user?.name ? user.name.split(' ')[0] : 'Explorer'}
-                </span>
-              </h1>
-              <p className="text-sm text-[#4A4238]/60 dark:text-[#EDE6DC]/60 mt-1">
-                {serverProjects.length} active project{serverProjects.length === 1 ? '' : 's'} saved in MongoDB Atlas · Continuous intelligence ready
-              </p>
-            </div>
+          {/* ─── HERO SECTION: BALANCED 2-COLUMN HERO (SOLVES FOLD EATING) ─── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Left 2 Cols: Greeting, Telemetry Pills, and AI Copilot Prompt Bar */}
+            <div className="lg:col-span-2 flex flex-col justify-between space-y-5 glass-card rounded-3xl p-6 sm:p-8 border border-[#4A4238]/12 dark:border-[#3A3430] shadow-xl">
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="text-xs font-mono text-[#E3836C] uppercase tracking-widest flex items-center gap-1.5">
+                    <IconSparkles size={14} /> Continuous Intelligence Engine
+                  </div>
+                  
+                  {/* Incognito Pill with explainer tooltip */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onMouseEnter={() => setShowIncognitoTooltip(true)}
+                      onMouseLeave={() => setShowIncognitoTooltip(false)}
+                      onClick={() => router.push('/new-project')}
+                      className="px-3 py-1 rounded-full glass-card text-[11px] font-mono text-[#4A4238]/70 dark:text-[#C5B9AE] flex items-center gap-1.5 hover:border-[#E3836C]/40 transition-all cursor-pointer"
+                    >
+                      <IconShieldLock size={13} className="text-[#A99BB5]" />
+                      <span>Incognito Session</span>
+                    </button>
+                    {showIncognitoTooltip && (
+                      <div className="absolute right-0 top-full mt-2 w-56 p-2.5 rounded-xl bg-[#211E1C] text-[#C5B9AE] text-[10px] font-mono border border-[#3A3430] shadow-2xl z-30 pointer-events-none">
+                        Ephemeral session-only workspace. In-memory state is discarded upon window close.
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-            {/* Quick Action Badges */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setIsGlobeExpanded(true)}
-                className="px-4 py-2 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono uppercase tracking-wider flex items-center gap-2 shadow-md transition-all transform hover:scale-[1.02] cursor-pointer"
-              >
-                <IconWorld size={16} />
-                <span>Fullscreen 3D Earth</span>
-              </button>
+                <h1 className="font-serif text-3xl sm:text-4xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5] leading-tight">
+                  Good day,{' '}
+                  <span className="italic text-[#E3836C]">
+                    {user?.name ? user.name.split(' ')[0] : 'Explorer'}
+                  </span>
+                </h1>
+                <p className="text-sm text-[#4A4238]/70 dark:text-[#C5B9AE] mt-1">
+                  Continuous telemetry &amp; live generative dashboard synthesis connected to MongoDB Atlas.
+                </p>
 
-              <Link
-                href="/new-project"
-                className="px-3.5 py-2 rounded-xl glass-card text-xs font-mono text-[#4A4238] dark:text-[#EDE6DC] flex items-center gap-2 hover:border-[#D4826A]/40 transition-all cursor-pointer"
-              >
-                <IconShieldLock size={15} className="text-purple-400" />
-                <span>Incognito Session</span>
-              </Link>
-            </div>
-          </div>
-
-          {/* ─── FEATURED 3D PLANET EARTH TELEMETRY STAGE ─────────────────── */}
-          <div className="glass-card rounded-3xl p-6 border border-[#4A4238]/12 dark:border-white/12 shadow-xl space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="w-3 h-3 rounded-full bg-[#D4826A] animate-pulse" />
-                <div>
-                  <h2 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
-                    Global Telemetry Mesh &amp; 3D Planetary Map
-                  </h2>
-                  <p className="text-xs font-mono text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
-                    Active Three.js WebGL Earth with real-time continuous data ingestion across 10 global hubs
-                  </p>
+                {/* Quick Stats Pill Bar */}
+                <div className="flex flex-wrap items-center gap-2.5 mt-4 pt-4 border-t border-[#4A4238]/08 dark:border-[#3A3430]">
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-black/5 dark:bg-[#292522] text-xs font-mono">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[#4A4238]/60 dark:text-[#91867E]">Projects:</span>
+                    <strong className="text-[#4A4238] dark:text-[#F4EDE5]">{serverProjects.length}</strong>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-black/5 dark:bg-[#292522] text-xs font-mono">
+                    <IconLayoutDashboard size={13} className="text-[#E3836C]" />
+                    <span className="text-[#4A4238]/60 dark:text-[#91867E]">Active Widgets:</span>
+                    <strong className="text-[#4A4238] dark:text-[#F4EDE5]">{currentLayout.widgets.length}</strong>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-black/5 dark:bg-[#292522] text-xs font-mono">
+                    <span className="text-[10px] uppercase font-bold text-[#E3836C]">Atlas DB</span>
+                    <span className="text-[#4A4238]/60 dark:text-[#91867E]">Latency:</span>
+                    <strong className="text-emerald-500">18ms</strong>
+                  </div>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsGlobeExpanded(true)}
-                className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl border border-[#4A4238]/15 dark:border-white/15 hover:border-[#D4826A] text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <IconWorld size={14} className="text-[#D4826A]" />
-                <span>Expand Fullscreen</span>
-              </button>
+              {/* Primary AI Prompt Bar */}
+              <div className="space-y-2 pt-2">
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={agentPrompt}
+                    onChange={(e) => setAgentPrompt(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handlePromptAgent()}
+                    placeholder="Ask AI Copilot to modify this dashboard (e.g. 'Add a line chart for MRR Trend' or 'Add CAC metric card')…"
+                    disabled={isAgentRunning}
+                    className="w-full pl-4 pr-24 py-3 rounded-2xl text-xs sm:text-sm bg-white/60 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-[#4A4238] dark:text-[#F4EDE5] placeholder-current/40 dark:placeholder-[#80766F] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handlePromptAgent()}
+                    disabled={isAgentRunning || !agentPrompt.trim()}
+                    className="absolute right-2 px-3.5 py-2 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all disabled:opacity-40 cursor-pointer shadow-sm"
+                  >
+                    {isAgentRunning ? (
+                      <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <IconSend size={14} />
+                    )}
+                    <span>Propose</span>
+                  </button>
+                </div>
+
+                {agentStatus && (
+                  <div className="text-xs font-mono text-[#E3836C] flex items-center gap-2 animate-pulse">
+                    <span className="w-2 h-2 rounded-full bg-[#E3836C]" />
+                    {agentStatus}
+                  </div>
+                )}
+
+                {/* Quick prompt trigger chips */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="text-[11px] font-mono text-[#91867E]">Suggestions:</span>
+                  <button
+                    type="button"
+                    onClick={() => handlePromptAgent('Add a line chart for MRR Trend')}
+                    disabled={isAgentRunning}
+                    className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#4A4238]/05 dark:bg-[#292522] text-[#4A4238]/80 dark:text-[#C5B9AE] hover:bg-[#E3836C]/15 hover:text-[#E3836C] dark:hover:bg-[#E3836C]/20 dark:hover:text-[#E3836C] transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    + MRR Trend
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePromptAgent('Add a metric card for Active Telemetry Nodes')}
+                    disabled={isAgentRunning}
+                    className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#4A4238]/05 dark:bg-[#292522] text-[#4A4238]/80 dark:text-[#C5B9AE] hover:bg-[#E3836C]/15 hover:text-[#E3836C] dark:hover:bg-[#E3836C]/20 dark:hover:text-[#E3836C] transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    + Telemetry Card
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePromptAgent('Add a table widget for Regional Health')}
+                    disabled={isAgentRunning}
+                    className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#4A4238]/05 dark:bg-[#292522] text-[#4A4238]/80 dark:text-[#C5B9AE] hover:bg-[#E3836C]/15 hover:text-[#E3836C] dark:hover:bg-[#E3836C]/20 dark:hover:text-[#E3836C] transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    + Regional Table
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* Embedded 3D Canvas Stage */}
-            <div className="relative w-full h-80 sm:h-96 rounded-2xl overflow-hidden bg-[#E8DFD3]/40 dark:bg-[#110F0D]/60 border border-[#4A4238]/10 dark:border-white/10">
-              <EarthGlobe
-                isExpanded={false}
-                onToggleExpand={setIsGlobeExpanded}
-                className="!absolute inset-0 !z-0"
-              />
+            {/* Right 1 Col: Compact 3D Planetary Mesh Telemetry Card */}
+            <div className="glass-card rounded-3xl p-5 border border-[#4A4238]/12 dark:border-[#3A3430] shadow-xl flex flex-col justify-between space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#E3836C] animate-pulse" />
+                  <div>
+                    <h3 className="font-serif text-base tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
+                      Global Telemetry Mesh
+                    </h3>
+                    <p className="text-[10px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
+                      10 Ingestion Hubs · Active WebGL
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsGlobeExpanded(true)}
+                  className="px-2.5 py-1 rounded-xl border border-[#4A4238]/15 dark:border-[#3A3430] hover:border-[#E3836C] text-[10px] font-mono uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer text-[#E3836C]"
+                  title="Expand to immersive fullscreen 3D Google Earth exploration"
+                >
+                  <IconWorld size={13} />
+                  <span>Expand</span>
+                </button>
+              </div>
+
+              {/* Compact 3D Canvas Stage */}
+              <div className="relative w-full h-52 rounded-2xl overflow-hidden bg-[#E8DFD3]/40 dark:bg-[#171514] border border-[#4A4238]/10 dark:border-[#3A3430]">
+                <EarthGlobe
+                  isExpanded={false}
+                  onToggleExpand={setIsGlobeExpanded}
+                  className="!absolute inset-0 !z-0"
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] font-mono text-[#91867E] pt-1 border-t border-[#4A4238]/08 dark:border-[#3A3430]">
+                <span>Ingestion Status: <strong className="text-emerald-500">Nominal</strong></span>
+                <span>Mesh P99: <strong className="text-emerald-500">18.4ms</strong></span>
+              </div>
+            </div>
+
+          </div>
+
+          {/* ─── ONBOARDING EMPTY STATE (When 0 active projects exist) ──────── */}
+          {!isLoadingProjects && serverProjects.length === 0 && (
+            <div className="glass-card rounded-3xl p-6 sm:p-8 border-2 border-[#E3836C]/30 bg-gradient-to-br from-[#E3836C]/10 via-[#211E1C] to-[#5A332C]/20 shadow-2xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1 max-w-xl">
+                  <div className="flex items-center gap-2 text-xs font-mono text-[#E3836C] font-semibold uppercase tracking-wider">
+                    <IconSparkles size={16} /> Welcome to AnalyzeIt
+                  </div>
+                  <h2 className="font-serif text-2xl sm:text-3xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
+                    Your Continuous Intelligence Studio
+                  </h2>
+                  <p className="text-xs sm:text-sm text-[#4A4238]/70 dark:text-[#C5B9AE] font-mono">
+                    Get started in seconds: instantiate a curated business template below, start with a blank canvas, or prompt the AI Copilot above to synthesize custom charts.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById('curated-templates-section');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono font-medium flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                  >
+                    <IconLayoutDashboard size={15} />
+                    <span>Browse Templates</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewProjectName('');
+                      setIsNewProjectOpen(true);
+                    }}
+                    className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] bg-white/60 dark:bg-[#292522] text-[#4A4238] dark:text-[#F4EDE5] text-xs font-mono flex items-center gap-2 hover:border-[#E3836C]/40 transition-all cursor-pointer"
+                  >
+                    <IconPlus size={15} />
+                    <span>Blank Canvas</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── CURATED DASHBOARD STARTER TEMPLATES ───────────────────────── */}
+          <div id="curated-templates-section" className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#E3836C]" />
+                  <h2 className="font-serif text-xl sm:text-2xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
+                    Curated Starter Templates
+                  </h2>
+                </div>
+                <p className="text-xs font-mono text-[#4A4238]/60 dark:text-[#C5B9AE] mt-0.5">
+                  Instant 1-click workspaces with verified schemas, telemetry bindings, and AI Copilot customization
+                </p>
+              </div>
+
+              {/* Category Filter Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                {['All', 'Revenue', 'Marketing', 'Telemetry', 'Finance'].map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setActiveTemplateCategory(cat)}
+                    className={`px-3 py-1 rounded-xl text-xs font-mono transition-all cursor-pointer ${
+                      activeTemplateCategory === cat
+                        ? 'bg-[#E3836C] text-[#FFF7F1] shadow-xs'
+                        : 'bg-black/5 dark:bg-[#292522] text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#E3836C]'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Template Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              {CURATED_TEMPLATES.filter(
+                (t) => activeTemplateCategory === 'All' || t.category === activeTemplateCategory
+              ).map((template) => {
+                const isApplying = isApplyingTemplate === template.id;
+
+                return (
+                  <div
+                    key={template.id}
+                    className="glass-card rounded-2xl p-4.5 border border-[#4A4238]/10 dark:border-[#3A3430] hover:border-[#E3836C]/40 flex flex-col justify-between space-y-3 transition-all group"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${template.badgeColor}`}>
+                          {template.badge}
+                        </span>
+                        <span className="text-[10px] font-mono text-[#91867E]">
+                          {template.widgets.length} widget{template.widgets.length === 1 ? '' : 's'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h3 className="font-serif text-base font-medium text-[#4A4238] dark:text-[#F4EDE5] group-hover:text-[#E3836C] transition-colors">
+                          {template.name}
+                        </h3>
+                        <p className="text-xs text-[#4A4238]/70 dark:text-[#C5B9AE] mt-1 line-clamp-2 leading-relaxed">
+                          {template.description}
+                        </p>
+                      </div>
+
+                      {/* Tags */}
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {template.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-[#292522] text-[#91867E]"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleUseTemplate(template)}
+                      disabled={isApplyingTemplate !== null}
+                      className="w-full mt-2 py-2 px-3 rounded-xl bg-[#4A4238] hover:bg-[#383129] dark:bg-[#292522] dark:hover:bg-[#E3836C] dark:hover:text-[#FFF7F1] text-white dark:text-[#F4EDE5] text-xs font-mono flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                    >
+                      {isApplying ? (
+                        <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <IconPlayerPlay size={13} />
+                      )}
+                      <span>{isApplying ? 'Provisioning…' : 'Use Template'}</span>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           {/* ─── GENERATIVE PROJECT WORKSPACE CANVAS (AGENTIC UI) ─────────── */}
-          <div className="glass-card rounded-3xl p-6 sm:p-8 border border-[#4A4238]/12 dark:border-white/12 shadow-xl space-y-6">
+          <div className="glass-card rounded-3xl p-6 sm:p-8 border border-[#4A4238]/12 dark:border-[#3A3430] shadow-xl space-y-6">
             
             {/* Header & Scoped Project Metadata */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#4A4238]/10 dark:border-white/10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#4A4238]/10 dark:border-[#3A3430]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#D4826A]/15 text-[#D4826A] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-2xl bg-[#E3836C]/15 text-[#E3836C] flex items-center justify-center shrink-0">
                   <IconLayoutDashboard size={22} />
                 </div>
                 <div>
+                  {/* Breadcrumbs */}
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[#91867E] mb-0.5">
+                    <span>AnalyzeIt</span>
+                    <span>/</span>
+                    <span>Workspaces</span>
+                    <span>/</span>
+                    <span className="text-[#E3836C] truncate max-w-[140px] sm:max-w-xs">{activeProjectName}</span>
+                  </div>
+
                   <div className="flex items-center gap-2">
-                    <h2 className="font-serif text-xl sm:text-2xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
+                    <h2 className="font-serif text-xl sm:text-2xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
                       {activeProjectName}
                     </h2>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#D4826A]/10 text-[#D4826A] font-semibold">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#E3836C]/10 text-[#E3836C] font-semibold">
                       v{layoutVersion}
                     </span>
                   </div>
-                  <p className="text-xs font-mono text-[#4A4238]/60 dark:text-[#EDE6DC]/60 mt-0.5">
-                    Project ID: <span className="underline">{activeProjectId}</span> · Canvas updated by <span className="font-semibold">{updatedBy}</span>
+                  
+                  <p className="text-xs font-mono text-[#4A4238]/60 dark:text-[#C5B9AE] mt-0.5">
+                    ID: <span className="underline">{activeProjectId || 'none'}</span> · Updated by <span className="font-semibold text-[#E3836C]">{updatedBy}</span>
                   </p>
                 </div>
               </div>
 
-              {/* Quick AI Trigger Chips */}
+              {/* Project Switcher + Direct Export Button */}
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handlePromptAgent('Add a line chart for MRR Trend')}
-                  disabled={isAgentRunning}
-                  className="px-3 py-1.5 rounded-xl text-xs font-mono bg-[#4A4238]/05 dark:bg-white/05 hover:bg-[#D4826A]/15 hover:text-[#D4826A] transition-all cursor-pointer disabled:opacity-50"
-                >
-                  + Add MRR Trend
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePromptAgent('Add a metric card for Active Telemetry Nodes')}
-                  disabled={isAgentRunning}
-                  className="px-3 py-1.5 rounded-xl text-xs font-mono bg-[#4A4238]/05 dark:bg-white/05 hover:bg-[#D4826A]/15 hover:text-[#D4826A] transition-all cursor-pointer disabled:opacity-50"
-                >
-                  + Add Telemetry Card
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePromptAgent('Add a table widget for Regional Health')}
-                  disabled={isAgentRunning}
-                  className="px-3 py-1.5 rounded-xl text-xs font-mono bg-[#4A4238]/05 dark:bg-white/05 hover:bg-[#D4826A]/15 hover:text-[#D4826A] transition-all cursor-pointer disabled:opacity-50"
-                >
-                  + Add Regional Table
-                </button>
-              </div>
-            </div>
-
-            {/* Agent Copilot Prompt Input Bar */}
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                value={agentPrompt}
-                onChange={(e) => setAgentPrompt(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handlePromptAgent()}
-                placeholder="Ask agent to modify this dashboard (e.g. 'Add a line chart for Revenue Trend' or 'Add metric card for Conversion Rate')…"
-                disabled={isAgentRunning}
-                className="w-full pl-4 pr-24 py-3 rounded-2xl text-xs sm:text-sm bg-white/60 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 placeholder-current/40 focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40 transition-all"
-              />
-              <button
-                type="button"
-                onClick={() => handlePromptAgent()}
-                disabled={isAgentRunning || !agentPrompt.trim()}
-                className="absolute right-2 px-3.5 py-2 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono flex items-center gap-1.5 transition-all disabled:opacity-40 cursor-pointer shadow-sm"
-              >
-                {isAgentRunning ? (
-                  <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <IconSend size={14} />
+                {serverProjects.length > 1 && (
+                  <select
+                    value={activeProjectId || ''}
+                    onChange={(e) => {
+                      const found = serverProjects.find((p) => p.id === e.target.value);
+                      if (found) handleSelectProject(found);
+                    }}
+                    aria-label="Switch active project"
+                    className="px-3 py-1.5 rounded-xl text-xs font-mono bg-[#4A4238]/05 dark:bg-[#292522] border border-[#4A4238]/10 dark:border-[#3A3430] text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-1 focus:ring-[#E3836C]/40 cursor-pointer"
+                  >
+                    {serverProjects.map((p) => (
+                      <option key={p.id} value={p.id} className="bg-[#F3EDE4] dark:bg-[#211E1C]">
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
                 )}
-                <span>Propose</span>
-              </button>
-            </div>
 
-            {agentStatus && (
-              <div className="text-xs font-mono text-[#D4826A] flex items-center gap-2 animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-[#D4826A]" />
-                {agentStatus}
+                <button
+                  type="button"
+                  onClick={() => exportDashboardToPdf(activeProjectName, currentLayout.widgets)}
+                  disabled={currentLayout.widgets.length === 0}
+                  className="px-3 py-1.5 rounded-xl text-xs font-mono border border-[#4A4238]/15 dark:border-[#3A3430] hover:border-[#E3836C] bg-black/5 dark:bg-[#292522] text-[#4A4238] dark:text-[#F4EDE5] flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40"
+                  title="Export active canvas as PDF report"
+                >
+                  <IconFileTypePdf size={14} className="text-red-500" />
+                  <span>Export PDF</span>
+                </button>
+
+                <Link
+                  href={activeProjectId ? `/new-project?projectId=${activeProjectId}` : '/new-project'}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  title="Open full interactive analysis room with live chat & canvas"
+                >
+                  <span>Open Studio</span>
+                  <IconArrowUpRight size={14} />
+                </Link>
               </div>
-            )}
+            </div>
 
             {/* ─── PENDING PROPOSAL CONFIRMATION CARD (SAFETY GATE) ─── */}
             <AnimatePresence>
@@ -683,10 +1086,10 @@ export default function DashboardPage() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="rounded-2xl p-5 bg-gradient-to-r from-[#D4826A]/15 via-[#E8C4A0]/20 to-[#D4826A]/10 border-2 border-[#D4826A]/40 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                  className="rounded-2xl p-5 bg-gradient-to-r from-[#E3836C]/15 via-[#5A332C]/30 to-[#E3836C]/10 border-2 border-[#E3836C]/40 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                 >
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-xs font-mono text-[#D4826A] font-bold uppercase tracking-wider">
+                    <div className="flex items-center gap-2 text-xs font-mono text-[#E3836C] font-bold uppercase tracking-wider">
                       <IconSparkles size={15} />
                       Agent Proposed Dashboard Modification
                     </div>
@@ -702,9 +1105,9 @@ export default function DashboardPage() {
                         (isMulti ? pendingProposal.widgets![0]?.title || 'Composite Dashboard' : 'Untitled Proposal');
 
                       return (
-                        <p className="text-sm font-serif text-[#4A4238] dark:text-[#EDE6DC]">
+                        <p className="text-sm font-serif text-[#4A4238] dark:text-[#F4EDE5]">
                           Proposal: <span className="font-semibold capitalize">{pendingProposal.action.replace('_', ' ')}</span> of type{' '}
-                          <span className="font-semibold text-[#D4826A]">
+                          <span className="font-semibold text-[#E3836C]">
                             {pType}
                           </span>{' '}
                           (
@@ -715,7 +1118,7 @@ export default function DashboardPage() {
                         </p>
                       );
                     })()}
-                    <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                    <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
                       Action ID: {pendingProposal.action_id} · Safety Gate: User Confirmation Required
                     </p>
                   </div>
@@ -725,7 +1128,7 @@ export default function DashboardPage() {
                       type="button"
                       onClick={handleRejectProposal}
                       disabled={isApplying}
-                      className="px-3.5 py-2 rounded-xl border border-[#4A4238]/20 dark:border-white/20 hover:bg-black/5 dark:hover:bg-white/10 text-xs font-mono text-[#4A4238] dark:text-white flex items-center gap-1.5 transition-all cursor-pointer"
+                      className="px-3.5 py-2 rounded-xl border border-[#4A4238]/20 dark:border-[#3A3430] hover:bg-black/5 dark:hover:bg-[#292522] text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] flex items-center gap-1.5 transition-all cursor-pointer"
                     >
                       <IconX size={14} />
                       <span>Reject</span>
@@ -734,7 +1137,7 @@ export default function DashboardPage() {
                       type="button"
                       onClick={handleAcceptProposal}
                       disabled={isApplying}
-                      className="px-4 py-2 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono flex items-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                      className="px-4 py-2 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
                     >
                       {isApplying ? (
                         <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -768,18 +1171,18 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="py-12 px-6 rounded-2xl border-2 border-dashed border-[#4A4238]/15 dark:border-white/15 flex flex-col items-center justify-center text-center space-y-3 bg-black/[0.01] dark:bg-white/[0.01]">
-                <div className="w-12 h-12 rounded-2xl bg-[#D4826A]/10 text-[#D4826A] flex items-center justify-center">
+              <div className="py-12 px-6 rounded-2xl border-2 border-dashed border-[#4A4238]/15 dark:border-[#3A3430] flex flex-col items-center justify-center text-center space-y-3 bg-black/[0.01] dark:bg-[#211E1C]/50">
+                <div className="w-12 h-12 rounded-2xl bg-[#E3836C]/10 text-[#E3836C] flex items-center justify-center">
                   <IconLayoutDashboard size={24} />
                 </div>
                 <div className="space-y-1 max-w-md">
-                  <h3 className="font-serif text-base text-[#4A4238] dark:text-[#EDE6DC]">
+                  <h3 className="font-serif text-base text-[#4A4238] dark:text-[#F4EDE5]">
                     {activeProjectId ? 'Canvas is ready for widgets' : 'No project loaded'}
                   </h3>
-                  <p className="text-xs text-[#4A4238]/60 dark:text-[#EDE6DC]/60 font-mono">
+                  <p className="text-xs text-[#4A4238]/60 dark:text-[#C5B9AE] font-mono">
                     {activeProjectId
-                      ? 'This workspace has no widgets yet. Type an analytical prompt above or use the quick chips to add your first visual widget.'
-                      : 'Create a new project or select an existing one below to begin visualizing your data.'}
+                      ? 'This workspace has no widgets yet. Type an analytical prompt above or select a starter template to populate your canvas.'
+                      : 'Choose a template above or create a new project to begin visualizing your data.'}
                   </p>
                 </div>
                 {!activeProjectId && (
@@ -789,7 +1192,7 @@ export default function DashboardPage() {
                       setNewProjectName('');
                       setIsNewProjectOpen(true);
                     }}
-                    className="px-4 py-2 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
                   >
                     <IconPlus size={14} />
                     <span>Create First Project</span>
@@ -806,11 +1209,11 @@ export default function DashboardPage() {
             {/* Section Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#D4826A]" />
-                <h2 className="font-serif text-2xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#E3836C]" />
+                <h2 className="font-serif text-2xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
                   Analysis Workspaces
                 </h2>
-                <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-[#4A4238]/06 dark:bg-white/10 text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
+                <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-[#4A4238]/06 dark:bg-[#292522] text-[#4A4238]/60 dark:text-[#C5B9AE]">
                   {serverProjects.length} Saved in MongoDB
                 </span>
               </div>
@@ -820,26 +1223,26 @@ export default function DashboardPage() {
                 <div className="relative">
                   <IconSearch
                     size={14}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4A4238]/40 dark:text-white/40 pointer-events-none"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4A4238]/40 dark:text-[#91867E] pointer-events-none"
                   />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search projects…"
-                    className="pl-8 pr-3 py-1.5 rounded-xl text-xs bg-white/60 dark:bg-white/05 border border-[#4A4238]/10 dark:border-white/10 placeholder-current/30 focus:outline-none focus:ring-1 focus:ring-[#D4826A]/40 transition-all w-48 sm:w-60"
+                    className="pl-8 pr-3 py-1.5 rounded-xl text-xs bg-white/60 dark:bg-[#292522] border border-[#4A4238]/10 dark:border-[#3A3430] text-[#4A4238] dark:text-[#F4EDE5] placeholder-current/30 dark:placeholder-[#80766F] focus:outline-none focus:ring-1 focus:ring-[#E3836C]/40 transition-all w-48 sm:w-60"
                   />
                 </div>
 
                 {/* Grid / List Switcher */}
-                <div className="flex items-center gap-1 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-[#4A4238]/10 dark:border-white/10">
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-black/5 dark:bg-[#292522] border border-[#4A4238]/10 dark:border-[#3A3430]">
                   <button
                     type="button"
                     onClick={() => setLayoutMode('grid')}
                     className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                       layoutMode === 'grid'
-                        ? 'bg-white dark:bg-[#24201D] text-[#4A4238] dark:text-white shadow-xs'
-                        : 'text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white'
+                        ? 'bg-white dark:bg-[#302B28] text-[#4A4238] dark:text-[#F4EDE5] shadow-xs'
+                        : 'text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
                     }`}
                     title="Grid view"
                   >
@@ -850,8 +1253,8 @@ export default function DashboardPage() {
                     onClick={() => setLayoutMode('list')}
                     className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                       layoutMode === 'list'
-                        ? 'bg-white dark:bg-[#24201D] text-[#4A4238] dark:text-white shadow-xs'
-                        : 'text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white'
+                        ? 'bg-white dark:bg-[#302B28] text-[#4A4238] dark:text-[#F4EDE5] shadow-xs'
+                        : 'text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
                     }`}
                     title="List view"
                   >
@@ -866,7 +1269,7 @@ export default function DashboardPage() {
                     setNewProjectName('');
                     setIsNewProjectOpen(true);
                   }}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
                 >
                   <IconPlus size={14} />
                   <span>New</span>
@@ -874,11 +1277,28 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Projects Grid / List */}
+            {/* Projects Grid / List with Loading Skeleton */}
             {isLoadingProjects ? (
-              <div className="py-16 flex flex-col items-center justify-center space-y-3 text-xs font-mono text-[#4A4238]/50 dark:text-white/50">
-                <span className="w-5 h-5 border-2 border-[#D4826A] border-t-transparent rounded-full animate-spin" />
-                <span>Loading projects from MongoDB Atlas…</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3].map((n) => (
+                  <div
+                    key={n}
+                    className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] space-y-3 animate-pulse"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="w-16 h-4 rounded-full bg-[#4A4238]/10 dark:bg-[#292522]" />
+                      <div className="w-20 h-3 rounded bg-[#4A4238]/10 dark:bg-[#292522]" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="w-3/4 h-5 rounded bg-[#4A4238]/10 dark:bg-[#292522]" />
+                      <div className="w-1/2 h-3 rounded bg-[#4A4238]/10 dark:bg-[#292522]" />
+                    </div>
+                    <div className="pt-3 border-t border-[#4A4238]/08 dark:border-[#3A3430] flex items-center justify-between">
+                      <div className="w-16 h-4 rounded bg-[#4A4238]/10 dark:bg-[#292522]" />
+                      <div className="w-12 h-4 rounded bg-[#4A4238]/10 dark:bg-[#292522]" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : filteredProjects.length > 0 ? (
               <div
@@ -903,8 +1323,8 @@ export default function DashboardPage() {
                       key={project.id}
                       className={`glass-card rounded-2xl p-5 flex flex-col justify-between border transition-all group ${
                         isActive
-                          ? 'border-[#D4826A]/60 bg-[#D4826A]/05 dark:bg-[#D4826A]/10 shadow-md ring-1 ring-[#D4826A]/30'
-                          : 'border-[#4A4238]/10 dark:border-white/10 hover:border-[#D4826A]/30'
+                          ? 'border-[#8A4D40] bg-[#E3836C]/10 dark:bg-[#5A332C] dark:border-[#8A4D40] dark:text-[#F4EDE5] shadow-md ring-1 ring-[#E3836C]/40'
+                          : 'border-[#4A4238]/10 dark:border-[#3A3430] hover:border-[#E3836C]/30 hover:dark:border-[#E3836C]/40'
                       }`}
                     >
                       <div className="space-y-2.5">
@@ -913,18 +1333,18 @@ export default function DashboardPage() {
                             <span
                               className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold ${
                                 isActive
-                                  ? 'bg-[#D4826A] text-white'
-                                  : 'bg-[#4A4238]/08 dark:bg-white/10 text-[#4A4238]/70 dark:text-[#EDE6DC]/70'
+                                  ? 'bg-[#E3836C] text-[#FFF7F1]'
+                                  : 'bg-[#4A4238]/08 dark:bg-[#292522] text-[#4A4238]/70 dark:text-[#C5B9AE]'
                               }`}
                             >
                               {isActive ? 'Active Canvas' : `v${project.layout_version}`}
                             </span>
-                            <span className="text-[10px] font-mono text-[#4A4238]/40 dark:text-white/40">
+                            <span className="text-[10px] font-mono text-[#4A4238]/40 dark:text-[#91867E]">
                               {project.widget_count ?? 0} widget{(project.widget_count ?? 0) === 1 ? '' : 's'}
                             </span>
                           </div>
 
-                          <span className="text-[10px] font-mono text-[#4A4238]/40 dark:text-white/40">
+                          <span className="text-[10px] font-mono text-[#4A4238]/40 dark:text-[#91867E]">
                             {dateStr}
                           </span>
                         </div>
@@ -932,25 +1352,25 @@ export default function DashboardPage() {
                         <div>
                           <h3
                             onClick={() => handleSelectProject(project)}
-                            className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC] hover:text-[#D4826A] cursor-pointer transition-colors truncate"
+                            className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5] hover:text-[#E3836C] cursor-pointer transition-colors truncate"
                             title={project.name}
                           >
                             {project.name}
                           </h3>
-                          <p className="text-xs text-[#4A4238]/60 dark:text-[#EDE6DC]/60 font-mono mt-0.5 truncate">
+                          <p className="text-xs text-[#4A4238]/60 dark:text-[#91867E] font-mono mt-0.5 truncate">
                             ID: {project.id}
                           </p>
                         </div>
                       </div>
 
                       {/* Card Action Controls */}
-                      <div className="pt-4 mt-3 border-t border-[#4A4238]/08 dark:border-white/08 flex items-center justify-between text-xs font-mono">
+                      <div className="pt-4 mt-3 border-t border-[#4A4238]/08 dark:border-[#3A3430] flex items-center justify-between text-xs font-mono">
                         <div className="flex items-center gap-1.5">
                           {!isActive && (
                             <button
                               type="button"
                               onClick={() => handleSelectProject(project)}
-                              className="px-2.5 py-1 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-[#D4826A]/15 hover:text-[#D4826A] transition-colors cursor-pointer text-[11px]"
+                              className="px-2.5 py-1 rounded-lg bg-black/5 dark:bg-[#292522] hover:bg-[#E3836C]/15 dark:hover:bg-[#E3836C]/20 hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors cursor-pointer text-[11px]"
                               title="Preview on top generative canvas"
                             >
                               Select
@@ -962,7 +1382,7 @@ export default function DashboardPage() {
                               setProjectToRename(project);
                               setRenameName(project.name);
                             }}
-                            className="p-1.5 rounded-lg text-[#4A4238]/60 dark:text-white/60 hover:text-[#D4826A] hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-[#4A4238]/60 dark:text-[#C5B9AE] hover:text-[#E3836C] hover:bg-black/5 dark:hover:bg-[#292522] transition-colors cursor-pointer"
                             title="Rename project"
                           >
                             <IconEdit size={14} />
@@ -970,7 +1390,7 @@ export default function DashboardPage() {
                           <button
                             type="button"
                             onClick={() => setProjectToDelete(project)}
-                            className="p-1.5 rounded-lg text-[#4A4238]/60 dark:text-white/60 hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-[#4A4238]/60 dark:text-[#C5B9AE] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
                             title="Delete project"
                           >
                             <IconTrash size={14} />
@@ -979,7 +1399,7 @@ export default function DashboardPage() {
 
                         <Link
                           href={`/new-project?projectId=${project.id}`}
-                          className="flex items-center gap-1 text-[#D4826A] hover:text-[#C0734E] font-semibold transition-colors cursor-pointer"
+                          className="flex items-center gap-1 text-[#E3836C] hover:text-[#ED967F] font-semibold transition-colors cursor-pointer"
                           title="Open full interactive workspace with chat and canvas"
                         >
                           <span>Open</span>
@@ -991,15 +1411,15 @@ export default function DashboardPage() {
                 })}
               </div>
             ) : (
-              <div className="py-16 px-6 glass-card rounded-3xl border border-[#4A4238]/10 dark:border-white/10 flex flex-col items-center justify-center text-center space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-[#D4826A]/10 text-[#D4826A] flex items-center justify-center">
+              <div className="py-16 px-6 glass-card rounded-3xl border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col items-center justify-center text-center space-y-4">
+                <div className="w-14 h-14 rounded-2xl bg-[#E3836C]/10 text-[#E3836C] flex items-center justify-center">
                   <IconFolderPlus size={28} />
                 </div>
                 <div className="space-y-1 max-w-md">
-                  <h3 className="font-serif text-lg text-[#4A4238] dark:text-[#EDE6DC]">
+                  <h3 className="font-serif text-lg text-[#4A4238] dark:text-[#F4EDE5]">
                     {searchQuery ? 'No matching projects found' : 'No analysis projects yet'}
                   </h3>
-                  <p className="text-xs text-[#4A4238]/60 dark:text-[#EDE6DC]/60 font-mono">
+                  <p className="text-xs text-[#4A4238]/60 dark:text-[#C5B9AE] font-mono">
                     {searchQuery
                       ? `No projects matched "${searchQuery}". Try a different search query or clear the filter.`
                       : 'Create your first project to start saving visual canvases, telemetry bindings, and AI agent runs durably in MongoDB Atlas.'}
@@ -1011,7 +1431,7 @@ export default function DashboardPage() {
                     setNewProjectName('');
                     setIsNewProjectOpen(true);
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer"
                 >
                   <IconPlus size={16} />
                   <span>Create First Project</span>
@@ -1024,6 +1444,21 @@ export default function DashboardPage() {
         </main>
       </div>
 
+      {/* ─── TOAST NOTIFICATION ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {exportToastMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-[#E3836C] text-[#FFF7F1] text-xs font-mono shadow-2xl flex items-center gap-2"
+          >
+            <IconCheck size={16} />
+            <span>{exportToastMsg}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ─── MODAL 1: CREATE NEW PROJECT ─────────────────────────────────── */}
       <AnimatePresence>
         {isNewProjectOpen && (
@@ -1032,21 +1467,21 @@ export default function DashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-[#4A4238]/15 dark:border-white/15 shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#1E1B18]"
+              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-[#4A4238]/15 dark:border-[#504740] shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#302B28]"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#D4826A]/15 text-[#D4826A] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-[#E3836C]/15 text-[#E3836C] flex items-center justify-center">
                     <IconFolderPlus size={18} />
                   </div>
-                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
+                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
                     Create New Project
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsNewProjectOpen(false)}
-                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white transition-colors cursor-pointer"
+                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors cursor-pointer"
                 >
                   <IconX size={16} />
                 </button>
@@ -1054,7 +1489,7 @@ export default function DashboardPage() {
 
               <form onSubmit={handleCreateProject} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
+                  <label className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/60 dark:text-[#C5B9AE]">
                     Project Name
                   </label>
                   <input
@@ -1064,9 +1499,9 @@ export default function DashboardPage() {
                     placeholder="e.g. Q4 Revenue & Retention Audit"
                     autoFocus
                     required
-                    className="w-full px-4 py-3 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-sm text-[#4A4238] dark:text-[#EDE6DC] placeholder-[#4A4238]/30 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40 transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-sm text-[#4A4238] dark:text-[#F4EDE5] placeholder-[#4A4238]/30 dark:placeholder-[#80766F] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40 transition-all"
                   />
-                  <p className="text-[11px] font-mono text-[#4A4238]/50 dark:text-white/50">
+                  <p className="text-[11px] font-mono text-[#4A4238]/50 dark:text-[#91867E]">
                     A durable workspace saved in MongoDB with live charts and full revision history.
                   </p>
                 </div>
@@ -1076,14 +1511,14 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() => setIsNewProjectOpen(false)}
                     disabled={isCreatingProject}
-                    className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-white/15 text-xs font-mono text-[#4A4238] dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-black/5 dark:hover:bg-[#292522] transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isCreatingProject || !newProjectName.trim()}
-                    className="px-4 py-2.5 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
                   >
                     {isCreatingProject ? (
                       <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1107,21 +1542,21 @@ export default function DashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-[#4A4238]/15 dark:border-white/15 shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#1E1B18]"
+              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-[#4A4238]/15 dark:border-[#504740] shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#302B28]"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#D4826A]/15 text-[#D4826A] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-[#E3836C]/15 text-[#E3836C] flex items-center justify-center">
                     <IconEdit size={18} />
                   </div>
-                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
+                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
                     Rename Project
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setProjectToRename(null)}
-                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white transition-colors cursor-pointer"
+                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors cursor-pointer"
                 >
                   <IconX size={16} />
                 </button>
@@ -1129,7 +1564,7 @@ export default function DashboardPage() {
 
               <form onSubmit={handleRenameSubmit} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
+                  <label className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/60 dark:text-[#C5B9AE]">
                     New Project Name
                   </label>
                   <input
@@ -1138,9 +1573,9 @@ export default function DashboardPage() {
                     onChange={(e) => setRenameName(e.target.value)}
                     autoFocus
                     required
-                    className="w-full px-4 py-3 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-sm text-[#4A4238] dark:text-[#EDE6DC] focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40 transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-sm text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40 transition-all"
                   />
-                  <p className="text-[11px] font-mono text-[#4A4238]/50 dark:text-white/50">
+                  <p className="text-[11px] font-mono text-[#4A4238]/50 dark:text-[#91867E]">
                     ID: {projectToRename.id}
                   </p>
                 </div>
@@ -1150,14 +1585,14 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() => setProjectToRename(null)}
                     disabled={isRenamingProject}
-                    className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-white/15 text-xs font-mono text-[#4A4238] dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                    className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-black/5 dark:hover:bg-[#292522] transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isRenamingProject || !renameName.trim()}
-                    className="px-4 py-2.5 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
                   >
                     {isRenamingProject ? (
                       <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1181,31 +1616,31 @@ export default function DashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-red-500/20 shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#1E1B18]"
+              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-red-500/20 dark:border-red-500/30 shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#302B28]"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-red-500/15 text-red-500 flex items-center justify-center">
                     <IconAlertTriangle size={18} />
                   </div>
-                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
+                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
                     Delete Project
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setProjectToDelete(null)}
-                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white transition-colors cursor-pointer"
+                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors cursor-pointer"
                 >
                   <IconX size={16} />
                 </button>
               </div>
 
               <div className="space-y-3">
-                <p className="text-sm text-[#4A4238] dark:text-[#EDE6DC]">
+                <p className="text-sm text-[#4A4238] dark:text-[#F4EDE5]">
                   Are you sure you want to delete <span className="font-bold">&quot;{projectToDelete.name}&quot;</span>?
                 </p>
-                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs font-mono text-red-600 dark:text-red-400 space-y-1">
+                <div className="p-3.5 rounded-xl bg-red-500/10 dark:bg-[#382522] border border-red-500/20 dark:border-[#D97870]/30 text-xs font-mono text-red-600 dark:text-[#D97870] space-y-1">
                   <p className="font-bold">Cascade Cleanup Warning:</p>
                   <p>
                     This permanently deletes the project layout, all widget configurations, UI action histories, AI chat runs, events, and saved artifacts from MongoDB.
@@ -1218,7 +1653,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => setProjectToDelete(null)}
                   disabled={isDeletingProject}
-                  className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-white/15 text-xs font-mono text-[#4A4238] dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-black/5 dark:hover:bg-[#292522] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1249,19 +1684,19 @@ export default function DashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg glass-card rounded-3xl p-6 sm:p-8 border border-[#4A4238]/15 dark:border-white/15 shadow-2xl space-y-6 bg-[#F3EDE4] dark:bg-[#1E1B18] max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-lg glass-card rounded-3xl p-6 sm:p-8 border border-[#4A4238]/15 dark:border-[#504740] shadow-2xl space-y-6 bg-[#F3EDE4] dark:bg-[#302B28] max-h-[90vh] overflow-y-auto"
             >
               {/* Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-[#4A4238]/10 dark:border-white/10">
+              <div className="flex items-center justify-between pb-3 border-b border-[#4A4238]/10 dark:border-[#3A3430]">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#D4826A]/15 text-[#D4826A] flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-xl bg-[#E3836C]/15 text-[#E3836C] flex items-center justify-center">
                     <IconUser size={20} />
                   </div>
                   <div>
-                    <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
+                    <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
                       Account &amp; User Management
                     </h3>
-                    <p className="text-xs font-mono text-[#4A4238]/50 dark:text-white/50">
+                    <p className="text-xs font-mono text-[#4A4238]/50 dark:text-[#91867E]">
                       Managed in MongoDB Atlas
                     </p>
                   </div>
@@ -1269,7 +1704,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsUserSettingsOpen(false)}
-                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white transition-colors cursor-pointer"
+                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors cursor-pointer"
                 >
                   <IconX size={16} />
                 </button>
@@ -1280,8 +1715,8 @@ export default function DashboardPage() {
                 <div
                   className={`p-3 rounded-xl text-xs font-mono flex items-center gap-2 ${
                     userActionMsg.type === 'success'
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                      : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                      ? 'bg-emerald-500/10 dark:bg-[#283329] text-emerald-600 dark:text-[#9EBB9A] border border-emerald-500/20 dark:border-[#9EBB9A]/30'
+                      : 'bg-red-500/10 dark:bg-[#382522] text-red-600 dark:text-[#D97870] border border-red-500/20 dark:border-[#D97870]/30'
                   }`}
                 >
                   {userActionMsg.type === 'success' ? <IconCheck size={14} /> : <IconAlertTriangle size={14} />}
@@ -1291,38 +1726,38 @@ export default function DashboardPage() {
 
               {/* Section A: Account Info & Profile */}
               <form onSubmit={handleUpdateProfile} className="space-y-4">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-[#D4826A] font-bold">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-[#E3836C] font-bold">
                   User Profile
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
                       Email Address
                     </label>
                     <input
                       type="text"
                       value={user.email}
                       disabled
-                      className="w-full px-3 py-2 rounded-xl bg-black/5 dark:bg-white/05 border border-[#4A4238]/10 dark:border-white/10 text-xs font-mono text-[#4A4238]/60 dark:text-white/60 cursor-not-allowed"
+                      className="w-full px-3 py-2 rounded-xl bg-black/5 dark:bg-[#211E1C] border border-[#4A4238]/10 dark:border-[#3A3430] text-xs font-mono text-[#4A4238]/60 dark:text-[#80766F] cursor-not-allowed"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
                       User ID
                     </label>
                     <input
                       type="text"
                       value={user.id}
                       disabled
-                      className="w-full px-3 py-2 rounded-xl bg-black/5 dark:bg-white/05 border border-[#4A4238]/10 dark:border-white/10 text-xs font-mono text-[#4A4238]/60 dark:text-white/60 cursor-not-allowed truncate"
+                      className="w-full px-3 py-2 rounded-xl bg-black/5 dark:bg-[#211E1C] border border-[#4A4238]/10 dark:border-[#3A3430] text-xs font-mono text-[#4A4238]/60 dark:text-[#80766F] cursor-not-allowed truncate"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                  <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
                     Display Name
                   </label>
                   <div className="flex items-center gap-2">
@@ -1331,12 +1766,12 @@ export default function DashboardPage() {
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
                       required
-                      className="flex-1 px-3 py-2 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-xs text-[#4A4238] dark:text-[#EDE6DC] focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40"
+                      className="flex-1 px-3 py-2 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-xs text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40"
                     />
                     <button
                       type="submit"
                       disabled={isUpdatingProfile || editName === user.name}
-                      className="px-3 py-2 rounded-xl bg-[#4A4238] dark:bg-[#EDE6DC] text-white dark:text-[#161311] text-xs font-mono hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-40"
+                      className="px-3 py-2 rounded-xl bg-[#4A4238] dark:bg-[#E9DDD2] text-white dark:text-[#302824] text-xs font-mono hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-40 font-medium"
                     >
                       {isUpdatingProfile ? 'Saving…' : 'Update Name'}
                     </button>
@@ -1345,14 +1780,14 @@ export default function DashboardPage() {
               </form>
 
               {/* Section B: Change Password */}
-              <form onSubmit={handleChangePassword} className="space-y-3 pt-3 border-t border-[#4A4238]/10 dark:border-white/10">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-[#D4826A] font-bold flex items-center gap-1.5">
+              <form onSubmit={handleChangePassword} className="space-y-3 pt-3 border-t border-[#4A4238]/10 dark:border-[#3A3430]">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-[#E3836C] font-bold flex items-center gap-1.5">
                   <IconKey size={14} /> Change Password
                 </h4>
 
                 <div className="space-y-2">
                   <div>
-                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
                       Current Password
                     </label>
                     <input
@@ -1360,13 +1795,13 @@ export default function DashboardPage() {
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-xs text-[#4A4238] dark:text-[#EDE6DC] focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40"
+                      className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-xs text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                      <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
                         New Password (min 8 chars)
                       </label>
                       <input
@@ -1374,12 +1809,12 @@ export default function DashboardPage() {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-xs text-[#4A4238] dark:text-[#EDE6DC] focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40"
+                        className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-xs text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                      <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
                         Confirm New Password
                       </label>
                       <input
@@ -1387,7 +1822,7 @@ export default function DashboardPage() {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-xs text-[#4A4238] dark:text-[#EDE6DC] focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40"
+                        className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-xs text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40"
                       />
                     </div>
                   </div>
@@ -1396,7 +1831,7 @@ export default function DashboardPage() {
                     <button
                       type="submit"
                       disabled={isChangingPassword || !currentPassword || !newPassword}
-                      className="px-4 py-2 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono transition-all shadow-sm cursor-pointer disabled:opacity-40"
+                      className="px-4 py-2 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono transition-all shadow-sm cursor-pointer disabled:opacity-40"
                     >
                       {isChangingPassword ? 'Changing…' : 'Change Password'}
                     </button>
@@ -1405,8 +1840,8 @@ export default function DashboardPage() {
               </form>
 
               {/* Section C: Sign Out */}
-              <div className="pt-3 border-t border-[#4A4238]/10 dark:border-white/10 flex items-center justify-between">
-                <span className="text-xs font-mono text-[#4A4238]/50 dark:text-white/50">
+              <div className="pt-3 border-t border-[#4A4238]/10 dark:border-[#3A3430] flex items-center justify-between">
+                <span className="text-xs font-mono text-[#4A4238]/50 dark:text-[#91867E]">
                   Active JWT session
                 </span>
                 <button

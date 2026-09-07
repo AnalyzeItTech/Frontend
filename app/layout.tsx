@@ -18,7 +18,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className="h-full antialiased selection:bg-[#D4826A]/30 selection:text-[#4A4238] dark:selection:bg-[#D4826A]/30 dark:selection:text-white"
+      className="h-full antialiased selection:bg-[#E3836C]/30 selection:text-[#4A4238] dark:selection:bg-[#E3836C]/30 dark:selection:text-[#F4EDE5]"
     >
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -28,13 +28,13 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col bg-[#F3EDE4] dark:bg-[#161311] text-[#4A4238] dark:text-[#EDE6DC] font-sans antialiased overflow-x-hidden transition-colors duration-300">
+      <body className="min-h-full flex flex-col bg-[#F3EDE4] dark:bg-[#171514] text-[#4A4238] dark:text-[#F4EDE5] font-sans antialiased overflow-x-hidden transition-colors duration-300">
         <ThemeProvider>
           <SmoothScrollProvider>
             {/* Accessibility skip link */}
             <a
               href="#main-content"
-              className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[999999] focus:px-4 focus:py-2 focus:bg-[#D4826A] focus:text-white focus:rounded-full focus:shadow-lg focus:outline-none text-xs font-mono uppercase"
+              className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[999999] focus:px-4 focus:py-2 focus:bg-[#E3836C] focus:text-white focus:rounded-full focus:shadow-lg focus:outline-none text-xs font-mono uppercase"
             >
               Skip to main content
             </a>

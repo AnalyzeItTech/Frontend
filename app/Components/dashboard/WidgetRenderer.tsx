@@ -46,21 +46,21 @@ export function CitationFooter({
     switch (kind) {
       case 'live_api':
         return {
-          dotColor: 'bg-emerald-500',
-          badgeClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
+          dotColor: 'bg-[#9EBBB0]',
+          badgeClass: 'bg-[#9EBBB0]/10 text-[#9EBBB0] dark:bg-[#283329] dark:text-[#9EBB9A] border-[#9EBBB0]/20 dark:border-[#9EBB9A]/30',
           label: 'Live API',
         };
       case 'verified_db':
         return {
-          dotColor: 'bg-sky-500',
-          badgeClass: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20',
+          dotColor: 'bg-[#91AEB5]',
+          badgeClass: 'bg-[#91AEB5]/10 text-[#91AEB5] dark:bg-[#253034] dark:text-[#91AEB5] border-[#91AEB5]/20 dark:border-[#91AEB5]/30',
           label: 'Verified DB',
         };
       case 'synthetic_ai':
       default:
         return {
-          dotColor: 'bg-violet-500',
-          badgeClass: 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20',
+          dotColor: 'bg-[#A99BB5]',
+          badgeClass: 'bg-[#A99BB5]/10 text-[#A99BB5] dark:bg-[#2D2833] dark:text-[#A99BB5] border-[#A99BB5]/20 dark:border-[#A99BB5]/30',
           label: 'Synthesized AI',
         };
     }
@@ -72,7 +72,7 @@ export function CitationFooter({
     : null;
 
   return (
-    <div className="mt-3 pt-2.5 border-t border-[#4A4238]/10 dark:border-white/10 flex items-center justify-between text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60">
+    <div className="mt-3 pt-2.5 border-t border-[#4A4238]/10 dark:border-[#3A3430] flex items-center justify-between text-[10px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
       {badge && provenance ? (
         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${badge.badgeClass}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor} flex-shrink-0`} />
@@ -94,7 +94,7 @@ export function CitationFooter({
               e.stopPropagation();
               onRefresh();
             }}
-            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-[#4A4238]/60 dark:text-white/60 hover:text-[#D4826A] transition-all cursor-pointer"
+            className="p-1 rounded hover:bg-black/5 dark:hover:bg-[#292522] text-[#4A4238]/60 dark:text-[#91867E] hover:text-[#E3836C] transition-all cursor-pointer"
             title="Refresh data"
           >
             <IconRefresh size={11} />
@@ -123,10 +123,10 @@ export function MetricCardWidget({
   const positive = p.positive ?? widget.positive;
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div>
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block mb-1">
+          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block mb-1">
             {metric}
           </span>
           {onWidgetAction && (
@@ -140,18 +140,18 @@ export function MetricCardWidget({
             </button>
           )}
         </div>
-        <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+        <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
           {title}
         </h3>
       </div>
       <div className="mt-4 flex items-baseline justify-between">
-        <span className="font-serif text-2xl sm:text-3xl font-bold text-[#4A4238] dark:text-white">
+        <span className="font-serif text-2xl sm:text-3xl font-bold text-[#4A4238] dark:text-[#F4EDE5]">
           {value}
         </span>
         {change && (
           <span
             className={`text-xs font-mono font-semibold flex items-center gap-1 ${
-              positive !== false ? 'text-[#8FA98F]' : 'text-[#E14759]'
+              positive !== false ? 'text-[#9EBB9A]' : 'text-[#D97870]'
             }`}
           >
             {change}
@@ -207,13 +207,13 @@ export function LineChartWidget({
     .join(' ');
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
             {metric}
           </span>
-          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
             {title}
           </h3>
         </div>
@@ -233,7 +233,7 @@ export function LineChartWidget({
         <svg viewBox="0 0 300 110" className="w-full h-full overflow-visible">
           <polyline
             fill="none"
-            stroke="#D4826A"
+            stroke="#E3836C"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -244,12 +244,12 @@ export function LineChartWidget({
             const cy = 90 - ((d.value - minVal) / range) * 70;
             return (
               <g key={i}>
-                <circle cx={cx} cy={cy} r="3.5" fill="#D4826A" />
+                <circle cx={cx} cy={cy} r="3.5" fill="#E3836C" />
                 <text
                   x={cx}
                   y={105}
                   textAnchor="middle"
-                  className="fill-[#4A4238]/40 dark:fill-white/40 text-[9px] font-mono"
+                  className="fill-[#4A4238]/40 dark:fill-[#91867E] text-[9px] font-mono"
                 >
                   {d.date}
                 </text>
@@ -297,13 +297,13 @@ export function BarChartWidget({
   const maxVal = Math.max(...data.map((d) => d.value), 1);
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
             {metric}
           </span>
-          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
             {title}
           </h3>
         </div>
@@ -323,14 +323,14 @@ export function BarChartWidget({
           const heightPct = Math.round((item.value / maxVal) * 100);
           return (
             <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-              <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60">
+              <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
                 {item.value}
               </span>
               <div
-                className="w-full max-w-[36px] bg-[#D4826A]/80 hover:bg-[#D4826A] rounded-t-md transition-all"
+                className="w-full max-w-[36px] bg-[#E3836C]/80 hover:bg-[#E3836C] rounded-t-md transition-all shadow-xs"
                 style={{ height: `${Math.max(heightPct, 8)}%` }}
               />
-              <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60">
+              <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
                 {item.label}
               </span>
             </div>
@@ -371,13 +371,13 @@ export function TableWidget({
   const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm group relative">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
             {metric}
           </span>
-          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
             {title}
           </h3>
         </div>
@@ -395,7 +395,7 @@ export function TableWidget({
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs font-mono">
           <thead>
-            <tr className="border-b border-[#4A4238]/10 dark:border-white/10 text-[#4A4238]/60 dark:text-white/60">
+            <tr className="border-b border-[#4A4238]/10 dark:border-[#3A3430] text-[#4A4238]/60 dark:text-[#91867E]">
               {keys.map((k) => (
                 <th key={k} className="py-1.5 px-2 capitalize">
                   {k}
@@ -407,10 +407,10 @@ export function TableWidget({
             {rows.map((row, rIdx) => (
               <tr
                 key={rIdx}
-                className="border-b border-[#4A4238]/05 dark:border-white/05 hover:bg-black/5 dark:hover:bg-white/5"
+                className="border-b border-[#4A4238]/05 dark:border-[#3A3430]/40 hover:bg-black/5 dark:hover:bg-[#292522]"
               >
                 {keys.map((k) => (
-                  <td key={k} className="py-1.5 px-2 text-[#4A4238] dark:text-[#EDE6DC]">
+                  <td key={k} className="py-1.5 px-2 text-[#4A4238] dark:text-[#C5B9AE]">
                     {String(row[k] ?? '')}
                   </td>
                 ))}
@@ -447,9 +447,9 @@ export function TextBlockWidget({
   const variant = (p.variant || 'insight') as 'insight' | 'warning' | 'summary';
 
   const variantStyles = {
-    insight: 'border-blue-500/20 bg-blue-500/5 text-blue-900 dark:text-blue-100',
-    warning: 'border-amber-500/20 bg-amber-500/5 text-amber-900 dark:text-amber-100',
-    summary: 'border-[#4A4238]/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]',
+    insight: 'border-[#91AEB5]/30 bg-[#253034]/20 text-[#91AEB5] dark:border-[#91AEB5]/30 dark:bg-[#253034]/30 dark:text-[#91AEB5]',
+    warning: 'border-[#D9AD70]/30 bg-[#352D20]/20 text-[#D9AD70] dark:border-[#D9AD70]/30 dark:bg-[#352D20]/30 dark:text-[#D9AD70]',
+    summary: 'border-[#4A4238]/10 dark:border-[#3A3430] bg-black/[0.02] dark:bg-[#211E1C]',
   };
 
   const paragraphs = body.split('\n\n').filter(Boolean);
@@ -460,13 +460,13 @@ export function TextBlockWidget({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             {variant === 'insight' ? (
-              <IconSparkles size={14} className="text-blue-500" />
+              <IconSparkles size={14} className="text-[#91AEB5]" />
             ) : variant === 'warning' ? (
-              <IconAlertTriangle size={14} className="text-amber-500" />
+              <IconAlertTriangle size={14} className="text-[#D9AD70]" />
             ) : (
-              <IconInfoCircle size={14} className="text-[#D4826A]" />
+              <IconInfoCircle size={14} className="text-[#E3836C]" />
             )}
-            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
               {metric}
             </span>
           </div>
@@ -481,21 +481,21 @@ export function TextBlockWidget({
             </button>
           )}
         </div>
-        <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+        <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
           {title}
         </h3>
         {heading && heading !== title && (
-          <h4 className="text-xs font-mono font-semibold text-[#4A4238]/80 dark:text-white/80 mt-1 mb-2">
+          <h4 className="text-xs font-mono font-semibold text-[#4A4238]/80 dark:text-[#C5B9AE] mt-1 mb-2">
             {heading}
           </h4>
         )}
       </div>
-      <div className="mt-3 space-y-2 text-xs leading-relaxed text-[#4A4238]/85 dark:text-white/85">
+      <div className="mt-3 space-y-2 text-xs leading-relaxed text-[#4A4238]/85 dark:text-[#C5B9AE]">
         {paragraphs.map((pText, idx) => {
           if (pText.trim().startsWith('- ') || pText.trim().startsWith('• ')) {
             const bullets = pText.split('\n').map((l) => l.replace(/^[-•]\s*/, '').trim()).filter(Boolean);
             return (
-              <ul key={idx} className="space-y-1 pl-4 list-disc marker:text-[#D4826A]">
+              <ul key={idx} className="space-y-1 pl-4 list-disc marker:text-[#E3836C]">
                 {bullets.map((b, bIdx) => (
                   <li key={bIdx} className="font-sans">{b}</li>
                 ))}
@@ -536,13 +536,13 @@ export function ProgressRingWidget({
   const offset = circumference - (percent / 100) * circumference;
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
             {metric}
           </span>
-          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
             {title}
           </h3>
         </div>
@@ -565,7 +565,7 @@ export function ProgressRingWidget({
               cx="50"
               cy="50"
               r={radius}
-              className="stroke-[#4A4238]/10 dark:stroke-white/10"
+              className="stroke-[#4A4238]/10 dark:stroke-[#302B28]"
               strokeWidth="8"
               fill="none"
             />
@@ -573,7 +573,7 @@ export function ProgressRingWidget({
               cx="50"
               cy="50"
               r={radius}
-              stroke="#D4826A"
+              stroke="#E3836C"
               strokeWidth="8"
               strokeLinecap="round"
               fill="none"
@@ -583,18 +583,18 @@ export function ProgressRingWidget({
             />
           </svg>
           <div className="absolute flex flex-col items-center justify-center">
-            <span className="font-serif text-xl font-bold text-[#4A4238] dark:text-white">
+            <span className="font-serif text-xl font-bold text-[#4A4238] dark:text-[#F4EDE5]">
               {percent}%
             </span>
           </div>
         </div>
 
         <div className="space-y-1 text-left flex-1 min-w-0">
-          <p className="text-xs font-mono font-semibold text-[#4A4238] dark:text-[#EDE6DC] truncate">
+          <p className="text-xs font-mono font-semibold text-[#4A4238] dark:text-[#F4EDE5] truncate">
             {label}
           </p>
           {sublabel && (
-            <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 truncate">
+            <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] truncate">
               {sublabel}
             </p>
           )}
@@ -626,13 +626,13 @@ export function ComparisonPairWidget({
   const delta = (p as any).delta ? String((p as any).delta) : undefined;
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
             {metric}
           </span>
-          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
             {title}
           </h3>
         </div>
@@ -648,30 +648,30 @@ export function ComparisonPairWidget({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-[#4A4238]/05 dark:border-white/05 relative">
+      <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-black/[0.02] dark:bg-[#292522] border border-[#4A4238]/05 dark:border-[#3A3430] relative">
         <div className="space-y-1">
-          <span className="text-[10px] font-mono uppercase text-[#4A4238]/60 dark:text-white/60">
+          <span className="text-[10px] font-mono uppercase text-[#4A4238]/60 dark:text-[#91867E]">
             {a.label}
           </span>
-          <div className="font-serif text-xl font-bold text-[#4A4238] dark:text-white">
+          <div className="font-serif text-xl font-bold text-[#4A4238] dark:text-[#F4EDE5]">
             {a.value}
           </div>
           {a.sub && (
-            <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60 block">
+            <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-[#91867E] block">
               {a.sub}
             </span>
           )}
         </div>
 
-        <div className="space-y-1 border-l border-[#4A4238]/10 dark:border-white/10 pl-3">
-          <span className="text-[10px] font-mono uppercase text-[#4A4238]/60 dark:text-white/60">
+        <div className="space-y-1 border-l border-[#4A4238]/10 dark:border-[#3A3430] pl-3">
+          <span className="text-[10px] font-mono uppercase text-[#4A4238]/60 dark:text-[#91867E]">
             {b.label}
           </span>
-          <div className="font-serif text-xl font-bold text-[#D4826A]">
+          <div className="font-serif text-xl font-bold text-[#E3836C]">
             {b.value}
           </div>
           {b.sub && (
-            <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60 block">
+            <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-[#91867E] block">
               {b.sub}
             </span>
           )}
@@ -680,8 +680,8 @@ export function ComparisonPairWidget({
 
       {delta && (
         <div className="mt-3 flex items-center justify-between text-xs font-mono">
-          <span className="text-[#4A4238]/60 dark:text-white/60">Variance:</span>
-          <span className="px-2 py-0.5 rounded-full bg-[#D4826A]/15 text-[#D4826A] font-semibold">
+          <span className="text-[#4A4238]/60 dark:text-[#91867E]">Variance:</span>
+          <span className="px-2 py-0.5 rounded-full bg-[#E3836C]/15 text-[#E3836C] font-semibold">
             {delta}
           </span>
         </div>
@@ -718,13 +718,13 @@ export function TimelineWidget({
         ];
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
             {metric}
           </span>
-          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
             {title}
           </h3>
         </div>
@@ -740,19 +740,19 @@ export function TimelineWidget({
         )}
       </div>
 
-      <div className="relative pl-4 space-y-4 border-l-2 border-[#4A4238]/10 dark:border-white/10 ml-2">
+      <div className="relative pl-4 space-y-4 border-l-2 border-[#4A4238]/10 dark:border-[#3A3430] ml-2">
         {events.map((ev, idx) => (
           <div key={idx} className="relative group/item">
-            <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#D4826A] border-2 border-white dark:border-[#1C1917]" />
+            <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#E3836C] border-2 border-white dark:border-[#211E1C]" />
             <div className="space-y-0.5">
-              <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60">
+              <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
                 {ev.date}
               </span>
-              <h4 className="text-xs font-mono font-semibold text-[#4A4238] dark:text-[#EDE6DC]">
+              <h4 className="text-xs font-mono font-semibold text-[#4A4238] dark:text-[#F4EDE5]">
                 {ev.label}
               </h4>
               {ev.description && (
-                <p className="text-[11px] font-sans text-[#4A4238]/70 dark:text-white/70">
+                <p className="text-[11px] font-sans text-[#4A4238]/70 dark:text-[#C5B9AE]">
                   {ev.description}
                 </p>
               )}
@@ -804,23 +804,23 @@ export function HeatmapWidget({
   const getCellBg = (val: number) => {
     const t = Math.max(0.12, (val - minVal) / range);
     if (colorScale === 'emerald') {
-      return `rgba(16, 185, 129, ${t})`;
+      return `rgba(158, 187, 176, ${t})`;
     }
     if (colorScale === 'cool') {
-      return `rgba(2, 132, 199, ${t})`;
+      return `rgba(145, 174, 181, ${t})`;
     }
-    return `rgba(212, 130, 106, ${t})`;
+    return `rgba(227, 131, 108, ${t})`;
   };
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div>
         <div className="flex items-center justify-between mb-2">
           <div>
-            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
               {metric}
             </span>
-            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
               {title}
             </h3>
           </div>
@@ -839,7 +839,7 @@ export function HeatmapWidget({
         {/* Heatmap Matrix */}
         <div className="overflow-x-auto py-2">
           <div className="min-w-[240px]">
-            <div className="flex items-center text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60 mb-1 ml-12">
+            <div className="flex items-center text-[10px] font-mono text-[#4A4238]/60 dark:text-[#91867E] mb-1 ml-12">
               {cols.map((col, idx) => (
                 <div key={idx} className="flex-1 text-center truncate px-0.5">
                   {col}
@@ -852,7 +852,7 @@ export function HeatmapWidget({
                 const rowVals = rawValues[rIdx] || [];
                 return (
                   <div key={rIdx} className="flex items-center gap-1.5">
-                    <span className="w-10 text-[10px] font-mono text-[#4A4238]/70 dark:text-white/70 text-right truncate">
+                    <span className="w-10 text-[10px] font-mono text-[#4A4238]/70 dark:text-[#91867E] text-right truncate">
                       {row}
                     </span>
                     <div className="flex-1 flex items-center gap-1">
@@ -873,7 +873,7 @@ export function HeatmapWidget({
                               });
                             }}
                             style={{ backgroundColor: getCellBg(val) }}
-                            className="flex-1 h-6 rounded-md transition-all hover:scale-105 hover:ring-2 hover:ring-white dark:hover:ring-black cursor-pointer relative"
+                            className="flex-1 h-6 rounded-md transition-all hover:scale-105 hover:ring-2 hover:ring-white dark:hover:ring-[#504740] cursor-pointer relative"
                             title={`${row} ${col}: ${val}`}
                           />
                         );
@@ -887,10 +887,10 @@ export function HeatmapWidget({
         </div>
 
         {/* Hover detail */}
-        <div className="min-h-[18px] text-[10px] font-mono text-[#4A4238]/70 dark:text-white/70 mt-1">
+        <div className="min-h-[18px] text-[10px] font-mono text-[#4A4238]/70 dark:text-[#C5B9AE] mt-1">
           {hoveredCell ? (
             <span className="flex items-center gap-2">
-              <span className="font-semibold text-[#D4826A]">
+              <span className="font-semibold text-[#E3836C]">
                 {hoveredCell.r} · {hoveredCell.c}
               </span>
               <span>Value: <strong>{hoveredCell.v}</strong></span>
@@ -953,7 +953,7 @@ export function SparklineListWidget({
       .join(' ');
 
     const strokeColor =
-      trend === 'down' ? '#E14759' : trend === 'up' ? '#8FA98F' : '#D4826A';
+      trend === 'down' ? '#D97870' : trend === 'up' ? '#9EBB9A' : '#E3836C';
 
     return (
       <svg width={width} height={height} className="overflow-visible">
@@ -978,14 +978,14 @@ export function SparklineListWidget({
   };
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
               {metric}
             </span>
-            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
               {title}
             </h3>
           </div>
@@ -1001,7 +1001,7 @@ export function SparklineListWidget({
           )}
         </div>
 
-        <div className="divide-y divide-[#4A4238]/5 dark:divide-white/5">
+        <div className="divide-y divide-[#4A4238]/5 dark:divide-[#3A3430]/40">
           {items.map((item, idx) => {
             const isPositive = item.trend === 'up' || (item.change && item.change.startsWith('+'));
             return (
@@ -1011,21 +1011,21 @@ export function SparklineListWidget({
                   const symbol = item.label.split(/[\s·]/)[0];
                   onWidgetAction?.(widget.id, 'filter', { dimension: 'ticker', value: symbol });
                 }}
-                className="py-2.5 flex items-center justify-between hover:bg-black/[0.02] dark:hover:bg-white/[0.02] px-1 rounded-lg cursor-pointer transition-colors"
+                className="py-2.5 flex items-center justify-between hover:bg-black/[0.02] dark:hover:bg-[#292522] px-1 rounded-lg cursor-pointer transition-colors"
                 title={`Filter by ${item.label}`}
               >
                 <div className="min-w-0 pr-2">
-                  <h4 className="text-xs font-mono font-medium text-[#4A4238] dark:text-[#EDE6DC] truncate">
+                  <h4 className="text-xs font-mono font-medium text-[#4A4238] dark:text-[#F4EDE5] truncate">
                     {item.label}
                   </h4>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                    <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
                       {item.value}
                     </span>
                     {item.change && (
                       <span
                         className={`text-[9px] font-mono font-semibold ${
-                          isPositive ? 'text-[#8FA98F]' : 'text-[#E14759]'
+                          isPositive ? 'text-[#9EBB9A]' : 'text-[#D97870]'
                         }`}
                       >
                         {item.change}
@@ -1080,14 +1080,14 @@ export function FunnelWidget({
   const topValue = stages[0]?.value || 1;
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
               {metric}
             </span>
-            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
               {title}
             </h3>
           </div>
@@ -1113,28 +1113,28 @@ export function FunnelWidget({
             return (
               <div key={idx} className="space-y-1">
                 <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+                  <span className="font-medium text-[#4A4238] dark:text-[#F4EDE5]">
                     {stg.label}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-[#4A4238] dark:text-white">
+                    <span className="font-bold text-[#4A4238] dark:text-[#F4EDE5]">
                       {stg.value.toLocaleString()}
                     </span>
-                    <span className="text-[10px] text-[#4A4238]/60 dark:text-white/60">
+                    <span className="text-[10px] text-[#4A4238]/60 dark:text-[#91867E]">
                       ({overallPct}%)
                     </span>
                   </div>
                 </div>
 
-                <div className="w-full bg-black/5 dark:bg-white/5 h-6 rounded-lg overflow-hidden flex items-center relative">
+                <div className="w-full bg-black/5 dark:bg-[#292522] h-6 rounded-lg overflow-hidden flex items-center relative">
                   <div
                     style={{ width: `${overallPct}%` }}
-                    className="h-full rounded-lg bg-gradient-to-r from-[#D4826A] to-[#D4826A]/75 transition-all flex items-center justify-between px-2.5 text-[10px] font-mono text-white font-medium shadow-inner"
+                    className="h-full rounded-lg bg-gradient-to-r from-[#E3836C] to-[#EBA58F] transition-all flex items-center justify-between px-2.5 text-[10px] font-mono text-[#FFF7F1] font-medium shadow-inner"
                   >
                     <span className="truncate">{stg.sublabel || `${overallPct}% total`}</span>
                   </div>
                   {idx > 0 && dropPct > 0 && (
-                    <span className="ml-2 text-[9px] font-mono text-[#E14759] flex-shrink-0">
+                    <span className="ml-2 text-[9px] font-mono text-[#D97870] flex-shrink-0">
                       -{dropPct}% drop
                     </span>
                   )}
@@ -1184,14 +1184,14 @@ export function DistributionWidget({
   const totalCount = buckets.reduce((acc, b) => acc + b.count, 0) || 1;
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
               {metric}
             </span>
-            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
               {title}
             </h3>
           </div>
@@ -1207,25 +1207,25 @@ export function DistributionWidget({
           )}
         </div>
 
-        <div className="h-36 flex items-end gap-2 pt-4 pb-1 border-b border-[#4A4238]/10 dark:border-white/10">
+        <div className="h-36 flex items-end gap-2 pt-4 pb-1 border-b border-[#4A4238]/10 dark:border-[#3A3430]">
           {buckets.map((b, idx) => {
             const pct = Math.max(6, Math.round((b.count / maxCount) * 100));
             const share = Math.round((b.count / totalCount) * 100);
             return (
               <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group/bar relative">
-                <div className="opacity-0 group-hover/bar:opacity-100 transition-opacity absolute -top-5 text-[9px] font-mono bg-black/80 text-white px-1.5 py-0.5 rounded shadow whitespace-nowrap z-10">
+                <div className="opacity-0 group-hover/bar:opacity-100 transition-opacity absolute -top-5 text-[9px] font-mono bg-black/80 dark:bg-[#302B28] border border-transparent dark:border-[#504740] text-white dark:text-[#F4EDE5] px-1.5 py-0.5 rounded shadow whitespace-nowrap z-10">
                   {b.count.toLocaleString()} {unit} ({share}%)
                 </div>
                 <div
                   style={{ height: `${pct}%` }}
-                  className="w-full bg-[#D4826A]/80 hover:bg-[#D4826A] rounded-t-md transition-all cursor-pointer shadow-xs"
+                  className="w-full bg-[#E3836C]/80 hover:bg-[#E3836C] rounded-t-md transition-all cursor-pointer shadow-xs"
                 />
               </div>
             );
           })}
         </div>
 
-        <div className="flex items-center gap-2 mt-1.5 text-[9px] font-mono text-[#4A4238]/60 dark:text-white/60">
+        <div className="flex items-center gap-2 mt-1.5 text-[9px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
           {buckets.map((b, idx) => (
             <div key={idx} className="flex-1 text-center truncate" title={b.range}>
               {b.range}
@@ -1296,26 +1296,26 @@ export function NodeGraphWidget({
   const getGroupColor = (group?: string) => {
     switch (group) {
       case 'ingress':
-        return '#0284C7';
+        return '#91AEB5';
       case 'core':
-        return '#D4826A';
+        return '#E3836C';
       case 'storage':
-        return '#10B981';
+        return '#9EBBB0';
       case 'async':
       default:
-        return '#8B5CF6';
+        return '#A99BB5';
     }
   };
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div>
         <div className="flex items-center justify-between mb-2">
           <div>
-            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
               {metric} ({rawNodes.length} nodes)
             </span>
-            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
               {title}
             </h3>
           </div>
@@ -1331,7 +1331,7 @@ export function NodeGraphWidget({
           )}
         </div>
 
-        <div className="relative w-full h-48 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-[#4A4238]/5 dark:border-white/5 overflow-hidden">
+        <div className="relative w-full h-48 rounded-xl bg-black/[0.02] dark:bg-[#171514] border border-[#4A4238]/5 dark:border-[#3A3430] overflow-hidden">
           <svg viewBox="0 0 380 190" className="w-full h-full">
             <defs>
               <marker
@@ -1343,7 +1343,7 @@ export function NodeGraphWidget({
                 markerHeight="6"
                 orient="auto-start-reverse"
               >
-                <path d="M 0 1 L 10 5 L 0 9 z" fill="#888" opacity="0.6" />
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#888" className="dark:fill-[#91867E]" opacity="0.6" />
               </marker>
             </defs>
 
@@ -1359,6 +1359,7 @@ export function NodeGraphWidget({
                   x2={tgt.x}
                   y2={tgt.y}
                   stroke="#888"
+                  className="dark:stroke-[#504740]"
                   strokeWidth="1.25"
                   strokeOpacity="0.4"
                   markerEnd="url(#arrow)"
@@ -1386,7 +1387,7 @@ export function NodeGraphWidget({
                     fillOpacity="0.85"
                     stroke="#fff"
                     strokeWidth="2"
-                    className="group-hover/node:scale-110 transition-transform"
+                    className="group-hover/node:scale-110 transition-transform dark:stroke-[#211E1C]"
                   />
                   <text
                     x={pos.x}
@@ -1395,7 +1396,7 @@ export function NodeGraphWidget({
                     fontSize="9"
                     fontFamily="monospace"
                     fill="currentColor"
-                    className="font-medium fill-[#4A4238] dark:fill-[#EDE6DC] select-none pointer-events-none"
+                    className="font-medium fill-[#4A4238] dark:fill-[#F4EDE5] select-none pointer-events-none"
                   >
                     {node.label}
                   </text>
@@ -1490,39 +1491,39 @@ export function AnnotatedChartWidget({
   const getAnnotationBadge = (type?: string, isUser = false) => {
     if (isUser) {
       return {
-        bg: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
-        dot: 'bg-blue-500',
+        bg: 'bg-[#91AEB5]/15 text-[#91AEB5] dark:bg-[#253034] dark:text-[#91AEB5] border-[#91AEB5]/30',
+        dot: 'bg-[#91AEB5]',
       };
     }
     switch (type) {
       case 'anomaly':
         return {
-          bg: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20',
-          dot: 'bg-red-500',
+          bg: 'bg-red-500/10 dark:bg-[#382522] text-red-700 dark:text-[#D97870] border-red-500/20 dark:border-[#D97870]/30',
+          dot: 'bg-[#D97870]',
         };
       case 'milestone':
         return {
-          bg: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
-          dot: 'bg-emerald-500',
+          bg: 'bg-emerald-500/10 dark:bg-[#283329] text-emerald-700 dark:text-[#9EBB9A] border-emerald-500/20 dark:border-[#9EBB9A]/30',
+          dot: 'bg-[#9EBB9A]',
         };
       case 'event':
       default:
         return {
-          bg: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20',
-          dot: 'bg-sky-500',
+          bg: 'bg-[#91AEB5]/10 dark:bg-[#253034] text-[#91AEB5] border-[#91AEB5]/20 dark:border-[#91AEB5]/30',
+          dot: 'bg-[#91AEB5]',
         };
     }
   };
 
   return (
-    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
       <div>
         <div className="flex items-center justify-between mb-2">
           <div>
-            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
               {metric}
             </span>
-            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
               {title}
             </h3>
           </div>
@@ -1540,12 +1541,12 @@ export function AnnotatedChartWidget({
 
         <div className="relative w-full h-36">
           <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
-            <line x1="30" y1={height - 15} x2={width - 20} y2={height - 15} stroke="#888" strokeOpacity="0.15" />
-            <line x1="30" y1="20" x2={width - 20} y2="20" stroke="#888" strokeOpacity="0.1" strokeDasharray="3,3" />
+            <line x1="30" y1={height - 15} x2={width - 20} y2={height - 15} stroke="#888" className="dark:stroke-[#504740]" strokeOpacity="0.25" />
+            <line x1="30" y1="20" x2={width - 20} y2="20" stroke="#888" className="dark:stroke-[#504740]" strokeOpacity="0.15" strokeDasharray="3,3" />
 
             <polyline
               fill="none"
-              stroke="#D4826A"
+              stroke="#E3836C"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -1558,10 +1559,10 @@ export function AnnotatedChartWidget({
                 cx={pt.px}
                 cy={pt.py}
                 r="3.5"
-                fill="#D4826A"
+                fill="#E3836C"
                 stroke="#fff"
                 strokeWidth="1.5"
-                className="cursor-pointer hover:opacity-80 transition-all"
+                className="cursor-pointer hover:opacity-80 transition-all dark:stroke-[#211E1C]"
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedPoint(pt);
@@ -1582,7 +1583,7 @@ export function AnnotatedChartWidget({
                     y1="14"
                     x2={matchedPt.px}
                     y2={matchedPt.py}
-                    stroke={isUser ? "#3B82F6" : "#D4826A"}
+                    stroke={isUser ? "#91AEB5" : "#E3836C"}
                     strokeWidth="1.25"
                     strokeDasharray="2,2"
                     strokeOpacity="0.75"
@@ -1591,9 +1592,10 @@ export function AnnotatedChartWidget({
                     cx={matchedPt.px}
                     cy={matchedPt.py}
                     r={isUser ? "5" : "4"}
-                    fill={isUser ? "#3B82F6" : "#E14759"}
+                    fill={isUser ? "#91AEB5" : "#D97870"}
                     stroke="#fff"
                     strokeWidth="1"
+                    className="dark:stroke-[#211E1C]"
                   />
                 </g>
               );
@@ -1618,7 +1620,7 @@ export function AnnotatedChartWidget({
                     title={`${isUser ? 'User Note' : (ann.type || 'Event')}: ${ann.label}`}
                   >
                     {isUser ? (
-                      <IconUser size={10} className="text-blue-600 dark:text-blue-400" />
+                      <IconUser size={10} className="text-[#91AEB5]" />
                     ) : (
                       <span className={`w-1.5 h-1.5 rounded-full ${badgeStyle.dot}`} />
                     )}
@@ -1632,15 +1634,15 @@ export function AnnotatedChartWidget({
 
         {/* Dimension 4: User Click-to-Annotate Popover */}
         {selectedPoint && (
-          <div className="mt-2.5 p-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 dark:bg-blue-950/30 space-y-2 text-xs">
-            <div className="flex items-center justify-between font-mono text-[10px] text-blue-700 dark:text-blue-300 font-semibold">
+          <div className="mt-2.5 p-2.5 rounded-xl border border-[#91AEB5]/30 bg-[#253034]/20 dark:bg-[#302B28] dark:border-[#504740] space-y-2 text-xs">
+            <div className="flex items-center justify-between font-mono text-[10px] text-[#91AEB5] font-semibold">
               <span className="flex items-center gap-1">
                 <IconPin size={11} /> Add note at {selectedPoint.x} ({unit}{selectedPoint.y})
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedPoint(null)}
-                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                className="text-[#91867E] hover:text-[#F4EDE5] cursor-pointer"
               >
                 ✕
               </button>
@@ -1654,13 +1656,13 @@ export function AnnotatedChartWidget({
                   if (e.key === 'Enter') handleAddUserAnnotation();
                 }}
                 placeholder="e.g. Campaign launched, market update..."
-                className="flex-1 px-2.5 py-1 rounded-lg border border-[#4A4238]/20 dark:border-white/20 text-xs bg-white dark:bg-[#161311] text-[#2D2621] dark:text-[#EDE6DC] outline-none"
+                className="flex-1 px-2.5 py-1 rounded-lg border border-[#4A4238]/20 dark:border-[#3A3430] text-xs bg-white dark:bg-[#292522] text-[#2D2621] dark:text-[#F4EDE5] placeholder-[#91867E] outline-none focus:ring-1 focus:ring-[#E3836C]/40"
                 autoFocus
               />
               <select
                 value={noteType}
                 onChange={(e) => setNoteType(e.target.value as any)}
-                className="px-2 py-1 rounded-lg border border-[#4A4238]/20 dark:border-white/20 text-[10px] font-mono bg-white dark:bg-[#161311]"
+                className="px-2 py-1 rounded-lg border border-[#4A4238]/20 dark:border-[#3A3430] text-[10px] font-mono bg-white dark:bg-[#292522] text-[#4A4238] dark:text-[#F4EDE5]"
               >
                 <option value="note">Note</option>
                 <option value="event">Event</option>
@@ -1669,7 +1671,7 @@ export function AnnotatedChartWidget({
               <button
                 type="button"
                 onClick={handleAddUserAnnotation}
-                className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-mono text-[11px] font-semibold transition-all cursor-pointer"
+                className="px-3 py-1 rounded-lg bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] font-mono text-[11px] font-semibold transition-all cursor-pointer shadow-xs"
               >
                 Add
               </button>
@@ -1677,7 +1679,7 @@ export function AnnotatedChartWidget({
           </div>
         )}
 
-        <div className="flex items-center justify-between text-[9px] font-mono text-[#4A4238]/60 dark:text-white/60 mt-1 px-1">
+        <div className="flex items-center justify-between text-[9px] font-mono text-[#4A4238]/60 dark:text-[#91867E] mt-1 px-1">
           <span>{series[0]?.x} · {unit}{series[0]?.y}</span>
           <span>{series[series.length - 1]?.x} · {unit}{series[series.length - 1]?.y}</span>
         </div>
@@ -1712,28 +1714,28 @@ export function AlertBannerWidget({
     switch (severity) {
       case 'error':
         return {
-          container: 'bg-red-500/10 border-red-500/30 text-red-900 dark:text-red-200',
-          icon: <IconAlertTriangle size={18} className="text-red-600 dark:text-red-400 flex-shrink-0" />,
-          badge: 'bg-red-500/20 text-red-700 dark:text-red-300',
+          container: 'bg-red-500/10 dark:bg-[#382522] border-red-500/30 dark:border-[#D97870]/30 text-red-900 dark:text-[#D97870]',
+          icon: <IconAlertTriangle size={18} className="text-red-600 dark:text-[#D97870] flex-shrink-0" />,
+          badge: 'bg-red-500/20 dark:bg-[#D97870]/20 text-red-700 dark:text-[#D97870]',
         };
       case 'info':
         return {
-          container: 'bg-sky-500/10 border-sky-500/30 text-sky-900 dark:text-sky-200',
-          icon: <IconInfoCircle size={18} className="text-sky-600 dark:text-sky-400 flex-shrink-0" />,
-          badge: 'bg-sky-500/20 text-sky-700 dark:text-sky-300',
+          container: 'bg-sky-500/10 dark:bg-[#253034] border-sky-500/30 dark:border-[#91AEB5]/30 text-sky-900 dark:text-[#91AEB5]',
+          icon: <IconInfoCircle size={18} className="text-sky-600 dark:text-[#91AEB5] flex-shrink-0" />,
+          badge: 'bg-sky-500/20 dark:bg-[#91AEB5]/20 text-sky-700 dark:text-[#91AEB5]',
         };
       case 'success':
         return {
-          container: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200',
-          icon: <IconCheck size={18} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />,
-          badge: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400',
+          container: 'bg-emerald-500/10 dark:bg-[#283329] border-emerald-500/30 dark:border-[#9EBB9A]/30 text-emerald-900 dark:text-[#9EBB9A]',
+          icon: <IconCheck size={18} className="text-emerald-600 dark:text-[#9EBB9A] flex-shrink-0" />,
+          badge: 'bg-emerald-500/20 dark:bg-[#9EBB9A]/20 text-emerald-700 dark:text-[#9EBB9A]',
         };
       case 'warning':
       default:
         return {
-          container: 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200',
-          icon: <IconAlertTriangle size={18} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />,
-          badge: 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
+          container: 'bg-amber-500/10 dark:bg-[#352D20] border-amber-500/30 dark:border-[#D9AD70]/30 text-amber-900 dark:text-[#D9AD70]',
+          icon: <IconAlertTriangle size={18} className="text-amber-600 dark:text-[#D9AD70] flex-shrink-0" />,
+          badge: 'bg-amber-500/20 dark:bg-[#D9AD70]/20 text-amber-700 dark:text-[#D9AD70]',
         };
     }
   };
@@ -1797,15 +1799,15 @@ export function CompositeGroupWidget({
   const childWidgets: WidgetSpec[] = Array.isArray(p.widgets) ? p.widgets : [];
 
   return (
-    <div className="glass-card rounded-2xl p-5 border-2 border-[#D4826A]/25 dark:border-[#D4826A]/20 flex flex-col justify-between h-full shadow-md hover:border-[#D4826A]/40 transition-all group relative bg-black/[0.01] dark:bg-white/[0.01]">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border-2 border-[#E3836C]/25 dark:border-[#E3836C]/25 flex flex-col justify-between h-full shadow-md hover:border-[#E3836C]/40 transition-all group relative bg-black/[0.01] dark:bg-white/[0.01]">
       <div>
-        <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#4A4238]/10 dark:border-white/10">
+        <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#4A4238]/10 dark:border-[#3A3430]">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#D4826A]" />
-            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+            <span className="w-2 h-2 rounded-full bg-[#E3836C]" />
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5]">
               {title}
             </h3>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#D4826A]/10 text-[#D4826A] font-semibold">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#E3836C]/10 text-[#E3836C] font-semibold">
               Composite · {childWidgets.length} primitives
             </span>
           </div>
@@ -1849,7 +1851,7 @@ export function CompositeGroupWidget({
               return (
                 <div
                   key={child.id || idx}
-                  className="p-3 rounded-xl border border-dashed border-stone-400 text-xs font-mono text-stone-500"
+                  className="p-3 rounded-xl border border-dashed border-[#3A3430] text-xs font-mono text-[#91867E]"
                 >
                   Unknown child primitive: {childType}
                 </div>
@@ -1911,11 +1913,11 @@ export function generateSandboxedHtml(
   const metric = String(p.metric || widget.metric || 'Custom View');
   const isDark = theme === 'dark';
 
-  const bgColor = isDark ? '#1C1917' : '#FAF6F0';
-  const textColor = isDark ? '#EDE6DC' : '#4A4238';
-  const mutedColor = isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(74, 66, 56, 0.6)';
-  const borderColor = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(74, 66, 56, 0.1)';
-  const accentColor = '#D4826A';
+  const bgColor = isDark ? '#211E1C' : '#FAF6F0';
+  const textColor = isDark ? '#F4EDE5' : '#4A4238';
+  const mutedColor = isDark ? '#91867E' : 'rgba(74, 66, 56, 0.6)';
+  const borderColor = isDark ? '#3A3430' : 'rgba(74, 66, 56, 0.1)';
+  const accentColor = '#E3836C';
 
   // Strict CSP: hard-block outbound network calls, nested frames, and form submissions
   const cspMeta = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">`;
@@ -2008,11 +2010,11 @@ export function generateSandboxedHtml(
       font-family: monospace;
       padding: 2px 6px;
       border-radius: 4px;
-      background: rgba(212, 130, 106, 0.15);
+      background: rgba(227, 131, 108, 0.15);
       color: ${accentColor};
     }
     .card {
-      background: ${isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'};
+      background: ${isDark ? '#292522' : 'rgba(0,0,0,0.02)'};
       border: 1px solid ${borderColor};
       border-radius: 12px;
       padding: 10px;
@@ -2092,9 +2094,9 @@ export function SandboxedFrameWidget({
   const srcDoc = isOversized ? '' : generateSandboxedHtml(widget, resolvedData, theme);
 
   return (
-    <div className="glass-card rounded-2xl p-4 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all min-h-[200px]">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-4 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all min-h-[200px]">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-serif font-medium truncate text-[#4A4238] dark:text-[#EDE6DC]">
+        <span className="text-xs font-serif font-medium truncate text-[#4A4238] dark:text-[#F4EDE5]">
           {title}
         </span>
         <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400">
@@ -2131,7 +2133,7 @@ export function SandboxedFrameWidget({
           </button>
         </div>
       ) : (
-        <div className="flex-1 relative w-full min-h-[140px] rounded-xl overflow-hidden bg-black/5 dark:bg-white/5 border border-[#4A4238]/5 dark:border-white/5">
+        <div className="flex-1 relative w-full min-h-[140px] rounded-xl overflow-hidden bg-black/5 dark:bg-[#171514] border border-[#4A4238]/5 dark:border-[#3A3430]">
           <iframe
             key={reloadKey}
             ref={iframeRef}
@@ -2177,14 +2179,14 @@ export function SandboxedWidgetRenderer({
     // Dimension 7 / Security Hardening: Server-side redacted widget placeholder
     if (widget.redacted || (widget.props as any)?.redacted) {
       return (
-        <div className="glass-card rounded-2xl p-6 border border-dashed border-[#4A4238]/30 dark:border-white/20 bg-[#FAF6F0]/60 dark:bg-[#1C1917]/60 flex flex-col items-center justify-center text-center min-h-[160px]">
-          <div className="w-9 h-9 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-2.5">
+        <div className="glass-card rounded-2xl p-6 border border-dashed border-[#4A4238]/30 dark:border-[#3A3430] bg-[#FAF6F0]/60 dark:bg-[#211E1C]/60 flex flex-col items-center justify-center text-center min-h-[160px]">
+          <div className="w-9 h-9 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-[#D9AD70] mb-2.5">
             <IconLock className="w-5 h-5" />
           </div>
-          <h4 className="text-xs font-mono font-semibold text-[#4A4238] dark:text-[#EDE6DC]">
+          <h4 className="text-xs font-mono font-semibold text-[#4A4238] dark:text-[#F4EDE5]">
             {widget.title || 'Restricted Content'}
           </h4>
-          <p className="text-[11px] font-mono text-[#7A7062] dark:text-[#A8A095] mt-1 max-w-xs">
+          <p className="text-[11px] font-mono text-[#7A7062] dark:text-[#91867E] mt-1 max-w-xs">
             This widget was redacted server-side. Requires {widget.visibility?.join(' or ') || 'elevated'} role permission.
           </p>
         </div>
@@ -2220,7 +2222,7 @@ export function SandboxedWidgetRenderer({
     return (
       <div className="relative">
         <div className="absolute top-3 right-3 z-10">
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-stone-500/10 dark:bg-stone-400/10 text-stone-600 dark:text-stone-300 border border-stone-500/20">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-stone-500/10 dark:bg-stone-400/10 text-stone-600 dark:text-[#C5B9AE] border border-stone-500/20">
             Draft Preview
           </span>
         </div>
@@ -2249,7 +2251,7 @@ export function SandboxedWidgetRenderer({
     <div
       className={`relative group/canvas-widget h-full transition-all duration-300 ${
         isFilteredIn
-          ? 'ring-2 ring-[#D4826A] shadow-lg rounded-2xl'
+          ? 'ring-2 ring-[#E3836C] shadow-lg rounded-2xl'
           : isFilteredOut
           ? 'opacity-40 hover:opacity-80'
           : ''
@@ -2258,7 +2260,7 @@ export function SandboxedWidgetRenderer({
       {/* Active Filter Scope Badge */}
       {isFilteredIn && activeFilter && (
         <div className="absolute top-3 left-3 z-10">
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#D4826A]/15 text-[#D4826A] border border-[#D4826A]/30 flex items-center gap-1 font-semibold backdrop-blur-xs">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#E3836C]/15 text-[#E3836C] border border-[#E3836C]/30 flex items-center gap-1 font-semibold backdrop-blur-xs">
             <IconFilter size={11} />
             {activeFilter.dimension}: {activeFilter.value}
           </span>
@@ -2267,7 +2269,7 @@ export function SandboxedWidgetRenderer({
 
       {/* Freshness Badge (visible by default) */}
       <div className="absolute top-3 right-3 z-10 group-hover/canvas-widget:hidden transition-all">
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 shadow-xs">
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-[#9EBB9A] border border-emerald-500/20 dark:border-emerald-500/30 flex items-center gap-1.5 shadow-xs">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
           {widget.freshness || 'Live · as of 09:40 EDT'}
         </span>
@@ -2275,8 +2277,8 @@ export function SandboxedWidgetRenderer({
 
       {/* Hover Action Toolbar */}
       {hasToolbarControls && (
-        <div className="absolute top-2.5 right-2.5 z-20 hidden group-hover/canvas-widget:flex items-center gap-1 bg-[#FAF6F0]/95 dark:bg-[#1C1917]/95 backdrop-blur-md px-2 py-1 rounded-xl border border-[#4A4238]/15 dark:border-white/15 shadow-md transition-all">
-          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 mr-1 flex items-center gap-1">
+        <div className="absolute top-2.5 right-2.5 z-20 hidden group-hover/canvas-widget:flex items-center gap-1 bg-[#FAF6F0]/95 dark:bg-[#302B28]/95 backdrop-blur-md px-2 py-1 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] shadow-md transition-all">
+          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-[#9EBB9A] mr-1 flex items-center gap-1">
             <span className="w-1 h-1 rounded-full bg-emerald-500" />
             Live
           </span>
@@ -2286,7 +2288,7 @@ export function SandboxedWidgetRenderer({
               type="button"
               onClick={() => onRefine(widget)}
               title="Refine with AI (Click-to-chat)"
-              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-white/70 hover:text-[#D4826A] hover:bg-[#D4826A]/10 transition-all cursor-pointer"
+              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#E3836C] hover:bg-[#E3836C]/10 transition-all cursor-pointer"
             >
               <IconSparkles size={13} />
             </button>
@@ -2297,7 +2299,7 @@ export function SandboxedWidgetRenderer({
               type="button"
               onClick={() => onToggleWidth(widget.id)}
               title={widget.span === 2 ? 'Set to 1 Column' : 'Expand to 2 Columns'}
-              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-white/70 hover:text-[#D4826A] hover:bg-[#D4826A]/10 transition-all cursor-pointer"
+              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#E3836C] hover:bg-[#E3836C]/10 transition-all cursor-pointer"
             >
               <IconColumns size={13} />
             </button>
@@ -2308,7 +2310,7 @@ export function SandboxedWidgetRenderer({
               type="button"
               onClick={() => onMoveUp(widget.id)}
               title="Move Widget Up"
-              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-white/70 hover:text-[#D4826A] hover:bg-[#D4826A]/10 transition-all cursor-pointer"
+              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#E3836C] hover:bg-[#E3836C]/10 transition-all cursor-pointer"
             >
               <IconArrowUp size={13} />
             </button>
@@ -2319,7 +2321,7 @@ export function SandboxedWidgetRenderer({
               type="button"
               onClick={() => onMoveDown(widget.id)}
               title="Move Widget Down"
-              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-white/70 hover:text-[#D4826A] hover:bg-[#D4826A]/10 transition-all cursor-pointer"
+              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#E3836C] hover:bg-[#E3836C]/10 transition-all cursor-pointer"
             >
               <IconArrowDown size={13} />
             </button>

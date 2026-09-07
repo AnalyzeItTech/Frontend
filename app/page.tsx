@@ -133,7 +133,7 @@ export default function Home() {
         />
 
         {/* Phase 4: Canvas Handoff → Flat Editorial Content Sections */}
-        <div className="relative z-10 bg-[#F3EDE4] dark:bg-[#161311] text-[#4A4238] dark:text-[#EDE6DC] shadow-2xl transition-colors duration-500">
+        <div className="relative z-10 bg-[#F3EDE4] dark:bg-[#171514] text-[#4A4238] dark:text-[#F4EDE5] shadow-2xl transition-colors duration-500">
           {/* 1. Core 4 Capabilities Pillars */}
           <CapabilitiesSection />
 

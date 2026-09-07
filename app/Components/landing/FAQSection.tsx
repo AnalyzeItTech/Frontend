@@ -57,11 +57,11 @@ export const FAQSection: React.FC = () => {
     >
       {/* Header */}
       <div className="text-center space-y-4">
-        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#8FA98F]" />
+        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#91867E]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#9EBB9A]" />
           Common Questions
         </div>
-        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#EDE6DC] font-normal">
+        <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#F4EDE5] font-normal">
           Frequently asked questions
         </h2>
       </div>
@@ -73,19 +73,19 @@ export const FAQSection: React.FC = () => {
           return (
             <div
               key={idx}
-              className="glass-card rounded-2xl overflow-hidden border border-[#4A4238]/10 dark:border-white/10 transition-all duration-200"
+              className="glass-card rounded-2xl overflow-hidden border border-[#4A4238]/10 dark:border-[#3A3430] transition-all duration-200"
             >
               <button
                 type="button"
                 onClick={() => toggle(idx)}
-                className="w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-white/20 dark:hover:bg-white/05 transition-colors"
+                className="w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-white/20 dark:hover:bg-[#292522]/50 transition-colors"
                 aria-expanded={isOpen}
               >
-                <span className="font-serif text-xl md:text-2xl text-[#4A4238] dark:text-[#EDE6DC] font-normal">
+                <span className="font-serif text-xl md:text-2xl text-[#4A4238] dark:text-[#F4EDE5] font-normal">
                   {faq.question}
                 </span>
                 <span
-                  className={`text-[#D4826A] text-2xl font-light transition-transform duration-300 ${
+                  className={`text-[#E3836C] text-2xl font-light transition-transform duration-300 ${
                     isOpen ? 'rotate-45' : 'rotate-0'
                   }`}
                 >
@@ -94,7 +94,7 @@ export const FAQSection: React.FC = () => {
               </button>
 
               {isOpen && (
-                <div className="px-6 pb-6 pt-1 text-sm md:text-base text-[#4A4238]/75 dark:text-[#EDE6DC]/75 leading-relaxed border-t border-[#4A4238]/6 dark:border-white/08 animate-in fade-in duration-200">
+                <div className="px-6 pb-6 pt-1 text-sm md:text-base text-[#4A4238]/75 dark:text-[#C5B9AE] leading-relaxed border-t border-[#4A4238]/6 dark:border-[#3A3430] animate-in fade-in duration-200">
                   {faq.answer}
                 </div>
               )}

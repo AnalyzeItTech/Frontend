@@ -30,10 +30,10 @@ export const Navbar: React.FC = () => {
       {/* Floating Pill Header */}
       <header className="fixed top-5 sm:top-6 left-0 right-0 z-40 flex justify-center px-4 sm:px-6 pointer-events-none">
         <nav
-          className={`pointer-events-auto flex items-center justify-between gap-6 sm:gap-8 px-5 sm:px-7 py-2.5 sm:py-3 rounded-full transition-all duration-300 ${
+          className={`pointer-events-auto flex items-center justify-between gap-6 sm:gap-8 px-5 sm:px-7 py-2.5 sm:py-3 rounded-full transition-all duration-300 bg-[#E9DDD2] text-[#403934] border border-[#403934]/15 ${
             scrolled
-              ? 'glass-pill shadow-sm border border-[#4A4238]/10'
-              : 'bg-[#F3EDE4]/60 backdrop-blur-md border border-[#4A4238]/8'
+              ? 'shadow-md shadow-black/10'
+              : 'shadow-xs'
           }`}
         >
           {/* Brand Logo */}
@@ -52,39 +52,39 @@ export const Navbar: React.FC = () => {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <div className="hidden md:flex items-center gap-6 text-xs font-mono tracking-wider uppercase text-[#4A4238]/70">
+          <div className="hidden md:flex items-center gap-6 text-xs font-mono tracking-wider uppercase text-[#403934]/75">
             <button
               type="button"
               onClick={() => scrollTo('capabilities')}
-              className="hover:text-[#4A4238] transition-colors cursor-pointer"
+              className="hover:text-[#E3836C] transition-colors cursor-pointer"
             >
               Capabilities
             </button>
             <button
               type="button"
               onClick={() => scrollTo('how-it-works')}
-              className="hover:text-[#4A4238] transition-colors cursor-pointer"
+              className="hover:text-[#E3836C] transition-colors cursor-pointer"
             >
               How It Works
             </button>
             <button
               type="button"
               onClick={() => scrollTo('comparison')}
-              className="hover:text-[#4A4238] transition-colors cursor-pointer"
+              className="hover:text-[#E3836C] transition-colors cursor-pointer"
             >
               Why Calm
             </button>
             <button
               type="button"
               onClick={() => scrollTo('pricing')}
-              className="hover:text-[#4A4238] transition-colors cursor-pointer"
+              className="hover:text-[#E3836C] transition-colors cursor-pointer"
             >
               Pricing
             </button>
             <button
               type="button"
               onClick={() => scrollTo('faq')}
-              className="hover:text-[#4A4238] transition-colors cursor-pointer"
+              className="hover:text-[#E3836C] transition-colors cursor-pointer"
             >
               FAQ
             </button>
@@ -95,13 +95,13 @@ export const Navbar: React.FC = () => {
             <ThemeToggle />
             <Link
               href="/Dashboard"
-              className="text-xs text-[#4A4238]/75 dark:text-[#EDE6DC]/75 hover:text-[#4A4238] dark:hover:text-white font-medium px-3 py-1.5 transition-colors"
+              className="text-xs text-[#403934]/80 hover:text-[#E3836C] font-medium px-3 py-1.5 transition-colors"
             >
               Dashboard
             </Link>
             <Link
               href="/login"
-              className="text-xs bg-[#4A4238] hover:bg-[#383129] dark:bg-[#EDE6DC] dark:hover:bg-white dark:text-[#161311] text-[#F3EDE4] font-medium px-4 py-1.5 rounded-full transition-all duration-200 shadow-xs"
+              className="text-xs bg-[#302824] hover:bg-[#E3836C] text-[#FFF7F1] font-medium px-4 py-1.5 rounded-full transition-all duration-200 shadow-xs"
             >
               Get started
             </Link>
@@ -110,16 +110,16 @@ export const Navbar: React.FC = () => {
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden w-8 h-8 flex flex-col items-center justify-center gap-1 text-[#4A4238] cursor-pointer ml-1"
+              className="md:hidden w-8 h-8 flex flex-col items-center justify-center gap-1 text-[#403934] cursor-pointer ml-1"
               aria-label="Toggle Menu"
             >
               <span
-                className={`w-4 h-[1.5px] bg-[#4A4238] transition-transform ${
+                className={`w-4 h-[1.5px] bg-[#403934] transition-transform ${
                   mobileMenuOpen ? 'rotate-45 translate-y-[3.5px]' : ''
                 }`}
               />
               <span
-                className={`w-4 h-[1.5px] bg-[#4A4238] transition-transform ${
+                className={`w-4 h-[1.5px] bg-[#403934] transition-transform ${
                   mobileMenuOpen ? '-rotate-45 -translate-y-[3.5px]' : ''
                 }`}
               />
@@ -130,52 +130,52 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-30 bg-[#F3EDE4]/95 backdrop-blur-2xl flex flex-col items-center justify-center gap-6 text-sm font-mono tracking-widest uppercase md:hidden">
+        <div className="fixed inset-0 z-30 bg-[#E9DDD2]/98 backdrop-blur-2xl flex flex-col items-center justify-center gap-6 text-sm font-mono tracking-widest uppercase md:hidden text-[#403934]">
           <button
             type="button"
             onClick={() => scrollTo('capabilities')}
-            className="text-base text-[#4A4238] hover:text-[#D4826A] transition-colors"
+            className="text-base text-[#403934] hover:text-[#E3836C] transition-colors"
           >
             Capabilities
           </button>
           <button
             type="button"
             onClick={() => scrollTo('how-it-works')}
-            className="text-base text-[#4A4238] hover:text-[#D4826A] transition-colors"
+            className="text-base text-[#403934] hover:text-[#E3836C] transition-colors"
           >
             How It Works
           </button>
           <button
             type="button"
             onClick={() => scrollTo('comparison')}
-            className="text-base text-[#4A4238] hover:text-[#D4826A] transition-colors"
+            className="text-base text-[#403934] hover:text-[#E3836C] transition-colors"
           >
             Why Calm
           </button>
           <button
             type="button"
             onClick={() => scrollTo('pricing')}
-            className="text-base text-[#4A4238] hover:text-[#D4826A] transition-colors"
+            className="text-base text-[#403934] hover:text-[#E3836C] transition-colors"
           >
             Pricing
           </button>
           <button
             type="button"
             onClick={() => scrollTo('faq')}
-            className="text-base text-[#4A4238] hover:text-[#D4826A] transition-colors"
+            className="text-base text-[#403934] hover:text-[#E3836C] transition-colors"
           >
             FAQ
           </button>
           <div className="pt-4 flex gap-4">
             <Link
               href="/login"
-              className="px-6 py-2 rounded-full border border-[#4A4238]/20 text-xs font-mono uppercase text-[#4A4238]"
+              className="px-6 py-2 rounded-full border border-[#403934]/20 text-xs font-mono uppercase text-[#403934] hover:border-[#E3836C] hover:text-[#E3836C] transition-colors"
             >
               Sign In
             </Link>
             <Link
               href="/login"
-              className="px-6 py-2 rounded-full bg-[#D4826A] text-xs font-mono uppercase text-white"
+              className="px-6 py-2 rounded-full bg-[#E3836C] hover:bg-[#ED967F] text-xs font-mono uppercase text-[#FFF7F1] transition-colors shadow-xs"
             >
               Get Started
             </Link>
