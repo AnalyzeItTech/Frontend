@@ -1,9 +1,109 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { IconAlertTriangle, IconTrash } from '@tabler/icons-react';
+import {
+  IconAlertTriangle,
+  IconTrash,
+  IconSparkles,
+  IconArrowUp,
+  IconArrowDown,
+  IconColumns,
+  IconInfoCircle,
+  IconCheck,
+  IconX,
+  IconFilter,
+  IconDatabase,
+  IconActivity,
+  IconLayersLinked,
+  IconChartDots,
+  IconChartHistogram,
+  IconChartFunnel,
+  IconFlame,
+  IconLock,
+  IconRefresh,
+  IconUser,
+  IconPin,
+} from '@tabler/icons-react';
 import { useTheme } from '../ui/ThemeProvider';
-import { resolveWidgetData, type WidgetSpec } from '../../lib/chatApi';
+import { resolveWidgetData, type WidgetSpec, type ProvenanceInfo, type ChartAnnotation } from '../../lib/chatApi';
+
+// ── Universal Citation & Provenance Footer ───────────────────────────────────
+
+export function CitationFooter({
+  provenance,
+  freshness,
+  binding,
+  onRefresh,
+}: {
+  provenance?: ProvenanceInfo;
+  freshness?: string;
+  binding?: unknown;
+  onRefresh?: () => void;
+}) {
+  if (!provenance && !freshness && !binding) return null;
+
+  const getKindConfig = (kind?: string) => {
+    switch (kind) {
+      case 'live_api':
+        return {
+          dotColor: 'bg-emerald-500',
+          badgeClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
+          label: 'Live API',
+        };
+      case 'verified_db':
+        return {
+          dotColor: 'bg-sky-500',
+          badgeClass: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20',
+          label: 'Verified DB',
+        };
+      case 'synthetic_ai':
+      default:
+        return {
+          dotColor: 'bg-violet-500',
+          badgeClass: 'bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20',
+          label: 'Synthesized AI',
+        };
+    }
+  };
+
+  const badge = provenance ? getKindConfig(provenance.kind) : null;
+  const lastRefreshed = (binding as any)?.last_refreshed_at
+    ? `Refreshed ${new Date((binding as any).last_refreshed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : null;
+
+  return (
+    <div className="mt-3 pt-2.5 border-t border-[#4A4238]/10 dark:border-white/10 flex items-center justify-between text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60">
+      {badge && provenance ? (
+        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${badge.badgeClass}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor} flex-shrink-0`} />
+          <span className="font-medium">{badge.label}</span>
+          <span className="opacity-40">·</span>
+          <span className="truncate max-w-[130px]">{provenance.source}</span>
+        </span>
+      ) : (
+        <span />
+      )}
+      <div className="flex items-center gap-1.5">
+        <span className="text-[9px] opacity-70 flex-shrink-0">
+          {lastRefreshed || provenance?.timestamp || freshness || 'Live'}
+        </span>
+        {onRefresh && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRefresh();
+            }}
+            className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-[#4A4238]/60 dark:text-white/60 hover:text-[#D4826A] transition-all cursor-pointer"
+            title="Refresh data"
+          >
+            <IconRefresh size={11} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ── 1. Native Metric Card Widget ─────────────────────────────────────────────
 
@@ -58,6 +158,13 @@ export function MetricCardWidget({
           </span>
         )}
       </div>
+
+      <CitationFooter
+        provenance={widget.provenance || (p as any)?.provenance}
+        freshness={widget.freshness}
+        binding={widget.binding || (p as any)?.binding}
+        onRefresh={onWidgetAction ? () => onWidgetAction(widget.id, 'refresh') : undefined}
+      />
     </div>
   );
 }
@@ -110,46 +217,39 @@ export function LineChartWidget({
             {title}
           </h3>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono text-[#D4826A] bg-[#D4826A]/10 px-2 py-0.5 rounded-full">
-            Live Chart
-          </span>
-          {onWidgetAction && (
-            <button
-              type="button"
-              onClick={() => onWidgetAction(widget.id, 'delete')}
-              className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
-              title="Remove widget"
-            >
-              <IconTrash size={14} />
-            </button>
-          )}
-        </div>
+        {onWidgetAction && (
+          <button
+            type="button"
+            onClick={() => onWidgetAction(widget.id, 'delete')}
+            className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+            title="Remove widget"
+          >
+            <IconTrash size={14} />
+          </button>
+        )}
       </div>
-      <div className="w-full h-36 relative flex items-center justify-center">
+
+      <div className="w-full h-32 my-2">
         <svg viewBox="0 0 300 110" className="w-full h-full overflow-visible">
           <polyline
             fill="none"
             stroke="#D4826A"
-            strokeWidth="3"
+            strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             points={points}
           />
           {data.map((d, i) => {
-            const x = 30 + (i / Math.max(data.length - 1, 1)) * 240;
-            const y = 90 - ((d.value - minVal) / range) * 70;
+            const cx = 30 + (i / Math.max(data.length - 1, 1)) * 240;
+            const cy = 90 - ((d.value - minVal) / range) * 70;
             return (
               <g key={i}>
-                <circle cx={x} cy={y} r="4" fill="#D4826A" />
+                <circle cx={cx} cy={cy} r="3.5" fill="#D4826A" />
                 <text
-                  x={x}
-                  y="105"
+                  x={cx}
+                  y={105}
                   textAnchor="middle"
-                  fontSize="9"
-                  fill="currentColor"
-                  opacity="0.6"
-                  fontFamily="monospace"
+                  className="fill-[#4A4238]/40 dark:fill-white/40 text-[9px] font-mono"
                 >
                   {d.date}
                 </text>
@@ -158,6 +258,13 @@ export function LineChartWidget({
           })}
         </svg>
       </div>
+
+      <CitationFooter
+        provenance={widget.provenance || (p as any)?.provenance}
+        freshness={widget.freshness}
+        binding={widget.binding || (p as any)?.binding}
+        onRefresh={onWidgetAction ? () => onWidgetAction(widget.id, 'refresh') : undefined}
+      />
     </div>
   );
 }
@@ -172,8 +279,8 @@ export function BarChartWidget({
   onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
 }) {
   const p = widget.props || widget;
-  const metric = String(p.metric || widget.metric || 'Comparative Bar');
-  const title = String(p.title || widget.title || 'Comparative Bar');
+  const metric = String(p.metric || widget.metric || 'Distribution');
+  const title = String(p.title || widget.title || 'Distribution');
   const rawData = p.data || widget.data;
   const data: Array<{ label: string; value: number }> = Array.isArray(rawData) && rawData.length > 0
     ? rawData.map((d: any, idx: number) => ({
@@ -230,6 +337,13 @@ export function BarChartWidget({
           );
         })}
       </div>
+
+      <CitationFooter
+        provenance={widget.provenance || (p as any)?.provenance}
+        freshness={widget.freshness}
+        binding={widget.binding || (p as any)?.binding}
+        onRefresh={onWidgetAction ? () => onWidgetAction(widget.id, 'refresh') : undefined}
+      />
     </div>
   );
 }
@@ -305,6 +419,1456 @@ export function TableWidget({
           </tbody>
         </table>
       </div>
+
+      <CitationFooter
+        provenance={widget.provenance || (p as any)?.provenance}
+        freshness={widget.freshness}
+        binding={widget.binding || (p as any)?.binding}
+        onRefresh={onWidgetAction ? () => onWidgetAction(widget.id, 'refresh') : undefined}
+      />
+    </div>
+  );
+}
+
+// ── 5. Native Text Block Widget ──────────────────────────────────────────────
+
+export function TextBlockWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p: any = widget.props || widget;
+  const metric = String(p.metric || widget.metric || 'Analysis Note');
+  const title = String(p.title || widget.title || 'Summary & Insights');
+  const heading = p.heading ? String(p.heading) : '';
+  const body = String(p.body || p.content || 'No text content provided.');
+  const variant = (p.variant || 'insight') as 'insight' | 'warning' | 'summary';
+
+  const variantStyles = {
+    insight: 'border-blue-500/20 bg-blue-500/5 text-blue-900 dark:text-blue-100',
+    warning: 'border-amber-500/20 bg-amber-500/5 text-amber-900 dark:text-amber-100',
+    summary: 'border-[#4A4238]/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]',
+  };
+
+  const paragraphs = body.split('\n\n').filter(Boolean);
+
+  return (
+    <div className={`glass-card rounded-2xl p-5 border flex flex-col justify-between h-full shadow-sm transition-all group relative ${variantStyles[variant] || variantStyles.summary}`}>
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            {variant === 'insight' ? (
+              <IconSparkles size={14} className="text-blue-500" />
+            ) : variant === 'warning' ? (
+              <IconAlertTriangle size={14} className="text-amber-500" />
+            ) : (
+              <IconInfoCircle size={14} className="text-[#D4826A]" />
+            )}
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+              {metric}
+            </span>
+          </div>
+          {onWidgetAction && (
+            <button
+              type="button"
+              onClick={() => onWidgetAction(widget.id, 'delete')}
+              className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+              title="Remove widget"
+            >
+              <IconTrash size={14} />
+            </button>
+          )}
+        </div>
+        <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+          {title}
+        </h3>
+        {heading && heading !== title && (
+          <h4 className="text-xs font-mono font-semibold text-[#4A4238]/80 dark:text-white/80 mt-1 mb-2">
+            {heading}
+          </h4>
+        )}
+      </div>
+      <div className="mt-3 space-y-2 text-xs leading-relaxed text-[#4A4238]/85 dark:text-white/85">
+        {paragraphs.map((pText, idx) => {
+          if (pText.trim().startsWith('- ') || pText.trim().startsWith('• ')) {
+            const bullets = pText.split('\n').map((l) => l.replace(/^[-•]\s*/, '').trim()).filter(Boolean);
+            return (
+              <ul key={idx} className="space-y-1 pl-4 list-disc marker:text-[#D4826A]">
+                {bullets.map((b, bIdx) => (
+                  <li key={bIdx} className="font-sans">{b}</li>
+                ))}
+              </ul>
+            );
+          }
+          return <p key={idx} className="font-sans">{pText}</p>;
+        })}
+      </div>
+
+      <CitationFooter
+        provenance={widget.provenance || (p as any)?.provenance}
+        freshness={widget.freshness}
+      />
+    </div>
+  );
+}
+
+// ── 6. Native Progress Ring Widget ───────────────────────────────────────────
+
+export function ProgressRingWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p = widget.props || widget;
+  const metric = String(p.metric || widget.metric || 'Progress');
+  const title = String(p.title || widget.title || 'Target Progress');
+  const rawPct = (p as any).percent !== undefined ? (p as any).percent : p.value;
+  const percent = Math.min(Math.max(Number(rawPct) || 0, 0), 100);
+  const label = String((p as any).label || `${percent}% completed`);
+  const sublabel = (p as any).sublabel ? String((p as any).sublabel) : undefined;
+
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percent / 100) * circumference;
+
+  return (
+    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+            {metric}
+          </span>
+          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+            {title}
+          </h3>
+        </div>
+        {onWidgetAction && (
+          <button
+            type="button"
+            onClick={() => onWidgetAction(widget.id, 'delete')}
+            className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+            title="Remove widget"
+          >
+            <IconTrash size={14} />
+          </button>
+        )}
+      </div>
+
+      <div className="flex items-center justify-around gap-4 py-2">
+        <div className="relative w-24 h-24 flex items-center justify-center flex-shrink-0">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+            <circle
+              cx="50"
+              cy="50"
+              r={radius}
+              className="stroke-[#4A4238]/10 dark:stroke-white/10"
+              strokeWidth="8"
+              fill="none"
+            />
+            <circle
+              cx="50"
+              cy="50"
+              r={radius}
+              stroke="#D4826A"
+              strokeWidth="8"
+              strokeLinecap="round"
+              fill="none"
+              strokeDasharray={circumference}
+              strokeDashoffset={offset}
+              className="transition-all duration-1000 ease-out"
+            />
+          </svg>
+          <div className="absolute flex flex-col items-center justify-center">
+            <span className="font-serif text-xl font-bold text-[#4A4238] dark:text-white">
+              {percent}%
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-1 text-left flex-1 min-w-0">
+          <p className="text-xs font-mono font-semibold text-[#4A4238] dark:text-[#EDE6DC] truncate">
+            {label}
+          </p>
+          {sublabel && (
+            <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 truncate">
+              {sublabel}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <CitationFooter
+        provenance={widget.provenance || (p as any)?.provenance}
+        freshness={widget.freshness}
+      />
+    </div>
+  );
+}
+
+// ── 7. Native Comparison Pair Widget ─────────────────────────────────────────
+
+export function ComparisonPairWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p = widget.props || widget;
+  const metric = String(p.metric || widget.metric || 'Comparative Analysis');
+  const title = String(p.title || widget.title || 'Asset Comparison');
+  const a = ((p as any).a || { label: 'Benchmark A', value: '$100', sub: 'Baseline' }) as { label: string; value: string; sub?: string };
+  const b = ((p as any).b || { label: 'Benchmark B', value: '$120', sub: '+20% Delta' }) as { label: string; value: string; sub?: string };
+  const delta = (p as any).delta ? String((p as any).delta) : undefined;
+
+  return (
+    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+            {metric}
+          </span>
+          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+            {title}
+          </h3>
+        </div>
+        {onWidgetAction && (
+          <button
+            type="button"
+            onClick={() => onWidgetAction(widget.id, 'delete')}
+            className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+            title="Remove widget"
+          >
+            <IconTrash size={14} />
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-[#4A4238]/05 dark:border-white/05 relative">
+        <div className="space-y-1">
+          <span className="text-[10px] font-mono uppercase text-[#4A4238]/60 dark:text-white/60">
+            {a.label}
+          </span>
+          <div className="font-serif text-xl font-bold text-[#4A4238] dark:text-white">
+            {a.value}
+          </div>
+          {a.sub && (
+            <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60 block">
+              {a.sub}
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-1 border-l border-[#4A4238]/10 dark:border-white/10 pl-3">
+          <span className="text-[10px] font-mono uppercase text-[#4A4238]/60 dark:text-white/60">
+            {b.label}
+          </span>
+          <div className="font-serif text-xl font-bold text-[#D4826A]">
+            {b.value}
+          </div>
+          {b.sub && (
+            <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60 block">
+              {b.sub}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {delta && (
+        <div className="mt-3 flex items-center justify-between text-xs font-mono">
+          <span className="text-[#4A4238]/60 dark:text-white/60">Variance:</span>
+          <span className="px-2 py-0.5 rounded-full bg-[#D4826A]/15 text-[#D4826A] font-semibold">
+            {delta}
+          </span>
+        </div>
+      )}
+
+      <CitationFooter
+        provenance={widget.provenance || (p as any)?.provenance}
+        freshness={widget.freshness}
+      />
+    </div>
+  );
+}
+
+// ── 8. Native Timeline Widget ────────────────────────────────────────────────
+
+export function TimelineWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p = widget.props || widget;
+  const metric = String(p.metric || widget.metric || 'Chronology');
+  const title = String(p.title || widget.title || 'Event Timeline');
+  const rawEvents = (p as any).events || (widget as any).events || [];
+  const events: Array<{ date: string; label: string; description?: string }> =
+    Array.isArray(rawEvents) && rawEvents.length > 0
+      ? rawEvents
+      : [
+          { date: '09:30 AM', label: 'Market Open', description: 'Opening bell with high tech volume' },
+          { date: '11:00 AM', label: 'Fed Policy Remarks', description: 'Yield volatility stabilizes' },
+          { date: '02:00 PM', label: 'Earnings Announcement', description: 'Key components report revenue beat' },
+        ];
+
+  return (
+    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+            {metric}
+          </span>
+          <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+            {title}
+          </h3>
+        </div>
+        {onWidgetAction && (
+          <button
+            type="button"
+            onClick={() => onWidgetAction(widget.id, 'delete')}
+            className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+            title="Remove widget"
+          >
+            <IconTrash size={14} />
+          </button>
+        )}
+      </div>
+
+      <div className="relative pl-4 space-y-4 border-l-2 border-[#4A4238]/10 dark:border-white/10 ml-2">
+        {events.map((ev, idx) => (
+          <div key={idx} className="relative group/item">
+            <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#D4826A] border-2 border-white dark:border-[#1C1917]" />
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                {ev.date}
+              </span>
+              <h4 className="text-xs font-mono font-semibold text-[#4A4238] dark:text-[#EDE6DC]">
+                {ev.label}
+              </h4>
+              {ev.description && (
+                <p className="text-[11px] font-sans text-[#4A4238]/70 dark:text-white/70">
+                  {ev.description}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <CitationFooter
+        provenance={(widget.provenance || (p as any)?.provenance) as ProvenanceInfo | undefined}
+        freshness={widget.freshness}
+      />
+    </div>
+  );
+}
+
+// ── 9. Native Heatmap Widget ─────────────────────────────────────────────────
+
+export function HeatmapWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p = (widget.props || widget) as any;
+  const title = String(p.title || widget.title || 'Intensity Heatmap');
+  const metric = String(p.metric || widget.metric || 'DENSITY_MAP');
+  const rows: string[] = Array.isArray(p.rows) && p.rows.length > 0 ? p.rows : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  const cols: string[] = Array.isArray(p.cols) && p.cols.length > 0 ? p.cols : ['09:00', '11:00', '13:00', '15:00', '17:00'];
+  const rawValues: number[][] = Array.isArray(p.values) && p.values.length > 0
+    ? p.values
+    : [
+        [35, 62, 88, 95, 42],
+        [48, 75, 92, 38, 55],
+        [22, 54, 78, 85, 64],
+        [60, 45, 70, 91, 83],
+        [30, 68, 84, 52, 29],
+      ];
+
+  const flat = rawValues.flat();
+  const maxVal = Math.max(...flat, 1);
+  const minVal = Math.min(...flat, 0);
+  const range = maxVal - minVal || 1;
+  const colorScale = p.colorScale || 'warm';
+
+  const [hoveredCell, setHoveredCell] = useState<{ r: string; c: string; v: number } | null>(null);
+
+  const getCellBg = (val: number) => {
+    const t = Math.max(0.12, (val - minVal) / range);
+    if (colorScale === 'emerald') {
+      return `rgba(16, 185, 129, ${t})`;
+    }
+    if (colorScale === 'cool') {
+      return `rgba(2, 132, 199, ${t})`;
+    }
+    return `rgba(212, 130, 106, ${t})`;
+  };
+
+  return (
+    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+              {metric}
+            </span>
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+              {title}
+            </h3>
+          </div>
+          {onWidgetAction && (
+            <button
+              type="button"
+              onClick={() => onWidgetAction(widget.id, 'delete')}
+              className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+              title="Remove widget"
+            >
+              <IconTrash size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Heatmap Matrix */}
+        <div className="overflow-x-auto py-2">
+          <div className="min-w-[240px]">
+            <div className="flex items-center text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60 mb-1 ml-12">
+              {cols.map((col, idx) => (
+                <div key={idx} className="flex-1 text-center truncate px-0.5">
+                  {col}
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1">
+              {rows.map((row, rIdx) => {
+                const rowVals = rawValues[rIdx] || [];
+                return (
+                  <div key={rIdx} className="flex items-center gap-1.5">
+                    <span className="w-10 text-[10px] font-mono text-[#4A4238]/70 dark:text-white/70 text-right truncate">
+                      {row}
+                    </span>
+                    <div className="flex-1 flex items-center gap-1">
+                      {cols.map((col, cIdx) => {
+                        const val = rowVals[cIdx] ?? 0;
+                        return (
+                          <button
+                            key={cIdx}
+                            type="button"
+                            onMouseEnter={() => setHoveredCell({ r: row, c: col, v: val })}
+                            onMouseLeave={() => setHoveredCell(null)}
+                            onClick={() => {
+                              onWidgetAction?.(widget.id, 'filter', {
+                                dimension: 'heatmap_cell',
+                                row,
+                                col,
+                                value: val,
+                              });
+                            }}
+                            style={{ backgroundColor: getCellBg(val) }}
+                            className="flex-1 h-6 rounded-md transition-all hover:scale-105 hover:ring-2 hover:ring-white dark:hover:ring-black cursor-pointer relative"
+                            title={`${row} ${col}: ${val}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Hover detail */}
+        <div className="min-h-[18px] text-[10px] font-mono text-[#4A4238]/70 dark:text-white/70 mt-1">
+          {hoveredCell ? (
+            <span className="flex items-center gap-2">
+              <span className="font-semibold text-[#D4826A]">
+                {hoveredCell.r} · {hoveredCell.c}
+              </span>
+              <span>Value: <strong>{hoveredCell.v}</strong></span>
+            </span>
+          ) : (
+            <span className="opacity-40">Hover cells for detail · Click to filter</span>
+          )}
+        </div>
+      </div>
+
+      <CitationFooter
+        provenance={(widget.provenance || (p as any)?.provenance) as ProvenanceInfo | undefined}
+        freshness={widget.freshness}
+      />
+    </div>
+  );
+}
+
+// ── 10. Native Sparkline List Widget ──────────────────────────────────────────
+
+export function SparklineListWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p = (widget.props || widget) as any;
+  const title = String(p.title || widget.title || 'Market Watchlist');
+  const metric = String(p.metric || widget.metric || 'WATCHLIST');
+  const items: Array<{
+    label: string;
+    value: string;
+    change?: string;
+    trend?: 'up' | 'down' | 'flat';
+    sparkline: number[];
+  }> = Array.isArray(p.items) && p.items.length > 0
+    ? p.items
+    : [
+        { label: 'NVDA · NVIDIA Corp', value: '$128.40', change: '+3.2%', trend: 'up', sparkline: [121, 123, 122, 125, 124, 128.4] },
+        { label: 'AAPL · Apple Inc', value: '$224.23', change: '+0.8%', trend: 'up', sparkline: [221, 222, 220, 223, 222, 224.2] },
+        { label: 'MSFT · Microsoft Corp', value: '$448.90', change: '-0.4%', trend: 'down', sparkline: [452, 451, 450, 449, 450, 448.9] },
+        { label: 'QQQ · Invesco QQQ', value: '$485.20', change: '+1.8%', trend: 'up', sparkline: [478, 480, 481, 483, 482, 485.2] },
+      ];
+
+  const renderSparkline = (data: number[], trend?: string) => {
+    if (!data || data.length < 2) return null;
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min || 1;
+    const width = 64;
+    const height = 20;
+
+    const points = data
+      .map((val, idx) => {
+        const x = (idx / (data.length - 1)) * (width - 4) + 2;
+        const y = height - ((val - min) / range) * (height - 6) - 3;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      })
+      .join(' ');
+
+    const strokeColor =
+      trend === 'down' ? '#E14759' : trend === 'up' ? '#8FA98F' : '#D4826A';
+
+    return (
+      <svg width={width} height={height} className="overflow-visible">
+        <polyline
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={points}
+        />
+        {points.length > 0 && (
+          <circle
+            cx={points.split(' ').slice(-1)[0].split(',')[0]}
+            cy={points.split(' ').slice(-1)[0].split(',')[1]}
+            r="2"
+            fill={strokeColor}
+          />
+        )}
+      </svg>
+    );
+  };
+
+  return (
+    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+              {metric}
+            </span>
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+              {title}
+            </h3>
+          </div>
+          {onWidgetAction && (
+            <button
+              type="button"
+              onClick={() => onWidgetAction(widget.id, 'delete')}
+              className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+              title="Remove widget"
+            >
+              <IconTrash size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="divide-y divide-[#4A4238]/5 dark:divide-white/5">
+          {items.map((item, idx) => {
+            const isPositive = item.trend === 'up' || (item.change && item.change.startsWith('+'));
+            return (
+              <div
+                key={idx}
+                onClick={() => {
+                  const symbol = item.label.split(/[\s·]/)[0];
+                  onWidgetAction?.(widget.id, 'filter', { dimension: 'ticker', value: symbol });
+                }}
+                className="py-2.5 flex items-center justify-between hover:bg-black/[0.02] dark:hover:bg-white/[0.02] px-1 rounded-lg cursor-pointer transition-colors"
+                title={`Filter by ${item.label}`}
+              >
+                <div className="min-w-0 pr-2">
+                  <h4 className="text-xs font-mono font-medium text-[#4A4238] dark:text-[#EDE6DC] truncate">
+                    {item.label}
+                  </h4>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                      {item.value}
+                    </span>
+                    {item.change && (
+                      <span
+                        className={`text-[9px] font-mono font-semibold ${
+                          isPositive ? 'text-[#8FA98F]' : 'text-[#E14759]'
+                        }`}
+                      >
+                        {item.change}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex-shrink-0">
+                  {renderSparkline(item.sparkline, item.trend)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <CitationFooter
+        provenance={(widget.provenance || (p as any)?.provenance) as ProvenanceInfo | undefined}
+        freshness={widget.freshness}
+      />
+    </div>
+  );
+}
+
+// ── 11. Native Funnel Widget ──────────────────────────────────────────────────
+
+export function FunnelWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p = (widget.props || widget) as any;
+  const title = String(p.title || widget.title || 'Conversion Funnel');
+  const metric = String(p.metric || widget.metric || 'STAGE_DROP_OFF');
+  const stages: Array<{
+    label: string;
+    value: number;
+    sublabel?: string;
+    rate?: string;
+  }> = Array.isArray(p.stages) && p.stages.length > 0
+    ? p.stages
+    : [
+        { label: 'Impressions', value: 45000, sublabel: 'Top of funnel' },
+        { label: 'Product Visits', value: 18200, sublabel: 'High intent' },
+        { label: 'Added to Cart', value: 6400, sublabel: 'Cart checkout' },
+        { label: 'Purchases', value: 2480, sublabel: 'Paid converted' },
+      ];
+
+  const topValue = stages[0]?.value || 1;
+
+  return (
+    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+              {metric}
+            </span>
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+              {title}
+            </h3>
+          </div>
+          {onWidgetAction && (
+            <button
+              type="button"
+              onClick={() => onWidgetAction(widget.id, 'delete')}
+              className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+              title="Remove widget"
+            >
+              <IconTrash size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {stages.map((stg, idx) => {
+            const overallPct = Math.max(8, Math.round((stg.value / topValue) * 100));
+            const prevVal = idx > 0 ? stages[idx - 1].value : stg.value;
+            const stepConvPct = idx > 0 ? Math.round((stg.value / prevVal) * 100) : 100;
+            const dropPct = 100 - stepConvPct;
+
+            return (
+              <div key={idx} className="space-y-1">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+                    {stg.label}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[#4A4238] dark:text-white">
+                      {stg.value.toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-[#4A4238]/60 dark:text-white/60">
+                      ({overallPct}%)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="w-full bg-black/5 dark:bg-white/5 h-6 rounded-lg overflow-hidden flex items-center relative">
+                  <div
+                    style={{ width: `${overallPct}%` }}
+                    className="h-full rounded-lg bg-gradient-to-r from-[#D4826A] to-[#D4826A]/75 transition-all flex items-center justify-between px-2.5 text-[10px] font-mono text-white font-medium shadow-inner"
+                  >
+                    <span className="truncate">{stg.sublabel || `${overallPct}% total`}</span>
+                  </div>
+                  {idx > 0 && dropPct > 0 && (
+                    <span className="ml-2 text-[9px] font-mono text-[#E14759] flex-shrink-0">
+                      -{dropPct}% drop
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <CitationFooter
+        provenance={(widget.provenance || (p as any)?.provenance) as ProvenanceInfo | undefined}
+        freshness={widget.freshness}
+      />
+    </div>
+  );
+}
+
+// ── 12. Native Distribution Widget ────────────────────────────────────────────
+
+export function DistributionWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p = (widget.props || widget) as any;
+  const title = String(p.title || widget.title || 'Frequency Distribution');
+  const metric = String(p.metric || widget.metric || 'HISTOGRAM');
+  const unit = p.unit || '';
+  const buckets: Array<{
+    range: string;
+    count: number;
+    percentage?: number;
+  }> = Array.isArray(p.buckets) && p.buckets.length > 0
+    ? p.buckets
+    : [
+        { range: '0-25ms', count: 1240 },
+        { range: '25-50ms', count: 3500 },
+        { range: '50-100ms', count: 2150 },
+        { range: '100-200ms', count: 720 },
+        { range: '>200ms', count: 180 },
+      ];
+
+  const maxCount = Math.max(...buckets.map((b) => b.count), 1);
+  const totalCount = buckets.reduce((acc, b) => acc + b.count, 0) || 1;
+
+  return (
+    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+              {metric}
+            </span>
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+              {title}
+            </h3>
+          </div>
+          {onWidgetAction && (
+            <button
+              type="button"
+              onClick={() => onWidgetAction(widget.id, 'delete')}
+              className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+              title="Remove widget"
+            >
+              <IconTrash size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="h-36 flex items-end gap-2 pt-4 pb-1 border-b border-[#4A4238]/10 dark:border-white/10">
+          {buckets.map((b, idx) => {
+            const pct = Math.max(6, Math.round((b.count / maxCount) * 100));
+            const share = Math.round((b.count / totalCount) * 100);
+            return (
+              <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group/bar relative">
+                <div className="opacity-0 group-hover/bar:opacity-100 transition-opacity absolute -top-5 text-[9px] font-mono bg-black/80 text-white px-1.5 py-0.5 rounded shadow whitespace-nowrap z-10">
+                  {b.count.toLocaleString()} {unit} ({share}%)
+                </div>
+                <div
+                  style={{ height: `${pct}%` }}
+                  className="w-full bg-[#D4826A]/80 hover:bg-[#D4826A] rounded-t-md transition-all cursor-pointer shadow-xs"
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2 mt-1.5 text-[9px] font-mono text-[#4A4238]/60 dark:text-white/60">
+          {buckets.map((b, idx) => (
+            <div key={idx} className="flex-1 text-center truncate" title={b.range}>
+              {b.range}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <CitationFooter
+        provenance={(widget.provenance || (p as any)?.provenance) as ProvenanceInfo | undefined}
+        freshness={widget.freshness}
+      />
+    </div>
+  );
+}
+
+// ── 13. Native Node Graph Widget ──────────────────────────────────────────────
+
+export function NodeGraphWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p = (widget.props || widget) as any;
+  const title = String(p.title || widget.title || 'Dependency Graph');
+  const metric = String(p.metric || widget.metric || 'TOPOLOGY');
+
+  // Hard safety limit: <= 20 nodes, <= 40 edges
+  const rawNodes: Array<{ id: string; label: string; group?: string }> =
+    Array.isArray(p.nodes) && p.nodes.length > 0
+      ? p.nodes.slice(0, 20)
+      : [
+          { id: 'gw', label: 'API Gateway', group: 'ingress' },
+          { id: 'auth', label: 'Auth Service', group: 'core' },
+          { id: 'core', label: 'Core Engine', group: 'core' },
+          { id: 'db', label: 'PostgreSQL DB', group: 'storage' },
+          { id: 'cache', label: 'Redis Cache', group: 'storage' },
+          { id: 'worker', label: 'Queue Worker', group: 'async' },
+        ];
+
+  const rawEdges: Array<{ source: string; target: string; label?: string }> =
+    Array.isArray(p.edges) && p.edges.length > 0
+      ? p.edges.slice(0, 40)
+      : [
+          { source: 'gw', target: 'auth' },
+          { source: 'gw', target: 'core' },
+          { source: 'core', target: 'db' },
+          { source: 'core', target: 'cache' },
+          { source: 'core', target: 'worker' },
+          { source: 'worker', target: 'db' },
+        ];
+
+  const N = rawNodes.length;
+  const cx = 190;
+  const cy = 95;
+  const r = Math.min(130, 40 + N * 14);
+
+  const nodePositions = new Map<string, { x: number; y: number }>();
+  rawNodes.forEach((node, i) => {
+    const angle = (2 * Math.PI * i) / Math.max(N, 1) - Math.PI / 2;
+    const x = cx + r * Math.cos(angle);
+    const y = cy + (r * 0.65) * Math.sin(angle);
+    nodePositions.set(node.id, { x, y });
+  });
+
+  const getGroupColor = (group?: string) => {
+    switch (group) {
+      case 'ingress':
+        return '#0284C7';
+      case 'core':
+        return '#D4826A';
+      case 'storage':
+        return '#10B981';
+      case 'async':
+      default:
+        return '#8B5CF6';
+    }
+  };
+
+  return (
+    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+              {metric} ({rawNodes.length} nodes)
+            </span>
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+              {title}
+            </h3>
+          </div>
+          {onWidgetAction && (
+            <button
+              type="button"
+              onClick={() => onWidgetAction(widget.id, 'delete')}
+              className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+              title="Remove widget"
+            >
+              <IconTrash size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="relative w-full h-48 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-[#4A4238]/5 dark:border-white/5 overflow-hidden">
+          <svg viewBox="0 0 380 190" className="w-full h-full">
+            <defs>
+              <marker
+                id="arrow"
+                viewBox="0 0 10 10"
+                refX="18"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#888" opacity="0.6" />
+              </marker>
+            </defs>
+
+            {rawEdges.map((edge, idx) => {
+              const src = nodePositions.get(edge.source);
+              const tgt = nodePositions.get(edge.target);
+              if (!src || !tgt) return null;
+              return (
+                <line
+                  key={idx}
+                  x1={src.x}
+                  y1={src.y}
+                  x2={tgt.x}
+                  y2={tgt.y}
+                  stroke="#888"
+                  strokeWidth="1.25"
+                  strokeOpacity="0.4"
+                  markerEnd="url(#arrow)"
+                />
+              );
+            })}
+
+            {rawNodes.map((node) => {
+              const pos = nodePositions.get(node.id);
+              if (!pos) return null;
+              const color = getGroupColor(node.group);
+              return (
+                <g
+                  key={node.id}
+                  className="cursor-pointer group/node"
+                  onClick={() => {
+                    onWidgetAction?.(widget.id, 'filter', { dimension: 'node', value: node.id });
+                  }}
+                >
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r="12"
+                    fill={color}
+                    fillOpacity="0.85"
+                    stroke="#fff"
+                    strokeWidth="2"
+                    className="group-hover/node:scale-110 transition-transform"
+                  />
+                  <text
+                    x={pos.x}
+                    y={pos.y + 22}
+                    textAnchor="middle"
+                    fontSize="9"
+                    fontFamily="monospace"
+                    fill="currentColor"
+                    className="font-medium fill-[#4A4238] dark:fill-[#EDE6DC] select-none pointer-events-none"
+                  >
+                    {node.label}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+      </div>
+
+      <CitationFooter
+        provenance={(widget.provenance || (p as any)?.provenance) as ProvenanceInfo | undefined}
+        freshness={widget.freshness}
+      />
+    </div>
+  );
+}
+
+// ── 14. Native Annotated Chart Widget ─────────────────────────────────────────
+
+export function AnnotatedChartWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p = (widget.props || widget) as any;
+  const title = String(p.title || widget.title || 'Annotated Market Trend');
+  const metric = String(p.metric || widget.metric || 'SPATIAL_EVENTS');
+  const unit = p.unit || '$';
+
+  const series: Array<{ x: string; y: number }> =
+    Array.isArray(p.series) && p.series.length > 0
+      ? p.series
+      : Array.isArray(p.data) && p.data.length > 0
+      ? p.data.map((d: any, i: number) => ({ x: d.x || d.date || `T${i}`, y: Number(d.y ?? d.value) || 0 }))
+      : [
+          { x: '09:30', y: 478.1 },
+          { x: '10:30', y: 480.5 },
+          { x: '11:30', y: 483.2 },
+          { x: '13:00', y: 482.0 },
+          { x: '14:30', y: 485.4 },
+          { x: '16:00', y: 486.2 },
+        ];
+
+  const annotations: Array<ChartAnnotation> = Array.isArray(p.annotations) && p.annotations.length > 0
+    ? p.annotations
+    : [
+        { x: '11:30', label: 'CPI Beat (+0.2%)', type: 'event' },
+        { x: '14:30', label: 'Volume Surge', type: 'anomaly' },
+      ];
+
+  const yVals = series.map((s) => s.y);
+  const minVal = Math.min(...yVals);
+  const maxVal = Math.max(...yVals);
+  const range = maxVal - minVal || 1;
+
+  const width = 340;
+  const height = 110;
+
+  const points = series.map((s, idx) => {
+    const x = 30 + (idx / Math.max(series.length - 1, 1)) * (width - 50);
+    const y = height - 15 - ((s.y - minVal) / range) * (height - 35);
+    return { ...s, px: x, py: y };
+  });
+
+  const polylineStr = points.map((pt) => `${pt.px},${pt.py}`).join(' ');
+
+  const [selectedPoint, setSelectedPoint] = useState<{ x: string; y: number; px: number; py: number } | null>(null);
+  const [userNote, setUserNote] = useState('');
+  const [noteType, setNoteType] = useState<'note' | 'event' | 'milestone'>('note');
+  const [localAnnotations, setLocalAnnotations] = useState(annotations);
+
+  const handleAddUserAnnotation = () => {
+    if (!selectedPoint || !userNote.trim()) return;
+    const newAnn = {
+      x: selectedPoint.x,
+      label: userNote.trim(),
+      type: noteType,
+      author: 'user' as const,
+      authorName: 'You',
+      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    const updated = [...localAnnotations, newAnn];
+    setLocalAnnotations(updated);
+    setSelectedPoint(null);
+    setUserNote('');
+    onWidgetAction?.(widget.id, 'update_annotations', updated);
+  };
+
+  const getAnnotationBadge = (type?: string, isUser = false) => {
+    if (isUser) {
+      return {
+        bg: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
+        dot: 'bg-blue-500',
+      };
+    }
+    switch (type) {
+      case 'anomaly':
+        return {
+          bg: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20',
+          dot: 'bg-red-500',
+        };
+      case 'milestone':
+        return {
+          bg: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
+          dot: 'bg-emerald-500',
+        };
+      case 'event':
+      default:
+        return {
+          bg: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20',
+          dot: 'bg-sky-500',
+        };
+    }
+  };
+
+  return (
+    <div className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-white/10 flex flex-col justify-between h-full shadow-sm hover:border-[#D4826A]/30 transition-all group relative">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider block">
+              {metric}
+            </span>
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+              {title}
+            </h3>
+          </div>
+          {onWidgetAction && (
+            <button
+              type="button"
+              onClick={() => onWidgetAction(widget.id, 'delete')}
+              className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+              title="Remove widget"
+            >
+              <IconTrash size={14} />
+            </button>
+          )}
+        </div>
+
+        <div className="relative w-full h-36">
+          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+            <line x1="30" y1={height - 15} x2={width - 20} y2={height - 15} stroke="#888" strokeOpacity="0.15" />
+            <line x1="30" y1="20" x2={width - 20} y2="20" stroke="#888" strokeOpacity="0.1" strokeDasharray="3,3" />
+
+            <polyline
+              fill="none"
+              stroke="#D4826A"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              points={polylineStr}
+            />
+
+            {points.map((pt, i) => (
+              <circle
+                key={i}
+                cx={pt.px}
+                cy={pt.py}
+                r="3.5"
+                fill="#D4826A"
+                stroke="#fff"
+                strokeWidth="1.5"
+                className="cursor-pointer hover:opacity-80 transition-all"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedPoint(pt);
+                }}
+              >
+                <title>Click to add note at {pt.x}</title>
+              </circle>
+            ))}
+
+            {localAnnotations.map((ann, aIdx) => {
+              const matchedPt = points.find((pt) => pt.x === ann.x) || points[Math.min(aIdx + 2, points.length - 1)];
+              if (!matchedPt) return null;
+              const isUser = (ann as any).author === 'user';
+              return (
+                <g key={aIdx}>
+                  <line
+                    x1={matchedPt.px}
+                    y1="14"
+                    x2={matchedPt.px}
+                    y2={matchedPt.py}
+                    stroke={isUser ? "#3B82F6" : "#D4826A"}
+                    strokeWidth="1.25"
+                    strokeDasharray="2,2"
+                    strokeOpacity="0.75"
+                  />
+                  <circle
+                    cx={matchedPt.px}
+                    cy={matchedPt.py}
+                    r={isUser ? "5" : "4"}
+                    fill={isUser ? "#3B82F6" : "#E14759"}
+                    stroke="#fff"
+                    strokeWidth="1"
+                  />
+                </g>
+              );
+            })}
+          </svg>
+
+          <div className="absolute inset-0 pointer-events-none">
+            {localAnnotations.map((ann, aIdx) => {
+              const matchedPt = points.find((pt) => pt.x === ann.x) || points[Math.min(aIdx + 2, points.length - 1)];
+              if (!matchedPt) return null;
+              const isUser = (ann as any).author === 'user';
+              const badgeStyle = getAnnotationBadge(ann.type, isUser);
+              const leftPct = (matchedPt.px / width) * 100;
+              return (
+                <div
+                  key={aIdx}
+                  style={{ left: `${leftPct}%` }}
+                  className="absolute top-0 -translate-x-1/2 pointer-events-auto"
+                >
+                  <span
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-mono shadow-xs ${badgeStyle.bg}`}
+                    title={`${isUser ? 'User Note' : (ann.type || 'Event')}: ${ann.label}`}
+                  >
+                    {isUser ? (
+                      <IconUser size={10} className="text-blue-600 dark:text-blue-400" />
+                    ) : (
+                      <span className={`w-1.5 h-1.5 rounded-full ${badgeStyle.dot}`} />
+                    )}
+                    <span className="truncate max-w-[90px]">{ann.label}</span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Dimension 4: User Click-to-Annotate Popover */}
+        {selectedPoint && (
+          <div className="mt-2.5 p-2.5 rounded-xl border border-blue-500/30 bg-blue-500/10 dark:bg-blue-950/30 space-y-2 text-xs">
+            <div className="flex items-center justify-between font-mono text-[10px] text-blue-700 dark:text-blue-300 font-semibold">
+              <span className="flex items-center gap-1">
+                <IconPin size={11} /> Add note at {selectedPoint.x} ({unit}{selectedPoint.y})
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedPoint(null)}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                value={userNote}
+                onChange={(e) => setUserNote(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddUserAnnotation();
+                }}
+                placeholder="e.g. Campaign launched, market update..."
+                className="flex-1 px-2.5 py-1 rounded-lg border border-[#4A4238]/20 dark:border-white/20 text-xs bg-white dark:bg-[#161311] text-[#2D2621] dark:text-[#EDE6DC] outline-none"
+                autoFocus
+              />
+              <select
+                value={noteType}
+                onChange={(e) => setNoteType(e.target.value as any)}
+                className="px-2 py-1 rounded-lg border border-[#4A4238]/20 dark:border-white/20 text-[10px] font-mono bg-white dark:bg-[#161311]"
+              >
+                <option value="note">Note</option>
+                <option value="event">Event</option>
+                <option value="milestone">Milestone</option>
+              </select>
+              <button
+                type="button"
+                onClick={handleAddUserAnnotation}
+                className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-mono text-[11px] font-semibold transition-all cursor-pointer"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between text-[9px] font-mono text-[#4A4238]/60 dark:text-white/60 mt-1 px-1">
+          <span>{series[0]?.x} · {unit}{series[0]?.y}</span>
+          <span>{series[series.length - 1]?.x} · {unit}{series[series.length - 1]?.y}</span>
+        </div>
+      </div>
+
+      <CitationFooter
+        provenance={(widget.provenance || (p as any)?.provenance) as ProvenanceInfo | undefined}
+        freshness={widget.freshness}
+        binding={widget.binding || (p as any)?.binding}
+        onRefresh={onWidgetAction ? () => onWidgetAction(widget.id, 'refresh') : undefined}
+      />
+    </div>
+  );
+}
+
+// ── 15. Native Alert Banner Widget ────────────────────────────────────────────
+
+export function AlertBannerWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p = (widget.props || widget) as any;
+  const title = String(p.title || widget.title || 'System Alert');
+  const message = String(p.message || p.body || 'Operational notification or anomaly detected in telemetry stream.');
+  const severity = (p.severity || 'warning') as 'info' | 'warning' | 'error' | 'success';
+  const dismissible = p.dismissible !== false;
+
+  const getSeverityStyle = () => {
+    switch (severity) {
+      case 'error':
+        return {
+          container: 'bg-red-500/10 border-red-500/30 text-red-900 dark:text-red-200',
+          icon: <IconAlertTriangle size={18} className="text-red-600 dark:text-red-400 flex-shrink-0" />,
+          badge: 'bg-red-500/20 text-red-700 dark:text-red-300',
+        };
+      case 'info':
+        return {
+          container: 'bg-sky-500/10 border-sky-500/30 text-sky-900 dark:text-sky-200',
+          icon: <IconInfoCircle size={18} className="text-sky-600 dark:text-sky-400 flex-shrink-0" />,
+          badge: 'bg-sky-500/20 text-sky-700 dark:text-sky-300',
+        };
+      case 'success':
+        return {
+          container: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200',
+          icon: <IconCheck size={18} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />,
+          badge: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400',
+        };
+      case 'warning':
+      default:
+        return {
+          container: 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200',
+          icon: <IconAlertTriangle size={18} className="text-amber-600 dark:text-amber-400 flex-shrink-0" />,
+          badge: 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
+        };
+    }
+  };
+
+  const style = getSeverityStyle();
+
+  return (
+    <div className={`rounded-2xl p-4 border flex flex-col justify-between shadow-sm relative transition-all ${style.container}`}>
+      <div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <div className="mt-0.5">{style.icon}</div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h4 className="font-serif text-sm font-semibold tracking-tight">
+                  {title}
+                </h4>
+                <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded uppercase font-bold tracking-wider ${style.badge}`}>
+                  {severity}
+                </span>
+              </div>
+              <p className="text-xs font-sans leading-relaxed opacity-90">
+                {message}
+              </p>
+            </div>
+          </div>
+
+          {dismissible && onWidgetAction && (
+            <button
+              type="button"
+              onClick={() => onWidgetAction(widget.id, 'delete')}
+              className="opacity-60 hover:opacity-100 p-1 cursor-pointer transition-opacity"
+              title="Dismiss alert"
+            >
+              <IconX size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <CitationFooter
+        provenance={(widget.provenance || (p as any)?.provenance) as ProvenanceInfo | undefined}
+        freshness={widget.freshness}
+      />
+    </div>
+  );
+}
+
+// ── 16. Native Composite Group Meta-Primitive ─────────────────────────────────
+
+export function CompositeGroupWidget({
+  widget,
+  onWidgetAction,
+}: {
+  widget: WidgetSpec;
+  onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+}) {
+  const p = (widget.props || widget) as any;
+  const title = String(p.title || widget.title || 'Composite Metric Cluster');
+  const layout = p.layout === 'row' ? 'row' : 'grid';
+  const childWidgets: WidgetSpec[] = Array.isArray(p.widgets) ? p.widgets : [];
+
+  return (
+    <div className="glass-card rounded-2xl p-5 border-2 border-[#D4826A]/25 dark:border-[#D4826A]/20 flex flex-col justify-between h-full shadow-md hover:border-[#D4826A]/40 transition-all group relative bg-black/[0.01] dark:bg-white/[0.01]">
+      <div>
+        <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#4A4238]/10 dark:border-white/10">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#D4826A]" />
+            <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+              {title}
+            </h3>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#D4826A]/10 text-[#D4826A] font-semibold">
+              Composite · {childWidgets.length} primitives
+            </span>
+          </div>
+
+          {onWidgetAction && (
+            <button
+              type="button"
+              onClick={() => onWidgetAction(widget.id, 'delete')}
+              className="opacity-0 group-hover:opacity-60 hover:opacity-100! text-[#4A4238]/40 hover:text-red-500 transition-all p-1"
+              title="Remove composite group"
+            >
+              <IconTrash size={14} />
+            </button>
+          )}
+        </div>
+
+        <div
+          className={
+            layout === 'row'
+              ? 'flex flex-col gap-3'
+              : 'grid grid-cols-1 md:grid-cols-2 gap-3'
+          }
+        >
+          {childWidgets.map((child, idx) => {
+            const childType = (child.component || child.type || 'metric_card') as string;
+
+            // Strict Recursion Guard: depth <= 1 (children can NEVER be composite_group)
+            if (childType === 'composite_group') {
+              return (
+                <div
+                  key={child.id || idx}
+                  className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-mono"
+                >
+                  Recursion limit reached: composite_group cannot contain another composite_group (depth cap 1).
+                </div>
+              );
+            }
+
+            const Comp = NATIVE_WIDGET_REGISTRY[childType];
+            if (!Comp) {
+              return (
+                <div
+                  key={child.id || idx}
+                  className="p-3 rounded-xl border border-dashed border-stone-400 text-xs font-mono text-stone-500"
+                >
+                  Unknown child primitive: {childType}
+                </div>
+              );
+            }
+
+            return (
+              <div key={child.id || idx} className="h-full">
+                <Comp widget={child} onWidgetAction={onWidgetAction} />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <CitationFooter
+        provenance={(widget.provenance || (p as any)?.provenance) as ProvenanceInfo | undefined}
+        freshness={widget.freshness}
+      />
     </div>
   );
 }
@@ -321,6 +1885,18 @@ export const NATIVE_WIDGET_REGISTRY: Record<
   line_chart: LineChartWidget,
   bar_chart: BarChartWidget,
   table: TableWidget,
+  text_block: TextBlockWidget,
+  progress_ring: ProgressRingWidget,
+  comparison_pair: ComparisonPairWidget,
+  timeline: TimelineWidget,
+  heatmap: HeatmapWidget,
+  sparkline_list: SparklineListWidget,
+  funnel: FunnelWidget,
+  distribution: DistributionWidget,
+  node_graph: NodeGraphWidget,
+  annotated_chart: AnnotatedChartWidget,
+  alert_banner: AlertBannerWidget,
+  composite_group: CompositeGroupWidget,
 };
 
 // ── 5. Sandboxed HTML Harness Generator ─────────────────────────────────────
@@ -575,32 +2151,194 @@ export function SandboxedFrameWidget({
 export function SandboxedWidgetRenderer({
   widget,
   onWidgetAction,
+  onRefine,
+  onMoveUp,
+  onMoveDown,
+  onToggleWidth,
+  isFirst = false,
+  isLast = false,
+  isDraftPreview = false,
+  activeFilter = null,
 }: {
   widget: WidgetSpec;
   onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
+  onRefine?: (widget: WidgetSpec) => void;
+  onMoveUp?: (widgetId: string) => void;
+  onMoveDown?: (widgetId: string) => void;
+  onToggleWidth?: (widgetId: string) => void;
+  isFirst?: boolean;
+  isLast?: boolean;
+  isDraftPreview?: boolean;
+  activeFilter?: { dimension: string; value: string; sourceWidgetId: string } | null;
 }) {
-  const mode = widget.render_mode || 'native';
+  const mode = widget.render_mode || (widget.type === 'sandboxed' || widget.component === 'sandboxed' ? 'sandboxed' : 'native');
 
-  if (mode === 'native') {
-    const compKey = (widget.component || widget.type || 'metric_card') as string;
-    const Component = NATIVE_WIDGET_REGISTRY[compKey];
-    if (Component) {
-      return <Component widget={widget} onWidgetAction={onWidgetAction} />;
+  const renderedContent = (() => {
+    // Dimension 7 / Security Hardening: Server-side redacted widget placeholder
+    if (widget.redacted || (widget.props as any)?.redacted) {
+      return (
+        <div className="glass-card rounded-2xl p-6 border border-dashed border-[#4A4238]/30 dark:border-white/20 bg-[#FAF6F0]/60 dark:bg-[#1C1917]/60 flex flex-col items-center justify-center text-center min-h-[160px]">
+          <div className="w-9 h-9 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 mb-2.5">
+            <IconLock className="w-5 h-5" />
+          </div>
+          <h4 className="text-xs font-mono font-semibold text-[#4A4238] dark:text-[#EDE6DC]">
+            {widget.title || 'Restricted Content'}
+          </h4>
+          <p className="text-[11px] font-mono text-[#7A7062] dark:text-[#A8A095] mt-1 max-w-xs">
+            This widget was redacted server-side. Requires {widget.visibility?.join(' or ') || 'elevated'} role permission.
+          </p>
+        </div>
+      );
     }
+
+    if (mode === 'native') {
+      const compKey = (widget.component || widget.type || 'metric_card') as string;
+      const Component = NATIVE_WIDGET_REGISTRY[compKey];
+      if (Component) {
+        return <Component widget={widget} onWidgetAction={onWidgetAction} />;
+      }
+      return (
+        <div className="glass-card rounded-2xl p-4 border border-dashed border-red-400 text-xs text-red-500 font-mono">
+          Unknown native widget component: {String(compKey)}
+        </div>
+      );
+    }
+
+    if (mode === 'sandboxed') {
+      return <SandboxedFrameWidget widget={widget} onWidgetAction={onWidgetAction} />;
+    }
+
     return (
-      <div className="glass-card rounded-2xl p-4 border border-dashed border-red-400 text-xs text-red-500 font-mono">
-        Unknown native widget component: {String(compKey)}
+      <div className="glass-card rounded-2xl p-4 border border-dashed border-amber-400 text-xs text-amber-500 font-mono">
+        Unsupported render mode: {String(mode)}
+      </div>
+    );
+  })();
+
+  // In draft preview mode, render directly with draft preview badge
+  if (isDraftPreview) {
+    return (
+      <div className="relative">
+        <div className="absolute top-3 right-3 z-10">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-stone-500/10 dark:bg-stone-400/10 text-stone-600 dark:text-stone-300 border border-stone-500/20">
+            Draft Preview
+          </span>
+        </div>
+        {renderedContent}
       </div>
     );
   }
 
-  if (mode === 'sandboxed') {
-    return <SandboxedFrameWidget widget={widget} onWidgetAction={onWidgetAction} />;
-  }
+  // Scoped Reactive Filter Scoping
+  const isFilteredIn = Boolean(
+    activeFilter &&
+    widget.consumesDimensions &&
+    widget.consumesDimensions.includes(activeFilter.dimension)
+  );
+  const isFilteredOut = Boolean(
+    activeFilter &&
+    widget.consumesDimensions &&
+    widget.consumesDimensions.length > 0 &&
+    !widget.consumesDimensions.includes(activeFilter.dimension)
+  );
+
+  // Interactive Live Canvas Card with Freshness Indicator and Hover Toolbar
+  const hasToolbarControls = Boolean(onRefine || onToggleWidth || onMoveUp || onMoveDown);
 
   return (
-    <div className="glass-card rounded-2xl p-4 border border-dashed border-amber-400 text-xs text-amber-500 font-mono">
-      Unsupported render mode: {String(mode)}
+    <div
+      className={`relative group/canvas-widget h-full transition-all duration-300 ${
+        isFilteredIn
+          ? 'ring-2 ring-[#D4826A] shadow-lg rounded-2xl'
+          : isFilteredOut
+          ? 'opacity-40 hover:opacity-80'
+          : ''
+      }`}
+    >
+      {/* Active Filter Scope Badge */}
+      {isFilteredIn && activeFilter && (
+        <div className="absolute top-3 left-3 z-10">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#D4826A]/15 text-[#D4826A] border border-[#D4826A]/30 flex items-center gap-1 font-semibold backdrop-blur-xs">
+            <IconFilter size={11} />
+            {activeFilter.dimension}: {activeFilter.value}
+          </span>
+        </div>
+      )}
+
+      {/* Freshness Badge (visible by default) */}
+      <div className="absolute top-3 right-3 z-10 group-hover/canvas-widget:hidden transition-all">
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 shadow-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          {widget.freshness || 'Live · as of 09:40 EDT'}
+        </span>
+      </div>
+
+      {/* Hover Action Toolbar */}
+      {hasToolbarControls && (
+        <div className="absolute top-2.5 right-2.5 z-20 hidden group-hover/canvas-widget:flex items-center gap-1 bg-[#FAF6F0]/95 dark:bg-[#1C1917]/95 backdrop-blur-md px-2 py-1 rounded-xl border border-[#4A4238]/15 dark:border-white/15 shadow-md transition-all">
+          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 mr-1 flex items-center gap-1">
+            <span className="w-1 h-1 rounded-full bg-emerald-500" />
+            Live
+          </span>
+
+          {onRefine && (
+            <button
+              type="button"
+              onClick={() => onRefine(widget)}
+              title="Refine with AI (Click-to-chat)"
+              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-white/70 hover:text-[#D4826A] hover:bg-[#D4826A]/10 transition-all cursor-pointer"
+            >
+              <IconSparkles size={13} />
+            </button>
+          )}
+
+          {onToggleWidth && (
+            <button
+              type="button"
+              onClick={() => onToggleWidth(widget.id)}
+              title={widget.span === 2 ? 'Set to 1 Column' : 'Expand to 2 Columns'}
+              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-white/70 hover:text-[#D4826A] hover:bg-[#D4826A]/10 transition-all cursor-pointer"
+            >
+              <IconColumns size={13} />
+            </button>
+          )}
+
+          {onMoveUp && !isFirst && (
+            <button
+              type="button"
+              onClick={() => onMoveUp(widget.id)}
+              title="Move Widget Up"
+              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-white/70 hover:text-[#D4826A] hover:bg-[#D4826A]/10 transition-all cursor-pointer"
+            >
+              <IconArrowUp size={13} />
+            </button>
+          )}
+
+          {onMoveDown && !isLast && (
+            <button
+              type="button"
+              onClick={() => onMoveDown(widget.id)}
+              title="Move Widget Down"
+              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-white/70 hover:text-[#D4826A] hover:bg-[#D4826A]/10 transition-all cursor-pointer"
+            >
+              <IconArrowDown size={13} />
+            </button>
+          )}
+
+          {onWidgetAction && (
+            <button
+              type="button"
+              onClick={() => onWidgetAction(widget.id, 'delete')}
+              title="Remove Widget"
+              className="p-1 rounded-lg text-[#4A4238]/40 hover:text-red-500 hover:bg-red-500/10 transition-all cursor-pointer"
+            >
+              <IconTrash size={13} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {renderedContent}
     </div>
   );
 }

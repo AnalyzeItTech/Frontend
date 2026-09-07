@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   IconLayoutDashboard,
@@ -12,11 +12,34 @@ import {
   IconRefresh,
   IconChartLine,
   IconPlus,
+  IconPencil,
+  IconArrowBackUp,
+  IconHistory,
+  IconDownload,
+  IconCopy,
+  IconFilter,
+  IconTemplate,
+  IconUsers,
 } from '@tabler/icons-react';
 import { SandboxedWidgetRenderer } from './WidgetRenderer';
-import { type WidgetSpec, type ManagedProposal } from '../../lib/chatApi';
+import {
+  type WidgetSpec,
+  type ManagedProposal,
+  type PresenceUser,
+  type ProjectTemplate,
+  saveProjectTemplate,
+  getProjectTemplates,
+} from '../../lib/chatApi';
 
 const PROPOSAL_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+export interface LayoutSnapshot {
+  id: string;
+  version: number;
+  timestamp: string;
+  actionSummary: string;
+  widgets: WidgetSpec[];
+}
 
 interface DashboardCanvasProps {
   projectName: string;
@@ -25,12 +48,25 @@ interface DashboardCanvasProps {
   updatedBy: string;
   widgets: WidgetSpec[];
   proposals: ManagedProposal[];
+  layoutHistory?: LayoutSnapshot[];
+  onRollback?: (snapshot: LayoutSnapshot) => Promise<void>;
   onAcceptProposal: (actionId: string) => Promise<void>;
   onRejectProposal: (actionId: string) => Promise<void>;
   onDismissProposal: (actionId: string) => void;
+  onUpdateProposalSpec?: (actionId: string, updatedSpec: WidgetSpec) => void;
   onWidgetAction?: (widgetId: string, action: string, payload?: unknown) => void;
   onPromptChip?: (promptText: string) => void;
+  onRenameWorkspace?: (newTitle: string) => void;
+  onRefine?: (widget: WidgetSpec) => void;
+  onMoveWidget?: (fromIndex: number, toIndex: number) => void;
+  onToggleWidgetWidth?: (widgetId: string) => void;
+  onUndo?: () => void;
+  lastActionToast?: { message: string; widgetTitle?: string } | null;
+  onDismissToast?: () => void;
   isAgentRunning?: boolean;
+  presenceUsers?: PresenceUser[];
+  onSaveTemplate?: (name: string, description?: string, tags?: string[]) => Promise<void>;
+  onLoadTemplate?: (template: ProjectTemplate) => void;
 }
 
 export function DashboardCanvas({
@@ -40,19 +76,318 @@ export function DashboardCanvas({
   updatedBy,
   widgets,
   proposals,
+  layoutHistory = [],
+  onRollback,
   onAcceptProposal,
   onRejectProposal,
   onDismissProposal,
+  onUpdateProposalSpec,
   onWidgetAction,
   onPromptChip,
+  onRenameWorkspace,
+  onRefine,
+  onMoveWidget,
+  onToggleWidgetWidth,
+  onUndo,
+  lastActionToast,
+  onDismissToast,
   isAgentRunning = false,
+  presenceUsers,
+  onSaveTemplate,
+  onLoadTemplate,
 }: DashboardCanvasProps) {
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(projectName);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [copiedMarkdown, setCopiedMarkdown] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [templateName, setTemplateName] = useState(`${projectName} Template`);
+  const [templateDesc, setTemplateDesc] = useState('');
+  const [templateTags, setTemplateTags] = useState('finance, analytics');
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [templateSaveSuccess, setTemplateSaveSuccess] = useState(false);
+  const [availableTemplates, setAvailableTemplates] = useState<ProjectTemplate[]>([]);
+  const [activeTemplateTab, setActiveTemplateTab] = useState<'save' | 'browse'>('save');
+  const [activeFilter, setActiveFilter] = useState<{
+    dimension: string;
+    value: string;
+    sourceWidgetId: string;
+  } | null>(null);
+
+  // Sync editedTitle when projectName changes externally
+  useEffect(() => {
+    setEditedTitle(projectName);
+  }, [projectName]);
+
   const activeProposals = proposals.filter(
     (p) => p.status === 'pending' || p.status === 'applying' || p.status === 'error'
   );
 
+  // ── Keyboard Navigation (Enter = Accept latest, Esc = Reject latest) ───────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (activeProposals.length === 0) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const latest = activeProposals[0];
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        onAcceptProposal(latest.actionId);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onRejectProposal(latest.actionId);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeProposals, onAcceptProposal, onRejectProposal]);
+
+  // ─── Export Generators (High-DPI PNG + Markdown) ───────────────────────────
+
+  const generateMarkdownExport = () => {
+    const lines: string[] = [
+      `# ${projectName} — Dashboard Summary`,
+      `Generated on: ${new Date().toLocaleString()}`,
+      `Version: v${layoutVersion} · Total Widgets: ${widgets.length}`,
+      '',
+      '---',
+      '',
+    ];
+
+    widgets.forEach((w, idx) => {
+      const comp = w.component || w.type || 'widget';
+      const title = w.title || (w.props as any)?.title || `Widget ${idx + 1}`;
+      lines.push(`## ${idx + 1}. ${title} (\`${comp}\`)`);
+      if (w.freshness) lines.push(`*Freshness: ${w.freshness}*`);
+      if (w.provenance) lines.push(`*Provenance: [${w.provenance.kind}] ${w.provenance.source}*`);
+      lines.push('');
+
+      if (comp === 'metric_card') {
+        lines.push(`- **Value**: ${w.value || (w.props as any)?.value || '—'}`);
+        if (w.change || (w.props as any)?.change) lines.push(`- **Change**: ${w.change || (w.props as any)?.change}`);
+      } else if (comp === 'table' && Array.isArray(w.data || (w.props as any)?.data)) {
+        const rows = (w.data || (w.props as any)?.data) as Array<Record<string, unknown>>;
+        if (rows.length > 0) {
+          const cols = Object.keys(rows[0]);
+          lines.push(`| ${cols.join(' | ')} |`);
+          lines.push(`| ${cols.map(() => '---').join(' | ')} |`);
+          rows.forEach((r) => {
+            lines.push(`| ${cols.map((c) => String(r[c] ?? '')).join(' | ')} |`);
+          });
+        }
+      } else if (comp === 'sparkline_list' && Array.isArray((w.props as any)?.items)) {
+        lines.push('| Item | Value | Change |');
+        lines.push('| --- | --- | --- |');
+        ((w.props as any).items as any[]).forEach((it) => {
+          lines.push(`| ${it.label} | ${it.value} | ${it.change || '—'} |`);
+        });
+      } else if (comp === 'funnel' && Array.isArray((w.props as any)?.stages)) {
+        lines.push('| Stage | Count |');
+        lines.push('| --- | --- |');
+        ((w.props as any).stages as any[]).forEach((stg) => {
+          lines.push(`| ${stg.label} | ${stg.value.toLocaleString()} |`);
+        });
+      } else if (comp === 'text_block') {
+        lines.push(String((w.props as any)?.body || (w.props as any)?.content || ''));
+      } else {
+        lines.push(`*Visual Primitive: ${comp} (${widgets.length} elements plotted)*`);
+      }
+      lines.push('', '---', '');
+    });
+
+    return lines.join('\n');
+  };
+
+  const exportCanvasAsPng = () => {
+    const canvas = document.createElement('canvas');
+    const width = 1200;
+    const cardHeight = 160;
+    const padding = 40;
+    const cols = 2;
+    const rows = Math.max(Math.ceil(widgets.length / cols), 1);
+    const height = 140 + rows * (cardHeight + 20) + padding;
+
+    canvas.width = width * 2;
+    canvas.height = height * 2;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.scale(2, 2);
+
+    ctx.fillStyle = '#1C1917';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = '#EDE6DC';
+    ctx.font = 'bold 24px serif';
+    ctx.fillText(projectName, padding, 50);
+
+    ctx.fillStyle = '#A8A29E';
+    ctx.font = '12px monospace';
+    ctx.fillText(
+      `AnalyzeIt Dashboard Export · v${layoutVersion} · ${new Date().toLocaleDateString()} · ${widgets.length} Widgets`,
+      padding,
+      75
+    );
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding, 95);
+    ctx.lineTo(width - padding, 95);
+    ctx.stroke();
+
+    const colWidth = (width - padding * 2 - 20) / cols;
+    widgets.forEach((w, idx) => {
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      const x = padding + col * (colWidth + 20);
+      const y = 115 + row * (cardHeight + 20);
+
+      const isSandboxed =
+        w.render_mode === 'sandboxed' || w.type === 'sandboxed' || w.component === 'sandboxed';
+
+      ctx.fillStyle = isSandboxed ? 'rgba(212, 130, 106, 0.08)' : 'rgba(255, 255, 255, 0.04)';
+      ctx.strokeStyle = isSandboxed ? 'rgba(212, 130, 106, 0.4)' : 'rgba(255, 255, 255, 0.1)';
+      ctx.lineWidth = 1;
+
+      ctx.beginPath();
+      ctx.roundRect(x, y, colWidth, cardHeight, 12);
+      ctx.fill();
+      ctx.stroke();
+
+      const title = w.title || (w.props as any)?.title || w.metric || 'Widget';
+      const comp = (w.component || w.type || 'native') as string;
+
+      ctx.fillStyle = '#D4826A';
+      ctx.font = '10px monospace';
+      ctx.fillText(comp.toUpperCase(), x + 16, y + 24);
+
+      ctx.fillStyle = '#EDE6DC';
+      ctx.font = 'bold 14px serif';
+      ctx.fillText(title, x + 16, y + 44);
+
+      if (isSandboxed) {
+        ctx.fillStyle = '#D4826A';
+        ctx.font = 'italic 11px monospace';
+        ctx.fillText('[ ⛨ Security Boundary Isolated ]', x + 16, y + 80);
+        ctx.fillStyle = '#A8A29E';
+        ctx.font = '10px monospace';
+        ctx.fillText('Sandboxed iframe DOM strictly isolated from host.', x + 16, y + 100);
+        ctx.fillText(`Widget ID: ${w.id}`, x + 16, y + 118);
+      } else if (comp === 'metric_card') {
+        const val = String(w.value || (w.props as any)?.value || '—');
+        const chg = String(w.change || (w.props as any)?.change || '');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 26px serif';
+        ctx.fillText(val, x + 16, y + 90);
+        if (chg) {
+          ctx.fillStyle = '#8FA98F';
+          ctx.font = '12px monospace';
+          ctx.fillText(chg, x + 16, y + 115);
+        }
+      } else {
+        ctx.fillStyle = '#A8A29E';
+        ctx.font = '11px monospace';
+        ctx.fillText(`[Visual Primitive: ${comp}]`, x + 16, y + 85);
+        if (w.freshness) {
+          ctx.fillText(w.freshness, x + 16, y + 115);
+        }
+      }
+
+      if (w.provenance) {
+        ctx.fillStyle = '#888888';
+        ctx.font = '9px monospace';
+        ctx.fillText(`Prov: ${w.provenance.kind} (${w.provenance.source})`, x + 16, y + cardHeight - 12);
+      }
+    });
+
+    const dataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `${projectName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_canvas.png`;
+    link.href = dataUrl;
+    link.click();
+  };
+
   return (
-    <div className="flex-1 flex flex-col h-full overflow-y-auto space-y-6 p-4 sm:p-6 lg:p-8">
+    <div
+      data-lenis-prevent
+      className="flex-1 flex flex-col h-full overflow-y-auto space-y-6 p-4 sm:p-6 lg:p-8"
+    >
+      {/* ─── Persistent Status Strip ─────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3.5 py-2 rounded-xl bg-black/[0.03] dark:bg-white/[0.03] border border-[#4A4238]/10 dark:border-white/10 text-[11px] font-mono">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span
+            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+              activeProposals.length > 0
+                ? 'bg-amber-500 animate-pulse'
+                : 'bg-emerald-500'
+            }`}
+          />
+          <span className="font-semibold text-[#4A4238] dark:text-[#EDE6DC]">
+            {activeProposals.length}{' '}
+            {activeProposals.length === 1 ? 'pending proposal' : 'pending proposals'}
+          </span>
+          <span className="text-[#4A4238]/40 dark:text-white/40">·</span>
+          <span className="text-[#4A4238]/70 dark:text-white/70">
+            {widgets.length} {widgets.length === 1 ? 'widget' : 'widgets'} applied
+          </span>
+          <span className="text-[#4A4238]/40 dark:text-white/40">·</span>
+          <span className="text-[#4A4238]/70 dark:text-white/70">
+            v{layoutVersion}
+          </span>
+        </div>
+
+        {activeProposals.length > 0 && (
+          <div className="flex items-center gap-2 text-[10px] text-[#4A4238]/60 dark:text-white/60">
+            <span>
+              Press{' '}
+              <kbd className="px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10 font-bold text-[#4A4238] dark:text-white">
+                ↵ Enter
+              </kbd>{' '}
+              to accept ·{' '}
+              <kbd className="px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10 font-bold text-[#4A4238] dark:text-white">
+                Esc
+              </kbd>{' '}
+              to reject
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Active Filter Bus Strip ────────────────────────────────────── */}
+      {activeFilter && (
+        <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#D4826A]/10 border border-[#D4826A]/30 text-xs font-mono text-[#D4826A]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <IconFilter size={14} />
+            <span className="font-semibold">Reactive Filter Active:</span>
+            <span className="px-2 py-0.5 rounded-md bg-[#D4826A]/20 font-bold">
+              {activeFilter.dimension} = &quot;{activeFilter.value}&quot;
+            </span>
+            <span className="text-[10px] text-[#4A4238]/60 dark:text-white/60">
+              (Only widgets tagged with &apos;{activeFilter.dimension}&apos; react)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveFilter(null)}
+            className="px-2 py-0.5 rounded-md hover:bg-[#D4826A]/20 transition-colors flex items-center gap-1 cursor-pointer font-semibold"
+          >
+            <IconX size={12} />
+            <span>Clear Filter</span>
+          </button>
+        </div>
+      )}
+
       {/* ─── Canvas Header Bar ─────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#4A4238]/10 dark:border-white/10">
         <div className="flex items-center gap-3">
@@ -61,9 +396,46 @@ export function DashboardCanvas({
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="font-serif text-lg sm:text-xl font-medium tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
-                {projectName}
-              </h2>
+              {isEditingTitle ? (
+                <input
+                  type="text"
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  onBlur={() => {
+                    setIsEditingTitle(false);
+                    if (editedTitle.trim() && editedTitle !== projectName) {
+                      onRenameWorkspace?.(editedTitle.trim());
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setIsEditingTitle(false);
+                      if (editedTitle.trim() && editedTitle !== projectName) {
+                        onRenameWorkspace?.(editedTitle.trim());
+                      }
+                    } else if (e.key === 'Escape') {
+                      setEditedTitle(projectName);
+                      setIsEditingTitle(false);
+                    }
+                  }}
+                  autoFocus
+                  className="font-serif text-lg sm:text-xl font-medium tracking-tight bg-transparent border-b border-[#D4826A] text-[#4A4238] dark:text-[#EDE6DC] focus:outline-none"
+                />
+              ) : (
+                <div
+                  onClick={() => setIsEditingTitle(true)}
+                  className="group flex items-center gap-1.5 cursor-pointer"
+                  title="Click to rename workspace"
+                >
+                  <h2 className="font-serif text-lg sm:text-xl font-medium tracking-tight text-[#4A4238] dark:text-[#EDE6DC] hover:text-[#D4826A] transition-colors">
+                    {projectName}
+                  </h2>
+                  <IconPencil
+                    size={14}
+                    className="opacity-0 group-hover:opacity-60 text-[#4A4238]/50 dark:text-white/50 transition-opacity"
+                  />
+                </div>
+              )}
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#D4826A]/10 text-[#D4826A] font-semibold">
                 v{layoutVersion}
               </span>
@@ -71,46 +443,113 @@ export function DashboardCanvas({
                 {widgets.length} {widgets.length === 1 ? 'widget' : 'widgets'}
               </span>
             </div>
-            <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#EDE6DC]/60 mt-0.5">
+            <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#EDE6DC]/60 mt-0.5 flex items-center gap-2 flex-wrap">
               {projectId ? (
                 <>
                   Project ID: <span className="underline">{projectId.slice(0, 8)}…</span> ·{' '}
                 </>
               ) : null}
               Last updated by <span className="font-semibold">{updatedBy || 'agent'}</span>
+              {presenceUsers && presenceUsers.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 ml-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-mono border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>{presenceUsers.length} online</span>
+                  <span className="flex items-center -space-x-1 ml-0.5">
+                    {presenceUsers.slice(0, 3).map((u) => {
+                      const init = (u.user_name || 'U').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+                      return (
+                        <span
+                          key={u.user_id}
+                          className="w-4 h-4 rounded-full bg-[#D4826A] text-white text-[8px] font-bold flex items-center justify-center ring-1 ring-white dark:ring-[#161311]"
+                          title={`${u.user_name}${u.focused_widget_id ? ` (viewing ${u.focused_widget_id})` : ''}`}
+                        >
+                          {init}
+                        </span>
+                      );
+                    })}
+                  </span>
+                </span>
+              )}
             </p>
           </div>
         </div>
 
-        {/* Quick Suggestion Chips */}
-        {onPromptChip && (
-          <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
+        {/* History, Export & Quick Suggestion Chips */}
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => onPromptChip('Add a line chart for Nasdaq QQQ trend')}
-              disabled={isAgentRunning}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-[#4A4238]/05 dark:bg-white/05 hover:bg-[#D4826A]/15 hover:text-[#D4826A] transition-all cursor-pointer disabled:opacity-40"
+              onClick={() => setIsHistoryOpen(true)}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-mono border border-[#4A4238]/15 dark:border-white/15 hover:border-[#D4826A] hover:bg-[#D4826A]/10 text-[#4A4238] dark:text-[#EDE6DC] transition-all flex items-center gap-1.5 cursor-pointer"
+              title="View layout history snapshots and rollback"
             >
-              + QQQ Chart
+              <IconHistory size={13} />
+              <span>History</span>
+              {layoutHistory.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-[#D4826A]/15 text-[#D4826A] text-[9px] font-semibold">
+                  {layoutHistory.length}
+                </span>
+              )}
             </button>
+
             <button
               type="button"
-              onClick={() => onPromptChip('Add a metric card for Active Telemetry Nodes')}
-              disabled={isAgentRunning}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-[#4A4238]/05 dark:bg-white/05 hover:bg-[#D4826A]/15 hover:text-[#D4826A] transition-all cursor-pointer disabled:opacity-40"
+              onClick={() => setIsExportOpen(true)}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-mono border border-[#4A4238]/15 dark:border-white/15 hover:border-[#D4826A] hover:bg-[#D4826A]/10 text-[#4A4238] dark:text-[#EDE6DC] transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Export canvas as High-DPI PNG or Markdown"
             >
-              + Telemetry KPI
+              <IconDownload size={13} />
+              <span>Export</span>
             </button>
+
             <button
               type="button"
-              onClick={() => onPromptChip('Add a table widget for Regional Health')}
-              disabled={isAgentRunning}
-              className="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-[#4A4238]/05 dark:bg-white/05 hover:bg-[#D4826A]/15 hover:text-[#D4826A] transition-all cursor-pointer disabled:opacity-40"
+              onClick={async () => {
+                setIsTemplateModalOpen(true);
+                setTemplateName(`${projectName} Template`);
+                setTemplateSaveSuccess(false);
+                try {
+                  const tpls = await getProjectTemplates();
+                  setAvailableTemplates(tpls);
+                } catch {}
+              }}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-mono border border-[#4A4238]/15 dark:border-white/15 hover:border-[#D4826A] hover:bg-[#D4826A]/10 text-[#4A4238] dark:text-[#EDE6DC] transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Save canvas as parameterized template or load existing"
             >
-              + Regional Table
+              <IconTemplate size={13} />
+              <span>Templates</span>
             </button>
           </div>
-        )}
+
+          {onPromptChip && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onPromptChip('Add a line chart for Nasdaq QQQ trend')}
+                disabled={isAgentRunning}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-[#4A4238]/05 dark:bg-white/05 hover:bg-[#D4826A]/15 hover:text-[#D4826A] transition-all cursor-pointer disabled:opacity-40"
+              >
+                + QQQ Chart
+              </button>
+              <button
+                type="button"
+                onClick={() => onPromptChip('Add a metric card for Active Telemetry Nodes')}
+                disabled={isAgentRunning}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-[#4A4238]/05 dark:bg-white/05 hover:bg-[#D4826A]/15 hover:text-[#D4826A] transition-all cursor-pointer disabled:opacity-40"
+              >
+                + Telemetry KPI
+              </button>
+              <button
+                type="button"
+                onClick={() => onPromptChip('Add a table widget for Regional Health')}
+                disabled={isAgentRunning}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-[#4A4238]/05 dark:bg-white/05 hover:bg-[#D4826A]/15 hover:text-[#D4826A] transition-all cursor-pointer disabled:opacity-40"
+              >
+                + Regional Table
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ─── PENDING PROPOSALS BANNER STACK (SAFETY GATE) ───────────────── */}
@@ -125,6 +564,7 @@ export function DashboardCanvas({
           const componentType =
             proposal.widgetSpec.component || proposal.widgetSpec.type || 'widget';
           const isStale = Date.now() - proposal.createdAt > PROPOSAL_TTL_MS;
+          const isMultiWidget = Array.isArray(proposal.widgets) && proposal.widgets.length > 1;
 
           return (
             <motion.div
@@ -132,40 +572,69 @@ export function DashboardCanvas({
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className={`rounded-2xl p-5 border-2 shadow-lg space-y-4 transition-all ${
+              className={`rounded-2xl p-5 border shadow-lg space-y-4 transition-all ${
                 isError
                   ? 'bg-red-500/10 border-red-500/40'
-                  : 'bg-gradient-to-r from-[#D4826A]/15 via-[#E8C4A0]/20 to-[#D4826A]/10 border-[#D4826A]/50'
+                  : 'bg-[#FAF6F0] dark:bg-[#1C1917] border-[#4A4238]/20 dark:border-white/15'
               }`}
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs font-mono text-[#D4826A] font-bold uppercase tracking-wider">
-                    <IconSparkles size={15} />
+                  <div className="flex items-center gap-2 text-xs font-mono text-[#4A4238]/80 dark:text-[#EDE6DC]/80 font-semibold uppercase tracking-wider">
+                    <IconSparkles size={15} className="text-stone-500 dark:text-stone-400" />
                     Agent Proposed Dashboard Modification
                     {isStale && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full font-normal">
+                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full font-normal">
                         <IconClock size={12} /> Stale (&gt;15m)
                       </span>
                     )}
                   </div>
-                  <p className="text-sm font-serif text-[#4A4238] dark:text-[#EDE6DC]">
-                    Action: <span className="font-semibold capitalize">{proposal.action.replace('_', ' ')}</span> · Type:{' '}
-                    <span className="font-semibold text-[#D4826A]">{componentType}</span> (
-                    <em>&quot;{title}&quot;</em>)
-                  </p>
+
+                  <div className="flex items-center gap-2 flex-wrap text-sm font-serif text-[#4A4238] dark:text-[#EDE6DC]">
+                    <span>Action:</span>
+                    <span className="font-semibold capitalize px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-xs font-mono">
+                      {proposal.action.replace('_', ' ')}
+                    </span>
+                    <span>Type:</span>
+                    <span className="font-semibold px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-xs font-mono">
+                      {isMultiWidget ? `${proposal.widgets!.length} widgets composed` : componentType}
+                    </span>
+                    {!isMultiWidget && (
+                      <input
+                        type="text"
+                        value={title}
+                        onChange={(e) => {
+                          if (onUpdateProposalSpec) {
+                            const updated = {
+                              ...proposal.widgetSpec,
+                              title: e.target.value,
+                              props: {
+                                ...(proposal.widgetSpec.props || {}),
+                                title: e.target.value,
+                              },
+                            };
+                            onUpdateProposalSpec(proposal.actionId, updated);
+                          }
+                        }}
+                        className="px-2 py-0.5 rounded-md border border-[#4A4238]/20 dark:border-white/20 bg-transparent text-xs font-serif font-medium text-[#4A4238] dark:text-white focus:border-[#D4826A] focus:outline-none"
+                        title="Edit title before accepting"
+                      />
+                    )}
+                  </div>
+
                   <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
                     Action ID: {proposal.actionId} · Safety Gate: Human Confirmation Required
                   </p>
                 </div>
 
+                {/* Primary CTA & Reject Actions */}
                 <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
                   {isError ? (
                     <>
                       <button
                         type="button"
                         onClick={() => onDismissProposal(proposal.actionId)}
-                        className="px-3 py-1.5 rounded-xl border border-[#4A4238]/20 dark:border-white/20 text-xs font-mono hover:bg-black/5 transition-all cursor-pointer"
+                        className="px-3 py-1.5 rounded-xl border border-[#4A4238]/20 dark:border-white/20 text-xs font-mono text-[#4A4238] dark:text-white hover:bg-black/5 transition-all cursor-pointer"
                       >
                         Dismiss
                       </button>
@@ -188,6 +657,9 @@ export function DashboardCanvas({
                       >
                         <IconX size={14} />
                         <span>Reject</span>
+                        <kbd className="hidden sm:inline-block text-[9px] px-1 py-0.2 rounded bg-black/10 dark:bg-white/10 opacity-70">
+                          Esc
+                        </kbd>
                       </button>
                       <button
                         type="button"
@@ -204,6 +676,9 @@ export function DashboardCanvas({
                           <>
                             <IconCheck size={14} />
                             <span>Accept &amp; Apply</span>
+                            <kbd className="hidden sm:inline-block text-[9px] px-1 py-0.2 rounded bg-white/20 text-white font-mono">
+                              ↵
+                            </kbd>
                           </>
                         )}
                       </button>
@@ -211,6 +686,43 @@ export function DashboardCanvas({
                   )}
                 </div>
               </div>
+
+              {/* Edit-Before-Accept: Timeframe Selector for charts */}
+              {(componentType === 'line_chart' || componentType === 'bar_chart') && (
+                <div className="flex items-center gap-2 pt-2 border-t border-[#4A4238]/10 dark:border-white/10 text-xs font-mono">
+                  <span className="text-[#4A4238]/60 dark:text-white/60">Timeframe:</span>
+                  {(['1D', '1W', '1M', '1Y'] as const).map((tf) => {
+                    const currentTf = proposal.widgetSpec.timeframe || proposal.widgetSpec.props?.timeframe || '1D';
+                    const isSelected = currentTf === tf;
+                    return (
+                      <button
+                        key={tf}
+                        type="button"
+                        onClick={() => {
+                          if (onUpdateProposalSpec) {
+                            const updated = {
+                              ...proposal.widgetSpec,
+                              timeframe: tf,
+                              props: {
+                                ...(proposal.widgetSpec.props || {}),
+                                timeframe: tf,
+                              },
+                            };
+                            onUpdateProposalSpec(proposal.actionId, updated);
+                          }
+                        }}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-mono transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#D4826A] text-white font-semibold'
+                            : 'bg-black/5 dark:bg-white/10 text-[#4A4238]/70 dark:text-white/70 hover:bg-black/10'
+                        }`}
+                      >
+                        {tf}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Error Detail banner */}
               {isError && proposal.error && (
@@ -220,14 +732,29 @@ export function DashboardCanvas({
                 </div>
               )}
 
-              {/* Live Preview Box of the Proposed Widget */}
+              {/* Live Preview Box of the Proposed Widget (or Multi-Widget Grid) */}
               <div className="mt-3 pt-3 border-t border-[#4A4238]/10 dark:border-white/10">
-                <div className="text-[10px] font-mono text-[#D4826A] uppercase tracking-wider mb-2 flex items-center gap-1">
+                <div className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60 uppercase tracking-wider mb-2 flex items-center justify-between">
                   <span>Widget Preview</span>
+                  <span className="text-[9px] text-stone-500">Interactive sandbox preview</span>
                 </div>
-                <div className="max-w-md opacity-90 pointer-events-none">
-                  <SandboxedWidgetRenderer widget={proposal.widgetSpec} />
-                </div>
+
+                {isMultiWidget ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 opacity-95">
+                    {proposal.widgets!.map((w, wIdx) => (
+                      <div
+                        key={w.id || wIdx}
+                        className={w.type === 'line_chart' || w.type === 'table' ? 'md:col-span-2' : 'col-span-1'}
+                      >
+                        <SandboxedWidgetRenderer widget={w} isDraftPreview={true} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="max-w-md opacity-95">
+                    <SandboxedWidgetRenderer widget={proposal.widgetSpec} isDraftPreview={true} />
+                  </div>
+                )}
               </div>
             </motion.div>
           );
@@ -237,16 +764,48 @@ export function DashboardCanvas({
       {/* ─── LIVE WIDGETS GRID CANVAS ────────────────────────────────────── */}
       {widgets.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {widgets.map((widget) => {
-            const isWide = widget.type === 'line_chart' || widget.type === 'table';
+          {widgets.map((widget, idx) => {
+            const isWide =
+              widget.span === 2 ||
+              widget.type === 'line_chart' ||
+              widget.type === 'table' ||
+              widget.type === 'annotated_chart' ||
+              widget.type === 'alert_banner' ||
+              widget.type === 'composite_group';
             return (
               <div
                 key={widget.id}
-                className={isWide ? 'md:col-span-2' : 'col-span-1'}
+                className={isWide ? 'col-span-1 md:col-span-2' : 'col-span-1'}
               >
                 <SandboxedWidgetRenderer
                   widget={widget}
-                  onWidgetAction={onWidgetAction}
+                  activeFilter={activeFilter}
+                  onWidgetAction={(widgetId, action, payload) => {
+                    if (action === 'filter' && payload && typeof payload === 'object') {
+                      const p = payload as any;
+                      setActiveFilter({
+                        dimension: p.dimension || 'ticker',
+                        value: String(p.value || p.row || ''),
+                        sourceWidgetId: widgetId,
+                      });
+                    } else {
+                      onWidgetAction?.(widgetId, action, payload);
+                    }
+                  }}
+                  onRefine={onRefine}
+                  onMoveUp={
+                    onMoveWidget && idx > 0
+                      ? () => onMoveWidget(idx, idx - 1)
+                      : undefined
+                  }
+                  onMoveDown={
+                    onMoveWidget && idx < widgets.length - 1
+                      ? () => onMoveWidget(idx, idx + 1)
+                      : undefined
+                  }
+                  onToggleWidth={onToggleWidgetWidth}
+                  isFirst={idx === 0}
+                  isLast={idx === widgets.length - 1}
                 />
               </div>
             );
@@ -291,6 +850,435 @@ export function DashboardCanvas({
           )}
         </div>
       ) : null}
+
+      {/* ─── 5-SECOND UNDO TOAST NOTIFICATION ─────────────────────────────── */}
+      <AnimatePresence>
+        {lastActionToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-6 right-6 z-50 bg-[#1C1917] dark:bg-[#FAF6F0] text-[#EDE6DC] dark:text-[#1C1917] px-4 py-3 rounded-2xl shadow-2xl border border-white/10 dark:border-black/10 flex items-center gap-3 text-xs font-mono"
+          >
+            <span>{lastActionToast.message}</span>
+            {onUndo && (
+              <button
+                type="button"
+                onClick={() => {
+                  onUndo();
+                  onDismissToast?.();
+                }}
+                className="px-2.5 py-1 rounded-lg bg-[#D4826A] text-white hover:bg-[#C0734E] font-semibold cursor-pointer transition-all flex items-center gap-1"
+              >
+                <IconArrowBackUp size={12} />
+                <span>Undo</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onDismissToast?.()}
+              className="opacity-50 hover:opacity-100 p-0.5 cursor-pointer"
+            >
+              <IconX size={14} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── HISTORY DRAWER OVERLAY ────────────────────────────────────── */}
+      <AnimatePresence>
+        {isHistoryOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs">
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="w-full max-w-md h-full bg-[#FAF6F0] dark:bg-[#1C1917] border-l border-[#4A4238]/15 dark:border-white/15 p-6 flex flex-col shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-[#4A4238]/10 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                  <IconHistory size={20} className="text-[#D4826A]" />
+                  <div>
+                    <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+                      Layout Version History
+                    </h3>
+                    <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                      Current: v{layoutVersion} · Monotonic OCC
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsHistoryOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[#4A4238]/60 dark:text-white/60 hover:text-[#4A4238] cursor-pointer"
+                >
+                  <IconX size={16} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                {(!layoutHistory || layoutHistory.length === 0) ? (
+                  <div className="p-8 text-center text-xs font-mono text-[#4A4238]/60 dark:text-white/60 border border-dashed border-[#4A4238]/20 dark:border-white/20 rounded-2xl">
+                    No previous snapshots yet. Canvas mutations create checkpoints here.
+                  </div>
+                ) : (
+                  [...layoutHistory].reverse().map((snap) => (
+                    <div
+                      key={snap.id}
+                      className="p-4 rounded-xl border border-[#4A4238]/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] space-y-2 hover:border-[#D4826A]/30 transition-all"
+                    >
+                      <div className="flex items-center justify-between text-xs font-mono">
+                        <span className="font-semibold px-2 py-0.5 rounded-md bg-[#D4826A]/10 text-[#D4826A]">
+                          v{snap.version}
+                        </span>
+                        <span className="text-[10px] text-[#4A4238]/60 dark:text-white/60">
+                          {snap.timestamp}
+                        </span>
+                      </div>
+
+                      <p className="text-xs font-serif text-[#4A4238] dark:text-[#EDE6DC]">
+                        {snap.actionSummary || `${snap.widgets.length} widgets on canvas`}
+                      </p>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-[#4A4238]/5 dark:border-white/5">
+                        <span className="text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                          {snap.widgets.length} widgets
+                        </span>
+                        {onRollback && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await onRollback(snap);
+                              setIsHistoryOpen(false);
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-mono bg-[#D4826A] hover:bg-[#C0734E] text-white font-medium cursor-pointer transition-all flex items-center gap-1 shadow-xs"
+                          >
+                            <IconArrowBackUp size={12} />
+                            <span>Rollback</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="p-3 rounded-xl bg-black/[0.03] dark:bg-white/[0.03] text-[10px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                Rolling back applies the snapshot layout and advances version to <strong>v{layoutVersion + 1}</strong> monotonically.
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── EXPORT CANVAS MODAL ────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isExportOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-lg bg-[#FAF6F0] dark:bg-[#1C1917] border border-[#4A4238]/20 dark:border-white/20 rounded-3xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-[#4A4238]/10 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                  <IconDownload size={20} className="text-[#D4826A]" />
+                  <h3 className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC]">
+                    Export Dashboard Canvas
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsExportOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[#4A4238]/60 dark:text-white/60 hover:text-[#4A4238] cursor-pointer"
+                >
+                  <IconX size={16} />
+                </button>
+              </div>
+
+              <p className="text-xs font-mono text-[#4A4238]/70 dark:text-white/70">
+                Choose an export format for &quot;{projectName}&quot; (v{layoutVersion}, {widgets.length} widgets).
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                {/* PNG Export */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    exportCanvasAsPng();
+                    setIsExportOpen(false);
+                  }}
+                  className="p-4 rounded-2xl border border-[#4A4238]/15 dark:border-white/15 hover:border-[#D4826A] hover:bg-[#D4826A]/5 transition-all text-left space-y-2 cursor-pointer group"
+                >
+                  <div className="w-8 h-8 rounded-xl bg-[#D4826A]/10 text-[#D4826A] flex items-center justify-center">
+                    <IconDownload size={18} />
+                  </div>
+                  <div>
+                    <h4 className="font-serif text-sm font-semibold text-[#4A4238] dark:text-[#EDE6DC] group-hover:text-[#D4826A]">
+                      High-DPI Image (.PNG)
+                    </h4>
+                    <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 mt-0.5">
+                      Full visual snapshot. Sandboxed iframes isolated with security boundary card.
+                    </p>
+                  </div>
+                </button>
+
+                {/* Markdown Export */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const md = generateMarkdownExport();
+                    await navigator.clipboard.writeText(md);
+                    setCopiedMarkdown(true);
+                    setTimeout(() => {
+                      setCopiedMarkdown(false);
+                      setIsExportOpen(false);
+                    }, 1500);
+                  }}
+                  className="p-4 rounded-2xl border border-[#4A4238]/15 dark:border-white/15 hover:border-[#D4826A] hover:bg-[#D4826A]/5 transition-all text-left space-y-2 cursor-pointer group"
+                >
+                  <div className="w-8 h-8 rounded-xl bg-[#0284C7]/10 text-[#0284C7] flex items-center justify-center">
+                    {copiedMarkdown ? <IconCheck size={18} /> : <IconCopy size={18} />}
+                  </div>
+                  <div>
+                    <h4 className="font-serif text-sm font-semibold text-[#4A4238] dark:text-[#EDE6DC] group-hover:text-[#0284C7]">
+                      {copiedMarkdown ? 'Copied to Clipboard!' : 'Markdown Report'}
+                    </h4>
+                    <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60 mt-0.5">
+                      Structured Markdown tables, KPI metrics, and data provenance.
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Template Authoring & Library Modal ─────────────────────────── */}
+      <AnimatePresence>
+        {isTemplateModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#FAF6F0] dark:bg-[#1C1917] border border-[#4A4238]/20 dark:border-white/15 rounded-3xl p-6 w-full max-w-xl shadow-2xl space-y-5"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-[#4A4238]/10 dark:border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#D4826A]/10 text-[#D4826A] flex items-center justify-center">
+                    <IconTemplate size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-serif text-lg font-semibold text-[#4A4238] dark:text-[#EDE6DC]">
+                      Dashboard Templates
+                    </h3>
+                    <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                      Export reusable canvas blueprints or load existing recipes
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTemplateModalOpen(false)}
+                  className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[#4A4238]/60 dark:text-white/60 cursor-pointer"
+                >
+                  <IconX size={18} />
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-2 border-b border-[#4A4238]/10 dark:border-white/10 pb-2 text-xs font-mono">
+                <button
+                  type="button"
+                  onClick={() => setActiveTemplateTab('save')}
+                  className={`px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                    activeTemplateTab === 'save'
+                      ? 'bg-[#D4826A]/15 text-[#D4826A] font-semibold'
+                      : 'text-[#4A4238]/60 dark:text-white/60 hover:text-[#4A4238] dark:hover:text-white'
+                  }`}
+                >
+                  Save Current Canvas
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setActiveTemplateTab('browse');
+                    try {
+                      const tpls = await getProjectTemplates();
+                      setAvailableTemplates(tpls);
+                    } catch {}
+                  }}
+                  className={`px-3 py-1.5 rounded-lg cursor-pointer transition-colors ${
+                    activeTemplateTab === 'browse'
+                      ? 'bg-[#D4826A]/15 text-[#D4826A] font-semibold'
+                      : 'text-[#4A4238]/60 dark:text-white/60 hover:text-[#4A4238] dark:hover:text-white'
+                  }`}
+                >
+                  Browse Library ({availableTemplates.length})
+                </button>
+              </div>
+
+              {/* Tab Content: Save */}
+              {activeTemplateTab === 'save' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-mono font-medium text-[#4A4238] dark:text-[#EDE6DC] mb-1">
+                      Template Name
+                    </label>
+                    <input
+                      type="text"
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      placeholder="e.g. Fintech KPI Dashboard"
+                      className="w-full px-3 py-2 rounded-xl border border-[#4A4238]/20 dark:border-white/20 text-xs font-mono bg-white dark:bg-[#161311] text-[#2D2621] dark:text-[#EDE6DC] outline-none focus:border-[#D4826A]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono font-medium text-[#4A4238] dark:text-[#EDE6DC] mb-1">
+                      Description (Optional)
+                    </label>
+                    <textarea
+                      value={templateDesc}
+                      onChange={(e) => setTemplateDesc(e.target.value)}
+                      rows={2}
+                      placeholder="e.g. Standard layout with telemetry KPI cards, distribution table, and annotated chart."
+                      className="w-full px-3 py-2 rounded-xl border border-[#4A4238]/20 dark:border-white/20 text-xs font-mono bg-white dark:bg-[#161311] text-[#2D2621] dark:text-[#EDE6DC] outline-none focus:border-[#D4826A]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono font-medium text-[#4A4238] dark:text-[#EDE6DC] mb-1">
+                      Tags (Comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={templateTags}
+                      onChange={(e) => setTemplateTags(e.target.value)}
+                      placeholder="finance, kpi, monitoring"
+                      className="w-full px-3 py-2 rounded-xl border border-[#4A4238]/20 dark:border-white/20 text-xs font-mono bg-white dark:bg-[#161311] text-[#2D2621] dark:text-[#EDE6DC] outline-none focus:border-[#D4826A]"
+                    />
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] font-mono text-amber-800 dark:text-amber-200">
+                    <p className="font-semibold mb-0.5">🛡️ Sanitized Export Pipeline</p>
+                    <p className="opacity-80">
+                      Literal series arrays and credentials are automatically stripped. Query bindings are tokenized (e.g. <code className="px-1 py-0.5 rounded bg-black/10 dark:bg-white/10">{'{{TICKER}}'}</code>) so this recipe can be safely cloned across workspaces without data leaks.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsTemplateModalOpen(false)}
+                      className="px-4 py-2 rounded-xl text-xs font-mono border border-[#4A4238]/20 dark:border-white/20 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSavingTemplate || !templateName.trim()}
+                      onClick={async () => {
+                        setIsSavingTemplate(true);
+                        try {
+                          const tagList = templateTags.split(',').map((t) => t.trim()).filter(Boolean);
+                          if (onSaveTemplate) {
+                            await onSaveTemplate(templateName, templateDesc, tagList);
+                          } else {
+                            await saveProjectTemplate(templateName, widgets, templateDesc, tagList);
+                          }
+                          setTemplateSaveSuccess(true);
+                          const tpls = await getProjectTemplates();
+                          setAvailableTemplates(tpls);
+                          setTimeout(() => {
+                            setTemplateSaveSuccess(false);
+                            setIsTemplateModalOpen(false);
+                          }, 1200);
+                        } catch (err: any) {
+                          alert(err?.message || 'Failed to save template');
+                        } finally {
+                          setIsSavingTemplate(false);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#D4826A] hover:bg-[#c2755e] text-white font-mono text-xs font-semibold cursor-pointer disabled:opacity-50 transition-all flex items-center gap-1.5"
+                    >
+                      {templateSaveSuccess ? (
+                        <>
+                          <IconCheck size={14} /> Saved Sanitized Template!
+                        </>
+                      ) : isSavingTemplate ? (
+                        'Sanitizing & Saving…'
+                      ) : (
+                        'Save as Template'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab Content: Browse */}
+              {activeTemplateTab === 'browse' && (
+                <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                  {availableTemplates.length === 0 ? (
+                    <div className="text-center py-8 text-xs font-mono text-[#4A4238]/60 dark:text-white/60">
+                      No templates saved yet. Click &quot;Save Current Canvas&quot; to create one.
+                    </div>
+                  ) : (
+                    availableTemplates.map((tpl) => (
+                      <div
+                        key={tpl.id}
+                        className="p-3.5 rounded-2xl border border-[#4A4238]/15 dark:border-white/15 bg-white/50 dark:bg-black/20 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-serif text-sm font-semibold text-[#4A4238] dark:text-[#EDE6DC]">
+                            {tpl.name}
+                          </h4>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#D4826A]/10 text-[#D4826A] font-semibold">
+                            {tpl.widgets?.length || 0} widgets
+                          </span>
+                        </div>
+                        {tpl.description && (
+                          <p className="text-[11px] font-mono text-[#4A4238]/70 dark:text-white/70">
+                            {tpl.description}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="flex flex-wrap gap-1">
+                            {tpl.tags?.map((t) => (
+                              <span
+                                key={t}
+                                className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-black/5 dark:bg-white/10 text-[#4A4238]/60 dark:text-white/60"
+                              >
+                                #{t}
+                              </span>
+                            ))}
+                          </div>
+                          {onLoadTemplate && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onLoadTemplate(tpl);
+                                setIsTemplateModalOpen(false);
+                              }}
+                              className="px-3 py-1 rounded-lg bg-[#D4826A]/15 hover:bg-[#D4826A] hover:text-white text-[#D4826A] text-[11px] font-mono font-semibold transition-all cursor-pointer"
+                            >
+                              Load Recipe
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

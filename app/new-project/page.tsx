@@ -21,6 +21,12 @@ import {
   IconRefresh,
   IconClock,
   IconAlertTriangle,
+  IconGitMerge,
+  IconDownload,
+  IconVolume,
+  IconMovie,
+  IconCalendar,
+  IconFileText,
 } from '@tabler/icons-react';
 import { ThemeToggle } from '../Components/ui/ThemeToggle';
 import { useTheme } from '../Components/ui/ThemeProvider';
@@ -28,12 +34,20 @@ import {
   streamChat,
   applyUIAction,
   getProjectLayout,
+  updateProjectLayout,
+  refreshWidgetData,
+  saveProjectTemplate,
+  sendPresenceHeartbeat,
+  removePresence,
   type StreamEvent,
   type WidgetSpec,
   type UIProposalPayload,
   type ManagedProposal,
+  type PresenceUser,
+  type ProjectTemplate,
+  type ChartAnnotation,
 } from '../lib/chatApi';
-import { DashboardCanvas } from '../Components/dashboard/DashboardCanvas';
+import { DashboardCanvas, type LayoutSnapshot } from '../Components/dashboard/DashboardCanvas';
 
 interface Message {
   id: string;
@@ -44,7 +58,15 @@ interface Message {
   sqlSnippet?: string;
   incognito?: boolean;
   toolActivity?: string[];
-  artifacts?: Array<{ filename: string; type: string }>;
+  artifacts?: Array<{
+    artifact_id?: string;
+    filename: string;
+    format?: string;
+    type?: string;
+    download_url?: string;
+    preview_text?: string;
+    size_bytes?: number;
+  }>;
   streaming?: boolean;
   proposalActionId?: string;
 }
@@ -130,14 +152,163 @@ function NewProjectContent() {
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const isNearBottomRef = useRef(true);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // ─── Undo State Stack & Toast ──────────────────────────────────────────────
+  const [layoutHistory, setLayoutHistory] = useState<LayoutSnapshot[]>([]);
+  const [actionToast, setActionToast] = useState<{ message: string; widgetTitle?: string } | null>(null);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showToast = useCallback((message: string, widgetTitle?: string) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setActionToast({ message, widgetTitle });
+    toastTimeoutRef.current = setTimeout(() => {
+      setActionToast(null);
+    }, 5000);
+  }, []);
+
+  const handleRollback = useCallback(
+    async (snapshot: LayoutSnapshot) => {
+      const targetProjectId = projectId || 'default';
+      const targetWidgets = snapshot.widgets;
+
+      try {
+        const res = await updateProjectLayout(
+          targetProjectId,
+          layoutVersion,
+          { widgets: targetWidgets },
+          'user'
+        );
+        setCurrentLayout({ widgets: targetWidgets });
+        if (res?.version) {
+          setLayoutVersion(res.version);
+          showToast(`Reverted to v${snapshot.version} (now v${res.version})`);
+        } else {
+          setLayoutVersion((v) => v + 1);
+          showToast(`Reverted to snapshot v${snapshot.version}`);
+        }
+      } catch (err: any) {
+        console.error('Monotonic rollback error:', err);
+        try {
+          const fresh = await getProjectLayout(targetProjectId);
+          setCurrentLayout(fresh.layout_json);
+          setLayoutVersion(fresh.version);
+        } catch {}
+        showToast('Rollback encountered a concurrent modification. Re-synced canvas.');
+      }
+    },
+    [projectId, layoutVersion, showToast]
+  );
+
+  // ─── Multi-User Presence & Collaboration State ─────────────────────────────
+  const [presenceUsers, setPresenceUsers] = useState<PresenceUser[]>([]);
+
+  // ─── 409 Conflict Rebase State ─────────────────────────────────────────────
+  const [conflictState, setConflictState] = useState<{
+    actionId: string;
+    proposal: ManagedProposal;
+    targetProjectId: string;
+    freshVersion: number;
+    freshWidgets: WidgetSpec[];
+    isPureAppend: boolean;
+    conflictingWidget?: WidgetSpec;
+  } | null>(null);
+
+  // Presence Heartbeat Loop (15s interval with cleanup)
+  useEffect(() => {
+    const targetProjectId = projectId || urlProjectId;
+    if (!targetProjectId) return;
+
+    let userId = 'user-session';
+    try {
+      userId = localStorage.getItem('analyze_user_id') || `user-${Math.random().toString(36).slice(2, 7)}`;
+      localStorage.setItem('analyze_user_id', userId);
+    } catch {}
+
+    const userName = 'Analyst ' + userId.slice(-4);
+
+    const sendBeat = async () => {
+      try {
+        const users = await sendPresenceHeartbeat(targetProjectId, userId, userName);
+        setPresenceUsers(users);
+      } catch (err) {
+        console.debug('Presence heartbeat failed:', err);
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      try {
+        const url = `/api/backend/projects/${targetProjectId}/presence?user_id=${encodeURIComponent(userId)}`;
+        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+          navigator.sendBeacon(url);
+        }
+      } catch {}
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    sendBeat();
+    const interval = setInterval(sendBeat, 15000);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      removePresence(targetProjectId, userId);
+    };
+  }, [projectId, urlProjectId]);
+
+  const handleSaveTemplate = async (name: string, description?: string, tags?: string[]) => {
+    const saved = await saveProjectTemplate(name, currentLayout.widgets, description, tags);
+    showToast(`Saved template "${saved.name}" with ${saved.widgets?.length || 0} parameterized widgets`);
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isThinking]);
+  const handleLoadTemplate = async (template: ProjectTemplate) => {
+    if (!template.widgets || template.widgets.length === 0) return;
+    setLayoutHistory((hist) => [
+      ...hist.slice(-20),
+      {
+        id: `snap_${Date.now()}`,
+        version: layoutVersion,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        actionSummary: `Loaded template "${template.name}"`,
+        widgets: currentLayout.widgets,
+      },
+    ]);
+    const merged = [...currentLayout.widgets, ...template.widgets];
+    setCurrentLayout({ widgets: merged });
+    const targetProjectId = projectId || 'default';
+    if (projectId) {
+      try {
+        const res = await updateProjectLayout(targetProjectId, layoutVersion, { widgets: merged }, 'user');
+        setLayoutVersion(res.version);
+      } catch (e) {
+        console.warn('Could not persist template layout to backend:', e);
+      }
+    }
+    showToast(`Loaded ${template.widgets.length} widgets from "${template.name}"`);
+  };
+
+  const handleUndo = useCallback(() => {
+    if (layoutHistory.length > 0) {
+      const prevSnap = layoutHistory[layoutHistory.length - 1];
+      setLayoutHistory((prev) => prev.slice(0, -1));
+      handleRollback(prevSnap);
+    }
+  }, [layoutHistory, handleRollback]);
+
+  // Track chat scroll position to prevent scroll hijacking during streaming
+  const handleChatScroll = useCallback(() => {
+    const el = chatContainerRef.current;
+    if (!el) return;
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isNearBottomRef.current = distanceToBottom < 100;
+  }, []);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const el = chatContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  }, []);
 
   // ─── Single Source of Truth Proposal Actions ────────────────────────────────
 
@@ -146,6 +317,18 @@ function NewProjectContent() {
       const proposal = proposals.get(actionId);
       if (!proposal) return;
       const targetProjectId = projectId || proposal.projectId || 'default';
+
+      // Save snapshot for Undo
+      setLayoutHistory((hist) => [
+        ...hist.slice(-20),
+        {
+          id: `snap_${Date.now()}`,
+          version: layoutVersion,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          actionSummary: `Applied proposal (${proposal.action})`,
+          widgets: currentLayout.widgets,
+        },
+      ]);
 
       // 1. Optimistic preview transition: Mark as applying
       setProposals((prev) => {
@@ -161,11 +344,18 @@ function NewProjectContent() {
           if (res.layout_version) setLayoutVersion(res.layout_version);
           setUpdatedBy('agent');
         } else {
-          // Re-sync with canonical layout
-          const updated = await getProjectLayout(targetProjectId);
-          setCurrentLayout(updated.layout_json);
-          setLayoutVersion(updated.version);
-          setUpdatedBy(updated.updated_by || 'agent');
+          // Re-sync with canonical layout or optimistic addition
+          if (proposal.widgets && proposal.widgets.length > 0) {
+            setCurrentLayout((prev) => ({
+              ...prev,
+              widgets: [...prev.widgets, ...proposal.widgets!],
+            }));
+          } else if (proposal.widgetSpec) {
+            setCurrentLayout((prev) => ({
+              ...prev,
+              widgets: [...prev.widgets, proposal.widgetSpec],
+            }));
+          }
         }
 
         // 2. Mark proposal as applied
@@ -174,17 +364,37 @@ function NewProjectContent() {
           next.set(actionId, { ...proposal, status: 'applied' });
           return next;
         });
+
+        const pTitle =
+          (proposal.widgetSpec?.props?.title as string) ||
+          proposal.widgetSpec?.title ||
+          'Widget';
+        showToast(`Applied "${pTitle}" to canvas`, pTitle);
       } catch (err: any) {
         console.error('Failed to apply proposal:', err);
         const errMsg = err?.message || 'Failed to apply widget to dashboard.';
 
-        // Check for 409 Conflict: Auto-sync layout then let user retry
+        // Check for 409 Conflict: Auto-detect pure additive append vs concurrent edit
         if (String(errMsg).includes('Conflict') || String(errMsg).includes('409')) {
           try {
             const fresh = await getProjectLayout(targetProjectId);
-            setCurrentLayout(fresh.layout_json);
-            setLayoutVersion(fresh.version);
-          } catch {}
+            const freshWidgets = fresh.layout_json?.widgets || [];
+            const propWidgetId = proposal.widgetSpec?.id;
+            const conflictExists = freshWidgets.some((w: any) => w.id === propWidgetId);
+
+            setConflictState({
+              actionId,
+              proposal,
+              targetProjectId,
+              freshVersion: fresh.version,
+              freshWidgets,
+              isPureAppend: !conflictExists,
+              conflictingWidget: conflictExists ? freshWidgets.find((w: any) => w.id === propWidgetId) : undefined,
+            });
+            return;
+          } catch (fetchErr) {
+            console.error('Failed to fetch fresh layout after conflict:', fetchErr);
+          }
         }
 
         setProposals((prev) => {
@@ -194,8 +404,63 @@ function NewProjectContent() {
         });
       }
     },
-    [proposals, projectId]
+    [proposals, projectId, currentLayout, showToast]
   );
+
+  const handleRebaseAndApply = useCallback(async () => {
+    if (!conflictState) return;
+    const { proposal, targetProjectId, freshVersion, freshWidgets, isPureAppend } = conflictState;
+    try {
+      let mergedWidgets: WidgetSpec[];
+      if (isPureAppend) {
+        const toAppend = proposal.widgets && proposal.widgets.length > 0
+          ? proposal.widgets
+          : proposal.widgetSpec ? [proposal.widgetSpec] : [];
+        mergedWidgets = [...freshWidgets, ...toAppend];
+      } else {
+        // Keep Mine (overwrite existing widget with proposal's widget)
+        mergedWidgets = freshWidgets.map((w) =>
+          w.id === proposal.widgetSpec?.id ? proposal.widgetSpec : w
+        );
+      }
+
+      const res = await updateProjectLayout(targetProjectId, freshVersion, { widgets: mergedWidgets }, 'user');
+      setCurrentLayout(res.layout_json);
+      setLayoutVersion(res.version);
+      setProposals((prev) => {
+        const next = new Map(prev);
+        next.set(proposal.actionId, {
+          ...proposal,
+          status: 'applied',
+          skipped_widgets: proposal.skipped_widgets,
+        });
+        return next;
+      });
+      setConflictState(null);
+      if (proposal.skipped_widgets && proposal.skipped_widgets.length > 0) {
+        showToast(
+          `Rebased & applied "${proposal.widgetSpec?.title || 'Widget'}" (Note: ${proposal.skipped_widgets.length} omitted widget(s) preserved in audit log)`
+        );
+      } else {
+        showToast(`Rebased & applied "${proposal.widgetSpec?.title || 'Widget'}" onto canvas (v${res.version})`);
+      }
+    } catch (err: any) {
+      alert(`Rebase failed: ${err.message}`);
+    }
+  }, [conflictState, showToast]);
+
+  const handleDiscardConflict = useCallback(() => {
+    if (!conflictState) return;
+    setCurrentLayout({ widgets: conflictState.freshWidgets });
+    setLayoutVersion(conflictState.freshVersion);
+    setProposals((prev) => {
+      const next = new Map(prev);
+      next.set(conflictState.actionId, { ...conflictState.proposal, status: 'rejected' });
+      return next;
+    });
+    setConflictState(null);
+    showToast('Discarded proposal and synced with latest canvas version.');
+  }, [conflictState, showToast]);
 
   const handleRejectProposal = useCallback(
     async (actionId: string) => {
@@ -226,20 +491,199 @@ function NewProjectContent() {
     });
   }, []);
 
-  const handleWidgetAction = useCallback((widgetId: string, action: string) => {
-    if (action === 'delete' || action === 'remove_widget') {
-      setCurrentLayout((prev) => ({
-        ...prev,
-        widgets: prev.widgets.filter((w) => w.id !== widgetId),
-      }));
-    }
-  }, []);
+  const handleWidgetAction = useCallback(
+    async (widgetId: string, action: string, payload?: unknown) => {
+      if (action === 'delete' || action === 'remove_widget') {
+        setCurrentLayout((prev) => {
+          const target = prev.widgets.find((w) => w.id === widgetId);
+          setLayoutHistory((hist) => [
+            ...hist.slice(-20),
+            {
+              id: `snap_${Date.now()}`,
+              version: layoutVersion,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              actionSummary: `Removed "${target?.title || 'Widget'}"`,
+              widgets: prev.widgets,
+            },
+          ]);
+          if (target) {
+            showToast(`Removed "${target.title || 'Widget'}" from canvas`, target.title);
+          }
+          return {
+            ...prev,
+            widgets: prev.widgets.filter((w) => w.id !== widgetId),
+          };
+        });
+      } else if (action === 'refresh') {
+        const targetProjectId = projectId || 'default';
+        try {
+          const res = await refreshWidgetData(targetProjectId, widgetId);
+          if (res.updated_widget) {
+            setCurrentLayout((prev) => ({
+              ...prev,
+              widgets: prev.widgets.map((w) => (w.id === widgetId ? res.updated_widget! : w)),
+            }));
+            const widgetTitle = res.updated_widget.title || 'Widget';
+            showToast(`Refreshed live data for "${widgetTitle}"`, widgetTitle);
+          }
+          if (res.anomaly_proposal) {
+            const anomalyPayload = res.anomaly_proposal;
+            const anomalyActionId = anomalyPayload.action_id || `act-anomaly-${Date.now()}`;
+            setProposals((prev) => {
+              const next = new Map(prev);
+              next.set(anomalyActionId, {
+                actionId: anomalyActionId,
+                projectId: targetProjectId,
+                action: (anomalyPayload.action as any) || 'add_widget',
+                widgetSpec: anomalyPayload.widget_spec,
+                widgets: anomalyPayload.widgets,
+                skipped_widgets: anomalyPayload.skipped_widgets,
+                requiresConfirmation: true,
+                status: 'pending',
+                createdAt: Date.now(),
+              });
+              return next;
+            });
+            showToast(`⚠️ Anomaly rule triggered: ${anomalyPayload.widget_spec?.title || 'Anomaly Alert'}`);
+          }
+        } catch (err: any) {
+          console.error('Widget refresh error:', err);
+          showToast(`Refresh failed: ${err?.message || 'Network error'}`);
+        }
+      } else if (action === 'update_annotations' && Array.isArray(payload)) {
+        setCurrentLayout((prev) => {
+          const updated = prev.widgets.map((w) => {
+            if (w.id === widgetId) {
+              return {
+                ...w,
+                annotations: payload as ChartAnnotation[],
+                props: {
+                  ...((w.props as any) || {}),
+                  annotations: payload,
+                },
+              };
+            }
+            return w;
+          });
+          if (projectId) {
+            updateProjectLayout(projectId, layoutVersion, { widgets: updated }, 'user').catch(console.warn);
+          }
+          return { ...prev, widgets: updated };
+        });
+        showToast('Saved chart annotation');
+      }
+    },
+    [layoutVersion, showToast, projectId]
+  );
+
+  const handleMoveWidget = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      setCurrentLayout((prev) => {
+        const newWidgets = [...prev.widgets];
+        if (
+          fromIndex < 0 ||
+          fromIndex >= newWidgets.length ||
+          toIndex < 0 ||
+          toIndex >= newWidgets.length
+        ) {
+          return prev;
+        }
+        setLayoutHistory((hist) => [
+          ...hist.slice(-20),
+          {
+            id: `snap_${Date.now()}`,
+            version: layoutVersion,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            actionSummary: 'Reordered widgets',
+            widgets: prev.widgets,
+          },
+        ]);
+        const [moved] = newWidgets.splice(fromIndex, 1);
+        newWidgets.splice(toIndex, 0, moved);
+        return { ...prev, widgets: newWidgets };
+      });
+    },
+    [layoutVersion]
+  );
+
+  const handleToggleWidgetWidth = useCallback(
+    (widgetId: string) => {
+      setCurrentLayout((prev) => {
+        setLayoutHistory((hist) => [
+          ...hist.slice(-20),
+          {
+            id: `snap_${Date.now()}`,
+            version: layoutVersion,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            actionSummary: 'Adjusted widget column width',
+            widgets: prev.widgets,
+          },
+        ]);
+        const newWidgets = prev.widgets.map((w) => {
+          if (w.id !== widgetId) return w;
+          const currentSpan = w.span || (w.type === 'line_chart' || w.type === 'table' ? 2 : 1);
+          const nextSpan = (currentSpan === 2 ? 1 : 2) as 1 | 2;
+          return { ...w, span: nextSpan };
+        });
+        return { ...prev, widgets: newWidgets };
+      });
+    },
+    [layoutVersion]
+  );
+
+  const handleUpdateProposalSpec = useCallback(
+    (actionId: string, updatedSpec: WidgetSpec) => {
+      setProposals((prev) => {
+        const existing = prev.get(actionId);
+        if (!existing) return prev;
+        const next = new Map(prev);
+        next.set(actionId, {
+          ...existing,
+          widgetSpec: updatedSpec,
+        });
+        return next;
+      });
+    },
+    []
+  );
+
+  const handleRefineWidget = useCallback(
+    (widget: WidgetSpec) => {
+      const title = widget.props?.title || widget.title || 'selected';
+      setInputMessage(`Modify the "${title}" widget to `);
+      if (isMobile) setActiveView('chat');
+      inputRef.current?.focus();
+    },
+    [isMobile]
+  );
 
   // ─── Conversational Stream Messaging ────────────────────────────────────────
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputMessage).trim();
     if (!text || isThinking) return;
+
+    // Auto-title workspace from first prompt if still untitled
+    if (projectTitle === 'Untitled Analysis Workspace') {
+      let derivedTitle = 'Analysis Workspace';
+      const lower = text.toLowerCase();
+      if (lower.includes('qqq')) {
+        derivedTitle = 'Nasdaq-100 (QQQ) Analysis';
+      } else if (lower.includes('nasdaq')) {
+        derivedTitle = 'Nasdaq Market Analysis';
+      } else if (lower.includes('revenue')) {
+        derivedTitle = 'Revenue & Financial Analysis';
+      } else {
+        const cleaned = text
+          .replace(/^(create|build|generate|make|show|add)\s+(a\s+)?(dashboard|chart|widget|view)?\s*(for\s+)?/i, '')
+          .trim();
+        if (cleaned.length > 2) {
+          const capitalized = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+          derivedTitle = capitalized.length > 34 ? capitalized.slice(0, 34) + '…' : capitalized;
+        }
+      }
+      setProjectTitle(derivedTitle);
+    }
 
     const userMsg: Message = {
       id: `user-${Date.now()}`,
@@ -261,6 +705,7 @@ function NewProjectContent() {
     };
 
     setMessages((prev) => [...prev, userMsg, assistantPlaceholder]);
+    setTimeout(() => scrollToBottom('smooth'), 50);
     setInputMessage('');
     setIsThinking(true);
     setActiveTools([]);
@@ -304,6 +749,8 @@ function NewProjectContent() {
           projectId: payload.project_id || projectId || 'default',
           action: (payload.action as any) || 'add_widget',
           widgetSpec: payload.widget_spec,
+          widgets: payload.widgets,
+          skipped_widgets: payload.skipped_widgets,
           requiresConfirmation: payload.requires_confirmation !== false,
           status: 'pending',
           createdAt: Date.now(),
@@ -325,6 +772,16 @@ function NewProjectContent() {
         );
       }
 
+      if (event.event === 'artifact') {
+        const art = event.payload as any;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, artifacts: [...(m.artifacts || []), art] } : m
+          )
+        );
+        setStreamStatus(`Durable artifact generated: ${art.filename || art.format}`);
+      }
+
       if (event.event === 'model_delta') {
         const rawDelta = event.payload.text;
         const delta =
@@ -339,6 +796,9 @@ function NewProjectContent() {
               m.id === assistantId ? { ...m, content: m.content + delta, toolActivity: [...toolLog] } : m
             )
           );
+          if (isNearBottomRef.current && chatContainerRef.current) {
+            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+          }
         }
       }
       if (event.event === 'final') {
@@ -409,6 +869,7 @@ function NewProjectContent() {
         runId,
         projectId,
         projectTitle,
+        layout: { widgets: currentLayout.widgets },
         incognito: isIncognito,
         onEvent: handleEvent,
       });
@@ -651,7 +1112,12 @@ function NewProjectContent() {
           }`}
         >
           {/* Scrollable Messages Container */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+          <div
+            ref={chatContainerRef}
+            onScroll={handleChatScroll}
+            data-lenis-prevent
+            className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5"
+          >
             {messages.map((msg) => {
               const inlineProposal = msg.proposalActionId ? proposals.get(msg.proposalActionId) : undefined;
 
@@ -750,6 +1216,21 @@ function NewProjectContent() {
                             &quot;
                           </em>
                         </p>
+                        {inlineProposal.skipped_widgets && inlineProposal.skipped_widgets.length > 0 && (
+                          <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-[11px] font-mono space-y-1">
+                            <div className="flex items-center gap-1.5 font-semibold text-amber-700 dark:text-amber-300">
+                              <IconAlertTriangle size={13} className="shrink-0" />
+                              <span>{inlineProposal.skipped_widgets.length} widget(s) omitted by semantic critique:</span>
+                            </div>
+                            <ul className="list-disc list-inside pl-1 space-y-0.5 opacity-90">
+                              {inlineProposal.skipped_widgets.map((sw) => (
+                                <li key={sw.id}>
+                                  <span className="font-semibold">{sw.title || sw.id}:</span> {sw.reason}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
 
                         {inlineProposal.status === 'pending' && (
                           <div className="flex items-center gap-2 pt-1">
@@ -809,6 +1290,87 @@ function NewProjectContent() {
                             </button>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Durable Output Artifacts Display */}
+                    {msg.artifacts && msg.artifacts.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-[#4A4238]/10 dark:border-white/10">
+                        {msg.artifacts.map((art: any, aIdx: number) => {
+                          const artFmt = (art.format || art.type || '').toLowerCase();
+                          const isAudio = artFmt === 'audio_mp3' || artFmt === 'audio';
+                          const isVideo = artFmt === 'video_mp4' || artFmt === 'video';
+                          const downloadUrl = art.download_url || `/artifacts/${art.artifact_id}/${art.filename}`;
+                          const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : `http://localhost:8001${downloadUrl}`;
+
+                          return (
+                            <div
+                              key={art.artifact_id || aIdx}
+                              className="p-3 rounded-2xl bg-white/70 dark:bg-white/5 border border-[#4A4238]/15 dark:border-white/15 space-y-2 text-xs font-mono"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  {isAudio ? (
+                                    <div className="w-7 h-7 rounded-lg bg-[#D4826A]/20 text-[#D4826A] flex items-center justify-center">
+                                      <IconVolume size={15} />
+                                    </div>
+                                  ) : isVideo ? (
+                                    <div className="w-7 h-7 rounded-lg bg-[#8FA98F]/20 text-[#8FA98F] flex items-center justify-center">
+                                      <IconMovie size={15} />
+                                    </div>
+                                  ) : artFmt === 'ics' ? (
+                                    <div className="w-7 h-7 rounded-lg bg-[#B8A9C9]/20 text-[#B8A9C9] flex items-center justify-center">
+                                      <IconCalendar size={15} />
+                                    </div>
+                                  ) : (
+                                    <div className="w-7 h-7 rounded-lg bg-[#0284C7]/20 text-[#0284C7] flex items-center justify-center">
+                                      <IconFileText size={15} />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="font-semibold text-[#4A4238] dark:text-[#EDE6DC]">
+                                      {art.filename || 'Durable Artifact'}
+                                    </p>
+                                    <p className="text-[10px] opacity-60">
+                                      {art.format?.toUpperCase() || 'FILE'} · {art.size_bytes ? `${Math.round(art.size_bytes / 1024)} KB` : 'Ready'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <a
+                                  href={fullUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  download={art.filename}
+                                  className="px-2.5 py-1.5 rounded-lg bg-[#4A4238]/10 dark:bg-white/10 hover:bg-[#D4826A] hover:text-white transition-all flex items-center gap-1 text-[11px] font-mono cursor-pointer"
+                                >
+                                  <IconDownload size={13} />
+                                  <span>Download</span>
+                                </a>
+                              </div>
+
+                              {/* Audio Player if MP3 */}
+                              {isAudio && (
+                                <audio controls className="w-full h-8 pt-1" src={fullUrl}>
+                                  Your browser does not support the audio element.
+                                </audio>
+                              )}
+
+                              {/* Video Player if MP4 */}
+                              {isVideo && (
+                                <video controls className="w-full rounded-xl mt-1 border border-black/10" src={fullUrl}>
+                                  Your browser does not support the video tag.
+                                </video>
+                              )}
+
+                              {art.preview_text && !isAudio && !isVideo && (
+                                <p className="text-[11px] opacity-75 italic line-clamp-2">
+                                  {art.preview_text}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 
@@ -890,6 +1452,7 @@ function NewProjectContent() {
               </button>
 
               <input
+                ref={inputRef}
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
@@ -927,10 +1490,23 @@ function NewProjectContent() {
             updatedBy={updatedBy}
             widgets={currentLayout.widgets}
             proposals={activeProposalsList}
+            layoutHistory={layoutHistory}
+            onRollback={handleRollback}
             onAcceptProposal={handleAcceptProposal}
             onRejectProposal={handleRejectProposal}
             onDismissProposal={handleDismissProposal}
+            onUpdateProposalSpec={handleUpdateProposalSpec}
             onWidgetAction={handleWidgetAction}
+            onRenameWorkspace={(newTitle) => setProjectTitle(newTitle)}
+            onRefine={handleRefineWidget}
+            onMoveWidget={handleMoveWidget}
+            onToggleWidgetWidth={handleToggleWidgetWidth}
+            onUndo={handleUndo}
+            lastActionToast={actionToast}
+            onDismissToast={() => setActionToast(null)}
+            presenceUsers={presenceUsers}
+            onSaveTemplate={handleSaveTemplate}
+            onLoadTemplate={handleLoadTemplate}
             onPromptChip={(chipText) => {
               if (activeView === 'canvas' && !isMobile) {
                 setActiveView('split');
@@ -941,6 +1517,102 @@ function NewProjectContent() {
           />
         </div>
       </div>
+
+      {/* ─── 409 Conflict Rebase & Merge Modal ───────────────────────────── */}
+      <AnimatePresence>
+        {conflictState && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#FAF6F0] dark:bg-[#1C1917] border border-[#4A4238]/20 dark:border-white/15 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4"
+            >
+              <div className="flex items-center gap-3 pb-3 border-b border-[#4A4238]/10 dark:border-white/10">
+                <div className="w-9 h-9 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+                  <IconGitMerge size={20} />
+                </div>
+                <div>
+                  <h3 className="font-serif text-base font-semibold text-[#4A4238] dark:text-[#EDE6DC]">
+                    {conflictState.isPureAppend
+                      ? 'Concurrent Update (Auto-Rebase Available)'
+                      : 'Concurrent Modification Conflict'}
+                  </h3>
+                  <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                    Canvas advanced to v{conflictState.freshVersion} in another session
+                  </p>
+                </div>
+              </div>
+
+              {conflictState.isPureAppend ? (
+                <div className="space-y-3 text-xs font-mono">
+                  <p className="text-[#4A4238]/80 dark:text-[#EDE6DC]/80 leading-relaxed">
+                    Another session or background task updated the layout to <span className="font-semibold text-[#D4826A]">v{conflictState.freshVersion}</span> ({conflictState.freshWidgets.length} widgets).
+                  </p>
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <IconCheck size={14} /> Safe Additive Append
+                    </p>
+                    <p className="text-[11px] mt-0.5 opacity-80">
+                      Your proposed widget &quot;{conflictState.proposal.widgetSpec?.title || 'Proposed Widget'}&quot; has no ID conflicts with the new canvas. You can safely rebase and apply it without losing concurrent edits.
+                    </p>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDiscardConflict()}
+                      className="px-3.5 py-1.5 rounded-xl border border-[#4A4238]/20 dark:border-white/20 text-[#4A4238]/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
+                    >
+                      Discard & Sync
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRebaseAndApply()}
+                      className="px-4 py-1.5 rounded-xl bg-[#D4826A] hover:bg-[#c2755e] text-white font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <IconGitMerge size={14} /> Rebase & Apply
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 text-xs font-mono">
+                  <p className="text-[#4A4238]/80 dark:text-[#EDE6DC]/80">
+                    The widget &quot;{conflictState.proposal.widgetSpec?.title || conflictState.conflictingWidget?.title}&quot; was modified concurrently. Choose which version to retain:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-3 rounded-xl border border-[#4A4238]/15 dark:border-white/15 bg-white/40 dark:bg-black/20 space-y-1">
+                      <p className="font-semibold text-[#D4826A]">Your Proposal</p>
+                      <p className="opacity-70 truncate">{conflictState.proposal.widgetSpec?.title}</p>
+                      <p className="opacity-50">Type: {conflictState.proposal.widgetSpec?.component || conflictState.proposal.widgetSpec?.type}</p>
+                    </div>
+                    <div className="p-3 rounded-xl border border-[#4A4238]/15 dark:border-white/15 bg-white/40 dark:bg-black/20 space-y-1">
+                      <p className="font-semibold text-[#0284C7]">Canvas Version</p>
+                      <p className="opacity-70 truncate">{conflictState.conflictingWidget?.title}</p>
+                      <p className="opacity-50">Type: {conflictState.conflictingWidget?.component || conflictState.conflictingWidget?.type}</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDiscardConflict()}
+                      className="px-3.5 py-1.5 rounded-xl border border-[#4A4238]/20 dark:border-white/20 text-[#4A4238]/70 dark:text-white/70 hover:bg-black/5 cursor-pointer"
+                    >
+                      Keep Theirs
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRebaseAndApply()}
+                      className="px-4 py-1.5 rounded-xl bg-[#D4826A] hover:bg-[#c2755e] text-white font-semibold cursor-pointer"
+                    >
+                      Keep Mine (Overwrite)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
