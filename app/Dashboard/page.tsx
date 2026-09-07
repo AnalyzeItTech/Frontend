@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   IconPlus,
@@ -23,6 +24,14 @@ import {
   IconLayoutDashboard,
   IconChartLine,
   IconSend,
+  IconEdit,
+  IconTrash,
+  IconSettings,
+  IconUser,
+  IconLock,
+  IconFolder,
+  IconFolderPlus,
+  IconKey,
 } from '@tabler/icons-react';
 import { ThemeToggle } from '../Components/ui/ThemeToggle';
 import { useTheme } from '../Components/ui/ThemeProvider';
@@ -30,12 +39,23 @@ import {
   getProjectLayout,
   applyUIAction,
   getProjects,
+  createProject,
+  updateProject,
+  deleteProject,
   streamChat,
   resolveWidgetData,
   type WidgetSpec,
   type UIProposalPayload,
+  type ProjectSummary,
 } from '../lib/chatApi';
-import { getStoredUser, logout, type UserProfile } from '../lib/auth';
+import {
+  getStoredUser,
+  fetchMe,
+  logout,
+  updateUserProfile,
+  changePassword,
+  type UserProfile,
+} from '../lib/auth';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 
 const EarthGlobe = dynamic(
@@ -43,114 +63,256 @@ const EarthGlobe = dynamic(
   { ssr: false }
 );
 
-interface PinnedSheet {
-  id: string;
-  title: string;
-  category: string;
-  syncedAgo: string;
-  summary: string;
-  metricLabel: string;
-  metricChange: string;
-  status: 'positive' | 'warning' | 'neutral';
-  route: string;
-}
-
-interface PreviousProject {
-  id: string;
-  title: string;
-  updatedAgo: string;
-  summary: string;
-  tag: string;
-  tagColor: string;
-  queriesCount: number;
-}
-
 export default function DashboardPage() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const router = useRouter();
 
   const [isGlobeExpanded, setIsGlobeExpanded] = useState(false);
   const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Active Scoped Project & Generative Canvas State
-  const [activeProjectId, setActiveProjectId] = useState<string>('default');
+  // ─── Active Scoped Project & Generative Canvas State ─────────────────────────
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
-  const [activeProjectName, setActiveProjectName] = useState<string>('Pricing Tier Sensitivity Audit');
+  const [activeProjectName, setActiveProjectName] = useState<string>('Workspace Canvas');
   const [layoutVersion, setLayoutVersion] = useState<number>(1);
   const [updatedBy, setUpdatedBy] = useState<string>('system');
   const [currentLayout, setCurrentLayout] = useState<{ widgets: WidgetSpec[] }>({
-    widgets: [
-      {
-        id: 'w-mrr',
-        type: 'metric_card',
-        title: 'Monthly Recurring Revenue',
-        metric: 'mrr',
-        value: '$128,450',
-        change: '+12.4%',
-        positive: true,
-        position: { x: 0, y: 0, w: 4, h: 2 },
-      },
-      {
-        id: 'w-active-users',
-        type: 'metric_card',
-        title: 'Active Telemetry Nodes',
-        metric: 'nodes',
-        value: '1,420',
-        change: '+5.8%',
-        positive: true,
-        position: { x: 4, y: 0, w: 4, h: 2 },
-      },
-      {
-        id: 'w-rev-trend',
-        type: 'line_chart',
-        title: 'Revenue Trend',
-        metric: 'revenue',
-        data: [
-          { date: 'Jan', value: 95000 },
-          { date: 'Feb', value: 105000 },
-          { date: 'Mar', value: 115000 },
-          { date: 'Apr', value: 128450 },
-        ],
-        position: { x: 0, y: 2, w: 8, h: 4 },
-      },
-    ],
+    widgets: [],
   });
 
-  // Agent proposal state
+  // ─── Agent Proposal State ───────────────────────────────────────────────────
   const [pendingProposal, setPendingProposal] = useState<UIProposalPayload | null>(null);
   const [agentPrompt, setAgentPrompt] = useState<string>('');
   const [isAgentRunning, setIsAgentRunning] = useState<boolean>(false);
   const [agentStatus, setAgentStatus] = useState<string>('');
   const [isApplying, setIsApplying] = useState<boolean>(false);
+
+  // ─── User & Projects State ──────────────────────────────────────────────────
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [serverProjects, setServerProjects] = useState<Array<{ id: string; name: string; layout_version: number; created_at: string; widget_count?: number }>>([]);
+  const [serverProjects, setServerProjects] = useState<ProjectSummary[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(true);
 
+  // ─── Modals State ────────────────────────────────────────────────────────────
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+
+  const [projectToRename, setProjectToRename] = useState<ProjectSummary | null>(null);
+  const [renameName, setRenameName] = useState('');
+  const [isRenamingProject, setIsRenamingProject] = useState(false);
+
+  const [projectToDelete, setProjectToDelete] = useState<ProjectSummary | null>(null);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+
+  // ─── User Profile & Settings Modal ──────────────────────────────────────────
+  const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [userActionMsg, setUserActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // ─── Data Initialization ─────────────────────────────────────────────────────
   useEffect(() => {
-    const currentUser = getStoredUser();
-    setUser(currentUser);
-
     async function loadWorkspace() {
+      setIsLoadingProjects(true);
+      let currentUser = getStoredUser();
+      setUser(currentUser);
+      if (currentUser?.name) setEditName(currentUser.name);
+
       try {
-        const projs = await getProjects(currentUser?.id);
-        if (projs && projs.length > 0) {
-          setServerProjects(projs);
-          const p = projs[0];
-          setActiveProjectId(p.id);
-          setActiveProjectName(p.name);
-          const layoutData = await getProjectLayout(p.id);
-          if (layoutData && layoutData.layout_json?.widgets) {
-            setCurrentLayout(layoutData.layout_json);
-            setLayoutVersion(layoutData.version);
-            setUpdatedBy(layoutData.updated_by || 'user');
-          }
+        const refreshedUser = await fetchMe();
+        if (refreshedUser) {
+          currentUser = refreshedUser;
+          setUser(refreshedUser);
+          if (refreshedUser.name) setEditName(refreshedUser.name);
         }
       } catch (err) {
-        console.warn('Could not load remote project layout, using starter sandbox:', err);
+        console.warn('Session verification fallback:', err);
+      }
+
+      try {
+        const projs = await getProjects(currentUser?.id);
+        const projectList = projs || [];
+        setServerProjects(projectList);
+
+        if (projectList.length > 0) {
+          const first = projectList[0];
+          setActiveProjectId(first.id);
+          setActiveProjectName(first.name);
+
+          try {
+            const layoutData = await getProjectLayout(first.id);
+            if (layoutData && layoutData.layout_json?.widgets) {
+              setCurrentLayout(layoutData.layout_json);
+              setLayoutVersion(layoutData.version);
+              setUpdatedBy(layoutData.updated_by || 'user');
+            } else {
+              setCurrentLayout({ widgets: [] });
+              setLayoutVersion(layoutData?.version || 1);
+            }
+          } catch {
+            setCurrentLayout({ widgets: [] });
+          }
+        } else {
+          setActiveProjectId(null);
+          setActiveProjectName('No Active Workspace');
+          setCurrentLayout({ widgets: [] });
+        }
+      } catch (err) {
+        console.warn('Could not load remote projects:', err);
+        setServerProjects([]);
+        setCurrentLayout({ widgets: [] });
+      } finally {
+        setIsLoadingProjects(false);
       }
     }
+
     loadWorkspace();
   }, []);
+
+  // ─── Switch Active Project ──────────────────────────────────────────────────
+  const handleSelectProject = async (proj: ProjectSummary) => {
+    setActiveProjectId(proj.id);
+    setActiveProjectName(proj.name);
+    try {
+      const layoutData = await getProjectLayout(proj.id);
+      if (layoutData && layoutData.layout_json?.widgets) {
+        setCurrentLayout(layoutData.layout_json);
+        setLayoutVersion(layoutData.version);
+        setUpdatedBy(layoutData.updated_by || 'user');
+      } else {
+        setCurrentLayout({ widgets: [] });
+        setLayoutVersion(layoutData?.version || 1);
+      }
+    } catch (err) {
+      console.warn('Failed to load layout for project:', err);
+      setCurrentLayout({ widgets: [] });
+    }
+  };
+
+  // ─── Project CRUD Handlers ──────────────────────────────────────────────────
+  const handleCreateProject = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const name = newProjectName.trim();
+    if (!name || isCreatingProject) return;
+
+    setIsCreatingProject(true);
+    try {
+      const created = await createProject(name, user?.id);
+      setServerProjects((prev) => [created, ...prev]);
+      setActiveProjectId(created.id);
+      setActiveProjectName(created.name);
+      setCurrentLayout({ widgets: [] });
+      setLayoutVersion(created.layout_version || 1);
+      setIsNewProjectOpen(false);
+      setNewProjectName('');
+      router.push(`/new-project?projectId=${created.id}`);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to create project');
+    } finally {
+      setIsCreatingProject(false);
+    }
+  };
+
+  const handleRenameSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!projectToRename || !renameName.trim() || isRenamingProject) return;
+
+    setIsRenamingProject(true);
+    try {
+      const updated = await updateProject(projectToRename.id, renameName.trim());
+      setServerProjects((prev) =>
+        prev.map((p) => (p.id === updated.id ? { ...p, name: updated.name } : p))
+      );
+      if (activeProjectId === updated.id) {
+        setActiveProjectName(updated.name);
+      }
+      setProjectToRename(null);
+      setRenameName('');
+    } catch (err: any) {
+      alert(err?.message || 'Failed to rename project');
+    } finally {
+      setIsRenamingProject(false);
+    }
+  };
+
+  const handleDeleteSubmit = async () => {
+    if (!projectToDelete || isDeletingProject) return;
+
+    setIsDeletingProject(true);
+    try {
+      await deleteProject(projectToDelete.id);
+      const remaining = serverProjects.filter((p) => p.id !== projectToDelete.id);
+      setServerProjects(remaining);
+
+      if (activeProjectId === projectToDelete.id) {
+        if (remaining.length > 0) {
+          handleSelectProject(remaining[0]);
+        } else {
+          setActiveProjectId(null);
+          setActiveProjectName('No Active Workspace');
+          setCurrentLayout({ widgets: [] });
+        }
+      }
+      setProjectToDelete(null);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to delete project');
+    } finally {
+      setIsDeletingProject(false);
+    }
+  };
+
+  // ─── User Management Handlers ────────────────────────────────────────────────
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim() || isUpdatingProfile) return;
+    setIsUpdatingProfile(true);
+    setUserActionMsg(null);
+    try {
+      const updated = await updateUserProfile({ name: editName.trim() });
+      setUser(updated);
+      setUserActionMsg({ type: 'success', text: 'Display name updated successfully' });
+    } catch (err: any) {
+      setUserActionMsg({ type: 'error', text: err?.message || 'Failed to update profile' });
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword || !newPassword) {
+      setUserActionMsg({ type: 'error', text: 'Please fill in both current and new passwords' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setUserActionMsg({ type: 'error', text: 'New passwords do not match' });
+      return;
+    }
+    if (newPassword.length < 8) {
+      setUserActionMsg({ type: 'error', text: 'New password must be at least 8 characters long' });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setUserActionMsg(null);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setUserActionMsg({ type: 'success', text: 'Password changed successfully' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setUserActionMsg({ type: 'error', text: err?.message || 'Failed to change password' });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -158,15 +320,30 @@ export default function DashboardPage() {
     window.location.href = '/login';
   };
 
+  // ─── Agent Proposal & Copilot Handlers ───────────────────────────────────────
   const handlePromptAgent = async (promptOverride?: string) => {
     const text = (promptOverride || agentPrompt).trim();
     if (!text || isAgentRunning) return;
+
+    if (!activeProjectId) {
+      try {
+        const created = await createProject('Quick Analysis Project', user?.id);
+        setServerProjects((prev) => [created, ...prev]);
+        setActiveProjectId(created.id);
+        setActiveProjectName(created.name);
+      } catch (err) {
+        console.error('Failed to create project for agent prompt:', err);
+        return;
+      }
+    }
+
+    const targetProjectId = activeProjectId || 'default';
     setIsAgentRunning(true);
     setAgentStatus('Agent analyzing request & evaluating layout…');
     try {
       const res = await streamChat({
         message: text,
-        projectId: activeProjectId,
+        projectId: targetProjectId,
         runId: activeRunId || undefined,
         onEvent: (event) => {
           if (event.event === 'ui_proposal') {
@@ -191,7 +368,7 @@ export default function DashboardPage() {
   };
 
   const handleAcceptProposal = async () => {
-    if (!pendingProposal || !pendingProposal.action_id) return;
+    if (!pendingProposal || !pendingProposal.action_id || !activeProjectId) return;
     setIsApplying(true);
     try {
       const res = await applyUIAction(activeProjectId, pendingProposal.action_id, true);
@@ -214,7 +391,7 @@ export default function DashboardPage() {
   };
 
   const handleRejectProposal = async () => {
-    if (!pendingProposal || !pendingProposal.action_id) return;
+    if (!pendingProposal || !pendingProposal.action_id || !activeProjectId) return;
     try {
       await applyUIAction(activeProjectId, pendingProposal.action_id, false);
       setPendingProposal(null);
@@ -235,107 +412,22 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isGlobeExpanded) {
-        setIsGlobeExpanded(false);
+      if (e.key === 'Escape') {
+        if (isGlobeExpanded) setIsGlobeExpanded(false);
+        if (isNewProjectOpen) setIsNewProjectOpen(false);
+        if (projectToRename) setProjectToRename(null);
+        if (projectToDelete) setProjectToDelete(null);
+        if (isUserSettingsOpen) setIsUserSettingsOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isGlobeExpanded]);
+  }, [isGlobeExpanded, isNewProjectOpen, projectToRename, projectToDelete, isUserSettingsOpen]);
 
-  // Sample Pinned Data Sheets
-  const pinnedSheets: PinnedSheet[] = [
-    {
-      id: 'sheet-1',
-      title: 'Q3 ARR & Cohort Retention',
-      category: 'Financials · Live Stream',
-      syncedAgo: 'Synced 3m ago',
-      summary: 'PostgreSQL · Stripe sync. Net retention at 118.4% across enterprise tier.',
-      metricLabel: 'Net Retention',
-      metricChange: '+14.2% MoM',
-      status: 'positive',
-      route: '/new-project',
-    },
-    {
-      id: 'sheet-2',
-      title: 'Conversion Funnel Drop-off',
-      category: 'Alert · Needs Attention',
-      syncedAgo: 'Synced 11m ago',
-      summary: 'Payment verification step anomaly localized to Safari mobile v17.4.',
-      metricLabel: 'Checkout Step 3',
-      metricChange: '-6.4% Drop',
-      status: 'warning',
-      route: '/new-project',
-    },
-    {
-      id: 'sheet-3',
-      title: 'Global Edge API Latency',
-      category: 'Infrastructure · 10 Hubs',
-      syncedAgo: 'Synced 1m ago',
-      summary: 'Global p99 latency steady under 38ms across all active telemetry clusters.',
-      metricLabel: 'Cluster Health',
-      metricChange: '99.98% Up',
-      status: 'positive',
-      route: '/new-project',
-    },
-  ];
-
-  // Sample Previous Projects
-  const previousProjects: PreviousProject[] = [
-    {
-      id: 'proj-1',
-      title: 'Pricing Tier Sensitivity Audit',
-      updatedAgo: '2h ago',
-      summary: 'Simulated 15% price increase impact on SMB churn vs enterprise expansion.',
-      tag: 'Simulation',
-      tagColor: 'bg-[#E8C4A0]/40 text-[#4A4238] dark:bg-[#E8C4A0]/20 dark:text-[#E8C4A0]',
-      queriesCount: 14,
-    },
-    {
-      id: 'proj-2',
-      title: 'CAC vs LTV Channel Breakdown',
-      updatedAgo: 'Yesterday',
-      summary: 'Organic search CAC is 3.2x lower than paid social with higher 12-mo retention.',
-      tag: 'Marketing',
-      tagColor: 'bg-[#8FA98F]/30 text-[#4A4238] dark:bg-[#8FA98F]/20 dark:text-[#8FA98F]',
-      queriesCount: 8,
-    },
-    {
-      id: 'proj-3',
-      title: 'Mobile App 2.4 Diagnostic',
-      updatedAgo: 'Aug 24',
-      summary: 'Crashlytics telemetry steady at 99.91% crash-free sessions.',
-      tag: 'Diagnostics',
-      tagColor: 'bg-[#B8A9C9]/30 text-[#4A4238] dark:bg-[#B8A9C9]/20 dark:text-[#B8A9C9]',
-      queriesCount: 22,
-    },
-    {
-      id: 'proj-4',
-      title: 'Weekly Executive Narrative Synthesis',
-      updatedAgo: 'Aug 20',
-      summary: 'Automated synthesis delivered to executive board and operations channel.',
-      tag: 'Executive',
-      tagColor: 'bg-[#4A4238]/10 text-[#4A4238] dark:bg-white/10 dark:text-white',
-      queriesCount: 19,
-    },
-  ];
-
-  const effectiveProjects: PreviousProject[] = serverProjects.length > 0
-    ? serverProjects.map((p) => ({
-        id: p.id,
-        title: p.name,
-        updatedAgo: new Date(p.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' }),
-        summary: `Analysis workspace with ${p.widget_count ?? 0} active widget(s) · Layout v${p.layout_version}`,
-        tag: 'Project',
-        tagColor: 'bg-[#D4826A]/20 text-[#D4826A]',
-        queriesCount: p.widget_count ?? 1,
-      }))
-    : previousProjects;
-
-  const filteredProjects = effectiveProjects.filter(
+  const filteredProjects = serverProjects.filter(
     (p) =>
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.summary.toLowerCase().includes(searchQuery.toLowerCase())
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -373,13 +465,17 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-3">
             {/* New Project CTA Button */}
-            <Link
-              href="/new-project"
+            <button
+              type="button"
+              onClick={() => {
+                setNewProjectName('');
+                setIsNewProjectOpen(true);
+              }}
               className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#4A4238] hover:bg-[#383129] dark:bg-[#EDE6DC] dark:hover:bg-white dark:text-[#161311] text-[#F3EDE4] text-xs font-mono uppercase tracking-wider transition-all shadow-sm transform hover:scale-[1.02] cursor-pointer"
             >
               <IconPlus size={14} className="text-[#D4826A]" />
               <span>New Project</span>
-            </Link>
+            </button>
 
             {/* Theme Toggle */}
             <ThemeToggle />
@@ -387,12 +483,18 @@ export default function DashboardPage() {
             {/* User Profile / Auth State */}
             {user ? (
               <div className="flex items-center gap-2.5">
-                <div
-                  className="w-8 h-8 rounded-full bg-[#E8C4A0] dark:bg-[#3D352E] border border-[#4A4238]/20 dark:border-white/15 flex items-center justify-center font-mono text-xs font-bold text-[#4A4238] dark:text-[#EDE6DC]"
-                  title={`${user.name} (${user.email})`}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserActionMsg(null);
+                    setEditName(user.name || '');
+                    setIsUserSettingsOpen(true);
+                  }}
+                  className="w-8 h-8 rounded-full bg-[#E8C4A0] dark:bg-[#3D352E] border border-[#4A4238]/20 dark:border-white/15 flex items-center justify-center font-mono text-xs font-bold text-[#4A4238] dark:text-[#EDE6DC] hover:ring-2 hover:ring-[#D4826A]/40 transition-all cursor-pointer"
+                  title={`Account Settings: ${user.name} (${user.email})`}
                 >
                   {user.name ? user.name.slice(0, 2).toUpperCase() : 'US'}
-                </div>
+                </button>
                 <button
                   onClick={handleLogout}
                   className="text-[11px] font-mono uppercase tracking-wider text-[#4A4238]/50 dark:text-[#EDE6DC]/50 hover:text-red-500 transition-colors cursor-pointer"
@@ -422,13 +524,13 @@ export default function DashboardPage() {
                 <IconSparkles size={13} /> Continuous Intelligence Engine
               </div>
               <h1 className="font-serif text-3xl sm:text-4xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
-                Good afternoon,{' '}
+                Good day,{' '}
                 <span className="italic text-[#D4826A]">
-                  {user?.name ? user.name.split(' ')[0] : 'Devansh'}
+                  {user?.name ? user.name.split(' ')[0] : 'Explorer'}
                 </span>
               </h1>
               <p className="text-sm text-[#4A4238]/60 dark:text-[#EDE6DC]/60 mt-1">
-                3 live telemetry streams connected · 1 anomaly alert requiring review
+                {serverProjects.length} active project{serverProjects.length === 1 ? '' : 's'} saved in MongoDB Atlas · Continuous intelligence ready
               </p>
             </div>
 
@@ -646,45 +748,91 @@ export default function DashboardPage() {
               )}
             </AnimatePresence>
 
-            {/* ─── SANDBOXED WIDGETS GRID CANVAS ─── */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {currentLayout.widgets.map((widget) => (
-                <div
-                  key={widget.id}
-                  className={
-                    widget.type === 'line_chart' || widget.type === 'table'
-                      ? 'md:col-span-2'
-                      : 'col-span-1'
-                  }
-                >
-                  <SandboxedWidgetRenderer
-                    widget={widget}
-                    onWidgetAction={handleWidgetAction}
-                  />
+            {/* ─── WIDGETS GRID CANVAS ─── */}
+            {currentLayout.widgets.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {currentLayout.widgets.map((widget) => (
+                  <div
+                    key={widget.id}
+                    className={
+                      widget.type === 'line_chart' || widget.type === 'table'
+                        ? 'md:col-span-2'
+                        : 'col-span-1'
+                    }
+                  >
+                    <SandboxedWidgetRenderer
+                      widget={widget}
+                      onWidgetAction={handleWidgetAction}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-12 px-6 rounded-2xl border-2 border-dashed border-[#4A4238]/15 dark:border-white/15 flex flex-col items-center justify-center text-center space-y-3 bg-black/[0.01] dark:bg-white/[0.01]">
+                <div className="w-12 h-12 rounded-2xl bg-[#D4826A]/10 text-[#D4826A] flex items-center justify-center">
+                  <IconLayoutDashboard size={24} />
                 </div>
-              ))}
-            </div>
+                <div className="space-y-1 max-w-md">
+                  <h3 className="font-serif text-base text-[#4A4238] dark:text-[#EDE6DC]">
+                    {activeProjectId ? 'Canvas is ready for widgets' : 'No project loaded'}
+                  </h3>
+                  <p className="text-xs text-[#4A4238]/60 dark:text-[#EDE6DC]/60 font-mono">
+                    {activeProjectId
+                      ? 'This workspace has no widgets yet. Type an analytical prompt above or use the quick chips to add your first visual widget.'
+                      : 'Create a new project or select an existing one below to begin visualizing your data.'}
+                  </p>
+                </div>
+                {!activeProjectId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewProjectName('');
+                      setIsNewProjectOpen(true);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  >
+                    <IconPlus size={14} />
+                    <span>Create First Project</span>
+                  </button>
+                )}
+              </div>
+            )}
 
           </div>
 
-          {/* Grid Layout: Pinned Data Sheets + Previous Projects */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* ─── REAL USER ANALYSIS WORKSPACES (PROJECT CRUD) ─────────────── */}
+          <div className="space-y-4">
             
-            {/* ─── COLUMN 1 & 2: PINNED DATA SHEETS ──────────────────────── */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#D4826A]" />
-                  <h2 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
-                    Pinned Data Sheets
-                  </h2>
-                  <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-[#4A4238]/06 dark:bg-white/10 text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
-                    3 Active
-                  </span>
+            {/* Section Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#D4826A]" />
+                <h2 className="font-serif text-2xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
+                  Analysis Workspaces
+                </h2>
+                <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-[#4A4238]/06 dark:bg-white/10 text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
+                  {serverProjects.length} Saved in MongoDB
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Search Input */}
+                <div className="relative">
+                  <IconSearch
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4A4238]/40 dark:text-white/40 pointer-events-none"
+                  />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search projects…"
+                    className="pl-8 pr-3 py-1.5 rounded-xl text-xs bg-white/60 dark:bg-white/05 border border-[#4A4238]/10 dark:border-white/10 placeholder-current/30 focus:outline-none focus:ring-1 focus:ring-[#D4826A]/40 transition-all w-48 sm:w-60"
+                  />
                 </div>
 
                 {/* Grid / List Switcher */}
-                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-[#4A4238]/10 dark:border-white/10">
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-[#4A4238]/10 dark:border-white/10">
                   <button
                     type="button"
                     onClick={() => setLayoutMode('grid')}
@@ -693,7 +841,7 @@ export default function DashboardPage() {
                         ? 'bg-white dark:bg-[#24201D] text-[#4A4238] dark:text-white shadow-xs'
                         : 'text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white'
                     }`}
-                    title="Grid layout"
+                    title="Grid view"
                   >
                     <IconLayoutGrid size={14} />
                   </button>
@@ -705,146 +853,575 @@ export default function DashboardPage() {
                         ? 'bg-white dark:bg-[#24201D] text-[#4A4238] dark:text-white shadow-xs'
                         : 'text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white'
                     }`}
-                    title="List layout"
+                    title="List view"
                   >
                     <IconList size={14} />
                   </button>
                 </div>
-              </div>
 
-              {/* Pinned Cards */}
+                {/* "+ New Project" Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewProjectName('');
+                    setIsNewProjectOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                >
+                  <IconPlus size={14} />
+                  <span>New</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Projects Grid / List */}
+            {isLoadingProjects ? (
+              <div className="py-16 flex flex-col items-center justify-center space-y-3 text-xs font-mono text-[#4A4238]/50 dark:text-white/50">
+                <span className="w-5 h-5 border-2 border-[#D4826A] border-t-transparent rounded-full animate-spin" />
+                <span>Loading projects from MongoDB Atlas…</span>
+              </div>
+            ) : filteredProjects.length > 0 ? (
               <div
                 className={`grid gap-4 ${
-                  layoutMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'
+                  layoutMode === 'grid'
+                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                    : 'grid-cols-1'
                 }`}
               >
-                {pinnedSheets.map((sheet) => (
-                  <Link
-                    key={sheet.id}
-                    href={sheet.route}
-                    className="glass-card rounded-2xl p-5 flex flex-col justify-between h-52 group cursor-pointer border border-[#4A4238]/08 dark:border-white/10"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span
-                          className={`text-xs font-mono uppercase tracking-wider ${
-                            sheet.status === 'warning' ? 'text-[#E14759]' : 'text-[#D4826A]'
-                          }`}
-                        >
-                          {sheet.category}
-                        </span>
-                        <span className="text-[10px] font-mono text-[#4A4238]/40 dark:text-white/40">
-                          {sheet.syncedAgo}
-                        </span>
+                {filteredProjects.map((project) => {
+                  const isActive = project.id === activeProjectId;
+                  const dateStr = project.created_at
+                    ? new Date(project.created_at).toLocaleDateString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })
+                    : 'Recently';
+
+                  return (
+                    <div
+                      key={project.id}
+                      className={`glass-card rounded-2xl p-5 flex flex-col justify-between border transition-all group ${
+                        isActive
+                          ? 'border-[#D4826A]/60 bg-[#D4826A]/05 dark:bg-[#D4826A]/10 shadow-md ring-1 ring-[#D4826A]/30'
+                          : 'border-[#4A4238]/10 dark:border-white/10 hover:border-[#D4826A]/30'
+                      }`}
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold ${
+                                isActive
+                                  ? 'bg-[#D4826A] text-white'
+                                  : 'bg-[#4A4238]/08 dark:bg-white/10 text-[#4A4238]/70 dark:text-[#EDE6DC]/70'
+                              }`}
+                            >
+                              {isActive ? 'Active Canvas' : `v${project.layout_version}`}
+                            </span>
+                            <span className="text-[10px] font-mono text-[#4A4238]/40 dark:text-white/40">
+                              {project.widget_count ?? 0} widget{(project.widget_count ?? 0) === 1 ? '' : 's'}
+                            </span>
+                          </div>
+
+                          <span className="text-[10px] font-mono text-[#4A4238]/40 dark:text-white/40">
+                            {dateStr}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h3
+                            onClick={() => handleSelectProject(project)}
+                            className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#EDE6DC] hover:text-[#D4826A] cursor-pointer transition-colors truncate"
+                            title={project.name}
+                          >
+                            {project.name}
+                          </h3>
+                          <p className="text-xs text-[#4A4238]/60 dark:text-[#EDE6DC]/60 font-mono mt-0.5 truncate">
+                            ID: {project.id}
+                          </p>
+                        </div>
                       </div>
 
-                      <h3 className="font-serif text-lg text-[#4A4238] dark:text-[#EDE6DC] group-hover:text-[#D4826A] transition-colors">
-                        {sheet.title}
-                      </h3>
-                      <p className="text-xs text-[#4A4238]/65 dark:text-[#EDE6DC]/65 mt-1.5 line-clamp-2 leading-relaxed">
-                        {sheet.summary}
-                      </p>
-                    </div>
+                      {/* Card Action Controls */}
+                      <div className="pt-4 mt-3 border-t border-[#4A4238]/08 dark:border-white/08 flex items-center justify-between text-xs font-mono">
+                        <div className="flex items-center gap-1.5">
+                          {!isActive && (
+                            <button
+                              type="button"
+                              onClick={() => handleSelectProject(project)}
+                              className="px-2.5 py-1 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-[#D4826A]/15 hover:text-[#D4826A] transition-colors cursor-pointer text-[11px]"
+                              title="Preview on top generative canvas"
+                            >
+                              Select
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProjectToRename(project);
+                              setRenameName(project.name);
+                            }}
+                            className="p-1.5 rounded-lg text-[#4A4238]/60 dark:text-white/60 hover:text-[#D4826A] hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                            title="Rename project"
+                          >
+                            <IconEdit size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setProjectToDelete(project)}
+                            className="p-1.5 rounded-lg text-[#4A4238]/60 dark:text-white/60 hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                            title="Delete project"
+                          >
+                            <IconTrash size={14} />
+                          </button>
+                        </div>
 
-                    <div className="pt-3 border-t border-[#4A4238]/08 dark:border-white/08 flex items-center justify-between text-xs font-mono">
-                      <span
-                        className={`font-semibold flex items-center gap-1 ${
-                          sheet.status === 'warning' ? 'text-[#E14759]' : 'text-[#8FA98F]'
-                        }`}
-                      >
-                        {sheet.status === 'warning' ? <IconAlertTriangle size={13} /> : <IconTrendingUp size={13} />}
-                        {sheet.metricChange}
-                      </span>
-                      <span className="text-[#4A4238]/50 dark:text-white/50 group-hover:translate-x-1 transition-transform flex items-center gap-0.5">
-                        Explore <IconArrowUpRight size={13} />
-                      </span>
+                        <Link
+                          href={`/new-project?projectId=${project.id}`}
+                          className="flex items-center gap-1 text-[#D4826A] hover:text-[#C0734E] font-semibold transition-colors cursor-pointer"
+                          title="Open full interactive workspace with chat and canvas"
+                        >
+                          <span>Open</span>
+                          <IconArrowUpRight size={13} />
+                        </Link>
+                      </div>
                     </div>
-                  </Link>
-                ))}
-
-                {/* Pin New Sheet Card Slot */}
-                <Link
-                  href="/new-project"
-                  className="border-2 border-dashed border-[#4A4238]/15 dark:border-white/15 rounded-2xl p-5 flex flex-col items-center justify-center text-center h-52 hover:border-[#D4826A]/50 hover:bg-white/30 dark:hover:bg-white/05 transition-all cursor-pointer group"
-                >
-                  <div className="w-10 h-10 rounded-full bg-[#4A4238]/06 dark:bg-white/10 flex items-center justify-center text-[#4A4238]/50 dark:text-white/50 group-hover:text-[#D4826A] group-hover:scale-110 transition-all mb-2">
-                    <IconPlus size={18} />
-                  </div>
-                  <span className="font-serif text-sm text-[#4A4238] dark:text-[#EDE6DC]">
-                    Pin another data sheet
-                  </span>
-                  <span className="text-[11px] font-mono text-[#4A4238]/40 dark:text-white/40 mt-1">
-                    Connect SQL, CSV, or ask AI
-                  </span>
-                </Link>
+                  );
+                })}
               </div>
-            </div>
-
-            {/* ─── COLUMN 3: PREVIOUS PROJECTS PANEL ─────────────────────── */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#4A4238]/40 dark:bg-white/40" />
-                  <h2 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
-                    Previous Projects
-                  </h2>
+            ) : (
+              <div className="py-16 px-6 glass-card rounded-3xl border border-[#4A4238]/10 dark:border-white/10 flex flex-col items-center justify-center text-center space-y-4">
+                <div className="w-14 h-14 rounded-2xl bg-[#D4826A]/10 text-[#D4826A] flex items-center justify-center">
+                  <IconFolderPlus size={28} />
                 </div>
-                <span className="text-xs font-mono text-[#4A4238]/40 dark:text-white/40">
-                  {previousProjects.length} saved
-                </span>
+                <div className="space-y-1 max-w-md">
+                  <h3 className="font-serif text-lg text-[#4A4238] dark:text-[#EDE6DC]">
+                    {searchQuery ? 'No matching projects found' : 'No analysis projects yet'}
+                  </h3>
+                  <p className="text-xs text-[#4A4238]/60 dark:text-[#EDE6DC]/60 font-mono">
+                    {searchQuery
+                      ? `No projects matched "${searchQuery}". Try a different search query or clear the filter.`
+                      : 'Create your first project to start saving visual canvases, telemetry bindings, and AI agent runs durably in MongoDB Atlas.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewProjectName('');
+                    setIsNewProjectOpen(true);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                >
+                  <IconPlus size={16} />
+                  <span>Create First Project</span>
+                </button>
               </div>
-
-              {/* Search Bar */}
-              <div className="relative">
-                <IconSearch
-                  size={14}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4A4238]/40 dark:text-white/40 pointer-events-none"
-                />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter projects…"
-                  className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-white/50 dark:bg-white/05 border border-[#4A4238]/10 dark:border-white/10 placeholder-current/30 focus:outline-none focus:ring-1 focus:ring-[#D4826A]/40 transition-all"
-                />
-              </div>
-
-              {/* Project Rows */}
-              <div className="glass-card rounded-2xl p-3 space-y-2 max-h-[460px] overflow-y-auto border border-[#4A4238]/08 dark:border-white/10">
-                {filteredProjects.map((proj) => (
-                  <Link
-                    key={proj.id}
-                    href={`/new-project?projectId=${proj.id}`}
-                    className="block p-3 rounded-xl hover:bg-white/80 dark:hover:bg-white/10 transition-colors border border-transparent hover:border-[#4A4238]/10 dark:hover:border-white/10 space-y-1 group"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-serif text-sm font-medium text-[#4A4238] dark:text-[#EDE6DC] group-hover:text-[#D4826A] transition-colors">
-                        {proj.title}
-                      </span>
-                      <span className="text-[10px] font-mono text-[#4A4238]/40 dark:text-white/40">
-                        {proj.updatedAgo}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#4A4238]/60 dark:text-[#EDE6DC]/60 line-clamp-1">
-                      {proj.summary}
-                    </p>
-                    <div className="flex items-center gap-2 pt-1">
-                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded ${proj.tagColor}`}>
-                        {proj.tag}
-                      </span>
-                      <span className="text-[10px] font-mono text-[#4A4238]/40 dark:text-white/40">
-                        {proj.queriesCount} queries
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
+            )}
 
           </div>
 
         </main>
       </div>
+
+      {/* ─── MODAL 1: CREATE NEW PROJECT ─────────────────────────────────── */}
+      <AnimatePresence>
+        {isNewProjectOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-[#4A4238]/15 dark:border-white/15 shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#1E1B18]"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#D4826A]/15 text-[#D4826A] flex items-center justify-center">
+                    <IconFolderPlus size={18} />
+                  </div>
+                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
+                    Create New Project
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsNewProjectOpen(false)}
+                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  <IconX size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateProject} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
+                    Project Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder="e.g. Q4 Revenue & Retention Audit"
+                    autoFocus
+                    required
+                    className="w-full px-4 py-3 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-sm text-[#4A4238] dark:text-[#EDE6DC] placeholder-[#4A4238]/30 dark:placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40 transition-all"
+                  />
+                  <p className="text-[11px] font-mono text-[#4A4238]/50 dark:text-white/50">
+                    A durable workspace saved in MongoDB with live charts and full revision history.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsNewProjectOpen(false)}
+                    disabled={isCreatingProject}
+                    className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-white/15 text-xs font-mono text-[#4A4238] dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingProject || !newProjectName.trim()}
+                    className="px-4 py-2.5 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {isCreatingProject ? (
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <IconPlus size={14} />
+                    )}
+                    <span>Create &amp; Open</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── MODAL 2: RENAME PROJECT ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {projectToRename && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-[#4A4238]/15 dark:border-white/15 shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#1E1B18]"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#D4826A]/15 text-[#D4826A] flex items-center justify-center">
+                    <IconEdit size={18} />
+                  </div>
+                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
+                    Rename Project
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProjectToRename(null)}
+                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  <IconX size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={handleRenameSubmit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/60 dark:text-[#EDE6DC]/60">
+                    New Project Name
+                  </label>
+                  <input
+                    type="text"
+                    value={renameName}
+                    onChange={(e) => setRenameName(e.target.value)}
+                    autoFocus
+                    required
+                    className="w-full px-4 py-3 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-sm text-[#4A4238] dark:text-[#EDE6DC] focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40 transition-all"
+                  />
+                  <p className="text-[11px] font-mono text-[#4A4238]/50 dark:text-white/50">
+                    ID: {projectToRename.id}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setProjectToRename(null)}
+                    disabled={isRenamingProject}
+                    className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-white/15 text-xs font-mono text-[#4A4238] dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isRenamingProject || !renameName.trim()}
+                    className="px-4 py-2.5 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {isRenamingProject ? (
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <IconCheck size={14} />
+                    )}
+                    <span>Save Name</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── MODAL 3: DELETE PROJECT CONFIRMATION ─────────────────────────── */}
+      <AnimatePresence>
+        {projectToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-red-500/20 shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#1E1B18]"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-red-500/15 text-red-500 flex items-center justify-center">
+                    <IconAlertTriangle size={18} />
+                  </div>
+                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
+                    Delete Project
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProjectToDelete(null)}
+                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  <IconX size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-sm text-[#4A4238] dark:text-[#EDE6DC]">
+                  Are you sure you want to delete <span className="font-bold">&quot;{projectToDelete.name}&quot;</span>?
+                </p>
+                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs font-mono text-red-600 dark:text-red-400 space-y-1">
+                  <p className="font-bold">Cascade Cleanup Warning:</p>
+                  <p>
+                    This permanently deletes the project layout, all widget configurations, UI action histories, AI chat runs, events, and saved artifacts from MongoDB.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setProjectToDelete(null)}
+                  disabled={isDeletingProject}
+                  className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-white/15 text-xs font-mono text-[#4A4238] dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteSubmit}
+                  disabled={isDeletingProject}
+                  className="px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  {isDeletingProject ? (
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <IconTrash size={14} />
+                  )}
+                  <span>Delete Permanently</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── MODAL 4: USER MANAGEMENT & ACCOUNT SETTINGS ───────────────────── */}
+      <AnimatePresence>
+        {isUserSettingsOpen && user && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-lg glass-card rounded-3xl p-6 sm:p-8 border border-[#4A4238]/15 dark:border-white/15 shadow-2xl space-y-6 bg-[#F3EDE4] dark:bg-[#1E1B18] max-h-[90vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-[#4A4238]/10 dark:border-white/10">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#D4826A]/15 text-[#D4826A] flex items-center justify-center">
+                    <IconUser size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#EDE6DC]">
+                      Account &amp; User Management
+                    </h3>
+                    <p className="text-xs font-mono text-[#4A4238]/50 dark:text-white/50">
+                      Managed in MongoDB Atlas
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsUserSettingsOpen(false)}
+                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-white/40 hover:text-[#4A4238] dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  <IconX size={16} />
+                </button>
+              </div>
+
+              {/* Status feedback message */}
+              {userActionMsg && (
+                <div
+                  className={`p-3 rounded-xl text-xs font-mono flex items-center gap-2 ${
+                    userActionMsg.type === 'success'
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                      : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                  }`}
+                >
+                  {userActionMsg.type === 'success' ? <IconCheck size={14} /> : <IconAlertTriangle size={14} />}
+                  <span>{userActionMsg.text}</span>
+                </div>
+              )}
+
+              {/* Section A: Account Info & Profile */}
+              <form onSubmit={handleUpdateProfile} className="space-y-4">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-[#D4826A] font-bold">
+                  User Profile
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                      Email Address
+                    </label>
+                    <input
+                      type="text"
+                      value={user.email}
+                      disabled
+                      className="w-full px-3 py-2 rounded-xl bg-black/5 dark:bg-white/05 border border-[#4A4238]/10 dark:border-white/10 text-xs font-mono text-[#4A4238]/60 dark:text-white/60 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                      User ID
+                    </label>
+                    <input
+                      type="text"
+                      value={user.id}
+                      disabled
+                      className="w-full px-3 py-2 rounded-xl bg-black/5 dark:bg-white/05 border border-[#4A4238]/10 dark:border-white/10 text-xs font-mono text-[#4A4238]/60 dark:text-white/60 cursor-not-allowed truncate"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                    Display Name
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      required
+                      className="flex-1 px-3 py-2 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-xs text-[#4A4238] dark:text-[#EDE6DC] focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isUpdatingProfile || editName === user.name}
+                      className="px-3 py-2 rounded-xl bg-[#4A4238] dark:bg-[#EDE6DC] text-white dark:text-[#161311] text-xs font-mono hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-40"
+                    >
+                      {isUpdatingProfile ? 'Saving…' : 'Update Name'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Section B: Change Password */}
+              <form onSubmit={handleChangePassword} className="space-y-3 pt-3 border-t border-[#4A4238]/10 dark:border-white/10">
+                <h4 className="text-xs font-mono uppercase tracking-wider text-[#D4826A] font-bold flex items-center gap-1.5">
+                  <IconKey size={14} /> Change Password
+                </h4>
+
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                      Current Password
+                    </label>
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-xs text-[#4A4238] dark:text-[#EDE6DC] focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                        New Password (min 8 chars)
+                      </label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-xs text-[#4A4238] dark:text-[#EDE6DC] focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
+                        Confirm New Password
+                      </label>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-white/05 border border-[#4A4238]/15 dark:border-white/15 text-xs text-[#4A4238] dark:text-[#EDE6DC] focus:outline-none focus:ring-2 focus:ring-[#D4826A]/40"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      disabled={isChangingPassword || !currentPassword || !newPassword}
+                      className="px-4 py-2 rounded-xl bg-[#D4826A] hover:bg-[#C0734E] text-white text-xs font-mono transition-all shadow-sm cursor-pointer disabled:opacity-40"
+                    >
+                      {isChangingPassword ? 'Changing…' : 'Change Password'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Section C: Sign Out */}
+              <div className="pt-3 border-t border-[#4A4238]/10 dark:border-white/10 flex items-center justify-between">
+                <span className="text-xs font-mono text-[#4A4238]/50 dark:text-white/50">
+                  Active JWT session
+                </span>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="px-3.5 py-1.5 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs font-mono uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

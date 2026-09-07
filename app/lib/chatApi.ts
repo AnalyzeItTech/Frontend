@@ -497,7 +497,16 @@ export async function applyUIAction(
   return res.json();
 }
 
-export async function getProjects(userId?: string): Promise<Array<{ id: string; name: string; layout_version: number; created_at: string }>> {
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  layout_version: number;
+  widget_count?: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export async function getProjects(userId?: string): Promise<ProjectSummary[]> {
   const effectiveUserId = userId || getStoredUser()?.id || 'demo-user';
   const res = await fetch(`${API_BASE}/projects?user_id=${encodeURIComponent(effectiveUserId)}`, {
     headers: getAuthHeaders(),
@@ -506,7 +515,15 @@ export async function getProjects(userId?: string): Promise<Array<{ id: string; 
   return res.json();
 }
 
-export async function createProject(name: string, userId?: string): Promise<{ id: string; name: string; layout_version: number }> {
+export async function getProjectById(projectId: string): Promise<ProjectSummary> {
+  const res = await fetch(`${API_BASE}/projects/${projectId}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to fetch project: ${res.status}`);
+  return res.json();
+}
+
+export async function createProject(name: string, userId?: string): Promise<ProjectSummary> {
   const effectiveUserId = userId || getStoredUser()?.id || 'demo-user';
   const res = await fetch(`${API_BASE}/projects?user_id=${encodeURIComponent(effectiveUserId)}`, {
     method: 'POST',
@@ -514,6 +531,25 @@ export async function createProject(name: string, userId?: string): Promise<{ id
     body: JSON.stringify({ name }),
   });
   if (!res.ok) throw new Error(`Failed to create project: ${res.status}`);
+  return res.json();
+}
+
+export async function updateProject(projectId: string, name: string): Promise<ProjectSummary> {
+  const res = await fetch(`${API_BASE}/projects/${projectId}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error(`Failed to update project: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteProject(projectId: string): Promise<{ ok: boolean; id: string }> {
+  const res = await fetch(`${API_BASE}/projects/${projectId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(`Failed to delete project: ${res.status}`);
   return res.json();
 }
 

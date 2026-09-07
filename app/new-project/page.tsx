@@ -39,6 +39,9 @@ import {
   saveProjectTemplate,
   sendPresenceHeartbeat,
   removePresence,
+  getProjectById,
+  updateProject,
+  createProject,
   type StreamEvent,
   type WidgetSpec,
   type UIProposalPayload,
@@ -47,6 +50,7 @@ import {
   type ProjectTemplate,
   type ChartAnnotation,
 } from '../lib/chatApi';
+import { getStoredUser, type UserProfile } from '../lib/auth';
 import { DashboardCanvas, type LayoutSnapshot } from '../Components/dashboard/DashboardCanvas';
 
 interface Message {
@@ -89,6 +93,7 @@ function NewProjectContent() {
   const [projectId, setProjectId] = useState<string | undefined>(urlProjectId);
   const [activeTools, setActiveTools] = useState<string[]>([]);
   const [streamStatus, setStreamStatus] = useState('');
+  const [user, setUser] = useState<UserProfile | null>(null);
 
   // ─── Generative Canvas & Proposal State ─────────────────────────────────────
   const [currentLayout, setCurrentLayout] = useState<{ widgets: WidgetSpec[] }>({ widgets: [] });
@@ -114,42 +119,64 @@ function NewProjectContent() {
     return () => window.removeEventListener('resize', checkWidth);
   }, [activeView]);
 
-  // Initial Project Layout Loading
+  // Project Info & Layout Loading
   useEffect(() => {
-    if (!urlProjectId) return;
-    setProjectId(urlProjectId);
-    setIsLayoutInitialLoading(true);
+    const cu = getStoredUser();
+    setUser(cu);
 
-    getProjectLayout(urlProjectId)
-      .then((data) => {
-        if (data && data.layout_json?.widgets) {
-          setCurrentLayout((prev) => {
-            if (data.version >= layoutVersion) {
-              return data.layout_json;
-            }
-            return prev;
-          });
-          setLayoutVersion(data.version);
-          setUpdatedBy(data.updated_by || 'agent');
-        }
-      })
-      .catch((err) => {
-        console.warn('Could not load existing project layout:', err);
-      })
-      .finally(() => {
-        setIsLayoutInitialLoading(false);
-      });
-  }, [urlProjectId]);
+    if (urlProjectId) {
+      setProjectId(urlProjectId);
+      setIsLayoutInitialLoading(true);
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome-1',
-      sender: 'assistant',
-      content:
-        'Hello Devansh. Welcome to your analysis workspace. You can ask me to build live charts and KPI widgets, connect data streams, or analyze metrics in plain words.',
-      timestamp: 'Just now',
-    },
-  ]);
+      getProjectById(urlProjectId)
+        .then((proj) => {
+          if (proj?.name) setProjectTitle(proj.name);
+        })
+        .catch((err) => console.warn('Could not load project metadata:', err));
+
+      getProjectLayout(urlProjectId)
+        .then((data) => {
+          if (data && data.layout_json?.widgets) {
+            setCurrentLayout((prev) => {
+              if (data.version >= layoutVersion) {
+                return data.layout_json;
+              }
+              return prev;
+            });
+            setLayoutVersion(data.version);
+            setUpdatedBy(data.updated_by || 'agent');
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not load existing project layout:', err);
+        })
+        .finally(() => {
+          setIsLayoutInitialLoading(false);
+        });
+    } else if (!isIncognito) {
+      // Auto-provision a durable workspace in MongoDB so edits and runs are not lost
+      createProject('Untitled Analysis Workspace', cu?.id)
+        .then((newProj) => {
+          setProjectId(newProj.id);
+          setProjectTitle(newProj.name);
+          router.replace(`/new-project?projectId=${newProj.id}`);
+        })
+        .catch((err) => console.warn('Could not auto-provision project:', err));
+    }
+  }, [urlProjectId, isIncognito, router]);
+
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const cu = getStoredUser();
+    const name = cu?.name ? cu.name.split(' ')[0] : 'Explorer';
+    return [
+      {
+        id: 'welcome-1',
+        sender: 'assistant',
+        content: `Hello ${name}. Welcome to your analysis workspace. You can ask me to build live charts and KPI widgets, connect data streams, or analyze metrics in plain words.`,
+        timestamp: 'Just now',
+      },
+    ];
+  });
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
@@ -168,6 +195,24 @@ function NewProjectContent() {
       setActionToast(null);
     }, 5000);
   }, []);
+
+  const handleSaveTitle = useCallback(
+    async (newTitle: string) => {
+      const trimmed = newTitle.trim() || 'Untitled Analysis Workspace';
+      setProjectTitle(trimmed);
+      setIsEditingTitle(false);
+      const targetId = projectId || urlProjectId;
+      if (targetId && !isIncognito) {
+        try {
+          await updateProject(targetId, trimmed);
+          showToast('Project renamed successfully');
+        } catch (err) {
+          console.warn('Failed to update project title:', err);
+        }
+      }
+    },
+    [projectId, urlProjectId, isIncognito, showToast]
+  );
 
   const handleRollback = useCallback(
     async (snapshot: LayoutSnapshot) => {
@@ -988,8 +1033,11 @@ function NewProjectContent() {
                 type="text"
                 value={projectTitle}
                 onChange={(e) => setProjectTitle(e.target.value)}
-                onBlur={() => setIsEditingTitle(false)}
-                onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
+                onBlur={() => handleSaveTitle(projectTitle)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveTitle(projectTitle);
+                  if (e.key === 'Escape') setIsEditingTitle(false);
+                }}
                 autoFocus
                 className="font-serif text-base sm:text-lg font-medium px-2 py-0.5 rounded border border-[#D4826A] bg-transparent focus:outline-none"
               />
@@ -1089,9 +1137,9 @@ function NewProjectContent() {
                 ? 'bg-purple-900/50 border-purple-400/40 text-purple-200'
                 : 'bg-[#E8C4A0] dark:bg-[#3D352E] border-[#4A4238]/20 dark:border-white/15 text-[#4A4238] dark:text-[#EDE6DC]'
             }`}
-            title="Signed in as Devansh"
+            title={user ? `Signed in as ${user.name} (${user.email})` : 'Guest Session'}
           >
-            DV
+            {user?.name ? user.name.slice(0, 2).toUpperCase() : 'US'}
           </div>
         </div>
       </header>

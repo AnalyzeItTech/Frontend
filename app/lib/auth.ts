@@ -4,6 +4,7 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
+  preferences?: Record<string, unknown>;
   created_at?: string;
 }
 
@@ -110,6 +111,40 @@ export async function fetchMe(): Promise<UserProfile | null> {
   } catch {
     return null;
   }
+}
+
+export async function updateUserProfile(data: { name?: string; preferences?: Record<string, unknown> }): Promise<UserProfile> {
+  const res = await fetch(`${API_BASE}/auth/profile`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: 'Failed to update profile' }));
+    throw new Error(errorData.detail || `Update profile failed (${res.status})`);
+  }
+
+  const user: UserProfile = await res.json();
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+  return user;
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/auth/change-password`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: 'Failed to change password' }));
+    throw new Error(errorData.detail || `Change password failed (${res.status})`);
+  }
+
+  return res.json();
 }
 
 export function logout(): void {
