@@ -270,7 +270,7 @@ export interface ManagedProposal {
   actionId: string;
   projectId: string;
   action: string;
-  widgetSpec: WidgetSpec;
+  widgetSpec?: WidgetSpec | null;
   widgets?: WidgetSpec[];
   requiresConfirmation: boolean;
   status: ProposalStatus;
@@ -300,8 +300,8 @@ export interface ProjectLayoutData {
   layout_json: {
     widgets: WidgetSpec[];
   };
-  updated_by: string;
-  updated_at: string;
+  updated_at?: string;
+  updated_by?: string;
   last_action_id?: string | null;
 }
 
@@ -315,7 +315,7 @@ export interface UIProposalPayload {
   project_id: string;
   action: string;
   action_id?: string;
-  widget_spec: WidgetSpec;
+  widget_spec?: WidgetSpec | null;
   widgets?: WidgetSpec[];
   skipped_widgets?: SkippedWidgetNotice[];
   requires_confirmation: boolean;

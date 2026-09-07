@@ -203,7 +203,7 @@ export default function DashboardPage() {
         const updated = await getProjectLayout(activeProjectId);
         setCurrentLayout(updated.layout_json);
         setLayoutVersion(updated.version);
-        setUpdatedBy(updated.updated_by);
+        setUpdatedBy(updated.updated_by || 'agent');
       }
       setPendingProposal(null);
     } catch (err) {
@@ -588,21 +588,31 @@ export default function DashboardPage() {
                       <IconSparkles size={15} />
                       Agent Proposed Dashboard Modification
                     </div>
-                    <p className="text-sm font-serif text-[#4A4238] dark:text-[#EDE6DC]">
-                      Proposal: <span className="font-semibold capitalize">{pendingProposal.action.replace('_', ' ')}</span> of type{' '}
-                      <span className="font-semibold text-[#D4826A]">
-                        {pendingProposal.widget_spec.component || pendingProposal.widget_spec.type}
-                      </span>{' '}
-                      (
-                      <em>
-                        &quot;
-                        {(pendingProposal.widget_spec.props?.title as string) ||
-                          pendingProposal.widget_spec.title ||
-                          'Untitled'}
-                        &quot;
-                      </em>
-                      )
-                    </p>
+                    {(() => {
+                      const isMulti = Array.isArray(pendingProposal.widgets) && pendingProposal.widgets.length > 0;
+                      const pType =
+                        pendingProposal.widget_spec?.component ||
+                        pendingProposal.widget_spec?.type ||
+                        (isMulti ? `Composite (${pendingProposal.widgets!.length} widgets)` : 'Composite');
+                      const pTitle =
+                        (pendingProposal.widget_spec?.props?.title as string) ||
+                        pendingProposal.widget_spec?.title ||
+                        (isMulti ? pendingProposal.widgets![0]?.title || 'Composite Dashboard' : 'Untitled Proposal');
+
+                      return (
+                        <p className="text-sm font-serif text-[#4A4238] dark:text-[#EDE6DC]">
+                          Proposal: <span className="font-semibold capitalize">{pendingProposal.action.replace('_', ' ')}</span> of type{' '}
+                          <span className="font-semibold text-[#D4826A]">
+                            {pType}
+                          </span>{' '}
+                          (
+                          <em>
+                            &quot;{pTitle}&quot;
+                          </em>
+                          )
+                        </p>
+                      );
+                    })()}
                     <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-white/60">
                       Action ID: {pendingProposal.action_id} · Safety Gate: User Confirmation Required
                     </p>

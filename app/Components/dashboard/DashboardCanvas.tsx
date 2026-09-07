@@ -557,14 +557,16 @@ export function DashboardCanvas({
         {activeProposals.map((proposal) => {
           const isApplying = proposal.status === 'applying';
           const isError = proposal.status === 'error';
+          const isMultiWidget = Array.isArray(proposal.widgets) && proposal.widgets.length > 0;
           const title =
-            (proposal.widgetSpec.props?.title as string) ||
-            proposal.widgetSpec.title ||
-            'Untitled Widget';
+            (proposal.widgetSpec?.props?.title as string) ||
+            proposal.widgetSpec?.title ||
+            (isMultiWidget ? proposal.widgets![0]?.title || 'Composite Dashboard' : 'Untitled Widget');
           const componentType =
-            proposal.widgetSpec.component || proposal.widgetSpec.type || 'widget';
+            proposal.widgetSpec?.component ||
+            proposal.widgetSpec?.type ||
+            (isMultiWidget ? `Composite (${proposal.widgets!.length})` : 'widget');
           const isStale = Date.now() - proposal.createdAt > PROPOSAL_TTL_MS;
-          const isMultiWidget = Array.isArray(proposal.widgets) && proposal.widgets.length > 1;
 
           return (
             <motion.div
@@ -599,20 +601,20 @@ export function DashboardCanvas({
                     <span className="font-semibold px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-xs font-mono">
                       {isMultiWidget ? `${proposal.widgets!.length} widgets composed` : componentType}
                     </span>
-                    {!isMultiWidget && (
+                    {!isMultiWidget && proposal.widgetSpec && (
                       <input
                         type="text"
                         value={title}
                         onChange={(e) => {
-                          if (onUpdateProposalSpec) {
-                            const updated = {
+                          if (onUpdateProposalSpec && proposal.widgetSpec) {
+                            const updated: WidgetSpec = {
                               ...proposal.widgetSpec,
                               title: e.target.value,
                               props: {
                                 ...(proposal.widgetSpec.props || {}),
                                 title: e.target.value,
                               },
-                            };
+                            } as WidgetSpec;
                             onUpdateProposalSpec(proposal.actionId, updated);
                           }
                         }}
@@ -688,26 +690,26 @@ export function DashboardCanvas({
               </div>
 
               {/* Edit-Before-Accept: Timeframe Selector for charts */}
-              {(componentType === 'line_chart' || componentType === 'bar_chart') && (
+              {!isMultiWidget && proposal.widgetSpec && (componentType === 'line_chart' || componentType === 'bar_chart') && (
                 <div className="flex items-center gap-2 pt-2 border-t border-[#4A4238]/10 dark:border-white/10 text-xs font-mono">
                   <span className="text-[#4A4238]/60 dark:text-white/60">Timeframe:</span>
                   {(['1D', '1W', '1M', '1Y'] as const).map((tf) => {
-                    const currentTf = proposal.widgetSpec.timeframe || proposal.widgetSpec.props?.timeframe || '1D';
+                    const currentTf = proposal.widgetSpec?.timeframe || proposal.widgetSpec?.props?.timeframe || '1D';
                     const isSelected = currentTf === tf;
                     return (
                       <button
                         key={tf}
                         type="button"
                         onClick={() => {
-                          if (onUpdateProposalSpec) {
-                            const updated = {
+                          if (onUpdateProposalSpec && proposal.widgetSpec) {
+                            const updated: WidgetSpec = {
                               ...proposal.widgetSpec,
                               timeframe: tf,
                               props: {
                                 ...(proposal.widgetSpec.props || {}),
                                 timeframe: tf,
                               },
-                            };
+                            } as WidgetSpec;
                             onUpdateProposalSpec(proposal.actionId, updated);
                           }
                         }}
@@ -750,11 +752,11 @@ export function DashboardCanvas({
                       </div>
                     ))}
                   </div>
-                ) : (
+                ) : proposal.widgetSpec ? (
                   <div className="max-w-md opacity-95">
                     <SandboxedWidgetRenderer widget={proposal.widgetSpec} isDraftPreview={true} />
                   </div>
-                )}
+                ) : null}
               </div>
             </motion.div>
           );

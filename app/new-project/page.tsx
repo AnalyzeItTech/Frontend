@@ -351,9 +351,10 @@ function NewProjectContent() {
               widgets: [...prev.widgets, ...proposal.widgets!],
             }));
           } else if (proposal.widgetSpec) {
+            const spec = proposal.widgetSpec;
             setCurrentLayout((prev) => ({
               ...prev,
-              widgets: [...prev.widgets, proposal.widgetSpec],
+              widgets: [...prev.widgets, spec],
             }));
           }
         }
@@ -368,7 +369,9 @@ function NewProjectContent() {
         const pTitle =
           (proposal.widgetSpec?.props?.title as string) ||
           proposal.widgetSpec?.title ||
-          'Widget';
+          (proposal.widgets && proposal.widgets.length > 0
+            ? `${proposal.widgets.length} Widgets`
+            : 'Widget');
         showToast(`Applied "${pTitle}" to canvas`, pTitle);
       } catch (err: any) {
         console.error('Failed to apply proposal:', err);
@@ -379,8 +382,12 @@ function NewProjectContent() {
           try {
             const fresh = await getProjectLayout(targetProjectId);
             const freshWidgets = fresh.layout_json?.widgets || [];
-            const propWidgetId = proposal.widgetSpec?.id;
-            const conflictExists = freshWidgets.some((w: any) => w.id === propWidgetId);
+            const propWidgetIds = proposal.widgets && proposal.widgets.length > 0
+              ? proposal.widgets.map((w) => w.id)
+              : proposal.widgetSpec?.id
+              ? [proposal.widgetSpec.id]
+              : [];
+            const conflictExists = freshWidgets.some((w: any) => propWidgetIds.includes(w.id));
 
             setConflictState({
               actionId,
@@ -389,7 +396,7 @@ function NewProjectContent() {
               freshVersion: fresh.version,
               freshWidgets,
               isPureAppend: !conflictExists,
-              conflictingWidget: conflictExists ? freshWidgets.find((w: any) => w.id === propWidgetId) : undefined,
+              conflictingWidget: conflictExists ? freshWidgets.find((w: any) => propWidgetIds.includes(w.id)) : undefined,
             });
             return;
           } catch (fetchErr) {
@@ -419,9 +426,11 @@ function NewProjectContent() {
         mergedWidgets = [...freshWidgets, ...toAppend];
       } else {
         // Keep Mine (overwrite existing widget with proposal's widget)
-        mergedWidgets = freshWidgets.map((w) =>
-          w.id === proposal.widgetSpec?.id ? proposal.widgetSpec : w
-        );
+        const toKeep = proposal.widgets && proposal.widgets.length > 0
+          ? proposal.widgets
+          : proposal.widgetSpec ? [proposal.widgetSpec] : [];
+        const toKeepMap = new Map(toKeep.map((w) => [w.id, w]));
+        mergedWidgets = freshWidgets.map((w) => toKeepMap.get(w.id) || w);
       }
 
       const res = await updateProjectLayout(targetProjectId, freshVersion, { widgets: mergedWidgets }, 'user');
@@ -437,12 +446,17 @@ function NewProjectContent() {
         return next;
       });
       setConflictState(null);
+      const pTitle =
+        proposal.widgetSpec?.title ||
+        (proposal.widgets && proposal.widgets.length > 0
+          ? `${proposal.widgets.length} Widgets`
+          : 'Widget');
       if (proposal.skipped_widgets && proposal.skipped_widgets.length > 0) {
         showToast(
-          `Rebased & applied "${proposal.widgetSpec?.title || 'Widget'}" (Note: ${proposal.skipped_widgets.length} omitted widget(s) preserved in audit log)`
+          `Rebased & applied "${pTitle}" (Note: ${proposal.skipped_widgets.length} omitted widget(s) preserved in audit log)`
         );
       } else {
-        showToast(`Rebased & applied "${proposal.widgetSpec?.title || 'Widget'}" onto canvas (v${res.version})`);
+        showToast(`Rebased & applied "${pTitle}" onto canvas (v${res.version})`);
       }
     } catch (err: any) {
       alert(`Rebase failed: ${err.message}`);
@@ -1179,117 +1193,139 @@ function NewProjectContent() {
                     )}
 
                     {/* ─── Inline Generative UI Proposal Confirmation Banner ─── */}
-                    {inlineProposal && (
-                      <div
-                        className={`mt-3 p-3.5 rounded-xl border space-y-2.5 transition-all ${
-                          inlineProposal.status === 'applied'
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                            : inlineProposal.status === 'rejected'
-                            ? 'bg-black/5 dark:bg-white/5 border-transparent opacity-60'
-                            : inlineProposal.status === 'error'
-                            ? 'bg-red-500/10 border-red-500/30'
-                            : 'bg-[#D4826A]/10 border-[#D4826A]/30'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider">
-                            <IconSparkles size={14} className="text-[#D4826A]" />
-                            <span>
-                              {inlineProposal.status === 'applied'
-                                ? 'Widget Added to Canvas'
-                                : inlineProposal.status === 'rejected'
-                                ? 'Proposal Rejected'
-                                : 'Proposed Widget'}
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10">
-                            {inlineProposal.widgetSpec.component || inlineProposal.widgetSpec.type}
-                          </span>
-                        </div>
+                    {inlineProposal && (() => {
+                      const isMulti = Array.isArray(inlineProposal.widgets) && inlineProposal.widgets.length > 0;
+                      const pType =
+                        inlineProposal.widgetSpec?.component ||
+                        inlineProposal.widgetSpec?.type ||
+                        (isMulti ? `Composite (${inlineProposal.widgets!.length} widgets)` : 'Composite');
+                      const pTitle =
+                        (inlineProposal.widgetSpec?.props?.title as string) ||
+                        inlineProposal.widgetSpec?.title ||
+                        (isMulti ? inlineProposal.widgets![0]?.title || 'Composite Dashboard' : 'Untitled Proposal');
 
-                        <p className="text-xs font-serif text-[#4A4238] dark:text-[#EDE6DC]">
-                          <em>
-                            &quot;
-                            {(inlineProposal.widgetSpec.props?.title as string) ||
-                              inlineProposal.widgetSpec.title ||
-                              'Untitled'}
-                            &quot;
-                          </em>
-                        </p>
-                        {inlineProposal.skipped_widgets && inlineProposal.skipped_widgets.length > 0 && (
-                          <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-[11px] font-mono space-y-1">
-                            <div className="flex items-center gap-1.5 font-semibold text-amber-700 dark:text-amber-300">
-                              <IconAlertTriangle size={13} className="shrink-0" />
-                              <span>{inlineProposal.skipped_widgets.length} widget(s) omitted by semantic critique:</span>
+                      return (
+                        <div
+                          className={`mt-3 p-3.5 rounded-xl border space-y-2.5 transition-all ${
+                            inlineProposal.status === 'applied'
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                              : inlineProposal.status === 'rejected'
+                              ? 'bg-black/5 dark:bg-white/5 border-transparent opacity-60'
+                              : inlineProposal.status === 'error'
+                              ? 'bg-red-500/10 border-red-500/30'
+                              : 'bg-[#D4826A]/10 border-[#D4826A]/30'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider">
+                              <IconSparkles size={14} className="text-[#D4826A]" />
+                              <span>
+                                {inlineProposal.status === 'applied'
+                                  ? isMulti ? 'Widgets Added to Canvas' : 'Widget Added to Canvas'
+                                  : inlineProposal.status === 'rejected'
+                                  ? 'Proposal Rejected'
+                                  : isMulti ? `Proposed Layout (${inlineProposal.widgets!.length} widgets)` : 'Proposed Widget'}
+                              </span>
                             </div>
-                            <ul className="list-disc list-inside pl-1 space-y-0.5 opacity-90">
-                              {inlineProposal.skipped_widgets.map((sw) => (
-                                <li key={sw.id}>
-                                  <span className="font-semibold">{sw.title || sw.id}:</span> {sw.reason}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {inlineProposal.status === 'pending' && (
-                          <div className="flex items-center gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={() => handleRejectProposal(inlineProposal.actionId)}
-                              className="px-3 py-1.5 rounded-lg border border-[#4A4238]/20 dark:border-white/20 hover:bg-black/5 text-[11px] font-mono transition-all cursor-pointer"
-                            >
-                              Reject
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleAcceptProposal(inlineProposal.actionId)}
-                              className="px-3.5 py-1.5 rounded-lg bg-[#D4826A] hover:bg-[#C0734E] text-white text-[11px] font-mono font-semibold flex items-center gap-1 transition-all shadow-sm cursor-pointer"
-                            >
-                              <IconCheck size={13} />
-                              <span>Accept &amp; Apply</span>
-                            </button>
-                          </div>
-                        )}
-
-                        {inlineProposal.status === 'applying' && (
-                          <div className="flex items-center gap-2 text-xs font-mono text-[#D4826A] pt-1">
-                            <span className="w-3 h-3 border-2 border-[#D4826A]/30 border-t-[#D4826A] rounded-full animate-spin" />
-                            <span>Applying widget to canvas…</span>
-                          </div>
-                        )}
-
-                        {inlineProposal.status === 'applied' && (
-                          <div className="flex items-center justify-between text-xs font-mono text-emerald-600 dark:text-emerald-400 pt-0.5">
-                            <span className="flex items-center gap-1">
-                              <IconCheck size={14} /> Active on Canvas
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/5 dark:bg-white/10">
+                              {pType}
                             </span>
-                            {activeView === 'chat' && (
+                          </div>
+
+                          <p className="text-xs font-serif text-[#4A4238] dark:text-[#EDE6DC]">
+                            <em>
+                              &quot;{pTitle}&quot;
+                            </em>
+                          </p>
+
+                          {isMulti && (
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                              {inlineProposal.widgets!.map((w, idx) => (
+                                <span
+                                  key={w.id || idx}
+                                  className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/10 text-[#4A4238]/80 dark:text-[#EDE6DC]/80"
+                                >
+                                  {w.title || w.type}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {inlineProposal.skipped_widgets && inlineProposal.skipped_widgets.length > 0 && (
+                            <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-[11px] font-mono space-y-1">
+                              <div className="flex items-center gap-1.5 font-semibold text-amber-700 dark:text-amber-300">
+                                <IconAlertTriangle size={13} className="shrink-0" />
+                                <span>{inlineProposal.skipped_widgets.length} widget(s) omitted by semantic critique:</span>
+                              </div>
+                              <ul className="list-disc list-inside pl-1 space-y-0.5 opacity-90">
+                                {inlineProposal.skipped_widgets.map((sw) => (
+                                  <li key={sw.id}>
+                                    <span className="font-semibold">{sw.title || sw.id}:</span> {sw.reason}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {inlineProposal.status === 'pending' && (
+                            <div className="flex items-center gap-2 pt-1">
                               <button
                                 type="button"
-                                onClick={() => setActiveView(isMobile ? 'canvas' : 'split')}
-                                className="underline hover:opacity-80 cursor-pointer"
+                                onClick={() => handleRejectProposal(inlineProposal.actionId)}
+                                className="px-3 py-1.5 rounded-lg border border-[#4A4238]/20 dark:border-white/20 hover:bg-black/5 text-[11px] font-mono transition-all cursor-pointer"
                               >
-                                View on Canvas →
+                                Reject
                               </button>
-                            )}
-                          </div>
-                        )}
+                              <button
+                                type="button"
+                                onClick={() => handleAcceptProposal(inlineProposal.actionId)}
+                                className="px-3.5 py-1.5 rounded-lg bg-[#D4826A] hover:bg-[#C0734E] text-white text-[11px] font-mono font-semibold flex items-center gap-1 transition-all shadow-sm cursor-pointer"
+                              >
+                                <IconCheck size={13} />
+                                <span>Accept &amp; Apply</span>
+                              </button>
+                            </div>
+                          )}
 
-                        {inlineProposal.status === 'error' && (
-                          <div className="space-y-1.5 pt-1">
-                            <p className="text-[11px] font-mono text-red-500">
-                              {inlineProposal.error || 'Failed to apply proposal.'}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => handleAcceptProposal(inlineProposal.actionId)}
-                              className="px-3 py-1 rounded-md bg-[#D4826A] text-white text-[10px] font-mono flex items-center gap-1"
-                            >
-                              <IconRefresh size={12} /> Retry
-                            </button>
-                          </div>
+                          {inlineProposal.status === 'applying' && (
+                            <div className="flex items-center gap-2 text-xs font-mono text-[#D4826A] pt-1">
+                              <span className="w-3 h-3 border-2 border-[#D4826A]/30 border-t-[#D4826A] rounded-full animate-spin" />
+                              <span>Applying widget{isMulti ? 's' : ''} to canvas…</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {inlineProposal?.status === 'applied' && (
+                      <div className="flex items-center justify-between text-xs font-mono text-emerald-600 dark:text-emerald-400 pt-0.5">
+                        <span className="flex items-center gap-1">
+                          <IconCheck size={14} /> Active on Canvas
+                        </span>
+                        {activeView === 'chat' && (
+                          <button
+                            type="button"
+                            onClick={() => setActiveView(isMobile ? 'canvas' : 'split')}
+                            className="underline hover:opacity-80 cursor-pointer"
+                          >
+                            View on Canvas →
+                          </button>
                         )}
+                      </div>
+                    )}
+
+                    {inlineProposal?.status === 'error' && (
+                      <div className="space-y-1.5 pt-1">
+                        <p className="text-[11px] font-mono text-red-500">
+                          {inlineProposal.error || 'Failed to apply proposal.'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => handleAcceptProposal(inlineProposal.actionId)}
+                          className="px-3 py-1 rounded-md bg-[#D4826A] text-white text-[10px] font-mono flex items-center gap-1"
+                        >
+                          <IconRefresh size={12} /> Retry
+                        </button>
                       </div>
                     )}
 
@@ -1554,7 +1590,7 @@ function NewProjectContent() {
                       <IconCheck size={14} /> Safe Additive Append
                     </p>
                     <p className="text-[11px] mt-0.5 opacity-80">
-                      Your proposed widget &quot;{conflictState.proposal.widgetSpec?.title || 'Proposed Widget'}&quot; has no ID conflicts with the new canvas. You can safely rebase and apply it without losing concurrent edits.
+                      Your proposed widget &quot;{conflictState.proposal.widgetSpec?.title || (conflictState.proposal.widgets && conflictState.proposal.widgets[0]?.title) || 'Proposed Widget'}&quot; has no ID conflicts with the new canvas. You can safely rebase and apply it without losing concurrent edits.
                     </p>
                   </div>
                   <div className="flex justify-end gap-2 pt-2">
@@ -1577,13 +1613,13 @@ function NewProjectContent() {
               ) : (
                 <div className="space-y-3 text-xs font-mono">
                   <p className="text-[#4A4238]/80 dark:text-[#EDE6DC]/80">
-                    The widget &quot;{conflictState.proposal.widgetSpec?.title || conflictState.conflictingWidget?.title}&quot; was modified concurrently. Choose which version to retain:
+                    The widget &quot;{conflictState.proposal.widgetSpec?.title || conflictState.conflictingWidget?.title || 'Proposed Widget'}&quot; was modified concurrently. Choose which version to retain:
                   </p>
                   <div className="grid grid-cols-2 gap-2 text-[11px]">
                     <div className="p-3 rounded-xl border border-[#4A4238]/15 dark:border-white/15 bg-white/40 dark:bg-black/20 space-y-1">
                       <p className="font-semibold text-[#D4826A]">Your Proposal</p>
-                      <p className="opacity-70 truncate">{conflictState.proposal.widgetSpec?.title}</p>
-                      <p className="opacity-50">Type: {conflictState.proposal.widgetSpec?.component || conflictState.proposal.widgetSpec?.type}</p>
+                      <p className="opacity-70 truncate">{conflictState.proposal.widgetSpec?.title || (conflictState.proposal.widgets && conflictState.proposal.widgets[0]?.title) || 'Proposed Widget'}</p>
+                      <p className="opacity-50">Type: {conflictState.proposal.widgetSpec?.component || conflictState.proposal.widgetSpec?.type || (conflictState.proposal.widgets ? `Composite (${conflictState.proposal.widgets.length})` : 'Composite')}</p>
                     </div>
                     <div className="p-3 rounded-xl border border-[#4A4238]/15 dark:border-white/15 bg-white/40 dark:bg-black/20 space-y-1">
                       <p className="font-semibold text-[#0284C7]">Canvas Version</p>
