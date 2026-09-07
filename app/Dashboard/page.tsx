@@ -380,19 +380,20 @@ export default function DashboardPage() {
     const text = (promptOverride || agentPrompt).trim();
     if (!text || isAgentRunning) return;
 
-    if (!activeProjectId) {
+    let targetProjectId = activeProjectId;
+    if (!targetProjectId) {
       try {
         const created = await createProject('Quick Analysis Project', user?.id);
         setServerProjects((prev) => [created, ...prev]);
         setActiveProjectId(created.id);
         setActiveProjectName(created.name);
+        targetProjectId = created.id;
       } catch (err) {
         console.error('Failed to create project for agent prompt:', err);
         return;
       }
     }
 
-    const targetProjectId = activeProjectId || 'default';
     setIsAgentRunning(true);
     setAgentStatus('Agent analyzing request & evaluating layout…');
     try {
@@ -403,6 +404,9 @@ export default function DashboardPage() {
         onEvent: (event) => {
           if (event.event === 'ui_proposal') {
             const proposal = event.payload as unknown as UIProposalPayload;
+            if (!proposal.project_id && targetProjectId) {
+              proposal.project_id = targetProjectId;
+            }
             setPendingProposal(proposal);
             setAgentStatus('');
           } else if (event.event === 'error') {
@@ -423,37 +427,90 @@ export default function DashboardPage() {
   };
 
   const handleAcceptProposal = async () => {
-    if (!pendingProposal || !pendingProposal.action_id || !activeProjectId) return;
+    if (!pendingProposal) return;
+    const targetProjId = pendingProposal.project_id || activeProjectId;
+    if (!targetProjId) return;
+
     setIsApplying(true);
     try {
-      const res = await applyUIAction(activeProjectId, pendingProposal.action_id, true);
-      if (res.applied && res.layout) {
+      let res: any = null;
+      if (pendingProposal.action_id) {
+        try {
+          res = await applyUIAction(targetProjId, pendingProposal.action_id, true);
+        } catch (apiErr) {
+          console.warn('Backend applyUIAction failed, applying fallback merge:', apiErr);
+        }
+      }
+
+      // 1. Check if backend returned an updated layout with widgets
+      if (res && res.applied && res.layout && Array.isArray(res.layout.widgets) && res.layout.widgets.length > 0) {
         setCurrentLayout(res.layout);
         if (res.layout_version) setLayoutVersion(res.layout_version);
         setUpdatedBy('agent');
       } else {
-        const updated = await getProjectLayout(activeProjectId);
-        setCurrentLayout(updated.layout_json);
-        setLayoutVersion(updated.version);
-        setUpdatedBy(updated.updated_by || 'agent');
+        // 2. Extract proposed widgets from proposal for immediate local & durable update
+        const proposedWidgets: WidgetSpec[] = [];
+        if (Array.isArray(pendingProposal.widgets) && pendingProposal.widgets.length > 0) {
+          proposedWidgets.push(...pendingProposal.widgets);
+        } else if (pendingProposal.widget_spec) {
+          proposedWidgets.push(pendingProposal.widget_spec);
+        }
+
+        if (proposedWidgets.length > 0) {
+          const mergedWidgets = [...currentLayout.widgets];
+          for (const pw of proposedWidgets) {
+            const idx = mergedWidgets.findIndex((w) => w.id === pw.id);
+            if (idx >= 0) {
+              mergedWidgets[idx] = pw;
+            } else {
+              mergedWidgets.push(pw);
+            }
+          }
+
+          const newLayout = { widgets: mergedWidgets };
+          setCurrentLayout(newLayout);
+          const nextVersion = layoutVersion + 1;
+          setLayoutVersion(nextVersion);
+          setUpdatedBy('agent');
+
+          // Persist the merged layout to MongoDB Atlas
+          try {
+            await updateProjectLayout(targetProjId, layoutVersion, newLayout, 'agent');
+          } catch (updateErr) {
+            console.warn('Failed to persist layout update to backend:', updateErr);
+          }
+        } else {
+          // Re-sync with canonical layout from server
+          const updated = await getProjectLayout(targetProjId);
+          if (updated && updated.layout_json) {
+            setCurrentLayout(updated.layout_json);
+            setLayoutVersion(updated.version);
+            setUpdatedBy(updated.updated_by || 'agent');
+          }
+        }
       }
+
+      setExportToastMsg('Dashboard updated successfully!');
+      setTimeout(() => setExportToastMsg(null), 3000);
       setPendingProposal(null);
     } catch (err) {
-      console.error('Failed to apply proposal:', err);
+      console.error('Failed to accept proposal:', err);
     } finally {
       setIsApplying(false);
     }
   };
 
   const handleRejectProposal = async () => {
-    if (!pendingProposal || !pendingProposal.action_id || !activeProjectId) return;
-    try {
-      await applyUIAction(activeProjectId, pendingProposal.action_id, false);
-      setPendingProposal(null);
-    } catch (err) {
-      console.error('Failed to reject proposal:', err);
-      setPendingProposal(null);
+    if (!pendingProposal) return;
+    const targetProjId = pendingProposal.project_id || activeProjectId;
+    if (pendingProposal.action_id && targetProjId) {
+      try {
+        await applyUIAction(targetProjId, pendingProposal.action_id, false);
+      } catch (err) {
+        console.warn('Failed to reject proposal on backend:', err);
+      }
     }
+    setPendingProposal(null);
   };
 
   const handleWidgetAction = (widgetId: string, action: string, _payload?: unknown) => {

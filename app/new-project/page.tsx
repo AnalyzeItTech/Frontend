@@ -384,23 +384,41 @@ function NewProjectContent() {
 
       try {
         const res = await applyUIAction(targetProjectId, actionId, true);
-        if (res.applied && res.layout) {
+        if (res.applied && res.layout && Array.isArray(res.layout.widgets) && res.layout.widgets.length > 0) {
           setCurrentLayout(res.layout);
           if (res.layout_version) setLayoutVersion(res.layout_version);
           setUpdatedBy('agent');
         } else {
           // Re-sync with canonical layout or optimistic addition
+          const candidateWidgets: WidgetSpec[] = [];
           if (proposal.widgets && proposal.widgets.length > 0) {
-            setCurrentLayout((prev) => ({
-              ...prev,
-              widgets: [...prev.widgets, ...proposal.widgets!],
-            }));
+            candidateWidgets.push(...proposal.widgets);
           } else if (proposal.widgetSpec) {
-            const spec = proposal.widgetSpec;
-            setCurrentLayout((prev) => ({
-              ...prev,
-              widgets: [...prev.widgets, spec],
-            }));
+            candidateWidgets.push(proposal.widgetSpec);
+          }
+
+          if (candidateWidgets.length > 0) {
+            const nextWidgets = [...currentLayout.widgets];
+            for (const cw of candidateWidgets) {
+              const idx = nextWidgets.findIndex((w) => w.id === cw.id);
+              if (idx >= 0) {
+                nextWidgets[idx] = cw;
+              } else {
+                nextWidgets.push(cw);
+              }
+            }
+            const newLayout = { widgets: nextWidgets };
+            setCurrentLayout(newLayout);
+            setLayoutVersion((prev) => prev + 1);
+            setUpdatedBy('agent');
+
+            if (targetProjectId) {
+              try {
+                await updateProjectLayout(targetProjectId, layoutVersion, newLayout, 'agent');
+              } catch (saveErr) {
+                console.warn('Could not persist layout update:', saveErr);
+              }
+            }
           }
         }
 
