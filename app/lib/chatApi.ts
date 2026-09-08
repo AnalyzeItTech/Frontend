@@ -277,6 +277,7 @@ export interface ManagedProposal {
   createdAt: number;
   skipped_widgets?: SkippedWidgetNotice[];
   error?: string;
+  payload?: any;
 }
 
 /**

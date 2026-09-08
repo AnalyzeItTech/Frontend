@@ -41,6 +41,10 @@ import {
   IconChevronDown,
   IconPlayerPlay,
   IconInfoCircle,
+  IconDatabase,
+  IconBrandStripe,
+  IconComponents,
+  IconFileZip,
 } from '@tabler/icons-react';
 import { ThemeToggle } from '../Components/ui/ThemeToggle';
 import { useTheme } from '../Components/ui/ThemeProvider';
@@ -66,7 +70,11 @@ import {
   changePassword,
   type UserProfile,
 } from '../lib/auth';
+import { downloadProjectZip } from '../lib/exportApi';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
+import { ObjectBuilderView } from '../Components/dashboard/ObjectBuilderView';
+import { ConnectorsView } from '../Components/dashboard/ConnectorsView';
+import { ModulePipelineView } from '../Components/dashboard/ModulePipelineView';
 import {
   exportDashboardToPdf,
   exportDashboardToPptx,
@@ -92,6 +100,7 @@ export default function DashboardPage() {
   const [isGlobeExpanded, setIsGlobeExpanded] = useState(false);
   const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
+  const [studioTab, setStudioTab] = useState<'canvas' | 'objects' | 'connectors' | 'pipeline'>('canvas');
 
   // ─── Active Scoped Project & Generative Canvas State ─────────────────────────
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -224,6 +233,20 @@ export default function DashboardPage() {
     } catch (err) {
       console.warn('Failed to load layout for project:', err);
       setCurrentLayout({ widgets: [] });
+    }
+  };
+
+  const refreshActiveProjectLayout = async () => {
+    if (!activeProjectId) return;
+    try {
+      const layoutData = await getProjectLayout(activeProjectId);
+      if (layoutData && layoutData.layout_json?.widgets) {
+        setCurrentLayout(layoutData.layout_json);
+        setLayoutVersion(layoutData.version);
+        setUpdatedBy(layoutData.updated_by || 'agent');
+      }
+    } catch (err) {
+      console.warn('Failed to refresh layout:', err);
     }
   };
 
@@ -513,12 +536,40 @@ export default function DashboardPage() {
     setPendingProposal(null);
   };
 
-  const handleWidgetAction = (widgetId: string, action: string, _payload?: unknown) => {
+  const handleWidgetAction = (widgetId: string, action: string, payload?: unknown) => {
     if (action === 'delete' || action === 'remove_widget') {
       setCurrentLayout((prev) => ({
         ...prev,
         widgets: prev.widgets.filter((w) => w.id !== widgetId),
       }));
+      setExportToastMsg('Widget removed from canvas');
+      setTimeout(() => setExportToastMsg(null), 2500);
+    } else if (action === 'duplicate' || action === 'duplicate_widget') {
+      setCurrentLayout((prev) => {
+        const target = prev.widgets.find((w) => w.id === widgetId);
+        if (!target) return prev;
+        const newWidget = {
+          ...target,
+          id: `${target.id}_copy_${Date.now()}`,
+          title: target.title ? `${target.title} (Copy)` : 'Duplicated Widget',
+        };
+        const idx = prev.widgets.findIndex((w) => w.id === widgetId);
+        const nextWidgets = [...prev.widgets];
+        nextWidgets.splice(idx + 1, 0, newWidget);
+        return { ...prev, widgets: nextWidgets };
+      });
+      setExportToastMsg('Widget duplicated successfully');
+      setTimeout(() => setExportToastMsg(null), 2500);
+    } else if (action === 'resize' || action === 'resize_widget') {
+      const p = payload as any;
+      if (p && (p.span !== undefined || p.w !== undefined)) {
+        setCurrentLayout((prev) => ({
+          ...prev,
+          widgets: prev.widgets.map((w) =>
+            w.id === widgetId ? { ...w, span: p.span || p.w } : w
+          ),
+        }));
+      }
     }
   };
 
@@ -671,6 +722,33 @@ export default function DashboardPage() {
                       <div>
                         <div className="font-semibold">Narrative Brief (Word)</div>
                         <div className="text-[10px] text-[#91867E]">Editable Word / Docs brief</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setIsExportMenuOpen(false);
+                        if (!activeProjectId) {
+                          setExportToastMsg('No active project selected to export');
+                          setTimeout(() => setExportToastMsg(null), 3000);
+                          return;
+                        }
+                        try {
+                          await downloadProjectZip(activeProjectId);
+                          setExportToastMsg('Project ZIP bundle downloaded!');
+                          setTimeout(() => setExportToastMsg(null), 3000);
+                        } catch (e: any) {
+                          setExportToastMsg('Failed to download project ZIP archive');
+                          setTimeout(() => setExportToastMsg(null), 3000);
+                        }
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] hover:text-[#E3836C] transition-colors cursor-pointer text-left"
+                    >
+                      <IconFileZip size={16} className="text-purple-500 shrink-0" />
+                      <div>
+                        <div className="font-semibold">Project Archive (ZIP)</div>
+                        <div className="text-[10px] text-[#91867E]">Full layout, custom schemas & records</div>
                       </div>
                     </button>
 
@@ -1136,6 +1214,58 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* ─── STUDIO TABS SWITCHER ─── */}
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/5 dark:bg-[#292522] border border-[#4A4238]/10 dark:border-[#3A3430] self-start mb-2 overflow-x-auto max-w-full">
+              <button
+                type="button"
+                onClick={() => setStudioTab('canvas')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap ${
+                  studioTab === 'canvas'
+                    ? 'bg-white dark:bg-[#211E1C] text-[#E3836C] font-semibold shadow-sm'
+                    : 'text-[#4A4238]/70 dark:text-[#C5B9AE]/70 hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
+                }`}
+              >
+                <IconLayoutDashboard size={14} />
+                <span>Dashboard Canvas</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudioTab('objects')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap ${
+                  studioTab === 'objects'
+                    ? 'bg-white dark:bg-[#211E1C] text-[#E3836C] font-semibold shadow-sm'
+                    : 'text-[#4A4238]/70 dark:text-[#C5B9AE]/70 hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
+                }`}
+              >
+                <IconDatabase size={14} />
+                <span>Custom Objects Studio</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudioTab('connectors')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap ${
+                  studioTab === 'connectors'
+                    ? 'bg-white dark:bg-[#211E1C] text-[#E3836C] font-semibold shadow-sm'
+                    : 'text-[#4A4238]/70 dark:text-[#C5B9AE]/70 hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
+                }`}
+              >
+                <IconBrandStripe size={14} />
+                <span>Live Connectors Hub</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudioTab('pipeline')}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap ${
+                  studioTab === 'pipeline'
+                    ? 'bg-white dark:bg-[#211E1C] text-[#E3836C] font-semibold shadow-sm'
+                    : 'text-[#4A4238]/70 dark:text-[#C5B9AE]/70 hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
+                }`}
+              >
+                <IconComponents size={14} />
+                <span>Module Pipeline</span>
+              </button>
+            </div>
+
             {/* ─── PENDING PROPOSAL CONFIRMATION CARD (SAFETY GATE) ─── */}
             <AnimatePresence>
               {pendingProposal && (
@@ -1145,10 +1275,10 @@ export default function DashboardPage() {
                   exit={{ opacity: 0, y: -10 }}
                   className="rounded-2xl p-5 bg-gradient-to-r from-[#E3836C]/15 via-[#5A332C]/30 to-[#E3836C]/10 border-2 border-[#E3836C]/40 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                 >
-                  <div className="space-y-1">
+                  <div className="space-y-1 w-full sm:w-auto">
                     <div className="flex items-center gap-2 text-xs font-mono text-[#E3836C] font-bold uppercase tracking-wider">
                       <IconSparkles size={15} />
-                      Agent Proposed Dashboard Modification
+                      Agent Proposed Workspace Modification
                     </div>
                     {(() => {
                       const isMulti = Array.isArray(pendingProposal.widgets) && pendingProposal.widgets.length > 0;
@@ -1175,6 +1305,41 @@ export default function DashboardPage() {
                         </p>
                       );
                     })()}
+
+                    {/* Schema Diff Preview for Module Installation */}
+                    {(pendingProposal.action === 'install_module' || (pendingProposal as any).payload?.action_type === 'install_module') && (
+                      <div className="p-3 rounded-xl bg-white/60 dark:bg-black/40 border border-[#E3836C]/30 space-y-2 mt-2 w-full">
+                        <div className="text-xs font-semibold text-[#4A4238] dark:text-[#F4EDE5] flex items-center gap-1.5">
+                          <span>Module Installation Proposal:</span>
+                          <span className="font-mono text-indigo-500 font-bold">
+                            {(pendingProposal as any).payload?.module_name || (pendingProposal as any).payload?.module_id || 'Deterministic Module'} (v{(pendingProposal as any).payload?.template_version || 1})
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          <div className="p-2 rounded-lg bg-black/5 dark:bg-neutral-900/60 border border-black/5 dark:border-white/5">
+                            <span className="font-medium text-neutral-500 block mb-1">Custom Entities Created:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {(pendingProposal as any).payload?.schema_diff?.objects_to_create?.map((o: any) => (
+                                <span key={o.api_name || o} className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500 font-mono text-[11px]">
+                                  +{o.label || o.api_name || o}
+                                </span>
+                              )) || <span className="text-neutral-400">Standard schemas</span>}
+                            </div>
+                          </div>
+                          <div className="p-2 rounded-lg bg-black/5 dark:bg-neutral-900/60 border border-black/5 dark:border-white/5">
+                            <span className="font-medium text-neutral-500 block mb-1">Screens Appended:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {(pendingProposal as any).payload?.schema_diff?.screens_to_add?.map((s: any, idx: number) => (
+                                <span key={idx} className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-mono text-[11px]">
+                                  +{s.title || s}
+                                </span>
+                              )) || <span className="text-neutral-400">Dashboard widgets</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
                       Action ID: {pendingProposal.action_id} · Safety Gate: User Confirmation Required
                     </p>
@@ -1208,54 +1373,74 @@ export default function DashboardPage() {
               )}
             </AnimatePresence>
 
-            {/* ─── WIDGETS GRID CANVAS ─── */}
-            {currentLayout.widgets.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {currentLayout.widgets.map((widget) => (
-                  <div
-                    key={widget.id}
-                    className={
-                      widget.type === 'line_chart' || widget.type === 'table'
-                        ? 'md:col-span-2'
-                        : 'col-span-1'
-                    }
-                  >
-                    <SandboxedWidgetRenderer
-                      widget={widget}
-                      onWidgetAction={handleWidgetAction}
-                    />
+            {/* ─── TAB CONTENT: CANVAS ─── */}
+            {studioTab === 'canvas' && (
+              currentLayout.widgets.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {currentLayout.widgets.map((widget) => (
+                    <div
+                      key={widget.id}
+                      className={
+                        widget.type === 'line_chart' || widget.type === 'table'
+                          ? 'md:col-span-2'
+                          : 'col-span-1'
+                      }
+                    >
+                      <SandboxedWidgetRenderer
+                        widget={widget}
+                        onWidgetAction={handleWidgetAction}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-12 px-6 rounded-2xl border-2 border-dashed border-[#4A4238]/15 dark:border-[#3A3430] flex flex-col items-center justify-center text-center space-y-3 bg-black/[0.01] dark:bg-[#211E1C]/50">
+                  <div className="w-12 h-12 rounded-2xl bg-[#E3836C]/10 text-[#E3836C] flex items-center justify-center">
+                    <IconLayoutDashboard size={24} />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-12 px-6 rounded-2xl border-2 border-dashed border-[#4A4238]/15 dark:border-[#3A3430] flex flex-col items-center justify-center text-center space-y-3 bg-black/[0.01] dark:bg-[#211E1C]/50">
-                <div className="w-12 h-12 rounded-2xl bg-[#E3836C]/10 text-[#E3836C] flex items-center justify-center">
-                  <IconLayoutDashboard size={24} />
+                  <div className="space-y-1 max-w-md">
+                    <h3 className="font-serif text-base text-[#4A4238] dark:text-[#F4EDE5]">
+                      {activeProjectId ? 'Canvas is ready for widgets' : 'No project loaded'}
+                    </h3>
+                    <p className="text-xs text-[#4A4238]/60 dark:text-[#C5B9AE] font-mono">
+                      {activeProjectId
+                        ? 'This workspace has no widgets yet. Type an analytical prompt above or select a starter template to populate your canvas.'
+                        : 'Choose a template above or create a new project to begin visualizing your data.'}
+                    </p>
+                  </div>
+                  {!activeProjectId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewProjectName('');
+                        setIsNewProjectOpen(true);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                    >
+                      <IconPlus size={14} />
+                      <span>Create First Project</span>
+                    </button>
+                  )}
                 </div>
-                <div className="space-y-1 max-w-md">
-                  <h3 className="font-serif text-base text-[#4A4238] dark:text-[#F4EDE5]">
-                    {activeProjectId ? 'Canvas is ready for widgets' : 'No project loaded'}
-                  </h3>
-                  <p className="text-xs text-[#4A4238]/60 dark:text-[#C5B9AE] font-mono">
-                    {activeProjectId
-                      ? 'This workspace has no widgets yet. Type an analytical prompt above or select a starter template to populate your canvas.'
-                      : 'Choose a template above or create a new project to begin visualizing your data.'}
-                  </p>
-                </div>
-                {!activeProjectId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewProjectName('');
-                      setIsNewProjectOpen(true);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-                  >
-                    <IconPlus size={14} />
-                    <span>Create First Project</span>
-                  </button>
-                )}
-              </div>
+              )
+            )}
+
+            {/* ─── TAB CONTENT: OBJECTS STUDIO ─── */}
+            {studioTab === 'objects' && (
+              <ObjectBuilderView projectId={activeProjectId || 'default'} />
+            )}
+
+            {/* ─── TAB CONTENT: CONNECTORS HUB ─── */}
+            {studioTab === 'connectors' && (
+              <ConnectorsView projectId={activeProjectId || 'default'} />
+            )}
+
+            {/* ─── TAB CONTENT: MODULE PIPELINE ─── */}
+            {studioTab === 'pipeline' && (
+              <ModulePipelineView
+                projectId={activeProjectId || 'default'}
+                onRefreshLayout={refreshActiveProjectLayout}
+              />
             )}
 
           </div>

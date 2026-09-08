@@ -23,6 +23,7 @@ import {
   IconRefresh,
   IconUser,
   IconPin,
+  IconCopy,
 } from '@tabler/icons-react';
 import { useTheme } from '../ui/ThemeProvider';
 import { resolveWidgetData, type WidgetSpec, type ProvenanceInfo, type ChartAnnotation } from '../../lib/chatApi';
@@ -2324,6 +2325,17 @@ export function SandboxedWidgetRenderer({
               className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#E3836C] hover:bg-[#E3836C]/10 transition-all cursor-pointer"
             >
               <IconArrowDown size={13} />
+            </button>
+          )}
+
+          {onWidgetAction && (
+            <button
+              type="button"
+              onClick={() => onWidgetAction(widget.id, 'duplicate')}
+              title="Duplicate Widget"
+              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#E3836C] hover:bg-[#E3836C]/10 transition-all cursor-pointer"
+            >
+              <IconCopy size={13} />
             </button>
           )}
 

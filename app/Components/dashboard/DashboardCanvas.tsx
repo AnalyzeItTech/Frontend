@@ -624,6 +624,40 @@ export function DashboardCanvas({
                     )}
                   </div>
 
+                  {/* Schema Diff Preview for Module Installation */}
+                  {(proposal.action === 'install_module' || proposal.payload?.action_type === 'install_module') && (
+                    <div className="p-3 rounded-xl bg-neutral-100/70 dark:bg-neutral-800/50 border border-neutral-200 dark:border-white/5 space-y-2 mt-2">
+                      <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                        <span>Module Installation Preview:</span>
+                        <span className="font-mono text-indigo-500">
+                          {proposal.payload?.module_name || proposal.payload?.module_id || 'Deterministic Module'} (v{proposal.payload?.template_version || 1})
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div className="p-2 rounded-lg bg-white/60 dark:bg-neutral-900/60 border border-neutral-200/60 dark:border-white/5">
+                          <span className="font-medium text-neutral-500 block mb-1">Custom Entities Created:</span>
+                          <div className="flex flex-wrap gap-1">
+                            {proposal.payload?.schema_diff?.objects_to_create?.map((o: any) => (
+                              <span key={o.api_name || o} className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500 font-mono text-[11px]">
+                                +{o.label || o.api_name || o}
+                              </span>
+                            )) || <span className="text-neutral-400">Standard schemas</span>}
+                          </div>
+                        </div>
+                        <div className="p-2 rounded-lg bg-white/60 dark:bg-neutral-900/60 border border-neutral-200/60 dark:border-white/5">
+                          <span className="font-medium text-neutral-500 block mb-1">Screens Appended:</span>
+                          <div className="flex flex-wrap gap-1">
+                            {proposal.payload?.schema_diff?.screens_to_add?.map((s: any, idx: number) => (
+                              <span key={idx} className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-mono text-[11px]">
+                                +{s.title || s}
+                              </span>
+                            )) || <span className="text-neutral-400">Dashboard widgets</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
                     Action ID: {proposal.actionId} · Safety Gate: Human Confirmation Required
                   </p>
