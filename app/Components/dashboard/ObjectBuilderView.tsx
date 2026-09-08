@@ -43,6 +43,7 @@ import {
   type ObjectField,
   type RelatedGroup,
 } from '../../lib/customObjectsApi';
+import { RelationCombobox } from './RelationCombobox';
 
 interface ObjectBuilderViewProps {
   projectId: string;
@@ -71,6 +72,20 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
   const [recordsLoading, setRecordsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Mutation version counter bumped on any create/update/delete to notify child comboboxes
+  const [recordsMutationVersion, setRecordsMutationVersion] = useState(0);
+  const [isCreatingRecord, setIsCreatingRecord] = useState(false);
+  const [isUpdatingRecord, setIsUpdatingRecord] = useState(false);
+
+  // Debounced search query for server-side full-dataset search
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Sorting
   const [sortBy, setSortBy] = useState<string>('created_at');
   const [sortDesc, setSortDesc] = useState<boolean>(true);
@@ -97,9 +112,6 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
   const [loadingRelated, setLoadingRelated] = useState(false);
   const [savingRecord, setSavingRecord] = useState(false);
 
-  // Cache for relation lookup dropdowns: schemaId/apiName -> ObjectRecord[]
-  const [relationTargetRecords, setRelationTargetRecords] = useState<Record<string, ObjectRecord[]>>({});
-
   const loadSchemas = async () => {
     if (!projectId) return;
     setLoading(true);
@@ -116,11 +128,16 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
     }
   };
 
-  const loadRecords = async (schema: ObjectSchema, sBy: string = sortBy, sDesc: boolean = sortDesc) => {
+  const loadRecords = async (
+    schema: ObjectSchema,
+    sBy: string = sortBy,
+    sDesc: boolean = sortDesc,
+    search: string = debouncedSearch
+  ) => {
     if (!projectId || !schema) return;
     setRecordsLoading(true);
     try {
-      const resp = await fetchRecords(projectId, schema.api_name, 50, 0, sBy, sDesc);
+      const resp = await fetchRecords(projectId, schema.api_name, 50, 0, sBy, sDesc, search);
       setRecords(resp.records);
       setTotalRecords(resp.total);
       setHasMore(resp.has_more);
@@ -138,7 +155,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
     if (!projectId || !selectedSchema || loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
-      const resp = await fetchRecords(projectId, selectedSchema.api_name, 50, records.length, sortBy, sortDesc);
+      const resp = await fetchRecords(projectId, selectedSchema.api_name, 50, records.length, sortBy, sortDesc, debouncedSearch);
       setRecords((prev) => [...prev, ...resp.records]);
       setTotalRecords(resp.total);
       setHasMore(resp.has_more);
@@ -155,7 +172,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
     setSortBy(field);
     setSortDesc(newDesc);
     if (selectedSchema) {
-      loadRecords(selectedSchema, field, newDesc);
+      loadRecords(selectedSchema, field, newDesc, debouncedSearch);
     }
   };
 
@@ -165,21 +182,11 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
 
   useEffect(() => {
     if (selectedSchema) {
-      loadRecords(selectedSchema, sortBy, sortDesc);
+      loadRecords(selectedSchema, sortBy, sortDesc, debouncedSearch);
     } else {
       setRecords([]);
     }
-  }, [selectedSchema?.id]);
-
-  const loadRelationOptions = async (targetRef: string) => {
-    if (!targetRef || relationTargetRecords[targetRef]) return;
-    try {
-      const resp = await fetchRecords(projectId, targetRef, 100, 0);
-      setRelationTargetRecords((prev) => ({ ...prev, [targetRef]: resp.records }));
-    } catch (err) {
-      console.error(`Failed to load relation records for ${targetRef}:`, err);
-    }
-  };
+  }, [selectedSchema?.id, debouncedSearch]);
 
   const openCreateSchemaModal = () => {
     setIsEditingExistingSchema(false);
@@ -206,14 +213,6 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
 
   const openNewRecordModal = () => {
     setRecordFormData({});
-    if (selectedSchema) {
-      selectedSchema.fields?.forEach((f) => {
-        const targetRef = f.relation_target_object_id || f.reference_object;
-        if ((f.type === 'lookup' || f.type === 'relation') && targetRef) {
-          loadRelationOptions(targetRef);
-        }
-      });
-    }
     setIsNewRecModalOpen(true);
   };
 
@@ -222,14 +221,6 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
     const dataVals = record.values || record.data || {};
     setDetailFormData({ ...dataVals });
     setDetailTab('fields');
-    if (selectedSchema) {
-      selectedSchema.fields?.forEach((f) => {
-        const targetRef = f.relation_target_object_id || f.reference_object;
-        if ((f.type === 'lookup' || f.type === 'relation') && targetRef) {
-          loadRelationOptions(targetRef);
-        }
-      });
-    }
     setLoadingRelated(true);
     try {
       const resp = await fetchRelatedRecords(record.id);
@@ -242,17 +233,37 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
     }
   };
 
-  const filteredRecords = records.filter((r) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const dataVals = r.values || r.data || {};
-    return (
-      r.id.toLowerCase().includes(q) ||
-      Object.values(dataVals).some((v) =>
-        String(v).toLowerCase().includes(q)
-      )
-    );
-  });
+  const coerceFormData = (schema: ObjectSchema, rawData: Record<string, any>): Record<string, any> => {
+    const coerced: Record<string, any> = {};
+    const fieldMap = new Map((schema.fields || []).map((f) => [f.api_name, f]));
+
+    for (const [k, v] of Object.entries(rawData)) {
+      const f = fieldMap.get(k);
+      if (!f) {
+        coerced[k] = v;
+        continue;
+      }
+      if (v === '' || v === null || v === undefined) {
+        coerced[k] = null;
+        continue;
+      }
+      const ftype = f.type === 'relation' ? 'lookup' : (f.type === 'select' ? 'picklist' : f.type);
+      if (ftype === 'number' || ftype === 'currency') {
+        if (typeof v === 'number') {
+          coerced[k] = v;
+        } else {
+          const cleaned = String(v).replace(/[$,]/g, '').trim();
+          const parsed = Number(cleaned);
+          coerced[k] = isNaN(parsed) ? v : parsed;
+        }
+      } else if (ftype === 'boolean') {
+        coerced[k] = Boolean(v);
+      } else {
+        coerced[k] = v;
+      }
+    }
+    return coerced;
+  };
 
   const handleSchemaLabelChange = (val: string) => {
     setSchemaLabel(val);
@@ -344,42 +355,67 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
 
   const handleCreateRecordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectId || !selectedSchema) return;
+    if (!projectId || !selectedSchema || isCreatingRecord) return;
+    setIsCreatingRecord(true);
     try {
-      await createRecord(projectId, selectedSchema.id, recordFormData);
+      const cleanData = coerceFormData(selectedSchema, recordFormData);
+      await createRecord(projectId, selectedSchema.id, cleanData);
       setIsNewRecModalOpen(false);
       setRecordFormData({});
-      await loadRecords(selectedSchema, sortBy, sortDesc);
+      setRecordsMutationVersion((v) => v + 1);
+      await loadRecords(selectedSchema, sortBy, sortDesc, debouncedSearch);
     } catch (err: any) {
       alert(err.message || 'Failed to create record');
+    } finally {
+      setIsCreatingRecord(false);
     }
   };
 
   const handleUpdateRecordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectId || !selectedSchema || !activeRecord) return;
+    if (!projectId || !selectedSchema || !activeRecord || isUpdatingRecord) return;
+    setIsUpdatingRecord(true);
     setSavingRecord(true);
     try {
-      const updated = await updateRecord(projectId, selectedSchema.id, activeRecord.id, detailFormData);
+      const cleanData = coerceFormData(selectedSchema, detailFormData);
+      const updated = await updateRecord(projectId, selectedSchema.id, activeRecord.id, cleanData);
       setActiveRecord(updated);
-      await loadRecords(selectedSchema, sortBy, sortDesc);
+      setRecordsMutationVersion((v) => v + 1);
+      await loadRecords(selectedSchema, sortBy, sortDesc, debouncedSearch);
       alert('Record updated successfully');
     } catch (err: any) {
       alert(err.message || 'Failed to update record');
     } finally {
+      setIsUpdatingRecord(false);
       setSavingRecord(false);
     }
   };
 
   const handleDeleteRecord = async (recordId: string) => {
     if (!projectId || !selectedSchema) return;
-    if (!confirm('Are you sure you want to delete this record?')) return;
     try {
-      await deleteRecord(projectId, selectedSchema.id, recordId);
+      // Pre-flight check for referencing child records
+      const relCheck = await fetchRelatedRecords(recordId);
+      const groups = relCheck.related || [];
+      const totalReferencing = groups.reduce((acc, g) => acc + g.count, 0);
+
+      let confirmMsg = 'Are you sure you want to delete this record?';
+      if (totalReferencing > 0) {
+        const entityBreakdown = groups.map((g) => `${g.count} in ${g.object_label}`).join(', ');
+        confirmMsg = `⚠️ WARNING: This record is currently referenced by ${totalReferencing} record(s) (${entityBreakdown}).\n\nDeleting will automatically UNLINK these references (clearing the foreign lookup). Are you sure you want to proceed?`;
+      }
+
+      if (!confirm(confirmMsg)) return;
+
+      const res = await deleteRecord(projectId, selectedSchema.id, recordId, 'nullify');
       if (activeRecord?.id === recordId) {
         setActiveRecord(null);
       }
-      await loadRecords(selectedSchema, sortBy, sortDesc);
+      setRecordsMutationVersion((v) => v + 1);
+      await loadRecords(selectedSchema, sortBy, sortDesc, debouncedSearch);
+      if (res.unlinked_references && res.unlinked_references > 0) {
+        alert(`Record deleted and ${res.unlinked_references} foreign reference(s) cleanly unlinked.`);
+      }
     } catch (err: any) {
       alert(err.message || 'Failed to delete record');
     }
@@ -510,7 +546,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
             <div className="flex-1 overflow-x-auto mt-4">
               {recordsLoading ? (
                 <div className="py-20 text-center text-xs text-neutral-500">Loading records...</div>
-              ) : filteredRecords.length === 0 ? (
+              ) : records.length === 0 ? (
                 <div className="py-20 flex flex-col items-center justify-center text-center gap-2">
                   <IconColumns className="w-8 h-8 text-neutral-300 dark:text-neutral-600" />
                   <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">No records found</p>
@@ -548,7 +584,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
-                    {filteredRecords.map((r) => {
+                    {records.map((r) => {
                       const rData = r.data || r.values || {};
                       return (
                         <tr
@@ -887,6 +923,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                   const targetRef = f.relation_target_object_id || f.reference_object;
                   const isRelation = f.type === 'lookup' || f.type === 'relation';
                   const isSelect = f.type === 'picklist' || f.type === 'select';
+                  const targetSchema = schemas.find((s) => s.api_name === targetRef || s.id === targetRef);
 
                   return (
                     <div key={f.api_name}>
@@ -895,23 +932,18 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                       </label>
 
                       {isRelation && targetRef ? (
-                        <select
-                          required={f.required}
+                        <RelationCombobox
+                          projectId={projectId}
+                          targetObject={targetRef}
+                          targetLabel={targetSchema?.label || targetRef}
                           value={recordFormData[f.api_name] || ''}
-                          onChange={(e) => setRecordFormData({ ...recordFormData, [f.api_name]: e.target.value })}
-                          className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
-                        >
-                          <option value="">Select referenced {targetRef}...</option>
-                          {relationTargetRecords[targetRef]?.map((tr) => {
-                            const trData = tr.data || tr.values || {};
-                            const label = trData.name || trData.title || trData.label || tr.id;
-                            return (
-                              <option key={tr.id} value={tr.id}>
-                                {label} ({tr.id.slice(0, 8)})
-                              </option>
-                            );
-                          })}
-                        </select>
+                          onChange={(recId) =>
+                            setRecordFormData((prev) => ({ ...prev, [f.api_name]: recId }))
+                          }
+                          required={f.required}
+                          disabled={isCreatingRecord}
+                          mutationVersion={recordsMutationVersion}
+                        />
                       ) : isSelect ? (
                         <select
                           required={f.required}
@@ -954,16 +986,25 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                 <div className="flex justify-end gap-2 pt-4 border-t border-neutral-200 dark:border-white/10 mt-2">
                   <button
                     type="button"
+                    disabled={isCreatingRecord}
                     onClick={() => setIsNewRecModalOpen(false)}
-                    className="px-4 py-2 text-xs rounded-xl border border-neutral-300 dark:border-white/10 text-neutral-700 dark:text-neutral-300 cursor-pointer"
+                    className="px-4 py-2 text-xs rounded-xl border border-neutral-300 dark:border-white/10 text-neutral-700 dark:text-neutral-300 cursor-pointer disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-xs rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-sm cursor-pointer"
+                    disabled={isCreatingRecord}
+                    className="px-4 py-2 text-xs rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium shadow-sm cursor-pointer flex items-center gap-1.5"
                   >
-                    Save Record
+                    {isCreatingRecord ? (
+                      <>
+                        <IconRefresh className="w-3.5 h-3.5 animate-spin" />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      'Save Record'
+                    )}
                   </button>
                 </div>
               </form>
@@ -1039,6 +1080,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                       const isRelation = f.type === 'lookup' || f.type === 'relation';
                       const isSelect = f.type === 'picklist' || f.type === 'select';
                       const isOverridden = activeRecord.overridden_fields?.includes(f.api_name);
+                      const targetSchema = schemas.find((s) => s.api_name === targetRef || s.id === targetRef);
 
                       return (
                         <div key={f.api_name} className="flex flex-col gap-1">
@@ -1052,23 +1094,18 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                           </div>
 
                           {isRelation && targetRef ? (
-                            <select
-                              required={f.required}
+                            <RelationCombobox
+                              projectId={projectId}
+                              targetObject={targetRef}
+                              targetLabel={targetSchema?.label || targetRef}
                               value={detailFormData[f.api_name] || ''}
-                              onChange={(e) => setDetailFormData({ ...detailFormData, [f.api_name]: e.target.value })}
-                              className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white"
-                            >
-                              <option value="">Select {targetRef}...</option>
-                              {relationTargetRecords[targetRef]?.map((tr) => {
-                                const trData = tr.data || tr.values || {};
-                                const label = trData.name || trData.title || trData.label || tr.id;
-                                return (
-                                  <option key={tr.id} value={tr.id}>
-                                    {label} ({tr.id.slice(0, 8)})
-                                  </option>
-                                );
-                              })}
-                            </select>
+                              onChange={(recId) =>
+                                setDetailFormData((prev) => ({ ...prev, [f.api_name]: recId }))
+                              }
+                              required={f.required}
+                              disabled={savingRecord || isUpdatingRecord}
+                              mutationVersion={recordsMutationVersion}
+                            />
                           ) : isSelect ? (
                             <select
                               required={f.required}
@@ -1119,17 +1156,25 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
+                        disabled={savingRecord || isUpdatingRecord}
                         onClick={() => setActiveRecord(null)}
-                        className="px-4 py-2 text-xs rounded-xl border border-neutral-300 dark:border-white/10 text-neutral-700 dark:text-neutral-300 cursor-pointer"
+                        className="px-4 py-2 text-xs rounded-xl border border-neutral-300 dark:border-white/10 text-neutral-700 dark:text-neutral-300 cursor-pointer disabled:opacity-50"
                       >
                         Close
                       </button>
                       <button
                         type="submit"
-                        disabled={savingRecord}
-                        className="px-4 py-2 text-xs rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium shadow-sm cursor-pointer"
+                        disabled={savingRecord || isUpdatingRecord}
+                        className="px-4 py-2 text-xs rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium shadow-sm cursor-pointer flex items-center gap-1.5"
                       >
-                        {savingRecord ? 'Saving...' : 'Save Changes'}
+                        {(savingRecord || isUpdatingRecord) ? (
+                          <>
+                            <IconRefresh className="w-3.5 h-3.5 animate-spin" />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          'Save Changes'
+                        )}
                       </button>
                     </div>
                   </div>

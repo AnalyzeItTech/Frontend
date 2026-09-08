@@ -3,35 +3,23 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   IconPlus,
-  IconWorld,
   IconLayoutGrid,
-  IconList,
-  IconTrendingUp,
-  IconAlertTriangle,
-  IconActivity,
-  IconArrowUpRight,
   IconSearch,
-  IconShieldLock,
   IconSparkles,
   IconCheck,
   IconX,
-  IconDeviceAnalytics,
   IconLayoutDashboard,
-  IconChartLine,
   IconSend,
   IconEdit,
   IconTrash,
   IconSettings,
   IconUser,
-  IconLock,
   IconFolder,
   IconFolderPlus,
-  IconKey,
   IconDownload,
   IconFileTypePdf,
   IconFileTypePpt,
@@ -40,14 +28,15 @@ import {
   IconShare,
   IconChevronDown,
   IconPlayerPlay,
-  IconInfoCircle,
   IconDatabase,
   IconBrandStripe,
   IconComponents,
   IconFileZip,
+  IconArrowUpRight,
+  IconRefresh,
+  IconLogout,
+  IconLock,
 } from '@tabler/icons-react';
-import { ThemeToggle } from '../Components/ui/ThemeToggle';
-import { useTheme } from '../Components/ui/ThemeProvider';
 import {
   getProjectLayout,
   applyUIAction,
@@ -57,7 +46,6 @@ import {
   deleteProject,
   updateProjectLayout,
   streamChat,
-  resolveWidgetData,
   type WidgetSpec,
   type UIProposalPayload,
   type ProjectSummary,
@@ -87,20 +75,14 @@ import {
   type DashboardTemplate,
 } from '../lib/dashboardTemplates';
 
-const EarthGlobe = dynamic(
-  () => import('../Components/3d/EarthGlobe').then((mod) => mod.EarthGlobe),
-  { ssr: false }
-);
-
 export default function DashboardPage() {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const router = useRouter();
 
-  const [isGlobeExpanded, setIsGlobeExpanded] = useState(false);
-  const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
+  // Navigation rail tab state
+  const [studioTab, setStudioTab] = useState<'canvas' | 'objects' | 'connectors' | 'pipeline' | 'templates'>('canvas');
+  const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
+  const [isProjectsModalOpen, setIsProjectsModalOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [studioTab, setStudioTab] = useState<'canvas' | 'objects' | 'connectors' | 'pipeline'>('canvas');
 
   // ─── Active Scoped Project & Generative Canvas State ─────────────────────────
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -132,9 +114,6 @@ export default function DashboardPage() {
   const [activeTemplateCategory, setActiveTemplateCategory] = useState<string>('All');
   const [isApplyingTemplate, setIsApplyingTemplate] = useState<string | null>(null);
 
-  // ─── Incognito Explainer Tooltip State ───────────────────────────────────────
-  const [showIncognitoTooltip, setShowIncognitoTooltip] = useState(false);
-
   // ─── Modals State ────────────────────────────────────────────────────────────
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
@@ -150,39 +129,39 @@ export default function DashboardPage() {
   // ─── User Profile & Settings Modal ──────────────────────────────────────────
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
   const [editName, setEditName] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [userActionMsg, setUserActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [currentPass, setCurrentPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isChangingPass, setIsChangingPass] = useState(false);
+  const [userActionMsg, setUserActionMsg] = useState<string | null>(null);
+  const [userActionErr, setUserActionErr] = useState<string | null>(null);
 
-  // ─── Data Initialization ─────────────────────────────────────────────────────
+  // ─── Initial Load & Hydration ────────────────────────────────────────────────
   useEffect(() => {
     async function loadWorkspace() {
       setIsLoadingProjects(true);
-      let currentUser = getStoredUser();
-      setUser(currentUser);
-      if (currentUser?.name) setEditName(currentUser.name);
-
       try {
-        const refreshedUser = await fetchMe();
-        if (refreshedUser) {
-          currentUser = refreshedUser;
-          setUser(refreshedUser);
-          if (refreshedUser.name) setEditName(refreshedUser.name);
+        const stored = getStoredUser();
+        if (stored) {
+          setUser(stored);
+          setEditName(stored.name || '');
         }
-      } catch (err) {
-        console.warn('Session verification fallback:', err);
-      }
+        try {
+          const fresh = await fetchMe();
+          if (fresh) {
+            setUser(fresh);
+            setEditName(fresh.name || '');
+          }
+        } catch {
+          // Token expired or invalid
+        }
 
-      try {
-        const projs = await getProjects(currentUser?.id);
-        const projectList = projs || [];
-        setServerProjects(projectList);
+        const projs = await getProjects();
+        setServerProjects(projs);
 
-        if (projectList.length > 0) {
-          const first = projectList[0];
+        if (projs.length > 0) {
+          const first = projs[0];
           setActiveProjectId(first.id);
           setActiveProjectName(first.name);
 
@@ -191,12 +170,12 @@ export default function DashboardPage() {
             if (layoutData && layoutData.layout_json?.widgets) {
               setCurrentLayout(layoutData.layout_json);
               setLayoutVersion(layoutData.version);
-              setUpdatedBy(layoutData.updated_by || 'user');
+              setUpdatedBy(layoutData.updated_by || 'system');
             } else {
               setCurrentLayout({ widgets: [] });
-              setLayoutVersion(layoutData?.version || 1);
             }
-          } catch {
+          } catch (err) {
+            console.warn('Failed to load project layout:', err);
             setCurrentLayout({ widgets: [] });
           }
         } else {
@@ -266,7 +245,8 @@ export default function DashboardPage() {
       setLayoutVersion(created.layout_version || 1);
       setIsNewProjectOpen(false);
       setNewProjectName('');
-      router.push(`/new-project?projectId=${created.id}`);
+      setExportToastMsg(`Project "${created.name}" created!`);
+      setTimeout(() => setExportToastMsg(null), 3000);
     } catch (err: any) {
       alert(err?.message || 'Failed to create project');
     } finally {
@@ -287,9 +267,9 @@ export default function DashboardPage() {
       setActiveProjectName(created.name);
       setCurrentLayout({ widgets: template.widgets });
       setLayoutVersion(1);
+      setStudioTab('canvas');
       setExportToastMsg(`Project created from "${template.name}" template!`);
       setTimeout(() => setExportToastMsg(null), 3000);
-      router.push(`/new-project?projectId=${created.id}`);
     } catch (err: any) {
       alert(err?.message || 'Failed to instantiate template project');
     } finally {
@@ -351,12 +331,13 @@ export default function DashboardPage() {
     if (!editName.trim() || isUpdatingProfile) return;
     setIsUpdatingProfile(true);
     setUserActionMsg(null);
+    setUserActionErr(null);
     try {
       const updated = await updateUserProfile({ name: editName.trim() });
       setUser(updated);
-      setUserActionMsg({ type: 'success', text: 'Display name updated successfully' });
+      setUserActionMsg('Profile updated successfully!');
     } catch (err: any) {
-      setUserActionMsg({ type: 'error', text: err?.message || 'Failed to update profile' });
+      setUserActionErr(err?.message || 'Failed to update profile');
     } finally {
       setIsUpdatingProfile(false);
     }
@@ -364,88 +345,73 @@ export default function DashboardPage() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentPassword || !newPassword) {
-      setUserActionMsg({ type: 'error', text: 'Please fill in both current and new passwords' });
+    if (!currentPass || !newPass || isChangingPass) return;
+    if (newPass !== confirmPass) {
+      setUserActionErr('New passwords do not match');
       return;
     }
-    if (newPassword !== confirmPassword) {
-      setUserActionMsg({ type: 'error', text: 'New passwords do not match' });
-      return;
-    }
-    if (newPassword.length < 8) {
-      setUserActionMsg({ type: 'error', text: 'New password must be at least 8 characters long' });
+    if (newPass.length < 8) {
+      setUserActionErr('Password must be at least 8 characters long');
       return;
     }
 
-    setIsChangingPassword(true);
+    setIsChangingPass(true);
     setUserActionMsg(null);
+    setUserActionErr(null);
     try {
-      await changePassword(currentPassword, newPassword);
-      setUserActionMsg({ type: 'success', text: 'Password changed successfully' });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      await changePassword(currentPass, newPass);
+      setUserActionMsg('Password changed successfully!');
+      setCurrentPass('');
+      setNewPass('');
+      setConfirmPass('');
     } catch (err: any) {
-      setUserActionMsg({ type: 'error', text: err?.message || 'Failed to change password' });
+      setUserActionErr(err?.message || 'Failed to change password');
     } finally {
-      setIsChangingPassword(false);
+      setIsChangingPass(false);
     }
   };
 
   const handleLogout = () => {
     logout();
     setUser(null);
-    window.location.href = '/login';
+    setIsUserSettingsOpen(false);
+    router.push('/login');
   };
 
-  // ─── Agent Proposal & Copilot Handlers ───────────────────────────────────────
-  const handlePromptAgent = async (promptOverride?: string) => {
-    const text = (promptOverride || agentPrompt).trim();
-    if (!text || isAgentRunning) return;
+  // ─── AI Copilot Prompt Execution ───────────────────────────────────────────
+  const handlePromptAgent = async (overridePrompt?: string) => {
+    const textToRun = overridePrompt || agentPrompt;
+    if (!textToRun.trim() || isAgentRunning) return;
 
-    let targetProjectId = activeProjectId;
-    if (!targetProjectId) {
-      try {
-        const created = await createProject('Quick Analysis Project', user?.id);
-        setServerProjects((prev) => [created, ...prev]);
-        setActiveProjectId(created.id);
-        setActiveProjectName(created.name);
-        targetProjectId = created.id;
-      } catch (err) {
-        console.error('Failed to create project for agent prompt:', err);
-        return;
-      }
-    }
-
+    const targetProjId = activeProjectId || 'default';
     setIsAgentRunning(true);
-    setAgentStatus('Agent analyzing request & evaluating layout…');
+    setAgentStatus('Synthesizing workspace layout…');
+    if (!overridePrompt) setAgentPrompt('');
+    setIsCopilotOpen(true);
     try {
-      const res = await streamChat({
-        message: text,
-        projectId: targetProjectId,
+      await streamChat({
+        message: textToRun,
         runId: activeRunId || undefined,
-        onEvent: (event) => {
-          if (event.event === 'ui_proposal') {
-            const proposal = event.payload as unknown as UIProposalPayload;
-            if (!proposal.project_id && targetProjectId) {
-              proposal.project_id = targetProjectId;
-            }
-            setPendingProposal(proposal);
+        projectId: targetProjId,
+        onEvent: (event: any) => {
+          if (event.event === 'status' || event.type === 'status') {
+            setAgentStatus(event.payload?.message || event.message || '');
+          } else if (event.event === 'ui_proposal' || event.type === 'ui_proposal') {
+            setPendingProposal(event.payload);
+            setAgentStatus('Proposal ready for review');
+          } else if (event.event === 'done' || event.event === 'final' || event.type === 'done') {
             setAgentStatus('');
-          } else if (event.event === 'error') {
-            setAgentStatus('Agent returned an error');
+            if (event.run_id) setActiveRunId(event.run_id);
+          } else if (event.event === 'error' || event.type === 'error') {
+            setAgentStatus(`Error: ${event.payload?.message || event.payload?.error || event.message || 'Unknown error'}`);
           }
         },
       });
-      if (res.runId) {
-        setActiveRunId(res.runId);
-      }
-    } catch (err) {
-      console.error(err);
-      setAgentStatus('Connection to agent failed');
+    } catch (err: any) {
+      console.error('Failed to stream agent chat:', err);
+      setAgentStatus('Error communicating with Copilot agent');
     } finally {
       setIsAgentRunning(false);
-      setAgentPrompt('');
     }
   };
 
@@ -465,13 +431,11 @@ export default function DashboardPage() {
         }
       }
 
-      // 1. Check if backend returned an updated layout with widgets
       if (res && res.applied && res.layout && Array.isArray(res.layout.widgets) && res.layout.widgets.length > 0) {
         setCurrentLayout(res.layout);
         if (res.layout_version) setLayoutVersion(res.layout_version);
         setUpdatedBy('agent');
       } else {
-        // 2. Extract proposed widgets from proposal for immediate local & durable update
         const proposedWidgets: WidgetSpec[] = [];
         if (Array.isArray(pendingProposal.widgets) && pendingProposal.widgets.length > 0) {
           proposedWidgets.push(...pendingProposal.widgets);
@@ -496,14 +460,12 @@ export default function DashboardPage() {
           setLayoutVersion(nextVersion);
           setUpdatedBy('agent');
 
-          // Persist the merged layout to MongoDB Atlas
           try {
             await updateProjectLayout(targetProjId, layoutVersion, newLayout, 'agent');
           } catch (updateErr) {
             console.warn('Failed to persist layout update to backend:', updateErr);
           }
         } else {
-          // Re-sync with canonical layout from server
           const updated = await getProjectLayout(targetProjId);
           if (updated && updated.layout_json) {
             setCurrentLayout(updated.layout_json);
@@ -560,51 +522,30 @@ export default function DashboardPage() {
       });
       setExportToastMsg('Widget duplicated successfully');
       setTimeout(() => setExportToastMsg(null), 2500);
-    } else if (action === 'resize' || action === 'resize_widget') {
-      const p = payload as any;
-      if (p && (p.span !== undefined || p.w !== undefined)) {
-        setCurrentLayout((prev) => ({
-          ...prev,
-          widgets: prev.widgets.map((w) =>
-            w.id === widgetId ? { ...w, span: p.span || p.w } : w
-          ),
-        }));
-      }
     }
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (isGlobeExpanded) setIsGlobeExpanded(false);
         if (isNewProjectOpen) setIsNewProjectOpen(false);
         if (projectToRename) setProjectToRename(null);
         if (projectToDelete) setProjectToDelete(null);
         if (isUserSettingsOpen) setIsUserSettingsOpen(false);
         if (isExportMenuOpen) setIsExportMenuOpen(false);
+        if (isProjectsModalOpen) setIsProjectsModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isGlobeExpanded, isNewProjectOpen, projectToRename, projectToDelete, isUserSettingsOpen, isExportMenuOpen]);
+  }, [isNewProjectOpen, projectToRename, projectToDelete, isUserSettingsOpen, isExportMenuOpen, isProjectsModalOpen]);
 
-  const filteredProjects = serverProjects.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Separate KPI cards from analytical charts and dense tables
+  const kpiWidgets = currentLayout.widgets.filter((w) => w.type === 'metric_card' || (w.type as any) === 'kpi');
+  const analyticalWidgets = currentLayout.widgets.filter((w) => w.type !== 'metric_card' && (w.type as any) !== 'kpi');
 
   return (
-    <div className="relative min-h-screen bg-[#F3EDE4] dark:bg-[#171514] text-[#4A4238] dark:text-[#F4EDE5] transition-colors duration-500 overflow-x-hidden">
-      
-      {/* ─── LAYER 1: FULLSCREEN 3D EARTH MODAL (ON DEMAND ONLY) ─────────── */}
-      {isGlobeExpanded && (
-        <EarthGlobe
-          isExpanded={true}
-          onToggleExpand={setIsGlobeExpanded}
-        />
-      )}
-
+    <div className="flex h-screen w-screen overflow-hidden bg-[#0B0D10] text-[#EDEFF2] font-sans antialiased">
       {/* Backdrop for open dropdowns */}
       {isExportMenuOpen && (
         <div
@@ -613,55 +554,197 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ─── LAYER 2: FLOATING DASHBOARD DECK ─────────────────────────────── */}
-      <div
-        className={`relative z-10 min-h-screen flex flex-col transition-all duration-500 ${
-          isGlobeExpanded ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100 scale-100'
-        }`}
-      >
-        {/* Top Header Navbar */}
-        <header className="sticky top-0 z-30 px-6 sm:px-10 py-4 flex items-center justify-between border-b border-[#4A4238]/08 dark:border-[#3A3430] bg-[#F3EDE4]/75 dark:bg-[#171514]/80 backdrop-blur-md">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <Image
-                src="/logo.png"
-                alt="AnalyzeIt"
-                width={130}
-                height={30}
-                className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
-                priority
-              />
-              <span className="hidden sm:inline-block text-[11px] font-mono uppercase tracking-widest text-[#4A4238]/40 dark:text-[#91867E] ml-1">
-                Workspace
+      {/* ─── ZONE 1: ICON-ONLY LEFT NAVIGATION RAIL (64px) ─── */}
+      <aside className="w-16 shrink-0 h-full flex flex-col items-center justify-between py-4 bg-[#0E1014] border-r border-white/[0.08] z-30 select-none">
+        {/* Top: App Mark & Primary Navigation */}
+        <div className="flex flex-col items-center gap-5 w-full">
+          {/* Technical App Mark */}
+          <Link href="/" className="group p-1.5 rounded-xl hover:bg-white/[0.06] transition-colors" title="AnalyzeIt Home">
+            <div className="w-8 h-8 rounded-lg bg-[#3D6FE0] flex items-center justify-center font-mono font-bold text-white text-base shadow-sm">
+              A
+            </div>
+          </Link>
+
+          <div className="w-8 h-[1px] bg-white/[0.08]" />
+
+          {/* Nav Rail Buttons */}
+          <nav className="flex flex-col items-center gap-2.5 w-full px-2">
+            <button
+              onClick={() => setStudioTab('canvas')}
+              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
+                studioTab === 'canvas'
+                  ? 'bg-[#3D6FE0] text-white shadow-md'
+                  : 'text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]'
+              }`}
+              title="Dashboard Canvas"
+            >
+              <IconLayoutDashboard size={19} />
+              <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
+                Dashboard Canvas
               </span>
+            </button>
+
+            <button
+              onClick={() => setStudioTab('objects')}
+              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
+                studioTab === 'objects'
+                  ? 'bg-[#3D6FE0] text-white shadow-md'
+                  : 'text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]'
+              }`}
+              title="Custom Objects Studio"
+            >
+              <IconDatabase size={19} />
+              <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
+                Custom Objects
+              </span>
+            </button>
+
+            <button
+              onClick={() => setStudioTab('connectors')}
+              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
+                studioTab === 'connectors'
+                  ? 'bg-[#3D6FE0] text-white shadow-md'
+                  : 'text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]'
+              }`}
+              title="Live Connectors Hub"
+            >
+              <IconBrandStripe size={19} />
+              <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
+                Live Connectors
+              </span>
+            </button>
+
+            <button
+              onClick={() => setStudioTab('pipeline')}
+              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
+                studioTab === 'pipeline'
+                  ? 'bg-[#3D6FE0] text-white shadow-md'
+                  : 'text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]'
+              }`}
+              title="Module Pipeline"
+            >
+              <IconComponents size={19} />
+              <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
+                Module Pipeline
+              </span>
+            </button>
+
+            <button
+              onClick={() => setStudioTab('templates')}
+              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
+                studioTab === 'templates'
+                  ? 'bg-[#3D6FE0] text-white shadow-md'
+                  : 'text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]'
+              }`}
+              title="Starter Templates"
+            >
+              <IconLayoutGrid size={19} />
+              <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
+                Starter Templates
+              </span>
+            </button>
+          </nav>
+        </div>
+
+        {/* Bottom Rail Actions: Projects Switcher & User Settings */}
+        <div className="flex flex-col items-center gap-3 w-full px-2">
+          <button
+            onClick={() => setIsProjectsModalOpen(true)}
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer relative group"
+            title="Switch or Manage Projects"
+          >
+            <IconFolder size={19} />
+            <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
+              Manage Projects
+            </span>
+          </button>
+
+          {user ? (
+            <button
+              onClick={() => {
+                setUserActionMsg(null);
+                setUserActionErr(null);
+                setEditName(user.name || '');
+                setIsUserSettingsOpen(true);
+              }}
+              className="w-9 h-9 rounded-xl bg-[#1C2025] border border-white/[0.12] text-[#EDEFF2] flex items-center justify-center text-xs font-mono font-semibold hover:ring-2 hover:ring-[#3D6FE0] transition-all cursor-pointer"
+              title={`Account: ${user.name} (${user.email})`}
+            >
+              {user.name ? user.name.slice(0, 2).toUpperCase() : 'US'}
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              className="w-9 h-9 rounded-xl bg-[#1C2025] text-[#3D6FE0] flex items-center justify-center hover:bg-white/[0.06] transition-colors"
+              title="Sign In"
+            >
+              <IconUser size={18} />
             </Link>
+          )}
+        </div>
+      </aside>
+
+      {/* ─── MAIN RIGHT VIEWPORT (SLIM TOPBAR + SCROLLABLE CANVAS) ─── */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#0B0D10]">
+        
+        {/* ─── ZONE 2: SLIM TOP BAR (56px) ─── */}
+        <header className="h-14 shrink-0 px-6 flex items-center justify-between border-b border-white/[0.08] bg-[#0E1014]/90 backdrop-blur-md z-20">
+          {/* Left: Project title & Live status indicator */}
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-[11px] font-mono text-[#8B93A1] tracking-wider uppercase hidden sm:inline">AnalyzeIt</span>
+            <span className="text-[#8B93A1]/40 hidden sm:inline">/</span>
+
+            {serverProjects.length > 1 ? (
+              <select
+                value={activeProjectId || ''}
+                onChange={(e) => {
+                  const found = serverProjects.find((p) => p.id === e.target.value);
+                  if (found) handleSelectProject(found);
+                }}
+                className="bg-[#14171B] border border-white/[0.08] hover:border-white/[0.15] text-xs text-[#EDEFF2] font-medium py-1 px-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#3D6FE0] cursor-pointer max-w-[200px] truncate"
+              >
+                {serverProjects.map((p) => (
+                  <option key={p.id} value={p.id} className="bg-[#14171B] text-[#EDEFF2]">
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <h2 className="text-sm font-medium text-[#EDEFF2] truncate">{activeProjectName}</h2>
+            )}
+
+            {/* Live Indicator with motion-safe pulse */}
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#14171B] border border-white/[0.06] text-[11px] text-[#8B93A1]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#3D6FE0] motion-safe:animate-pulse" />
+              <span className="font-mono text-[10px]">v{layoutVersion}</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Export / Document Generation Dropdown */}
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2.5">
+            {/* Export Dropdown */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setIsExportMenuOpen((prev) => !prev)}
-                className="flex items-center gap-2 px-3.5 py-2 rounded-full border border-[#4A4238]/15 dark:border-[#3A3430] hover:border-[#E3836C] dark:hover:border-[#E3836C] bg-white/60 dark:bg-[#211E1C] text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] transition-all cursor-pointer shadow-xs"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] hover:border-white/[0.16] hover:bg-white/[0.03] text-xs font-medium text-[#8B93A1] hover:text-[#EDEFF2] transition-all cursor-pointer"
               >
-                <IconDownload size={14} className="text-[#E3836C]" />
-                <span className="hidden sm:inline">Export / Generate</span>
-                <span className="sm:hidden">Export</span>
+                <IconDownload size={14} className="text-[#3D6FE0]" />
+                <span className="hidden sm:inline">Export</span>
                 <IconChevronDown size={12} className={`transition-transform duration-200 ${isExportMenuOpen ? 'rotate-180' : ''}`} />
               </button>
 
               <AnimatePresence>
                 {isExportMenuOpen && (
                   <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    initial={{ opacity: 0, y: 6, scale: 0.96 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 6, scale: 0.96 }}
-                    className="absolute right-0 mt-2 w-64 rounded-2xl glass-card border border-[#4A4238]/15 dark:border-[#3A3430] bg-[#F3EDE4] dark:bg-[#211E1C] shadow-2xl p-2 z-50 space-y-1"
+                    exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                    className="absolute right-0 mt-2 w-64 rounded-xl border border-white/[0.12] bg-[#14171B] shadow-2xl p-2 z-50 space-y-1"
                   >
-                    <div className="px-3 py-1.5 border-b border-[#4A4238]/10 dark:border-[#3A3430]">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#91867E]">
-                        Executive Document Suite
+                    <div className="px-3 py-1.5 border-b border-white/[0.08]">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B93A1]">
+                        Document Export Suite
                       </span>
                     </div>
 
@@ -671,12 +754,12 @@ export default function DashboardPage() {
                         setIsExportMenuOpen(false);
                         exportDashboardToPdf(activeProjectName, currentLayout.widgets);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] hover:text-[#E3836C] transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
                     >
-                      <IconFileTypePdf size={16} className="text-red-500 shrink-0" />
+                      <IconFileTypePdf size={16} className="text-[#EF6C6C] shrink-0" />
                       <div>
-                        <div className="font-semibold">Printable PDF Report</div>
-                        <div className="text-[10px] text-[#91867E]">High-DPI editorial print layout</div>
+                        <div className="font-medium">Printable PDF Report</div>
+                        <div className="text-[10px] text-[#8B93A1]">High-DPI editorial layout</div>
                       </div>
                     </button>
 
@@ -686,12 +769,12 @@ export default function DashboardPage() {
                         setIsExportMenuOpen(false);
                         exportDashboardToPptx(activeProjectName, currentLayout.widgets);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] hover:text-[#E3836C] transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
                     >
-                      <IconFileTypePpt size={16} className="text-amber-500 shrink-0" />
+                      <IconFileTypePpt size={16} className="text-[#D98F3F] shrink-0" />
                       <div>
-                        <div className="font-semibold">Slide Deck (Presentation)</div>
-                        <div className="text-[10px] text-[#91867E]">Executive HTML5 presentation</div>
+                        <div className="font-medium">Slide Deck (PPTX)</div>
+                        <div className="text-[10px] text-[#8B93A1]">Executive presentation</div>
                       </div>
                     </button>
 
@@ -701,12 +784,12 @@ export default function DashboardPage() {
                         setIsExportMenuOpen(false);
                         exportDashboardToXlsx(activeProjectName, currentLayout.widgets);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] hover:text-[#E3836C] transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
                     >
-                      <IconFileSpreadsheet size={16} className="text-emerald-500 shrink-0" />
+                      <IconFileSpreadsheet size={16} className="text-[#3FB68C] shrink-0" />
                       <div>
-                        <div className="font-semibold">Spreadsheet (XLSX / Data)</div>
-                        <div className="text-[10px] text-[#91867E]">Multi-table workbook export</div>
+                        <div className="font-medium">Spreadsheet (XLSX)</div>
+                        <div className="text-[10px] text-[#8B93A1]">Multi-table workbook</div>
                       </div>
                     </button>
 
@@ -716,12 +799,12 @@ export default function DashboardPage() {
                         setIsExportMenuOpen(false);
                         exportDashboardToDocx(activeProjectName, currentLayout.widgets);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] hover:text-[#E3836C] transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
                     >
-                      <IconFileTypeDoc size={16} className="text-blue-500 shrink-0" />
+                      <IconFileTypeDoc size={16} className="text-[#3D6FE0] shrink-0" />
                       <div>
-                        <div className="font-semibold">Narrative Brief (Word)</div>
-                        <div className="text-[10px] text-[#91867E]">Editable Word / Docs brief</div>
+                        <div className="font-medium">Narrative Brief (Word)</div>
+                        <div className="text-[10px] text-[#8B93A1]">Editable document</div>
                       </div>
                     </button>
 
@@ -729,30 +812,26 @@ export default function DashboardPage() {
                       type="button"
                       onClick={async () => {
                         setIsExportMenuOpen(false);
-                        if (!activeProjectId) {
-                          setExportToastMsg('No active project selected to export');
-                          setTimeout(() => setExportToastMsg(null), 3000);
-                          return;
-                        }
+                        if (!activeProjectId) return;
                         try {
                           await downloadProjectZip(activeProjectId);
-                          setExportToastMsg('Project ZIP bundle downloaded!');
+                          setExportToastMsg('Project archive ZIP downloaded!');
                           setTimeout(() => setExportToastMsg(null), 3000);
-                        } catch (e: any) {
+                        } catch {
                           setExportToastMsg('Failed to download project ZIP archive');
                           setTimeout(() => setExportToastMsg(null), 3000);
                         }
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] hover:text-[#E3836C] transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
                     >
-                      <IconFileZip size={16} className="text-purple-500 shrink-0" />
+                      <IconFileZip size={16} className="text-[#8B5CF6] shrink-0" />
                       <div>
-                        <div className="font-semibold">Project Archive (ZIP)</div>
-                        <div className="text-[10px] text-[#91867E]">Full layout, custom schemas & records</div>
+                        <div className="font-medium">Project Bundle (ZIP)</div>
+                        <div className="text-[10px] text-[#8B93A1]">Schemas, records, layout</div>
                       </div>
                     </button>
 
-                    <div className="pt-1 border-t border-[#4A4238]/10 dark:border-[#3A3430]">
+                    <div className="pt-1 border-t border-white/[0.08]">
                       <button
                         type="button"
                         onClick={async () => {
@@ -761,12 +840,12 @@ export default function DashboardPage() {
                           setExportToastMsg('Shareable link copied to clipboard!');
                           setTimeout(() => setExportToastMsg(null), 3000);
                         }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-mono text-[#E3836C] hover:bg-[#E3836C]/10 dark:hover:bg-[#292522] transition-colors cursor-pointer text-left"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#5B8CF5] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
                       >
                         <IconShare size={16} className="shrink-0" />
                         <div>
-                          <div className="font-semibold">Copy Shareable Link</div>
-                          <div className="text-[10px] text-[#91867E]">Direct link to active canvas</div>
+                          <div className="font-medium">Copy Shareable Link</div>
+                          <div className="text-[10px] text-[#8B93A1]">Direct URL to active canvas</div>
                         </div>
                       </button>
                     </div>
@@ -775,955 +854,529 @@ export default function DashboardPage() {
               </AnimatePresence>
             </div>
 
-            {/* New Project CTA Button */}
+            {/* Share Button */}
+            <button
+              type="button"
+              onClick={async () => {
+                await copyShareableLink(activeProjectId);
+                setExportToastMsg('Shareable link copied to clipboard!');
+                setTimeout(() => setExportToastMsg(null), 3000);
+              }}
+              className="px-3 py-1.5 rounded-lg border border-white/[0.08] hover:border-white/[0.16] hover:bg-white/[0.03] text-xs font-medium text-[#8B93A1] hover:text-[#EDEFF2] flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <IconShare size={14} />
+              <span className="hidden sm:inline">Share</span>
+            </button>
+
+            {/* New Project CTA */}
             <button
               type="button"
               onClick={() => {
                 setNewProjectName('');
                 setIsNewProjectOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#4A4238] hover:bg-[#383129] dark:bg-[#E9DDD2] dark:hover:bg-[#F4EDE5] dark:text-[#302824] text-[#F3EDE4] text-xs font-mono uppercase tracking-wider transition-all shadow-sm transform hover:scale-[1.02] cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium transition-colors shadow-sm cursor-pointer"
             >
-              <IconPlus size={14} className="text-[#E3836C]" />
+              <IconPlus size={14} />
               <span>New Project</span>
             </button>
 
-            {/* Theme Toggle */}
-            <ThemeToggle />
-
-            {/* User Profile / Auth State */}
-            {user ? (
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUserActionMsg(null);
-                    setEditName(user.name || '');
-                    setIsUserSettingsOpen(true);
-                  }}
-                  className="w-8 h-8 rounded-full bg-[#E8C4A0] dark:bg-[#302B28] border border-[#4A4238]/20 dark:border-[#504740] flex items-center justify-center font-mono text-xs font-bold text-[#4A4238] dark:text-[#F4EDE5] hover:ring-2 hover:ring-[#E3836C]/40 transition-all cursor-pointer"
-                  title={`Account Settings: ${user.name} (${user.email})`}
-                >
-                  {user.name ? user.name.slice(0, 2).toUpperCase() : 'US'}
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="text-[11px] font-mono uppercase tracking-wider text-[#4A4238]/50 dark:text-[#C5B9AE]/50 hover:text-red-500 transition-colors cursor-pointer"
-                  title="Sign out of your account"
-                >
-                  Sign Out
-                </button>
-              </div>
-            ) : (
-              <Link
-                href="/login"
-                className="text-xs font-mono uppercase tracking-wider text-[#E3836C] hover:text-[#ED967F] hover:underline font-semibold"
-              >
-                Sign In
-              </Link>
-            )}
+            {/* Interactive Studio Link */}
+            <Link
+              href={activeProjectId ? `/new-project?projectId=${activeProjectId}` : '/new-project'}
+              className="p-1.5 rounded-lg border border-white/[0.08] hover:border-white/[0.16] text-[#8B93A1] hover:text-[#EDEFF2] transition-colors cursor-pointer"
+              title="Open full analysis studio with terminal & chat"
+            >
+              <IconArrowUpRight size={16} />
+            </Link>
           </div>
         </header>
 
-        {/* Main Workspace Content */}
-        <main className="flex-1 p-6 sm:p-10 max-w-7xl w-full mx-auto space-y-8">
-          
-          {/* ─── HERO SECTION: BALANCED 2-COLUMN HERO (SOLVES FOLD EATING) ─── */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Left 2 Cols: Greeting, Telemetry Pills, and AI Copilot Prompt Bar */}
-            <div className="lg:col-span-2 flex flex-col justify-between space-y-5 glass-card rounded-3xl p-6 sm:p-8 border border-[#4A4238]/12 dark:border-[#3A3430] shadow-xl">
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="text-xs font-mono text-[#E3836C] uppercase tracking-widest flex items-center gap-1.5">
-                    <IconSparkles size={14} /> Continuous Intelligence Engine
+        {/* ─── ZONE 3: MAIN CANVAS WITH REAL GUTTERS & DISTINCT SURFACES ─── */}
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-6">
+
+          {/* ─── TAB: DASHBOARD CANVAS ─── */}
+          {studioTab === 'canvas' && (
+            <>
+              {currentLayout.widgets.length > 0 ? (
+                <div className="space-y-6">
+                  {/* 1. Hero KPI Strip (Compact, High-Density 28px Tabular Figures) */}
+                  {kpiWidgets.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {kpiWidgets.map((w) => (
+                        <div key={w.id} className="col-span-1">
+                          <SandboxedWidgetRenderer
+                            widget={w}
+                            onWidgetAction={handleWidgetAction}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 2. Analytical Surfaces (Charts with Airy Padding, Tables with Tighter Rows) */}
+                  {analyticalWidgets.length > 0 && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {analyticalWidgets.map((w) => (
+                        <div
+                          key={w.id}
+                          className={
+                            w.type === 'line_chart' || w.type === 'annotated_chart' || w.type === 'table'
+                              ? 'col-span-1 lg:col-span-2'
+                              : 'col-span-1'
+                          }
+                        >
+                          <SandboxedWidgetRenderer
+                            widget={w}
+                            onWidgetAction={handleWidgetAction}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Instrument-Grade Empty State */
+                <div className="py-16 px-6 rounded-2xl border border-dashed border-white/[0.12] bg-[#14171B]/40 flex flex-col items-center justify-center text-center space-y-4">
+                  <div className="w-12 h-12 rounded-xl bg-[#3D6FE0]/15 text-[#3D6FE0] flex items-center justify-center">
+                    <IconLayoutDashboard size={24} />
                   </div>
-                  
-                  {/* Incognito Pill with explainer tooltip */}
-                  <div className="relative">
+                  <div className="space-y-1 max-w-md">
+                    <h3 className="text-base font-medium text-[#EDEFF2]">
+                      {activeProjectId ? 'Canvas ready for telemetry' : 'No active workspace'}
+                    </h3>
+                    <p className="text-xs text-[#8B93A1] leading-relaxed">
+                      {activeProjectId
+                        ? 'This canvas currently has no widgets. Click Copilot in the bottom-right or select a starter template to provision metrics and charts.'
+                        : 'Choose a starter template or create a new project to start analyzing records and telemetry.'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2">
                     <button
                       type="button"
-                      onMouseEnter={() => setShowIncognitoTooltip(true)}
-                      onMouseLeave={() => setShowIncognitoTooltip(false)}
-                      onClick={() => router.push('/new-project')}
-                      className="px-3 py-1 rounded-full glass-card text-[11px] font-mono text-[#4A4238]/70 dark:text-[#C5B9AE] flex items-center gap-1.5 hover:border-[#E3836C]/40 transition-all cursor-pointer"
+                      onClick={() => setStudioTab('templates')}
+                      className="px-4 py-2 rounded-xl bg-[#1C2025] hover:bg-white/[0.08] text-xs font-medium text-[#EDEFF2] border border-white/[0.08] transition-colors cursor-pointer"
                     >
-                      <IconShieldLock size={13} className="text-[#A99BB5]" />
-                      <span>Incognito Session</span>
+                      Explore Templates
                     </button>
-                    {showIncognitoTooltip && (
-                      <div className="absolute right-0 top-full mt-2 w-56 p-2.5 rounded-xl bg-[#211E1C] text-[#C5B9AE] text-[10px] font-mono border border-[#3A3430] shadow-2xl z-30 pointer-events-none">
-                        Ephemeral session-only workspace. In-memory state is discarded upon window close.
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsCopilotOpen(true)}
+                      className="px-4 py-2 rounded-xl bg-[#3D6FE0] hover:bg-[#4D7FF0] text-xs font-medium text-white transition-colors cursor-pointer shadow-sm"
+                    >
+                      Ask Copilot
+                    </button>
                   </div>
                 </div>
+              )}
+            </>
+          )}
 
-                <h1 className="font-serif text-3xl sm:text-4xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5] leading-tight">
-                  Good day,{' '}
-                  <span className="italic text-[#E3836C]">
-                    {user?.name ? user.name.split(' ')[0] : 'Explorer'}
+          {/* ─── TAB: CUSTOM OBJECTS STUDIO ─── */}
+          {studioTab === 'objects' && (
+            <ObjectBuilderView projectId={activeProjectId || serverProjects[0]?.id || 'default'} />
+          )}
+
+          {/* ─── TAB: LIVE CONNECTORS HUB ─── */}
+          {studioTab === 'connectors' && (
+            <ConnectorsView projectId={activeProjectId || serverProjects[0]?.id || 'default'} />
+          )}
+
+          {/* ─── TAB: MODULE PIPELINE ─── */}
+          {studioTab === 'pipeline' && (
+            <ModulePipelineView
+              projectId={activeProjectId || serverProjects[0]?.id || 'default'}
+              onRefreshLayout={refreshActiveProjectLayout}
+            />
+          )}
+
+          {/* ─── TAB: STARTER TEMPLATES GALLERY ─── */}
+          {studioTab === 'templates' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+                <div>
+                  <h2 className="text-lg font-medium text-[#EDEFF2]">Curated Starter Workspaces</h2>
+                  <p className="text-xs text-[#8B93A1] mt-0.5">
+                    Pre-configured dashboards with verified schemas, telemetry bindings, and analytical views
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  {['All', 'Revenue', 'Marketing', 'Telemetry', 'Finance'].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setActiveTemplateCategory(cat)}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                        activeTemplateCategory === cat
+                          ? 'bg-[#3D6FE0] text-white shadow-xs'
+                          : 'bg-[#14171B] text-[#8B93A1] hover:text-[#EDEFF2] border border-white/[0.06]'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                {CURATED_TEMPLATES.filter(
+                  (t) => activeTemplateCategory === 'All' || t.category === activeTemplateCategory
+                ).map((template) => {
+                  const isApplying = isApplyingTemplate === template.id;
+                  return (
+                    <div
+                      key={template.id}
+                      className="bg-[#14171B] rounded-xl p-5 border border-white/[0.08] hover:border-white/[0.16] flex flex-col justify-between space-y-4 transition-all group"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#3D6FE0]/15 text-[#5B8CF5] border border-[#3D6FE0]/30">
+                            {template.badge}
+                          </span>
+                          <span className="text-[10px] font-mono text-[#8B93A1]">
+                            {template.widgets.length} widget{template.widgets.length === 1 ? '' : 's'}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h3 className="text-sm font-medium text-[#EDEFF2] group-hover:text-white transition-colors">
+                            {template.name}
+                          </h3>
+                          <p className="text-xs text-[#8B93A1] mt-1 line-clamp-2 leading-relaxed">
+                            {template.description}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {template.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-[#8B93A1]"
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleUseTemplate(template)}
+                        disabled={isApplyingTemplate !== null}
+                        className="w-full py-2 px-3 rounded-lg bg-[#1C2025] hover:bg-[#3D6FE0] text-[#EDEFF2] hover:text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/[0.08] disabled:opacity-50"
+                      >
+                        {isApplying ? (
+                          <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <IconPlayerPlay size={13} />
+                        )}
+                        <span>{isApplying ? 'Provisioning…' : 'Use Template'}</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+        </main>
+      </div>
+
+      {/* ─── FLOATING AI COPILOT DOCK (BOTTOM RIGHT, 420px MAX) ─── */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
+        <AnimatePresence>
+          {isCopilotOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.96 }}
+              className="mb-3 w-[calc(100vw-3rem)] sm:w-[420px] max-h-[75vh] flex flex-col rounded-2xl bg-[#14171B] border border-white/[0.12] shadow-2xl overflow-hidden"
+            >
+              {/* Header */}
+              <div className="px-4 py-3 bg-[#1C2025] border-b border-white/[0.08] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-[#3D6FE0]/20 text-[#3D6FE0] flex items-center justify-center">
+                    <IconSparkles size={14} />
+                  </div>
+                  <span className="text-xs font-semibold text-[#EDEFF2]">AI Copilot</span>
+                  <span className="text-[10px] font-mono text-[#8B93A1] px-1.5 py-0.5 rounded bg-white/[0.06]">
+                    Continuous
                   </span>
-                </h1>
-                <p className="text-sm text-[#4A4238]/70 dark:text-[#C5B9AE] mt-1">
-                  Continuous telemetry &amp; live generative dashboard synthesis connected to MongoDB Atlas.
-                </p>
+                </div>
+                <button
+                  onClick={() => setIsCopilotOpen(false)}
+                  className="text-[#8B93A1] hover:text-[#EDEFF2] p-1 rounded hover:bg-white/[0.06] transition-colors cursor-pointer"
+                >
+                  <IconX size={15} />
+                </button>
+              </div>
 
-                {/* Quick Stats Pill Bar */}
-                <div className="flex flex-wrap items-center gap-2.5 mt-4 pt-4 border-t border-[#4A4238]/08 dark:border-[#3A3430]">
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-black/5 dark:bg-[#292522] text-xs font-mono">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[#4A4238]/60 dark:text-[#91867E]">Projects:</span>
-                    <strong className="text-[#4A4238] dark:text-[#F4EDE5]">{serverProjects.length}</strong>
+              {/* Body: Status, Pending Proposal, Suggestions */}
+              <div className="p-4 overflow-y-auto space-y-3.5 max-h-[48vh]">
+                {/* Agent Status Pulse */}
+                {agentStatus && (
+                  <div className="text-xs text-[#5B8CF5] flex items-center gap-2 p-2.5 rounded-lg bg-[#3D6FE0]/10 border border-[#3D6FE0]/25">
+                    <span className="w-2 h-2 rounded-full bg-[#3D6FE0] motion-safe:animate-pulse" />
+                    <span>{agentStatus}</span>
                   </div>
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-black/5 dark:bg-[#292522] text-xs font-mono">
-                    <IconLayoutDashboard size={13} className="text-[#E3836C]" />
-                    <span className="text-[#4A4238]/60 dark:text-[#91867E]">Active Widgets:</span>
-                    <strong className="text-[#4A4238] dark:text-[#F4EDE5]">{currentLayout.widgets.length}</strong>
+                )}
+
+                {/* Safety Gate: Pending Proposal */}
+                {pendingProposal && (
+                  <div className="p-3.5 rounded-xl bg-[#1C2025] border border-[#3D6FE0]/40 space-y-2.5">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-[#5B8CF5]">
+                      <IconSparkles size={14} />
+                      <span>Workspace Proposal Ready</span>
+                    </div>
+                    <p className="text-xs text-[#EDEFF2]">
+                      Action: <span className="font-semibold capitalize">{pendingProposal.action.replace('_', ' ')}</span>
+                      {pendingProposal.widget_spec?.title ? ` ("${pendingProposal.widget_spec.title}")` : ''}
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleRejectProposal}
+                        disabled={isApplying}
+                        className="px-3 py-1.5 rounded-lg border border-white/[0.12] hover:bg-white/[0.06] text-xs text-[#8B93A1] hover:text-[#EDEFF2] cursor-pointer"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAcceptProposal}
+                        disabled={isApplying}
+                        className="px-3.5 py-1.5 rounded-lg bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {isApplying ? (
+                          <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <IconCheck size={13} />
+                        )}
+                        <span>Accept &amp; Apply</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-black/5 dark:bg-[#292522] text-xs font-mono">
-                    <span className="text-[10px] uppercase font-bold text-[#E3836C]">Atlas DB</span>
-                    <span className="text-[#4A4238]/60 dark:text-[#91867E]">Latency:</span>
-                    <strong className="text-emerald-500">18ms</strong>
+                )}
+
+                {/* Quick Suggestion Chips */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-medium text-[#8B93A1]">Quick analytical commands:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      '+ MRR Trend Chart',
+                      '+ Active Telemetry Card',
+                      '+ Regional Health Table',
+                      '+ Q4 Funnel Analysis',
+                    ].map((chip) => (
+                      <button
+                        key={chip}
+                        type="button"
+                        onClick={() => handlePromptAgent(chip.replace('+', '').trim())}
+                        disabled={isAgentRunning}
+                        className="px-2.5 py-1 rounded-md bg-[#1C2025] hover:bg-white/[0.08] text-[11px] text-[#8B93A1] hover:text-[#EDEFF2] transition-colors border border-white/[0.06] cursor-pointer disabled:opacity-40"
+                      >
+                        {chip}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* Primary AI Prompt Bar */}
-              <div className="space-y-2 pt-2">
+              {/* Prompt Input Bar */}
+              <div className="p-3 border-t border-white/[0.08] bg-[#0E1014]">
                 <div className="relative flex items-center">
                   <input
                     type="text"
                     value={agentPrompt}
                     onChange={(e) => setAgentPrompt(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handlePromptAgent()}
-                    placeholder="Ask AI Copilot to modify this dashboard (e.g. 'Add a line chart for MRR Trend' or 'Add CAC metric card')…"
+                    placeholder="Ask Copilot to synthesize widgets…"
                     disabled={isAgentRunning}
-                    className="w-full pl-4 pr-24 py-3 rounded-2xl text-xs sm:text-sm bg-white/60 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-[#4A4238] dark:text-[#F4EDE5] placeholder-current/40 dark:placeholder-[#80766F] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40 transition-all"
+                    className="w-full pl-3 pr-20 py-2 rounded-xl text-xs bg-[#14171B] border border-white/[0.08] text-[#EDEFF2] placeholder-[#8B93A1]/60 focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
                   />
                   <button
                     type="button"
                     onClick={() => handlePromptAgent()}
                     disabled={isAgentRunning || !agentPrompt.trim()}
-                    className="absolute right-2 px-3.5 py-2 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all disabled:opacity-40 cursor-pointer shadow-sm"
+                    className="absolute right-1.5 px-3 py-1 rounded-lg bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium flex items-center gap-1 transition-colors disabled:opacity-40 cursor-pointer"
                   >
-                    {isAgentRunning ? (
-                      <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <IconSend size={14} />
-                    )}
-                    <span>Propose</span>
-                  </button>
-                </div>
-
-                {agentStatus && (
-                  <div className="text-xs font-mono text-[#E3836C] flex items-center gap-2 animate-pulse">
-                    <span className="w-2 h-2 rounded-full bg-[#E3836C]" />
-                    {agentStatus}
-                  </div>
-                )}
-
-                {/* Quick prompt trigger chips */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <span className="text-[11px] font-mono text-[#91867E]">Suggestions:</span>
-                  <button
-                    type="button"
-                    onClick={() => handlePromptAgent('Add a line chart for MRR Trend')}
-                    disabled={isAgentRunning}
-                    className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#4A4238]/05 dark:bg-[#292522] text-[#4A4238]/80 dark:text-[#C5B9AE] hover:bg-[#E3836C]/15 hover:text-[#E3836C] dark:hover:bg-[#E3836C]/20 dark:hover:text-[#E3836C] transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    + MRR Trend
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePromptAgent('Add a metric card for Active Telemetry Nodes')}
-                    disabled={isAgentRunning}
-                    className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#4A4238]/05 dark:bg-[#292522] text-[#4A4238]/80 dark:text-[#C5B9AE] hover:bg-[#E3836C]/15 hover:text-[#E3836C] dark:hover:bg-[#E3836C]/20 dark:hover:text-[#E3836C] transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    + Telemetry Card
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePromptAgent('Add a table widget for Regional Health')}
-                    disabled={isAgentRunning}
-                    className="px-2.5 py-1 rounded-lg text-xs font-mono bg-[#4A4238]/05 dark:bg-[#292522] text-[#4A4238]/80 dark:text-[#C5B9AE] hover:bg-[#E3836C]/15 hover:text-[#E3836C] dark:hover:bg-[#E3836C]/20 dark:hover:text-[#E3836C] transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    + Regional Table
+                    {isAgentRunning ? <IconRefresh size={12} className="animate-spin" /> : <IconSend size={12} />}
+                    <span>Ask</span>
                   </button>
                 </div>
               </div>
-            </div>
-
-            {/* Right 1 Col: Compact 3D Planetary Mesh Telemetry Card */}
-            <div className="glass-card rounded-3xl p-5 border border-[#4A4238]/12 dark:border-[#3A3430] shadow-xl flex flex-col justify-between space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#E3836C] animate-pulse" />
-                  <div>
-                    <h3 className="font-serif text-base tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
-                      Global Telemetry Mesh
-                    </h3>
-                    <p className="text-[10px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
-                      10 Ingestion Hubs · Active WebGL
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsGlobeExpanded(true)}
-                  className="px-2.5 py-1 rounded-xl border border-[#4A4238]/15 dark:border-[#3A3430] hover:border-[#E3836C] text-[10px] font-mono uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer text-[#E3836C]"
-                  title="Expand to immersive fullscreen 3D Google Earth exploration"
-                >
-                  <IconWorld size={13} />
-                  <span>Expand</span>
-                </button>
-              </div>
-
-              {/* Compact 3D Canvas Stage */}
-              <div className="relative w-full h-52 rounded-2xl overflow-hidden bg-[#E8DFD3]/40 dark:bg-[#171514] border border-[#4A4238]/10 dark:border-[#3A3430]">
-                <EarthGlobe
-                  isExpanded={false}
-                  onToggleExpand={setIsGlobeExpanded}
-                  className="!absolute inset-0 !z-0"
-                />
-              </div>
-
-              <div className="flex items-center justify-between text-[10px] font-mono text-[#91867E] pt-1 border-t border-[#4A4238]/08 dark:border-[#3A3430]">
-                <span>Ingestion Status: <strong className="text-emerald-500">Nominal</strong></span>
-                <span>Mesh P99: <strong className="text-emerald-500">18.4ms</strong></span>
-              </div>
-            </div>
-
-          </div>
-
-          {/* ─── ONBOARDING EMPTY STATE (When 0 active projects exist) ──────── */}
-          {!isLoadingProjects && serverProjects.length === 0 && (
-            <div className="glass-card rounded-3xl p-6 sm:p-8 border-2 border-[#E3836C]/30 bg-gradient-to-br from-[#E3836C]/10 via-[#211E1C] to-[#5A332C]/20 shadow-2xl space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="space-y-1 max-w-xl">
-                  <div className="flex items-center gap-2 text-xs font-mono text-[#E3836C] font-semibold uppercase tracking-wider">
-                    <IconSparkles size={16} /> Welcome to AnalyzeIt
-                  </div>
-                  <h2 className="font-serif text-2xl sm:text-3xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
-                    Your Continuous Intelligence Studio
-                  </h2>
-                  <p className="text-xs sm:text-sm text-[#4A4238]/70 dark:text-[#C5B9AE] font-mono">
-                    Get started in seconds: instantiate a curated business template below, start with a blank canvas, or prompt the AI Copilot above to synthesize custom charts.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const el = document.getElementById('curated-templates-section');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    className="px-4 py-2.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono font-medium flex items-center gap-2 shadow-md transition-all cursor-pointer"
-                  >
-                    <IconLayoutDashboard size={15} />
-                    <span>Browse Templates</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewProjectName('');
-                      setIsNewProjectOpen(true);
-                    }}
-                    className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] bg-white/60 dark:bg-[#292522] text-[#4A4238] dark:text-[#F4EDE5] text-xs font-mono flex items-center gap-2 hover:border-[#E3836C]/40 transition-all cursor-pointer"
-                  >
-                    <IconPlus size={15} />
-                    <span>Blank Canvas</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+            </motion.div>
           )}
+        </AnimatePresence>
 
-          {/* ─── CURATED DASHBOARD STARTER TEMPLATES ───────────────────────── */}
-          <div id="curated-templates-section" className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#E3836C]" />
-                  <h2 className="font-serif text-xl sm:text-2xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
-                    Curated Starter Templates
-                  </h2>
-                </div>
-                <p className="text-xs font-mono text-[#4A4238]/60 dark:text-[#C5B9AE] mt-0.5">
-                  Instant 1-click workspaces with verified schemas, telemetry bindings, and AI Copilot customization
-                </p>
-              </div>
-
-              {/* Category Filter Chips */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                {['All', 'Revenue', 'Marketing', 'Telemetry', 'Finance'].map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setActiveTemplateCategory(cat)}
-                    className={`px-3 py-1 rounded-xl text-xs font-mono transition-all cursor-pointer ${
-                      activeTemplateCategory === cat
-                        ? 'bg-[#E3836C] text-[#FFF7F1] shadow-xs'
-                        : 'bg-black/5 dark:bg-[#292522] text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#E3836C]'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Template Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-              {CURATED_TEMPLATES.filter(
-                (t) => activeTemplateCategory === 'All' || t.category === activeTemplateCategory
-              ).map((template) => {
-                const isApplying = isApplyingTemplate === template.id;
-
-                return (
-                  <div
-                    key={template.id}
-                    className="glass-card rounded-2xl p-4.5 border border-[#4A4238]/10 dark:border-[#3A3430] hover:border-[#E3836C]/40 flex flex-col justify-between space-y-3 transition-all group"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${template.badgeColor}`}>
-                          {template.badge}
-                        </span>
-                        <span className="text-[10px] font-mono text-[#91867E]">
-                          {template.widgets.length} widget{template.widgets.length === 1 ? '' : 's'}
-                        </span>
-                      </div>
-
-                      <div>
-                        <h3 className="font-serif text-base font-medium text-[#4A4238] dark:text-[#F4EDE5] group-hover:text-[#E3836C] transition-colors">
-                          {template.name}
-                        </h3>
-                        <p className="text-xs text-[#4A4238]/70 dark:text-[#C5B9AE] mt-1 line-clamp-2 leading-relaxed">
-                          {template.description}
-                        </p>
-                      </div>
-
-                      {/* Tags */}
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {template.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/5 dark:bg-[#292522] text-[#91867E]"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleUseTemplate(template)}
-                      disabled={isApplyingTemplate !== null}
-                      className="w-full mt-2 py-2 px-3 rounded-xl bg-[#4A4238] hover:bg-[#383129] dark:bg-[#292522] dark:hover:bg-[#E3836C] dark:hover:text-[#FFF7F1] text-white dark:text-[#F4EDE5] text-xs font-mono flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
-                    >
-                      {isApplying ? (
-                        <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <IconPlayerPlay size={13} />
-                      )}
-                      <span>{isApplying ? 'Provisioning…' : 'Use Template'}</span>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ─── GENERATIVE PROJECT WORKSPACE CANVAS (AGENTIC UI) ─────────── */}
-          <div className="glass-card rounded-3xl p-6 sm:p-8 border border-[#4A4238]/12 dark:border-[#3A3430] shadow-xl space-y-6">
-            
-            {/* Header & Scoped Project Metadata */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#4A4238]/10 dark:border-[#3A3430]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#E3836C]/15 text-[#E3836C] flex items-center justify-center shrink-0">
-                  <IconLayoutDashboard size={22} />
-                </div>
-                <div>
-                  {/* Breadcrumbs */}
-                  <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[#91867E] mb-0.5">
-                    <span>AnalyzeIt</span>
-                    <span>/</span>
-                    <span>Workspaces</span>
-                    <span>/</span>
-                    <span className="text-[#E3836C] truncate max-w-[140px] sm:max-w-xs">{activeProjectName}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <h2 className="font-serif text-xl sm:text-2xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
-                      {activeProjectName}
-                    </h2>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#E3836C]/10 text-[#E3836C] font-semibold">
-                      v{layoutVersion}
-                    </span>
-                  </div>
-                  
-                  <p className="text-xs font-mono text-[#4A4238]/60 dark:text-[#C5B9AE] mt-0.5">
-                    ID: <span className="underline">{activeProjectId || 'none'}</span> · Updated by <span className="font-semibold text-[#E3836C]">{updatedBy}</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Project Switcher + Direct Export Button */}
-              <div className="flex flex-wrap items-center gap-2">
-                {serverProjects.length > 1 && (
-                  <select
-                    value={activeProjectId || ''}
-                    onChange={(e) => {
-                      const found = serverProjects.find((p) => p.id === e.target.value);
-                      if (found) handleSelectProject(found);
-                    }}
-                    aria-label="Switch active project"
-                    className="px-3 py-1.5 rounded-xl text-xs font-mono bg-[#4A4238]/05 dark:bg-[#292522] border border-[#4A4238]/10 dark:border-[#3A3430] text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-1 focus:ring-[#E3836C]/40 cursor-pointer"
-                  >
-                    {serverProjects.map((p) => (
-                      <option key={p.id} value={p.id} className="bg-[#F3EDE4] dark:bg-[#211E1C]">
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => exportDashboardToPdf(activeProjectName, currentLayout.widgets)}
-                  disabled={currentLayout.widgets.length === 0}
-                  className="px-3 py-1.5 rounded-xl text-xs font-mono border border-[#4A4238]/15 dark:border-[#3A3430] hover:border-[#E3836C] bg-black/5 dark:bg-[#292522] text-[#4A4238] dark:text-[#F4EDE5] flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40"
-                  title="Export active canvas as PDF report"
-                >
-                  <IconFileTypePdf size={14} className="text-red-500" />
-                  <span>Export PDF</span>
-                </button>
-
-                <Link
-                  href={activeProjectId ? `/new-project?projectId=${activeProjectId}` : '/new-project'}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-                  title="Open full interactive analysis room with live chat & canvas"
-                >
-                  <span>Open Studio</span>
-                  <IconArrowUpRight size={14} />
-                </Link>
-              </div>
-            </div>
-
-            {/* ─── STUDIO TABS SWITCHER ─── */}
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/5 dark:bg-[#292522] border border-[#4A4238]/10 dark:border-[#3A3430] self-start mb-2 overflow-x-auto max-w-full">
-              <button
-                type="button"
-                onClick={() => setStudioTab('canvas')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap ${
-                  studioTab === 'canvas'
-                    ? 'bg-white dark:bg-[#211E1C] text-[#E3836C] font-semibold shadow-sm'
-                    : 'text-[#4A4238]/70 dark:text-[#C5B9AE]/70 hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
-                }`}
-              >
-                <IconLayoutDashboard size={14} />
-                <span>Dashboard Canvas</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setStudioTab('objects')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap ${
-                  studioTab === 'objects'
-                    ? 'bg-white dark:bg-[#211E1C] text-[#E3836C] font-semibold shadow-sm'
-                    : 'text-[#4A4238]/70 dark:text-[#C5B9AE]/70 hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
-                }`}
-              >
-                <IconDatabase size={14} />
-                <span>Custom Objects Studio</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setStudioTab('connectors')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap ${
-                  studioTab === 'connectors'
-                    ? 'bg-white dark:bg-[#211E1C] text-[#E3836C] font-semibold shadow-sm'
-                    : 'text-[#4A4238]/70 dark:text-[#C5B9AE]/70 hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
-                }`}
-              >
-                <IconBrandStripe size={14} />
-                <span>Live Connectors Hub</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setStudioTab('pipeline')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap ${
-                  studioTab === 'pipeline'
-                    ? 'bg-white dark:bg-[#211E1C] text-[#E3836C] font-semibold shadow-sm'
-                    : 'text-[#4A4238]/70 dark:text-[#C5B9AE]/70 hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
-                }`}
-              >
-                <IconComponents size={14} />
-                <span>Module Pipeline</span>
-              </button>
-            </div>
-
-            {/* ─── PENDING PROPOSAL CONFIRMATION CARD (SAFETY GATE) ─── */}
-            <AnimatePresence>
-              {pendingProposal && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="rounded-2xl p-5 bg-gradient-to-r from-[#E3836C]/15 via-[#5A332C]/30 to-[#E3836C]/10 border-2 border-[#E3836C]/40 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-                >
-                  <div className="space-y-1 w-full sm:w-auto">
-                    <div className="flex items-center gap-2 text-xs font-mono text-[#E3836C] font-bold uppercase tracking-wider">
-                      <IconSparkles size={15} />
-                      Agent Proposed Workspace Modification
-                    </div>
-                    {(() => {
-                      const isMulti = Array.isArray(pendingProposal.widgets) && pendingProposal.widgets.length > 0;
-                      const pType =
-                        pendingProposal.widget_spec?.component ||
-                        pendingProposal.widget_spec?.type ||
-                        (isMulti ? `Composite (${pendingProposal.widgets!.length} widgets)` : 'Composite');
-                      const pTitle =
-                        (pendingProposal.widget_spec?.props?.title as string) ||
-                        pendingProposal.widget_spec?.title ||
-                        (isMulti ? pendingProposal.widgets![0]?.title || 'Composite Dashboard' : 'Untitled Proposal');
-
-                      return (
-                        <p className="text-sm font-serif text-[#4A4238] dark:text-[#F4EDE5]">
-                          Proposal: <span className="font-semibold capitalize">{pendingProposal.action.replace('_', ' ')}</span> of type{' '}
-                          <span className="font-semibold text-[#E3836C]">
-                            {pType}
-                          </span>{' '}
-                          (
-                          <em>
-                            &quot;{pTitle}&quot;
-                          </em>
-                          )
-                        </p>
-                      );
-                    })()}
-
-                    {/* Schema Diff Preview for Module Installation */}
-                    {(pendingProposal.action === 'install_module' || (pendingProposal as any).payload?.action_type === 'install_module') && (
-                      <div className="p-3 rounded-xl bg-white/60 dark:bg-black/40 border border-[#E3836C]/30 space-y-2 mt-2 w-full">
-                        <div className="text-xs font-semibold text-[#4A4238] dark:text-[#F4EDE5] flex items-center gap-1.5">
-                          <span>Module Installation Proposal:</span>
-                          <span className="font-mono text-indigo-500 font-bold">
-                            {(pendingProposal as any).payload?.module_name || (pendingProposal as any).payload?.module_id || 'Deterministic Module'} (v{(pendingProposal as any).payload?.template_version || 1})
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                          <div className="p-2 rounded-lg bg-black/5 dark:bg-neutral-900/60 border border-black/5 dark:border-white/5">
-                            <span className="font-medium text-neutral-500 block mb-1">Custom Entities Created:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {(pendingProposal as any).payload?.schema_diff?.objects_to_create?.map((o: any) => (
-                                <span key={o.api_name || o} className="px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500 font-mono text-[11px]">
-                                  +{o.label || o.api_name || o}
-                                </span>
-                              )) || <span className="text-neutral-400">Standard schemas</span>}
-                            </div>
-                          </div>
-                          <div className="p-2 rounded-lg bg-black/5 dark:bg-neutral-900/60 border border-black/5 dark:border-white/5">
-                            <span className="font-medium text-neutral-500 block mb-1">Screens Appended:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {(pendingProposal as any).payload?.schema_diff?.screens_to_add?.map((s: any, idx: number) => (
-                                <span key={idx} className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-mono text-[11px]">
-                                  +{s.title || s}
-                                </span>
-                              )) || <span className="text-neutral-400">Dashboard widgets</span>}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <p className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E]">
-                      Action ID: {pendingProposal.action_id} · Safety Gate: User Confirmation Required
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-end sm:self-auto">
-                    <button
-                      type="button"
-                      onClick={handleRejectProposal}
-                      disabled={isApplying}
-                      className="px-3.5 py-2 rounded-xl border border-[#4A4238]/20 dark:border-[#3A3430] hover:bg-black/5 dark:hover:bg-[#292522] text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] flex items-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      <IconX size={14} />
-                      <span>Reject</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAcceptProposal}
-                      disabled={isApplying}
-                      className="px-4 py-2 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-md cursor-pointer disabled:opacity-50"
-                    >
-                      {isApplying ? (
-                        <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <IconCheck size={14} />
-                      )}
-                      <span>Accept &amp; Apply</span>
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ─── TAB CONTENT: CANVAS ─── */}
-            {studioTab === 'canvas' && (
-              currentLayout.widgets.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {currentLayout.widgets.map((widget) => (
-                    <div
-                      key={widget.id}
-                      className={
-                        widget.type === 'line_chart' || widget.type === 'table'
-                          ? 'md:col-span-2'
-                          : 'col-span-1'
-                      }
-                    >
-                      <SandboxedWidgetRenderer
-                        widget={widget}
-                        onWidgetAction={handleWidgetAction}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-12 px-6 rounded-2xl border-2 border-dashed border-[#4A4238]/15 dark:border-[#3A3430] flex flex-col items-center justify-center text-center space-y-3 bg-black/[0.01] dark:bg-[#211E1C]/50">
-                  <div className="w-12 h-12 rounded-2xl bg-[#E3836C]/10 text-[#E3836C] flex items-center justify-center">
-                    <IconLayoutDashboard size={24} />
-                  </div>
-                  <div className="space-y-1 max-w-md">
-                    <h3 className="font-serif text-base text-[#4A4238] dark:text-[#F4EDE5]">
-                      {activeProjectId ? 'Canvas is ready for widgets' : 'No project loaded'}
-                    </h3>
-                    <p className="text-xs text-[#4A4238]/60 dark:text-[#C5B9AE] font-mono">
-                      {activeProjectId
-                        ? 'This workspace has no widgets yet. Type an analytical prompt above or select a starter template to populate your canvas.'
-                        : 'Choose a template above or create a new project to begin visualizing your data.'}
-                    </p>
-                  </div>
-                  {!activeProjectId && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewProjectName('');
-                        setIsNewProjectOpen(true);
-                      }}
-                      className="px-4 py-2 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-                    >
-                      <IconPlus size={14} />
-                      <span>Create First Project</span>
-                    </button>
-                  )}
-                </div>
-              )
-            )}
-
-            {/* ─── TAB CONTENT: OBJECTS STUDIO ─── */}
-            {studioTab === 'objects' && (
-              <ObjectBuilderView projectId={activeProjectId || 'default'} />
-            )}
-
-            {/* ─── TAB CONTENT: CONNECTORS HUB ─── */}
-            {studioTab === 'connectors' && (
-              <ConnectorsView projectId={activeProjectId || 'default'} />
-            )}
-
-            {/* ─── TAB CONTENT: MODULE PIPELINE ─── */}
-            {studioTab === 'pipeline' && (
-              <ModulePipelineView
-                projectId={activeProjectId || 'default'}
-                onRefreshLayout={refreshActiveProjectLayout}
-              />
-            )}
-
-          </div>
-
-          {/* ─── REAL USER ANALYSIS WORKSPACES (PROJECT CRUD) ─────────────── */}
-          <div className="space-y-4">
-            
-            {/* Section Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#E3836C]" />
-                <h2 className="font-serif text-2xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
-                  Analysis Workspaces
-                </h2>
-                <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-[#4A4238]/06 dark:bg-[#292522] text-[#4A4238]/60 dark:text-[#C5B9AE]">
-                  {serverProjects.length} Saved in MongoDB
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {/* Search Input */}
-                <div className="relative">
-                  <IconSearch
-                    size={14}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4A4238]/40 dark:text-[#91867E] pointer-events-none"
-                  />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search projects…"
-                    className="pl-8 pr-3 py-1.5 rounded-xl text-xs bg-white/60 dark:bg-[#292522] border border-[#4A4238]/10 dark:border-[#3A3430] text-[#4A4238] dark:text-[#F4EDE5] placeholder-current/30 dark:placeholder-[#80766F] focus:outline-none focus:ring-1 focus:ring-[#E3836C]/40 transition-all w-48 sm:w-60"
-                  />
-                </div>
-
-                {/* Grid / List Switcher */}
-                <div className="flex items-center gap-1 p-1 rounded-xl bg-black/5 dark:bg-[#292522] border border-[#4A4238]/10 dark:border-[#3A3430]">
-                  <button
-                    type="button"
-                    onClick={() => setLayoutMode('grid')}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      layoutMode === 'grid'
-                        ? 'bg-white dark:bg-[#302B28] text-[#4A4238] dark:text-[#F4EDE5] shadow-xs'
-                        : 'text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
-                    }`}
-                    title="Grid view"
-                  >
-                    <IconLayoutGrid size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLayoutMode('list')}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      layoutMode === 'list'
-                        ? 'bg-white dark:bg-[#302B28] text-[#4A4238] dark:text-[#F4EDE5] shadow-xs'
-                        : 'text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5]'
-                    }`}
-                    title="List view"
-                  >
-                    <IconList size={14} />
-                  </button>
-                </div>
-
-                {/* "+ New Project" Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNewProjectName('');
-                    setIsNewProjectOpen(true);
-                  }}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-                >
-                  <IconPlus size={14} />
-                  <span>New</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Projects Grid / List with Loading Skeleton */}
-            {isLoadingProjects ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3].map((n) => (
-                  <div
-                    key={n}
-                    className="glass-card rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] space-y-3 animate-pulse"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="w-16 h-4 rounded-full bg-[#4A4238]/10 dark:bg-[#292522]" />
-                      <div className="w-20 h-3 rounded bg-[#4A4238]/10 dark:bg-[#292522]" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="w-3/4 h-5 rounded bg-[#4A4238]/10 dark:bg-[#292522]" />
-                      <div className="w-1/2 h-3 rounded bg-[#4A4238]/10 dark:bg-[#292522]" />
-                    </div>
-                    <div className="pt-3 border-t border-[#4A4238]/08 dark:border-[#3A3430] flex items-center justify-between">
-                      <div className="w-16 h-4 rounded bg-[#4A4238]/10 dark:bg-[#292522]" />
-                      <div className="w-12 h-4 rounded bg-[#4A4238]/10 dark:bg-[#292522]" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : filteredProjects.length > 0 ? (
-              <div
-                className={`grid gap-4 ${
-                  layoutMode === 'grid'
-                    ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
-                    : 'grid-cols-1'
-                }`}
-              >
-                {filteredProjects.map((project) => {
-                  const isActive = project.id === activeProjectId;
-                  const dateStr = project.created_at
-                    ? new Date(project.created_at).toLocaleDateString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })
-                    : 'Recently';
-
-                  return (
-                    <div
-                      key={project.id}
-                      className={`glass-card rounded-2xl p-5 flex flex-col justify-between border transition-all group ${
-                        isActive
-                          ? 'border-[#8A4D40] bg-[#E3836C]/10 dark:bg-[#5A332C] dark:border-[#8A4D40] dark:text-[#F4EDE5] shadow-md ring-1 ring-[#E3836C]/40'
-                          : 'border-[#4A4238]/10 dark:border-[#3A3430] hover:border-[#E3836C]/30 hover:dark:border-[#E3836C]/40'
-                      }`}
-                    >
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold ${
-                                isActive
-                                  ? 'bg-[#E3836C] text-[#FFF7F1]'
-                                  : 'bg-[#4A4238]/08 dark:bg-[#292522] text-[#4A4238]/70 dark:text-[#C5B9AE]'
-                              }`}
-                            >
-                              {isActive ? 'Active Canvas' : `v${project.layout_version}`}
-                            </span>
-                            <span className="text-[10px] font-mono text-[#4A4238]/40 dark:text-[#91867E]">
-                              {project.widget_count ?? 0} widget{(project.widget_count ?? 0) === 1 ? '' : 's'}
-                            </span>
-                          </div>
-
-                          <span className="text-[10px] font-mono text-[#4A4238]/40 dark:text-[#91867E]">
-                            {dateStr}
-                          </span>
-                        </div>
-
-                        <div>
-                          <h3
-                            onClick={() => handleSelectProject(project)}
-                            className="font-serif text-lg font-medium text-[#4A4238] dark:text-[#F4EDE5] hover:text-[#E3836C] cursor-pointer transition-colors truncate"
-                            title={project.name}
-                          >
-                            {project.name}
-                          </h3>
-                          <p className="text-xs text-[#4A4238]/60 dark:text-[#91867E] font-mono mt-0.5 truncate">
-                            ID: {project.id}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Card Action Controls */}
-                      <div className="pt-4 mt-3 border-t border-[#4A4238]/08 dark:border-[#3A3430] flex items-center justify-between text-xs font-mono">
-                        <div className="flex items-center gap-1.5">
-                          {!isActive && (
-                            <button
-                              type="button"
-                              onClick={() => handleSelectProject(project)}
-                              className="px-2.5 py-1 rounded-lg bg-black/5 dark:bg-[#292522] hover:bg-[#E3836C]/15 dark:hover:bg-[#E3836C]/20 hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors cursor-pointer text-[11px]"
-                              title="Preview on top generative canvas"
-                            >
-                              Select
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProjectToRename(project);
-                              setRenameName(project.name);
-                            }}
-                            className="p-1.5 rounded-lg text-[#4A4238]/60 dark:text-[#C5B9AE] hover:text-[#E3836C] hover:bg-black/5 dark:hover:bg-[#292522] transition-colors cursor-pointer"
-                            title="Rename project"
-                          >
-                            <IconEdit size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setProjectToDelete(project)}
-                            className="p-1.5 rounded-lg text-[#4A4238]/60 dark:text-[#C5B9AE] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
-                            title="Delete project"
-                          >
-                            <IconTrash size={14} />
-                          </button>
-                        </div>
-
-                        <Link
-                          href={`/new-project?projectId=${project.id}`}
-                          className="flex items-center gap-1 text-[#E3836C] hover:text-[#ED967F] font-semibold transition-colors cursor-pointer"
-                          title="Open full interactive workspace with chat and canvas"
-                        >
-                          <span>Open</span>
-                          <IconArrowUpRight size={13} />
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-16 px-6 glass-card rounded-3xl border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col items-center justify-center text-center space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-[#E3836C]/10 text-[#E3836C] flex items-center justify-center">
-                  <IconFolderPlus size={28} />
-                </div>
-                <div className="space-y-1 max-w-md">
-                  <h3 className="font-serif text-lg text-[#4A4238] dark:text-[#F4EDE5]">
-                    {searchQuery ? 'No matching projects found' : 'No analysis projects yet'}
-                  </h3>
-                  <p className="text-xs text-[#4A4238]/60 dark:text-[#C5B9AE] font-mono">
-                    {searchQuery
-                      ? `No projects matched "${searchQuery}". Try a different search query or clear the filter.`
-                      : 'Create your first project to start saving visual canvases, telemetry bindings, and AI agent runs durably in MongoDB Atlas.'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNewProjectName('');
-                    setIsNewProjectOpen(true);
-                  }}
-                  className="px-4 py-2.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer"
-                >
-                  <IconPlus size={16} />
-                  <span>Create First Project</span>
-                </button>
-              </div>
-            )}
-
-          </div>
-
-        </main>
+        {/* Floating Dock Toggle Button */}
+        <button
+          type="button"
+          onClick={() => setIsCopilotOpen((prev) => !prev)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium shadow-xl hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
+          title="Toggle AI Copilot dock"
+        >
+          <IconSparkles size={16} />
+          <span>Copilot</span>
+          {pendingProposal && (
+            <span className="w-2 h-2 rounded-full bg-[#EF6C6C] motion-safe:animate-pulse" />
+          )}
+        </button>
       </div>
 
-      {/* ─── TOAST NOTIFICATION ─────────────────────────────────────────── */}
+      {/* ─── TOAST NOTIFICATION ─── */}
       <AnimatePresence>
         {exportToastMsg && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-[#E3836C] text-[#FFF7F1] text-xs font-mono shadow-2xl flex items-center gap-2"
+            className="fixed bottom-6 left-20 z-50 px-4 py-2.5 rounded-xl bg-[#1C2025] border border-white/[0.15] text-[#EDEFF2] text-xs font-medium shadow-2xl flex items-center gap-2"
           >
-            <IconCheck size={16} />
+            <IconCheck size={16} className="text-[#3FB68C]" />
             <span>{exportToastMsg}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ─── MODAL 1: CREATE NEW PROJECT ─────────────────────────────────── */}
+      {/* ─── MODAL: MANAGE / SWITCH PROJECTS ─── */}
       <AnimatePresence>
-        {isNewProjectOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        {isProjectsModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-[#4A4238]/15 dark:border-[#504740] shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#302B28]"
+              className="w-full max-w-xl bg-[#14171B] border border-white/[0.12] rounded-2xl p-6 shadow-2xl flex flex-col max-h-[85vh] space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#3D6FE0]/15 text-[#3D6FE0] flex items-center justify-center">
+                    <IconFolder size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-medium text-[#EDEFF2]">Analysis Workspaces</h3>
+                    <p className="text-xs text-[#8B93A1]">Switch active workspace or manage projects</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsProjectsModalOpen(false)}
+                  className="p-1 text-[#8B93A1] hover:text-[#EDEFF2] cursor-pointer"
+                >
+                  <IconX size={16} />
+                </button>
+              </div>
+
+              {/* Search projects */}
+              <div className="relative">
+                <IconSearch size={14} className="absolute left-3 top-3 text-[#8B93A1]" />
+                <input
+                  type="text"
+                  placeholder="Filter workspaces by name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl text-xs bg-[#1C2025] border border-white/[0.08] text-[#EDEFF2] placeholder-[#8B93A1]/60 focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                />
+              </div>
+
+              {/* Project list */}
+              <div className="overflow-y-auto max-h-[50vh] divide-y divide-white/[0.04]">
+                {serverProjects
+                  .filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map((proj) => {
+                    const isActive = activeProjectId === proj.id;
+                    return (
+                      <div
+                        key={proj.id}
+                        className={`py-3 px-3.5 flex items-center justify-between rounded-xl transition-colors cursor-pointer ${
+                          isActive ? 'bg-[#1C2025] border border-[#3D6FE0]/30' : 'hover:bg-white/[0.03]'
+                        }`}
+                        onClick={() => {
+                          handleSelectProject(proj);
+                          setIsProjectsModalOpen(false);
+                        }}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-[#EDEFF2]">{proj.name}</span>
+                            {isActive && (
+                              <span className="text-[10px] font-mono text-[#3FB68C] px-1.5 py-0.5 rounded bg-[#3FB68C]/15">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-mono text-[#8B93A1]">ID: {proj.id.slice(0, 16)}...</span>
+                        </div>
+                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => {
+                              setProjectToRename(proj);
+                              setRenameName(proj.name);
+                            }}
+                            className="p-1.5 text-[#8B93A1] hover:text-[#EDEFF2] transition-colors"
+                            title="Rename"
+                          >
+                            <IconEdit size={14} />
+                          </button>
+                          <button
+                            onClick={() => setProjectToDelete(proj)}
+                            className="p-1.5 text-[#8B93A1] hover:text-[#EF6C6C] transition-colors"
+                            title="Delete"
+                          >
+                            <IconTrash size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProjectsModalOpen(false);
+                    setNewProjectName('');
+                    setIsNewProjectOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium cursor-pointer"
+                >
+                  <IconPlus size={14} />
+                  <span>New Workspace</span>
+                </button>
+                <button
+                  onClick={() => setIsProjectsModalOpen(false)}
+                  className="px-3 py-1.5 text-xs text-[#8B93A1] hover:text-[#EDEFF2]"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── MODAL: CREATE NEW PROJECT ─── */}
+      <AnimatePresence>
+        {isNewProjectOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-[#14171B] border border-white/[0.12] rounded-2xl p-6 shadow-2xl space-y-5"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#E3836C]/15 text-[#E3836C] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-[#3D6FE0]/15 text-[#3D6FE0] flex items-center justify-center">
                     <IconFolderPlus size={18} />
                   </div>
-                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
-                    Create New Project
-                  </h3>
+                  <h3 className="text-base font-medium text-[#EDEFF2]">Create New Project</h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsNewProjectOpen(false)}
-                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors cursor-pointer"
+                  className="p-1 text-[#8B93A1] hover:text-[#EDEFF2] cursor-pointer"
                 >
                   <IconX size={16} />
                 </button>
@@ -1731,9 +1384,7 @@ export default function DashboardPage() {
 
               <form onSubmit={handleCreateProject} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/60 dark:text-[#C5B9AE]">
-                    Project Name
-                  </label>
+                  <label className="text-xs font-medium text-[#8B93A1]">Project Name</label>
                   <input
                     type="text"
                     value={newProjectName}
@@ -1741,33 +1392,27 @@ export default function DashboardPage() {
                     placeholder="e.g. Q4 Revenue & Retention Audit"
                     autoFocus
                     required
-                    className="w-full px-4 py-3 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-sm text-[#4A4238] dark:text-[#F4EDE5] placeholder-[#4A4238]/30 dark:placeholder-[#80766F] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40 transition-all"
+                    className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] placeholder-[#8B93A1]/60 focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
                   />
-                  <p className="text-[11px] font-mono text-[#4A4238]/50 dark:text-[#91867E]">
-                    A durable workspace saved in MongoDB with live charts and full revision history.
+                  <p className="text-[11px] text-[#8B93A1]">
+                    Saved securely in MongoDB with continuous telemetry and layout state.
                   </p>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2">
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/[0.08]">
                   <button
                     type="button"
                     onClick={() => setIsNewProjectOpen(false)}
-                    disabled={isCreatingProject}
-                    className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-black/5 dark:hover:bg-[#292522] transition-colors cursor-pointer"
+                    className="px-3.5 py-2 text-xs rounded-xl border border-white/[0.08] text-[#8B93A1] hover:text-[#EDEFF2]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isCreatingProject || !newProjectName.trim()}
-                    className="px-4 py-2.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                   >
-                    {isCreatingProject ? (
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <IconPlus size={14} />
-                    )}
-                    <span>Create &amp; Open</span>
+                    {isCreatingProject ? 'Creating…' : 'Create Workspace'}
                   </button>
                 </div>
               </form>
@@ -1776,72 +1421,50 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
-      {/* ─── MODAL 2: RENAME PROJECT ─────────────────────────────────────── */}
+      {/* ─── MODAL: RENAME PROJECT ─── */}
       <AnimatePresence>
         {projectToRename && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-[#4A4238]/15 dark:border-[#504740] shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#302B28]"
+              className="w-full max-w-md bg-[#14171B] border border-white/[0.12] rounded-2xl p-6 shadow-2xl space-y-4"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#E3836C]/15 text-[#E3836C] flex items-center justify-center">
-                    <IconEdit size={18} />
-                  </div>
-                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
-                    Rename Project
-                  </h3>
-                </div>
+                <h3 className="text-base font-medium text-[#EDEFF2]">Rename Workspace</h3>
                 <button
                   type="button"
                   onClick={() => setProjectToRename(null)}
-                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors cursor-pointer"
+                  className="p-1 text-[#8B93A1] hover:text-[#EDEFF2]"
                 >
                   <IconX size={16} />
                 </button>
               </div>
 
               <form onSubmit={handleRenameSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-mono uppercase tracking-wider text-[#4A4238]/60 dark:text-[#C5B9AE]">
-                    New Project Name
-                  </label>
-                  <input
-                    type="text"
-                    value={renameName}
-                    onChange={(e) => setRenameName(e.target.value)}
-                    autoFocus
-                    required
-                    className="w-full px-4 py-3 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-sm text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40 transition-all"
-                  />
-                  <p className="text-[11px] font-mono text-[#4A4238]/50 dark:text-[#91867E]">
-                    ID: {projectToRename.id}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
+                <input
+                  type="text"
+                  value={renameName}
+                  onChange={(e) => setRenameName(e.target.value)}
+                  autoFocus
+                  required
+                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                />
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/[0.08]">
                   <button
                     type="button"
                     onClick={() => setProjectToRename(null)}
-                    disabled={isRenamingProject}
-                    className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-black/5 dark:hover:bg-[#292522] transition-colors cursor-pointer"
+                    className="px-3.5 py-2 text-xs rounded-xl border border-white/[0.08] text-[#8B93A1] hover:text-[#EDEFF2]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isRenamingProject || !renameName.trim()}
-                    className="px-4 py-2.5 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium disabled:opacity-50"
                   >
-                    {isRenamingProject ? (
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <IconCheck size={14} />
-                    )}
-                    <span>Save Name</span>
+                    {isRenamingProject ? 'Saving…' : 'Save Name'}
                   </button>
                 </div>
               </form>
@@ -1850,52 +1473,25 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
-      {/* ─── MODAL 3: DELETE PROJECT CONFIRMATION ─────────────────────────── */}
+      {/* ─── MODAL: DELETE PROJECT ─── */}
       <AnimatePresence>
         {projectToDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md glass-card rounded-3xl p-6 sm:p-7 border border-red-500/20 dark:border-red-500/30 shadow-2xl space-y-5 bg-[#F3EDE4] dark:bg-[#302B28]"
+              className="w-full max-w-md bg-[#14171B] border border-white/[0.12] rounded-2xl p-6 shadow-2xl space-y-4"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-red-500/15 text-red-500 flex items-center justify-center">
-                    <IconAlertTriangle size={18} />
-                  </div>
-                  <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
-                    Delete Project
-                  </h3>
-                </div>
+              <h3 className="text-base font-medium text-[#EDEFF2]">Delete Project</h3>
+              <p className="text-xs text-[#8B93A1]">
+                Are you sure you want to delete <strong className="text-[#EDEFF2]">{projectToDelete.name}</strong>? All layout widgets and custom records will be permanently removed.
+              </p>
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/[0.08]">
                 <button
                   type="button"
                   onClick={() => setProjectToDelete(null)}
-                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors cursor-pointer"
-                >
-                  <IconX size={16} />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-sm text-[#4A4238] dark:text-[#F4EDE5]">
-                  Are you sure you want to delete <span className="font-bold">&quot;{projectToDelete.name}&quot;</span>?
-                </p>
-                <div className="p-3.5 rounded-xl bg-red-500/10 dark:bg-[#382522] border border-red-500/20 dark:border-[#D97870]/30 text-xs font-mono text-red-600 dark:text-[#D97870] space-y-1">
-                  <p className="font-bold">Cascade Cleanup Warning:</p>
-                  <p>
-                    This permanently deletes the project layout, all widget configurations, UI action histories, AI chat runs, events, and saved artifacts from MongoDB.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setProjectToDelete(null)}
-                  disabled={isDeletingProject}
-                  className="px-4 py-2.5 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] hover:bg-black/5 dark:hover:bg-[#292522] transition-colors cursor-pointer"
+                  className="px-3.5 py-2 text-xs rounded-xl border border-white/[0.08] text-[#8B93A1] hover:text-[#EDEFF2]"
                 >
                   Cancel
                 </button>
@@ -1903,14 +1499,9 @@ export default function DashboardPage() {
                   type="button"
                   onClick={handleDeleteSubmit}
                   disabled={isDeletingProject}
-                  className="px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-[#EF6C6C] hover:bg-red-600 text-white text-xs font-medium disabled:opacity-50"
                 >
-                  {isDeletingProject ? (
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <IconTrash size={14} />
-                  )}
-                  <span>Delete Permanently</span>
+                  {isDeletingProject ? 'Deleting…' : 'Delete Permanently'}
                 </button>
               </div>
             </motion.div>
@@ -1918,188 +1509,112 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
-      {/* ─── MODAL 4: USER MANAGEMENT & ACCOUNT SETTINGS ───────────────────── */}
+      {/* ─── MODAL: USER PROFILE & SETTINGS ─── */}
       <AnimatePresence>
-        {isUserSettingsOpen && user && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        {isUserSettingsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg glass-card rounded-3xl p-6 sm:p-8 border border-[#4A4238]/15 dark:border-[#504740] shadow-2xl space-y-6 bg-[#F3EDE4] dark:bg-[#302B28] max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-lg bg-[#14171B] border border-white/[0.12] rounded-2xl p-6 shadow-2xl space-y-5"
             >
-              {/* Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-[#4A4238]/10 dark:border-[#3A3430]">
+              <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#E3836C]/15 text-[#E3836C] flex items-center justify-center">
-                    <IconUser size={20} />
+                  <div className="w-8 h-8 rounded-xl bg-[#3D6FE0]/15 text-[#3D6FE0] flex items-center justify-center">
+                    <IconUser size={18} />
                   </div>
                   <div>
-                    <h3 className="font-serif text-xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5]">
-                      Account &amp; User Management
-                    </h3>
-                    <p className="text-xs font-mono text-[#4A4238]/50 dark:text-[#91867E]">
-                      Managed in MongoDB Atlas
-                    </p>
+                    <h3 className="text-base font-medium text-[#EDEFF2]">Account &amp; Security</h3>
+                    <p className="text-xs text-[#8B93A1]">{user?.email}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsUserSettingsOpen(false)}
-                  className="p-1.5 rounded-xl text-[#4A4238]/40 dark:text-[#91867E] hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors cursor-pointer"
+                  className="p-1 text-[#8B93A1] hover:text-[#EDEFF2]"
                 >
                   <IconX size={16} />
                 </button>
               </div>
 
-              {/* Status feedback message */}
               {userActionMsg && (
-                <div
-                  className={`p-3 rounded-xl text-xs font-mono flex items-center gap-2 ${
-                    userActionMsg.type === 'success'
-                      ? 'bg-emerald-500/10 dark:bg-[#283329] text-emerald-600 dark:text-[#9EBB9A] border border-emerald-500/20 dark:border-[#9EBB9A]/30'
-                      : 'bg-red-500/10 dark:bg-[#382522] text-red-600 dark:text-[#D97870] border border-red-500/20 dark:border-[#D97870]/30'
-                  }`}
-                >
-                  {userActionMsg.type === 'success' ? <IconCheck size={14} /> : <IconAlertTriangle size={14} />}
-                  <span>{userActionMsg.text}</span>
+                <div className="p-2.5 rounded-lg bg-[#3FB68C]/15 border border-[#3FB68C]/30 text-[#3FB68C] text-xs">
+                  {userActionMsg}
+                </div>
+              )}
+              {userActionErr && (
+                <div className="p-2.5 rounded-lg bg-[#EF6C6C]/15 border border-[#EF6C6C]/30 text-[#EF6C6C] text-xs">
+                  {userActionErr}
                 </div>
               )}
 
-              {/* Section A: Account Info & Profile */}
-              <form onSubmit={handleUpdateProfile} className="space-y-4">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-[#E3836C] font-bold">
-                  User Profile
-                </h4>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
-                      Email Address
-                    </label>
-                    <input
-                      type="text"
-                      value={user.email}
-                      disabled
-                      className="w-full px-3 py-2 rounded-xl bg-black/5 dark:bg-[#211E1C] border border-[#4A4238]/10 dark:border-[#3A3430] text-xs font-mono text-[#4A4238]/60 dark:text-[#80766F] cursor-not-allowed"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
-                      User ID
-                    </label>
-                    <input
-                      type="text"
-                      value={user.id}
-                      disabled
-                      className="w-full px-3 py-2 rounded-xl bg-black/5 dark:bg-[#211E1C] border border-[#4A4238]/10 dark:border-[#3A3430] text-xs font-mono text-[#4A4238]/60 dark:text-[#80766F] cursor-not-allowed truncate"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
-                    Display Name
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      required
-                      className="flex-1 px-3 py-2 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-xs text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isUpdatingProfile || editName === user.name}
-                      className="px-3 py-2 rounded-xl bg-[#4A4238] dark:bg-[#E9DDD2] text-white dark:text-[#302824] text-xs font-mono hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-40 font-medium"
-                    >
-                      {isUpdatingProfile ? 'Saving…' : 'Update Name'}
-                    </button>
-                  </div>
+              {/* Edit Display Name */}
+              <form onSubmit={handleUpdateProfile} className="space-y-3">
+                <label className="text-xs font-medium text-[#8B93A1]">Display Name</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isUpdatingProfile}
+                    className="px-3.5 py-2 rounded-xl bg-[#1C2025] hover:bg-white/[0.08] border border-white/[0.12] text-xs text-[#EDEFF2]"
+                  >
+                    Save
+                  </button>
                 </div>
               </form>
 
-              {/* Section B: Change Password */}
-              <form onSubmit={handleChangePassword} className="space-y-3 pt-3 border-t border-[#4A4238]/10 dark:border-[#3A3430]">
-                <h4 className="text-xs font-mono uppercase tracking-wider text-[#E3836C] font-bold flex items-center gap-1.5">
-                  <IconKey size={14} /> Change Password
-                </h4>
-
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
-                      Current Password
-                    </label>
-                    <input
-                      type="password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-xs text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
-                        New Password (min 8 chars)
-                      </label>
-                      <input
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-xs text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#C5B9AE]">
-                        Confirm New Password
-                      </label>
-                      <input
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full px-3 py-2 rounded-xl bg-white/70 dark:bg-[#292522] border border-[#4A4238]/15 dark:border-[#3A3430] text-xs text-[#4A4238] dark:text-[#F4EDE5] focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="submit"
-                      disabled={isChangingPassword || !currentPassword || !newPassword}
-                      className="px-4 py-2 rounded-xl bg-[#E3836C] hover:bg-[#ED967F] text-[#FFF7F1] text-xs font-mono transition-all shadow-sm cursor-pointer disabled:opacity-40"
-                    >
-                      {isChangingPassword ? 'Changing…' : 'Change Password'}
-                    </button>
-                  </div>
+              {/* Change Password */}
+              <form onSubmit={handleChangePassword} className="space-y-3 pt-3 border-t border-white/[0.08]">
+                <span className="text-xs font-medium text-[#8B93A1]">Change Password</span>
+                <input
+                  type="password"
+                  placeholder="Current password"
+                  value={currentPass}
+                  onChange={(e) => setCurrentPass(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                />
+                <input
+                  type="password"
+                  placeholder="New password (min 8 chars)"
+                  value={newPass}
+                  onChange={(e) => setNewPass(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                />
+                <input
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={confirmPass}
+                  onChange={(e) => setConfirmPass(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                />
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="submit"
+                    disabled={isChangingPass || !currentPass || !newPass}
+                    className="px-3.5 py-2 rounded-xl bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium disabled:opacity-50"
+                  >
+                    Update Password
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="text-xs text-[#EF6C6C] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <IconLogout size={14} />
+                    <span>Sign Out</span>
+                  </button>
                 </div>
               </form>
-
-              {/* Section C: Sign Out */}
-              <div className="pt-3 border-t border-[#4A4238]/10 dark:border-[#3A3430] flex items-center justify-between">
-                <span className="text-xs font-mono text-[#4A4238]/50 dark:text-[#91867E]">
-                  Active JWT session
-                </span>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="px-3.5 py-1.5 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs font-mono uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  Sign Out
-                </button>
-              </div>
-
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

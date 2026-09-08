@@ -197,10 +197,21 @@ export async function fetchRecords(
   limit: number = 50,
   skip: number = 0,
   sortBy: string = 'created_at',
-  sortDesc: boolean = true
+  sortDesc: boolean = true,
+  search?: string
 ): Promise<RecordsResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    skip: String(skip),
+    sort_by: sortBy,
+    sort_desc: String(sortDesc),
+  });
+  if (search && search.trim()) {
+    params.append('search', search.trim());
+  }
+
   const res = await fetch(
-    `${API_BASE}/projects/${projectId}/objects/${schemaId}/records?limit=${limit}&skip=${skip}&sort_by=${sortBy}&sort_desc=${sortDesc}`,
+    `${API_BASE}/projects/${projectId}/objects/${schemaId}/records?${params.toString()}`,
     {
       headers: { ...getAuthHeaders() },
     }
@@ -276,16 +287,21 @@ export async function updateRecord(
 export async function deleteRecord(
   projectId: string,
   schemaId: string,
-  recordId: string
-): Promise<boolean> {
+  recordId: string,
+  strategy: string = 'nullify'
+): Promise<{ ok: boolean; deleted: boolean; unlinked_references?: number }> {
   const res = await fetch(
-    `${API_BASE}/records/${recordId}`,
+    `${API_BASE}/records/${recordId}?strategy=${strategy}`,
     {
       method: 'DELETE',
       headers: { ...getAuthHeaders() },
     }
   );
-  return res.ok;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || 'Failed to delete record');
+  }
+  return res.json();
 }
 
 // ─── Live Connectors Fetchers ──────────────────────────────────────────────────
