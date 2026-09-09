@@ -202,6 +202,45 @@ html, body {
   scrollbar-color: #3A3430 #171514;
 }
 
+/* Structured Data Platform: deliberately related to the editorial landing page,
+   but quieter and more utilitarian than the Research & Discovery surface. */
+.structured-workspace {
+  --workspace-paper: #F3EDE4;
+  --workspace-surface: #FFF9F3;
+  --workspace-surface-2: #EDE4D8;
+  --workspace-ink: #4A4238;
+  --workspace-muted: #786F64;
+  --workspace-border: rgba(74, 66, 56, 0.14);
+  --workspace-accent: #E3836C;
+  background: var(--workspace-paper) !important;
+  color: var(--workspace-ink) !important;
+}
+
+.structured-workspace .bg-\[\#0B0D10\],
+.structured-workspace .bg-\[\#0E1014\],
+.structured-workspace .bg-\[\#0E1014\]\/90 { background-color: var(--workspace-paper) !important; }
+.structured-workspace .bg-\[\#14171B\],
+.structured-workspace .bg-\[\#14171B\]\/40 { background-color: var(--workspace-surface) !important; }
+.structured-workspace .bg-\[\#1C2025\] { background-color: var(--workspace-surface-2) !important; }
+.structured-workspace .border-white\/\[0\.08\],
+.structured-workspace .border-white\/\[0\.06\],
+.structured-workspace .border-white\/\[0\.12\],
+.structured-workspace .border-white\/\[0\.16\] { border-color: var(--workspace-border) !important; }
+.structured-workspace .text-\[\#EDEFF2\],
+.structured-workspace .hover\:text-\[\#EDEFF2\]:hover { color: var(--workspace-ink) !important; }
+.structured-workspace .text-\[\#8B93A1\],
+.structured-workspace .text-\[\#8B93A1\]\/40 { color: var(--workspace-muted) !important; }
+.structured-workspace .bg-\[\#3D6FE0\],
+.structured-workspace .hover\:bg-\[\#3D6FE0\]:hover { background-color: var(--workspace-accent) !important; }
+.structured-workspace .hover\:bg-\[\#4D7FF0\]:hover { background-color: #C96F5A !important; }
+.structured-workspace .text-\[\#3D6FE0\],
+.structured-workspace .text-\[\#5B8CF5\] { color: #B86450 !important; }
+.structured-workspace .bg-\[\#3D6FE0\]\/15 { background-color: rgba(227, 131, 108, 0.14) !important; }
+.structured-workspace .border-\[\#3D6FE0\]\/30 { border-color: rgba(227, 131, 108, 0.3) !important; }
+.structured-workspace .bg-white\/\[0\.03\]:hover,
+.structured-workspace .bg-white\/\[0\.06\]:hover,
+.structured-workspace .bg-white\/\[0\.08\]:hover { background-color: rgba(74, 66, 56, 0.06) !important; }
+
 /* 3D Animations & Keyframes */
 @keyframes v3d-rotate3d {
   0%   { transform: rotateY(0deg); }

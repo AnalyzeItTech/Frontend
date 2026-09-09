@@ -36,6 +36,7 @@ import {
   IconRefresh,
   IconLogout,
   IconLock,
+  IconWorld,
 } from '@tabler/icons-react';
 import {
   getProjectLayout,
@@ -545,7 +546,7 @@ export default function DashboardPage() {
   const analyticalWidgets = currentLayout.widgets.filter((w) => w.type !== 'metric_card' && (w.type as any) !== 'kpi');
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#0B0D10] text-[#EDEFF2] font-sans antialiased">
+    <div className="structured-workspace flex h-screen w-screen overflow-hidden bg-[#0B0D10] text-[#EDEFF2] font-sans antialiased">
       {/* Backdrop for open dropdowns */}
       {isExportMenuOpen && (
         <div
@@ -560,7 +561,7 @@ export default function DashboardPage() {
         <div className="flex flex-col items-center gap-5 w-full">
           {/* Technical App Mark */}
           <Link href="/" className="group p-1.5 rounded-xl hover:bg-white/[0.06] transition-colors" title="AnalyzeIt Home">
-            <div className="w-8 h-8 rounded-lg bg-[#3D6FE0] flex items-center justify-center font-mono font-bold text-white text-base shadow-sm">
+            <div className="w-8 h-8 rounded-lg bg-[#3D6FE0] flex items-center justify-center font-serif font-semibold text-white text-lg shadow-sm">
               A
             </div>
           </Link>
@@ -722,6 +723,14 @@ export default function DashboardPage() {
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2.5">
+            <Link
+              href="/research"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] hover:border-white/[0.16] hover:bg-white/[0.03] text-xs font-medium text-[#8B93A1] hover:text-[#EDEFF2] transition-colors"
+              title="Open the Research & Discovery agent"
+            >
+              <IconWorld size={14} />
+              Research
+            </Link>
             {/* Export Dropdown */}
             <div className="relative">
               <button

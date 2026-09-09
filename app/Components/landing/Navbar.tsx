@@ -94,10 +94,10 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center gap-2.5 sm:gap-3">
             <ThemeToggle />
             <Link
-              href="/Dashboard"
+              href="/research"
               className="text-xs text-[#403934]/80 hover:text-[#E3836C] font-medium px-3 py-1.5 transition-colors"
             >
-              Dashboard
+              Research
             </Link>
             <Link
               href="/login"
