@@ -1,6 +1,7 @@
 'use client';
 
 import { WidgetSpec } from './chatApi';
+import { createProjectShareLink } from './exportApi';
 
 /**
  * Helper to download a text/blob file in the browser
@@ -507,9 +508,12 @@ export function exportDashboardToDocx(projectName: string, widgets: WidgetSpec[]
  */
 export async function copyShareableLink(projectId?: string | null): Promise<string> {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const shareUrl = projectId
-    ? `${origin}/new-project?projectId=${encodeURIComponent(projectId)}`
-    : `${origin}/Dashboard`;
+  if (!projectId) {
+    throw new Error('Select a project before creating a share link.');
+  }
+
+  const { share_url: relativeShareUrl } = await createProjectShareLink(projectId);
+  const shareUrl = new URL(relativeShareUrl, origin || 'http://localhost:3000').toString();
 
   if (navigator.clipboard) {
     await navigator.clipboard.writeText(shareUrl);

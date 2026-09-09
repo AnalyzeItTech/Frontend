@@ -1,6 +1,7 @@
 import { getAuthHeaders } from './auth';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_V1 = `${API_BASE}/v1`;
 
 export interface SharedProjectData {
   ok: boolean;
@@ -35,7 +36,7 @@ export interface ProjectDuplicateResponse {
  */
 export async function exportProjectZip(projectId: string): Promise<Blob> {
   const headers = getAuthHeaders();
-  const res = await fetch(`${API_BASE}/projects/${projectId}/export`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/export`, {
     method: 'GET',
     headers: {
       ...headers,
@@ -70,7 +71,7 @@ export async function downloadProjectZip(projectId: string, customFilename?: str
  */
 export async function createProjectShareLink(projectId: string): Promise<{ share_token: string; share_url: string }> {
   const headers = getAuthHeaders();
-  const res = await fetch(`${API_BASE}/projects/${projectId}/share`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/share`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -90,7 +91,7 @@ export async function createProjectShareLink(projectId: string): Promise<{ share
  * Fetches a shared read-only project by token.
  */
 export async function getSharedProject(shareToken: string): Promise<SharedProjectData> {
-  const res = await fetch(`${API_BASE}/shared/${shareToken}`, {
+  const res = await fetch(`${API_V1}/shared/${shareToken}`, {
     method: 'GET',
   });
 
@@ -107,7 +108,7 @@ export async function getSharedProject(shareToken: string): Promise<SharedProjec
  */
 export async function getUserUsage(): Promise<UserUsageData> {
   const headers = getAuthHeaders();
-  const res = await fetch(`${API_BASE}/users/me/usage`, {
+  const res = await fetch(`${API_V1}/users/me/usage`, {
     method: 'GET',
     headers: {
       ...headers,
@@ -127,7 +128,7 @@ export async function getUserUsage(): Promise<UserUsageData> {
  */
 export async function duplicateProject(projectId: string): Promise<ProjectDuplicateResponse> {
   const headers = getAuthHeaders();
-  const res = await fetch(`${API_BASE}/projects/${projectId}/duplicate`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/duplicate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -13,6 +13,7 @@ import {
   IconTable,
   IconX,
 } from '@tabler/icons-react';
+import { getStoredToken } from '../lib/auth';
 import { streamChat, StreamEvent, WidgetSpec } from '../lib/chatApi';
 
 const EarthGlobe = dynamic(
@@ -51,6 +52,11 @@ export default function ResearchPage() {
 
   const runResearch = async (value = query) => {
     if (!value.trim()) return;
+    if (!getStoredToken()) {
+      setError('Sign in to use Research & Discovery.');
+      setResult(null);
+      return;
+    }
     setIsResearching(true);
     setError(null);
     setResult(null);
@@ -115,8 +121,8 @@ export default function ResearchPage() {
           <form onSubmit={(event) => { event.preventDefault(); runResearch(); }} className="mt-7 rounded-[1.35rem] border border-[#4A4238]/15 bg-[#FFF9F3]/90 p-2 shadow-xl shadow-[#4A4238]/10 backdrop-blur-xl">
             <div className="flex items-center gap-3 px-3 py-2">
               <IconSearch size={18} className="shrink-0 text-[#E3836C]" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ask a question or explore a place…" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#8F8477]" />
-              <button type="submit" aria-label="Research" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E3836C] text-white transition hover:bg-[#C96F5A]"><IconSend size={16} /></button>
+              <input value={query} onChange={(event) => { setQuery(event.target.value); setError(null); }} disabled={isResearching} placeholder="Ask a question or explore a place…" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#8F8477] disabled:opacity-60" />
+              <button type="submit" aria-label="Research" aria-busy={isResearching} disabled={isResearching || !query.trim()} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E3836C] text-white transition hover:bg-[#C96F5A] disabled:cursor-not-allowed disabled:opacity-50"><IconSend size={16} /></button>
             </div>
             <div className="flex flex-wrap items-center gap-2 border-t border-[#4A4238]/10 px-3 pt-2">
               <span className="text-[10px] font-mono uppercase tracking-wider text-[#8F8477]">Sources selected per question</span>

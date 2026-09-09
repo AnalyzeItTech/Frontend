@@ -1,6 +1,7 @@
 import { getAuthHeaders } from './auth';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_V1 = `${API_BASE}/v1`;
 
 export interface ObjectField {
   api_name: string;
@@ -122,7 +123,7 @@ export interface ProjectPipeline {
 // ─── Custom Objects & Schema Fetchers ──────────────────────────────────────────
 
 export async function fetchObjectSchemas(projectId: string): Promise<ObjectSchema[]> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/objects`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/objects`, {
     headers: { ...getAuthHeaders() },
   });
   if (!res.ok) throw new Error(`Failed to fetch object schemas: ${res.statusText}`);
@@ -139,7 +140,7 @@ export async function createObjectSchema(
     fields: ObjectField[];
   }
 ): Promise<ObjectSchema> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/objects`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/objects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payload),
@@ -161,7 +162,7 @@ export async function updateObjectSchema(
     expected_version?: number;
   }
 ): Promise<ObjectSchema> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/objects/${identifier}`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/objects/${identifier}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payload),
@@ -174,7 +175,7 @@ export async function updateObjectSchema(
 }
 
 export async function deleteObjectSchema(projectId: string, identifier: string): Promise<boolean> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/objects/${identifier}`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/objects/${identifier}`, {
     method: 'DELETE',
     headers: { ...getAuthHeaders() },
   });
@@ -211,7 +212,7 @@ export async function fetchRecords(
   }
 
   const res = await fetch(
-    `${API_BASE}/projects/${projectId}/objects/${schemaId}/records?${params.toString()}`,
+    `${API_V1}/projects/${projectId}/objects/${schemaId}/records?${params.toString()}`,
     {
       headers: { ...getAuthHeaders() },
     }
@@ -231,7 +232,7 @@ export async function fetchRecords(
 }
 
 export async function fetchRecordDetail(recordId: string): Promise<ObjectRecord> {
-  const res = await fetch(`${API_BASE}/records/${recordId}`, {
+  const res = await fetch(`${API_V1}/records/${recordId}`, {
     headers: { ...getAuthHeaders() },
   });
   if (!res.ok) throw new Error(`Failed to fetch record detail: ${res.statusText}`);
@@ -239,7 +240,7 @@ export async function fetchRecordDetail(recordId: string): Promise<ObjectRecord>
 }
 
 export async function fetchRelatedRecords(recordId: string): Promise<RelatedRecordsResponse> {
-  const res = await fetch(`${API_BASE}/records/${recordId}/related`, {
+  const res = await fetch(`${API_V1}/records/${recordId}/related`, {
     headers: { ...getAuthHeaders() },
   });
   if (!res.ok) return { record_id: recordId, related: [] };
@@ -251,7 +252,7 @@ export async function createRecord(
   schemaId: string,
   data: Record<string, any>
 ): Promise<ObjectRecord> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/objects/${schemaId}/records`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/objects/${schemaId}/records`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ data, values: data, origin: 'manual' }),
@@ -270,7 +271,7 @@ export async function updateRecord(
   data: Record<string, any>
 ): Promise<ObjectRecord> {
   const res = await fetch(
-    `${API_BASE}/records/${recordId}`,
+    `${API_V1}/records/${recordId}`,
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -291,7 +292,7 @@ export async function deleteRecord(
   strategy: string = 'nullify'
 ): Promise<{ ok: boolean; deleted: boolean; unlinked_references?: number }> {
   const res = await fetch(
-    `${API_BASE}/records/${recordId}?strategy=${strategy}`,
+    `${API_V1}/records/${recordId}?strategy=${strategy}`,
     {
       method: 'DELETE',
       headers: { ...getAuthHeaders() },
@@ -307,7 +308,7 @@ export async function deleteRecord(
 // ─── Live Connectors Fetchers ──────────────────────────────────────────────────
 
 export async function fetchAvailableConnectors(): Promise<any[]> {
-  const res = await fetch(`${API_BASE}/connectors/available`, {
+  const res = await fetch(`${API_V1}/connectors/available`, {
     headers: { ...getAuthHeaders() },
   });
   if (!res.ok) return [];
@@ -315,7 +316,7 @@ export async function fetchAvailableConnectors(): Promise<any[]> {
 }
 
 export async function fetchProjectConnectors(projectId: string): Promise<Connector[]> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/connectors`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/connectors`, {
     headers: { ...getAuthHeaders() },
   });
   if (!res.ok) return [];
@@ -327,7 +328,7 @@ export async function authorizeConnector(
   provider: string,
   redirectUri: string
 ): Promise<{ auth_url: string; state: string }> {
-  const res = await fetch(`${API_BASE}/connectors/${provider}/authorize`, {
+  const res = await fetch(`${API_V1}/connectors/${provider}/authorize`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ project_id: projectId, redirect_uri: redirectUri }),
@@ -340,7 +341,7 @@ export async function authorizeConnector(
 }
 
 export async function syncConnector(connectorId: string): Promise<any> {
-  const res = await fetch(`${API_BASE}/connectors/${connectorId}/sync`, {
+  const res = await fetch(`${API_V1}/connectors/${connectorId}/sync`, {
     method: 'POST',
     headers: { ...getAuthHeaders() },
   });
@@ -349,7 +350,7 @@ export async function syncConnector(connectorId: string): Promise<any> {
 }
 
 export async function revokeConnector(connectorId: string): Promise<boolean> {
-  const res = await fetch(`${API_BASE}/connectors/${connectorId}`, {
+  const res = await fetch(`${API_V1}/connectors/${connectorId}`, {
     method: 'DELETE',
     headers: { ...getAuthHeaders() },
   });
@@ -360,15 +361,15 @@ export async function revokeConnector(connectorId: string): Promise<boolean> {
 
 export async function fetchModuleLibrary(category?: string): Promise<ModuleTemplate[]> {
   const url = category
-    ? `${API_BASE}/modules/library?category=${category}`
-    : `${API_BASE}/modules/library`;
+    ? `${API_V1}/modules/library?category=${category}`
+    : `${API_V1}/modules/library`;
   const res = await fetch(url, { headers: { ...getAuthHeaders() } });
   if (!res.ok) return [];
   return res.json();
 }
 
 export async function fetchProjectPipeline(projectId: string): Promise<ProjectPipeline> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/pipeline`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/pipeline`, {
     headers: { ...getAuthHeaders() },
   });
   if (!res.ok) return { project_id: projectId, modules: [], provided_capabilities: [] };
@@ -380,7 +381,7 @@ export async function installProjectModule(
   moduleId: string,
   overrides?: Record<string, any>
 ): Promise<any> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/modules/install`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/modules/install`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ module_id: moduleId, overrides: overrides || {} }),
@@ -396,7 +397,7 @@ export async function uninstallProjectModule(
   projectId: string,
   instanceId: string
 ): Promise<boolean> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/modules/${instanceId}`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/modules/${instanceId}`, {
     method: 'DELETE',
     headers: { ...getAuthHeaders() },
   });

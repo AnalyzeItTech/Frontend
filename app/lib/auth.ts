@@ -1,4 +1,5 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_V1 = `${API_BASE}/v1`;
 
 export interface UserProfile {
   id: string;
@@ -56,7 +57,7 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
-  const res = await fetch(`${API_BASE}/auth/login`, {
+  const res = await fetch(`${API_V1}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -73,7 +74,7 @@ export async function login(email: string, password: string): Promise<AuthResult
 }
 
 export async function register(name: string, email: string, password: string): Promise<AuthResult> {
-  const res = await fetch(`${API_BASE}/auth/register`, {
+  const res = await fetch(`${API_V1}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, email, password }),
@@ -94,7 +95,7 @@ export async function fetchMe(): Promise<UserProfile | null> {
   if (!token) return null;
 
   try {
-    const res = await fetch(`${API_BASE}/auth/me`, {
+    const res = await fetch(`${API_V1}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {
@@ -114,7 +115,7 @@ export async function fetchMe(): Promise<UserProfile | null> {
 }
 
 export async function updateUserProfile(data: { name?: string; preferences?: Record<string, unknown> }): Promise<UserProfile> {
-  const res = await fetch(`${API_BASE}/auth/profile`, {
+  const res = await fetch(`${API_V1}/auth/profile`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
@@ -133,7 +134,7 @@ export async function updateUserProfile(data: { name?: string; preferences?: Rec
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean; message: string }> {
-  const res = await fetch(`${API_BASE}/auth/change-password`, {
+  const res = await fetch(`${API_V1}/auth/change-password`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),

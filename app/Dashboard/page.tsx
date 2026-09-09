@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -16,7 +15,7 @@ import {
   IconSend,
   IconEdit,
   IconTrash,
-  IconSettings,
+  IconCopy,
   IconUser,
   IconFolder,
   IconFolderPlus,
@@ -35,13 +34,13 @@ import {
   IconArrowUpRight,
   IconRefresh,
   IconLogout,
-  IconLock,
   IconWorld,
 } from '@tabler/icons-react';
 import {
   getProjectLayout,
   applyUIAction,
   getProjects,
+  getProjectById,
   createProject,
   updateProject,
   deleteProject,
@@ -59,7 +58,7 @@ import {
   changePassword,
   type UserProfile,
 } from '../lib/auth';
-import { downloadProjectZip } from '../lib/exportApi';
+import { downloadProjectZip, duplicateProject } from '../lib/exportApi';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 import { ObjectBuilderView } from '../Components/dashboard/ObjectBuilderView';
 import { ConnectorsView } from '../Components/dashboard/ConnectorsView';
@@ -106,6 +105,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [serverProjects, setServerProjects] = useState<ProjectSummary[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(true);
+  const [isOnline, setIsOnline] = useState(true);
 
   // ─── Export Menu & Toast State ───────────────────────────────────────────────
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
@@ -126,6 +126,7 @@ export default function DashboardPage() {
 
   const [projectToDelete, setProjectToDelete] = useState<ProjectSummary | null>(null);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
+  const [isDuplicatingProject, setIsDuplicatingProject] = useState<string | null>(null);
 
   // ─── User Profile & Settings Modal ──────────────────────────────────────────
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
@@ -139,6 +140,17 @@ export default function DashboardPage() {
   const [userActionErr, setUserActionErr] = useState<string | null>(null);
 
   // ─── Initial Load & Hydration ────────────────────────────────────────────────
+  useEffect(() => {
+    const updateOnlineState = () => setIsOnline(navigator.onLine);
+    updateOnlineState();
+    window.addEventListener('online', updateOnlineState);
+    window.addEventListener('offline', updateOnlineState);
+    return () => {
+      window.removeEventListener('online', updateOnlineState);
+      window.removeEventListener('offline', updateOnlineState);
+    };
+  }, []);
+
   useEffect(() => {
     async function loadWorkspace() {
       setIsLoadingProjects(true);
@@ -188,6 +200,8 @@ export default function DashboardPage() {
         console.warn('Could not load remote projects:', err);
         setServerProjects([]);
         setCurrentLayout({ widgets: [] });
+        setExportToastMsg(err instanceof Error ? err.message : 'Could not load workspace projects.');
+        setTimeout(() => setExportToastMsg(null), 5000);
       } finally {
         setIsLoadingProjects(false);
       }
@@ -213,6 +227,8 @@ export default function DashboardPage() {
     } catch (err) {
       console.warn('Failed to load layout for project:', err);
       setCurrentLayout({ widgets: [] });
+      setExportToastMsg(err instanceof Error ? err.message : 'Could not load this project layout.');
+      setTimeout(() => setExportToastMsg(null), 5000);
     }
   };
 
@@ -249,7 +265,8 @@ export default function DashboardPage() {
       setExportToastMsg(`Project "${created.name}" created!`);
       setTimeout(() => setExportToastMsg(null), 3000);
     } catch (err: any) {
-      alert(err?.message || 'Failed to create project');
+      setExportToastMsg(err?.message || 'Failed to create project');
+      setTimeout(() => setExportToastMsg(null), 5000);
     } finally {
       setIsCreatingProject(false);
     }
@@ -272,7 +289,8 @@ export default function DashboardPage() {
       setExportToastMsg(`Project created from "${template.name}" template!`);
       setTimeout(() => setExportToastMsg(null), 3000);
     } catch (err: any) {
-      alert(err?.message || 'Failed to instantiate template project');
+      setExportToastMsg(err?.message || 'Failed to instantiate template project');
+      setTimeout(() => setExportToastMsg(null), 5000);
     } finally {
       setIsApplyingTemplate(null);
     }
@@ -294,7 +312,8 @@ export default function DashboardPage() {
       setProjectToRename(null);
       setRenameName('');
     } catch (err: any) {
-      alert(err?.message || 'Failed to rename project');
+      setExportToastMsg(err?.message || 'Failed to rename project');
+      setTimeout(() => setExportToastMsg(null), 5000);
     } finally {
       setIsRenamingProject(false);
     }
@@ -320,9 +339,33 @@ export default function DashboardPage() {
       }
       setProjectToDelete(null);
     } catch (err: any) {
-      alert(err?.message || 'Failed to delete project');
+      setExportToastMsg(err?.message || 'Failed to delete project');
+      setTimeout(() => setExportToastMsg(null), 5000);
     } finally {
       setIsDeletingProject(false);
+    }
+  };
+
+  const handleDuplicateProject = async (project: ProjectSummary) => {
+    if (isDuplicatingProject) return;
+    setIsDuplicatingProject(project.id);
+    try {
+      const duplicated = await duplicateProject(project.id);
+      const summary = await getProjectById(duplicated.project_id);
+      setServerProjects((prev) => [summary, ...prev]);
+      setActiveProjectId(summary.id);
+      setActiveProjectName(summary.name);
+      const layoutData = await getProjectLayout(summary.id);
+      setCurrentLayout(layoutData.layout_json || { widgets: [] });
+      setLayoutVersion(layoutData.version || 1);
+      setIsProjectsModalOpen(false);
+      setExportToastMsg(`Project duplicated as "${summary.name}"`);
+      setTimeout(() => setExportToastMsg(null), 3000);
+    } catch (err) {
+      setExportToastMsg(err instanceof Error ? err.message : 'Failed to duplicate project');
+      setTimeout(() => setExportToastMsg(null), 5000);
+    } finally {
+      setIsDuplicatingProject(null);
     }
   };
 
@@ -499,7 +542,7 @@ export default function DashboardPage() {
     setPendingProposal(null);
   };
 
-  const handleWidgetAction = (widgetId: string, action: string, payload?: unknown) => {
+  const handleWidgetAction = (widgetId: string, action: string) => {
     if (action === 'delete' || action === 'remove_widget') {
       setCurrentLayout((prev) => ({
         ...prev,
@@ -845,9 +888,14 @@ export default function DashboardPage() {
                         type="button"
                         onClick={async () => {
                           setIsExportMenuOpen(false);
-                          await copyShareableLink(activeProjectId);
-                          setExportToastMsg('Shareable link copied to clipboard!');
-                          setTimeout(() => setExportToastMsg(null), 3000);
+                          try {
+                            await copyShareableLink(activeProjectId);
+                            setExportToastMsg('Shareable link copied to clipboard!');
+                            setTimeout(() => setExportToastMsg(null), 3000);
+                          } catch (err) {
+                            setExportToastMsg(err instanceof Error ? err.message : 'Failed to create shareable link');
+                            setTimeout(() => setExportToastMsg(null), 5000);
+                          }
                         }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#5B8CF5] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
                       >
@@ -867,9 +915,14 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={async () => {
-                await copyShareableLink(activeProjectId);
-                setExportToastMsg('Shareable link copied to clipboard!');
-                setTimeout(() => setExportToastMsg(null), 3000);
+                try {
+                  await copyShareableLink(activeProjectId);
+                  setExportToastMsg('Shareable link copied to clipboard!');
+                  setTimeout(() => setExportToastMsg(null), 3000);
+                } catch (err) {
+                  setExportToastMsg(err instanceof Error ? err.message : 'Failed to create shareable link');
+                  setTimeout(() => setExportToastMsg(null), 5000);
+                }
               }}
               className="px-3 py-1.5 rounded-lg border border-white/[0.08] hover:border-white/[0.16] hover:bg-white/[0.03] text-xs font-medium text-[#8B93A1] hover:text-[#EDEFF2] flex items-center gap-1.5 transition-colors cursor-pointer"
             >
@@ -907,7 +960,16 @@ export default function DashboardPage() {
           {/* ─── TAB: DASHBOARD CANVAS ─── */}
           {studioTab === 'canvas' && (
             <>
-              {currentLayout.widgets.length > 0 ? (
+              {isLoadingProjects ? (
+                <div role="status" aria-live="polite" className="space-y-4">
+                  <div className="h-24 rounded-2xl border border-white/[0.08] bg-[#14171B]/60 animate-pulse" />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="h-64 rounded-2xl border border-white/[0.08] bg-[#14171B]/40 animate-pulse" />
+                    <div className="h-64 rounded-2xl border border-white/[0.08] bg-[#14171B]/40 animate-pulse" />
+                  </div>
+                  <span className="sr-only">Loading workspaces and dashboard layout</span>
+                </div>
+              ) : currentLayout.widgets.length > 0 ? (
                 <div className="space-y-6">
                   {/* 1. Hero KPI Strip (Compact, High-Density 28px Tabular Figures) */}
                   {kpiWidgets.length > 0 && (
@@ -1235,14 +1297,27 @@ export default function DashboardPage() {
 
       {/* ─── TOAST NOTIFICATION ─── */}
       <AnimatePresence>
+        {!isOnline && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            role="status"
+            className="fixed top-20 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-[#D98F3F]/40 bg-[#2A2117] px-4 py-2.5 text-xs font-medium text-[#F2C078] shadow-2xl"
+          >
+            You are offline. Changes will not reach the workspace until the connection returns.
+          </motion.div>
+        )}
         {exportToastMsg && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-20 z-50 px-4 py-2.5 rounded-xl bg-[#1C2025] border border-white/[0.15] text-[#EDEFF2] text-xs font-medium shadow-2xl flex items-center gap-2"
+            role="status"
+            aria-live="polite"
+            className={`fixed bottom-6 left-20 z-50 px-4 py-2.5 rounded-xl bg-[#1C2025] border text-[#EDEFF2] text-xs font-medium shadow-2xl flex items-center gap-2 ${/failed|could not|error|expired|unauthorized|conflict/i.test(exportToastMsg) ? 'border-[#EF6C6C]/40' : 'border-white/[0.15]'}`}
           >
-            <IconCheck size={16} className="text-[#3FB68C]" />
+            {/failed|could not|error|expired|unauthorized|conflict/i.test(exportToastMsg) ? <IconX size={16} className="text-[#EF6C6C]" /> : <IconCheck size={16} className="text-[#3FB68C]" />}
             <span>{exportToastMsg}</span>
           </motion.div>
         )}
@@ -1300,9 +1375,19 @@ export default function DashboardPage() {
                         className={`py-3 px-3.5 flex items-center justify-between rounded-xl transition-colors cursor-pointer ${
                           isActive ? 'bg-[#1C2025] border border-[#3D6FE0]/30' : 'hover:bg-white/[0.03]'
                         }`}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={isActive}
                         onClick={() => {
                           handleSelectProject(proj);
                           setIsProjectsModalOpen(false);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            handleSelectProject(proj);
+                            setIsProjectsModalOpen(false);
+                          }
                         }}
                       >
                         <div>
@@ -1334,10 +1419,36 @@ export default function DashboardPage() {
                           >
                             <IconTrash size={14} />
                           </button>
+                          <button
+                            onClick={() => void handleDuplicateProject(proj)}
+                            disabled={isDuplicatingProject !== null}
+                            className="p-1.5 text-[#8B93A1] hover:text-[#5B8CF5] transition-colors disabled:opacity-40"
+                            title="Duplicate"
+                          >
+                            {isDuplicatingProject === proj.id ? <IconRefresh size={14} className="animate-spin" /> : <IconCopy size={14} />}
+                          </button>
                         </div>
                       </div>
                     );
                   })}
+                {!isLoadingProjects && serverProjects.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                  <div className="px-4 py-8 text-center">
+                    <p className="text-xs text-[#8B93A1]">{searchQuery ? 'No workspaces match this filter.' : 'No workspaces yet.'}</p>
+                    {!searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsProjectsModalOpen(false);
+                          setNewProjectName('');
+                          setIsNewProjectOpen(true);
+                        }}
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#3D6FE0] px-3 py-1.5 text-xs font-medium text-white"
+                      >
+                        <IconPlus size={14} /> Create workspace
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between pt-3 border-t border-white/[0.08]">

@@ -1,6 +1,7 @@
 import { getAuthHeaders, getStoredUser } from './auth';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_V1 = `${API_BASE}/v1`;
 
 export interface StreamEvent {
   v: number;
@@ -344,7 +345,7 @@ export async function streamChat(options: ChatOptions): Promise<{
   const effectiveUserId = options.userId || (storedUser ? storedUser.id : 'demo-user');
   const { message, userId = effectiveUserId, projectId, runId, projectTitle, incognito, layout, onEvent } = options;
 
-  const response = await fetch(`${API_BASE}/chat`, {
+  const response = await fetch(`${API_V1}/chat`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({
@@ -443,20 +444,24 @@ export async function streamChat(options: ChatOptions): Promise<{
 }
 
 export function getArtifactUrl(artifactId: string): string {
-  return `${API_BASE}/artifacts/${artifactId}`;
+  return `${API_V1}/artifacts/${artifactId}`;
 }
 
 export async function getRun(runId: string) {
-  const response = await fetch(`${API_BASE}/runs/${runId}`);
+  const response = await fetch(`${API_V1}/runs/${runId}`);
   if (!response.ok) throw new Error(`Failed to fetch run: ${response.status}`);
   return response.json();
 }
 
 export async function getProjectLayout(projectId: string): Promise<ProjectLayoutData> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/layout`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/layout`, {
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error(`Failed to fetch project layout: ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('Your session has expired. Please sign in again.');
+    if (res.status === 403) throw new Error('You are not authorized to view this project layout.');
+    throw new Error(`Failed to fetch project layout: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -466,7 +471,7 @@ export async function updateProjectLayout(
   layoutJson: { widgets: WidgetSpec[] },
   updatedBy: 'user' | 'agent' = 'user'
 ): Promise<ProjectLayoutData> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/layout`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/layout`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify({
@@ -479,6 +484,8 @@ export async function updateProjectLayout(
     if (res.status === 409) {
       throw new Error('Conflict: Layout was modified concurrently. Please refresh.');
     }
+    if (res.status === 401) throw new Error('Your session has expired. Please sign in again.');
+    if (res.status === 403) throw new Error('You are not authorized to update this project layout.');
     throw new Error(`Failed to update layout: ${res.status}`);
   }
   return res.json();
@@ -489,12 +496,17 @@ export async function applyUIAction(
   actionId: string,
   applied: boolean
 ): Promise<{ action_id: string; status: string; applied: boolean; layout?: { widgets: WidgetSpec[] }; layout_version?: number }> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/actions/${actionId}/apply`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/actions/${actionId}/apply`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ applied }),
   });
-  if (!res.ok) throw new Error(`Failed to apply UI action: ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('Your session has expired. Please sign in again.');
+    if (res.status === 403) throw new Error('You are not authorized to change this project.');
+    if (res.status === 409) throw new Error('Conflict: The project changed while applying this action.');
+    throw new Error(`Failed to apply UI action: ${res.status}`);
+  }
   return res.json();
 }
 
@@ -507,9 +519,8 @@ export interface ProjectSummary {
   updated_at?: string;
 }
 
-export async function getProjects(userId?: string): Promise<ProjectSummary[]> {
-  const effectiveUserId = userId || getStoredUser()?.id || 'demo-user';
-  const res = await fetch(`${API_BASE}/projects?user_id=${encodeURIComponent(effectiveUserId)}`, {
+export async function getProjects(_userId?: string): Promise<ProjectSummary[]> {
+  const res = await fetch(`${API_V1}/projects`, {
     headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to fetch projects: ${res.status}`);
@@ -517,16 +528,15 @@ export async function getProjects(userId?: string): Promise<ProjectSummary[]> {
 }
 
 export async function getProjectById(projectId: string): Promise<ProjectSummary> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}`, {
     headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(`Failed to fetch project: ${res.status}`);
   return res.json();
 }
 
-export async function createProject(name: string, userId?: string): Promise<ProjectSummary> {
-  const effectiveUserId = userId || getStoredUser()?.id || 'demo-user';
-  const res = await fetch(`${API_BASE}/projects?user_id=${encodeURIComponent(effectiveUserId)}`, {
+export async function createProject(name: string, _userId?: string): Promise<ProjectSummary> {
+  const res = await fetch(`${API_V1}/projects`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ name }),
@@ -536,7 +546,7 @@ export async function createProject(name: string, userId?: string): Promise<Proj
 }
 
 export async function updateProject(projectId: string, name: string): Promise<ProjectSummary> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify({ name }),
@@ -546,7 +556,7 @@ export async function updateProject(projectId: string, name: string): Promise<Pr
 }
 
 export async function deleteProject(projectId: string): Promise<{ ok: boolean; id: string }> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });
@@ -578,7 +588,7 @@ export async function refreshWidgetData(
   projectId: string,
   widgetId: string
 ): Promise<{ ok: boolean; updated_widget?: WidgetSpec; refreshed_at?: string; anomaly_proposal?: UIProposalPayload }> {
-  const res = await fetch(`${API_BASE}/projects/${projectId}/widgets/${widgetId}/refresh`, {
+  const res = await fetch(`${API_V1}/projects/${projectId}/widgets/${widgetId}/refresh`, {
     method: 'POST',
     headers: getAuthHeaders(),
   });
@@ -593,7 +603,7 @@ export async function saveProjectTemplate(
   tags?: string[],
   isPublic = false
 ): Promise<ProjectTemplate> {
-  const res = await fetch(`${API_BASE}/templates`, {
+  const res = await fetch(`${API_V1}/templates`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ name, widgets, description, tags, is_public: isPublic }),
@@ -604,7 +614,7 @@ export async function saveProjectTemplate(
 
 export async function getProjectTemplates(): Promise<ProjectTemplate[]> {
   try {
-    const res = await fetch(`${API_BASE}/templates`, {
+    const res = await fetch(`${API_V1}/templates`, {
       headers: getAuthHeaders(),
     });
     if (!res.ok) return [];
@@ -621,7 +631,7 @@ export async function sendPresenceHeartbeat(
   focusedWidgetId?: string | null
 ): Promise<PresenceUser[]> {
   try {
-    const res = await fetch(`${API_BASE}/projects/${projectId}/presence`, {
+    const res = await fetch(`${API_V1}/projects/${projectId}/presence`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ user_id: userId, user_name: userName, focused_widget_id: focusedWidgetId }),
@@ -636,9 +646,10 @@ export async function sendPresenceHeartbeat(
 
 export async function removePresence(projectId: string, userId: string): Promise<void> {
   try {
-    await fetch(`${API_BASE}/projects/${projectId}/presence?user_id=${encodeURIComponent(userId)}`, {
+    await fetch(`${API_V1}/projects/${projectId}/presence`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
+      body: JSON.stringify({ user_id: userId }),
     });
   } catch {
     // best-effort cleanup
