@@ -205,19 +205,57 @@ export interface GeoSearchHit {
   population?: number;
 }
 
+async function searchPlacesOpenMeteo(query: string, limit: number): Promise<GeoSearchHit[]> {
+  const res = await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=${limit}&language=en&format=json`,
+  );
+  if (!res.ok) return [];
+  const data = (await res.json()) as {
+    results?: Array<{
+      name?: string;
+      country?: string;
+      admin1?: string;
+      admin2?: string;
+      latitude: number;
+      longitude: number;
+      feature_code?: string;
+      population?: number;
+    }>;
+  };
+  return (data.results || []).map((row) => {
+    const name = String(row.name || '').trim();
+    const country = row.country || '';
+    const region = row.admin1 || row.admin2 || country || 'World';
+    return {
+      name,
+      display_name: `${name}${country ? `, ${country}` : ''}`,
+      country,
+      region,
+      lat: row.latitude,
+      lon: row.longitude,
+      feature: row.feature_code,
+      population: row.population,
+    };
+  }).filter((h) => h.name);
+}
+
+/** World geocode: backend first, then Open-Meteo in the browser (cities / countries / landmarks). */
 export async function searchPlaces(query: string, limit = 8): Promise<GeoSearchHit[]> {
   const q = query.trim();
   if (q.length < 2) return [];
-  const res = await fetch(
-    `${API_BASE}/v1/geo/search?q=${encodeURIComponent(q)}&limit=${limit}`,
-    { headers: getAuthHeaders() },
-  );
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `Place search failed (${res.status})`);
+  try {
+    const res = await fetch(
+      `${API_BASE}/v1/geo/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+      { headers: getAuthHeaders() },
+    );
+    if (res.ok) {
+      const data = (await res.json()) as { results?: GeoSearchHit[] };
+      if (data.results && data.results.length > 0) return data.results;
+    }
+  } catch {
+    /* fall through to Open-Meteo */
   }
-  const data = (await res.json()) as { results?: GeoSearchHit[] };
-  return data.results || [];
+  return searchPlacesOpenMeteo(q, limit);
 }
 
 export async function fetchPlaceContext(latitude: number, longitude: number): Promise<PlaceContext> {

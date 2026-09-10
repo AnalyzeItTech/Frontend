@@ -90,7 +90,7 @@ export function PlaceContextCard({
   };
 
   return (
-    <div className="app-card pointer-events-auto flex h-[min(78dvh,640px)] w-full max-w-md flex-col overflow-hidden shadow-xl">
+    <div className="app-card pointer-events-auto flex max-h-[min(72dvh,560px)] w-full max-w-md flex-col overflow-hidden shadow-xl">
       <div className="flex shrink-0 items-start justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
         <div className="min-w-0">
           <h4 className="truncate font-serif text-base font-semibold text-[var(--text-primary)]">

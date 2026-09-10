@@ -43,6 +43,7 @@ export interface GlobeSourceMarker {
 export interface EarthGlobeHandle {
   flyToName: (name: string) => boolean;
   flyToPlace: (place: GlobeLocation) => void;
+  flyToLatLon: (lat: number, lon: number, meta?: { name?: string; country?: string; region?: string }) => void;
   expand: () => void;
 }
 
@@ -240,6 +241,8 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
   const telemetryGroupRef = useRef<THREE.Group | null>(null);
   const arcMaterialsRef = useRef<THREE.MeshBasicMaterial[]>([]);
   const hubMarkersRef = useRef<THREE.Mesh[]>([]);
+  const selectionPinRef = useRef<THREE.Mesh | null>(null);
+  const selectionRingRef = useRef<THREE.Mesh | null>(null);
   const earthGroupRef = useRef<THREE.Group | null>(null);
   const sourceGroupRef = useRef<THREE.Group | null>(null);
   const flyGenRef = useRef(0);
@@ -383,9 +386,13 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
         onToggleExpand(true);
         flyToCity(place);
       },
+      flyToLatLon: (lat, lon, meta) => {
+        onToggleExpand(true);
+        flyToLatLon(lat, lon, meta);
+      },
       expand: () => onToggleExpand(true),
     }),
-    [flyToCity, onToggleExpand],
+    [flyToCity, flyToLatLon, onToggleExpand],
   );
 
   const flyToLatLonRef = useRef(flyToLatLon);
@@ -594,22 +601,69 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     telemetryGroupRef.current = telemetryGroup;
 
     const hubMarkers: THREE.Mesh[] = [];
-    const pinGeo = new THREE.SphereGeometry(0.045, 16, 16);
+    const pinGeo = new THREE.SphereGeometry(0.055, 16, 16);
     const pinMat = new THREE.MeshBasicMaterial({ color: 0xe3836c });
-    const ringGeo = new THREE.RingGeometry(0.055, 0.075, 24);
+    const ringGeo = new THREE.RingGeometry(0.07, 0.1, 28);
     const ringMat = new THREE.MeshBasicMaterial({
       color: 0xffa07a,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.85,
     });
-
+    const selectionPin = new THREE.Mesh(pinGeo, pinMat);
+    selectionPin.visible = false;
+    telemetryGroup.add(selectionPin);
+    selectionPinRef.current = selectionPin;
+    const selectionRing = new THREE.Mesh(ringGeo, ringMat);
+    selectionRing.visible = false;
+    telemetryGroup.add(selectionRing);
+    selectionRingRef.current = selectionRing;
     hubMarkersRef.current = hubMarkers;
 
     const pulseObjects: Array<{ curve: THREE.CubicBezierCurve3; mesh: THREE.Mesh; progress: number; speed: number }> = [];
     const pulseGeo = new THREE.SphereGeometry(0.03, 12, 12);
     const pulseMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     arcMaterialsRef.current = [];
+    // Soft decorative arcs between a few fixed world points (visual only — not a place catalog)
+    const ARC_ANCHORS: Array<[number, number]> = [
+      [37.77, -122.42],
+      [40.71, -74.01],
+      [51.51, -0.13],
+      [35.68, 139.65],
+      [1.35, 103.82],
+      [-33.87, 151.21],
+    ];
+    const ARC_PAIRS: Array<[number, number]> = [
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [5, 0],
+    ];
+    ARC_PAIRS.forEach(([fromIdx, toIdx], idx) => {
+      const [lat1, lon1] = ARC_ANCHORS[fromIdx];
+      const [lat2, lon2] = ARC_ANCHORS[toIdx];
+      const p1 = latLonToVector3(lat1, lon1, earthRadius);
+      const p2 = latLonToVector3(lat2, lon2, earthRadius);
+      const curve = createArcCurve(p1, p2, earthRadius);
+      const tubeGeo = new THREE.TubeGeometry(curve, 44, 0.006, 8, false);
+      const tubeMat = new THREE.MeshBasicMaterial({
+        color: 0xe3836c,
+        transparent: true,
+        opacity: isExpanded ? 0.35 : 0.2,
+      });
+      arcMaterialsRef.current.push(tubeMat);
+      telemetryGroup.add(new THREE.Mesh(tubeGeo, tubeMat));
+      const pulseMesh = new THREE.Mesh(pulseGeo, pulseMat);
+      telemetryGroup.add(pulseMesh);
+      pulseObjects.push({
+        curve,
+        mesh: pulseMesh,
+        progress: (idx * 0.12) % 1,
+        speed: 0.003 + (idx % 3) * 0.001,
+      });
+    });
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -739,6 +793,25 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       }
     };
   }, []);
+
+  // Move selection pin when a place is chosen (search or click)
+  useEffect(() => {
+    const pin = selectionPinRef.current;
+    const ring = selectionRingRef.current;
+    if (!pin || !ring) return;
+    if (!selectedHub) {
+      pin.visible = false;
+      ring.visible = false;
+      return;
+    }
+    const earthRadius = 2.6;
+    const pos = latLonToVector3(selectedHub.lat, selectedHub.lon, earthRadius);
+    pin.position.copy(pos);
+    pin.visible = true;
+    ring.position.copy(pos.clone().multiplyScalar(1.01));
+    ring.lookAt(0, 0, 0);
+    ring.visible = true;
+  }, [selectedHub]);
 
   // ─── 2. REACTIVE EFFECT: isExpanded ─────────────────────────────────────
   useEffect(() => {
