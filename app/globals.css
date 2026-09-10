@@ -398,6 +398,10 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
+.app-shell-body.overflow-hidden {
+  overflow: hidden;
+}
+
 .app-shell--incognito .app-topnav {
   border-bottom-color: rgba(139, 92, 246, 0.25);
 }

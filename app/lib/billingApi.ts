@@ -36,15 +36,43 @@ export type CheckoutSession = {
   plan: string;
   sandbox?: boolean;
   amount: number;
+  amount_usd?: number;
+  currency?: string;
+  country?: string | null;
   payu_url?: string;
   payu_fields?: Record<string, string> | null;
 };
 
-export async function startCheckout(plan: 'premium' | 'premium_plus'): Promise<CheckoutSession> {
+export type BillingQuote = {
+  country?: string | null;
+  plans: {
+    premium: { amount: number; amount_usd: number; currency: string; amount_display: string };
+    premium_plus: { amount: number; amount_usd: number; currency: string; amount_display: string };
+  };
+};
+
+export function detectBillingCountry(): string {
+  const lang = typeof navigator !== 'undefined' ? navigator.language || 'en-US' : 'en-US';
+  const region = lang.split('-')[1];
+  return (region || 'US').toUpperCase();
+}
+
+export async function getBillingQuote(country: string): Promise<BillingQuote> {
+  const res = await fetch(`${API_V1}/billing/quote?country=${encodeURIComponent(country)}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(await readError(res, 'Could not load prices'));
+  return res.json();
+}
+
+export async function startCheckout(
+  plan: 'premium' | 'premium_plus',
+  country?: string,
+): Promise<CheckoutSession> {
   const res = await fetch(`${API_V1}/billing/checkout`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ plan }),
+    body: JSON.stringify({ plan, country: country || detectBillingCountry() }),
   });
   if (!res.ok) throw new Error(await readError(res, 'Checkout failed'));
   return res.json();

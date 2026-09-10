@@ -1,12 +1,24 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IconLoader2, IconMapPin, IconSatellite, IconSearch, IconX } from '@tabler/icons-react';
 import { AppShell } from '../Components/app/AppShell';
 import { PlaceContextCard } from '../Components/map/PlaceContextCard';
-import { PlaceMapLibre } from '../Components/map/PlaceMapLibre';
 import { fetchPlaceContext, searchPlaces, type GeoSearchHit, type PlaceContext } from '../lib/geoApi';
+
+const PlaceMapLibre = dynamic(
+  () => import('../Components/map/PlaceMapLibre').then((m) => m.PlaceMapLibre),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-2)] text-sm text-[var(--text-muted)]">
+        Loading map…
+      </div>
+    ),
+  },
+);
 
 export default function GlobePage() {
   const router = useRouter();
@@ -85,7 +97,16 @@ export default function GlobePage() {
 
   return (
     <AppShell active="globe" flush>
-      <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[var(--surface-2)]">
+      <div className="relative min-h-0 flex-1" style={{ minHeight: 'calc(100dvh - 56px)' }}>
+        <PlaceMapLibre
+          selected={selected}
+          showSatellite={showSatellite}
+          onPlaceSelect={(place) => {
+            void loadContext(place.lat, place.lon);
+          }}
+          onMapError={(message) => setError(message)}
+        />
+
         <div className="absolute left-3 right-3 top-3 z-40 flex items-start gap-2 sm:left-4 sm:right-auto">
           <div className="relative w-full max-w-md">
             <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 px-3 py-2 shadow-lg backdrop-blur">
@@ -169,16 +190,6 @@ export default function GlobePage() {
             <IconSatellite size={14} />
             GIBS
           </button>
-        </div>
-
-        <div className="relative min-h-0 flex-1">
-          <PlaceMapLibre
-            selected={selected}
-            showSatellite={showSatellite}
-            onPlaceSelect={(place) => {
-              void loadContext(place.lat, place.lon);
-            }}
-          />
         </div>
 
         <div className="pointer-events-none absolute inset-x-0 top-16 bottom-3 z-30 flex justify-start p-3 sm:p-4">

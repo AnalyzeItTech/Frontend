@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Map, { NavigationControl, Marker, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -21,6 +21,7 @@ interface PlaceMapLibreProps {
   selected?: MapPlaceSelection | null;
   showSatellite?: boolean;
   className?: string;
+  onMapError?: (message: string) => void;
 }
 
 export function PlaceMapLibre({
@@ -28,6 +29,7 @@ export function PlaceMapLibre({
   selected,
   showSatellite = false,
   className = '',
+  onMapError,
 }: PlaceMapLibreProps) {
   const mapRef = useRef<MapRef | null>(null);
 
@@ -61,15 +63,19 @@ export function PlaceMapLibre({
   );
 
   return (
-    <div className={`relative h-full w-full overflow-hidden ${className}`}>
+    <div className={`absolute inset-0 h-full w-full ${className}`}>
       <Map
         ref={mapRef}
         onClick={handleClick}
         mapStyle={OPENFREEMAP_STYLE}
-        initialViewState={{ longitude: 0, latitude: 20, zoom: 1.8 }}
-        attributionControl={{ compact: true }}
-        style={{ width: '100%', height: '100%' }}
+        initialViewState={{ longitude: 12, latitude: 20, zoom: 1.6 }}
+        attributionControl
+        style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
         cursor="crosshair"
+        onError={(evt) => {
+          const msg = String((evt as { error?: { message?: string } }).error?.message || 'Map failed to load');
+          onMapError?.(msg);
+        }}
       >
         <NavigationControl position="top-right" showCompass />
         {showSatellite ? (
@@ -81,7 +87,7 @@ export function PlaceMapLibre({
           <Marker longitude={selected.lon} latitude={selected.lat} anchor="bottom" color="#E3836C" />
         ) : null}
       </Map>
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-[var(--surface)]/90 px-2 py-1 text-[10px] font-mono text-[var(--text-muted)] backdrop-blur">
+      <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-lg bg-[var(--surface)]/90 px-2 py-1 text-[10px] font-mono text-[var(--text-muted)] backdrop-blur">
         OpenStreetMap · OpenFreeMap · click or search anywhere
       </div>
     </div>
