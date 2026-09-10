@@ -25,6 +25,8 @@ export interface EarthGlobeProps {
   className?: string;
   sourceMarkers?: GlobeSourceMarker[];
   onSendToChat?: (prompt: string) => void;
+  pageMode?: boolean;
+  contained?: boolean;
 }
 
 export interface GlobeSourceMarker {
@@ -259,7 +261,7 @@ function createArcCurve(p1: THREE.Vector3, p2: THREE.Vector3, radius: number): T
 }
 
 export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(function EarthGlobe(
-  { isExpanded, onToggleExpand, className = '', sourceMarkers = [], onSendToChat },
+  { isExpanded, onToggleExpand, className = '', sourceMarkers = [], onSendToChat, pageMode = false, contained = false },
   ref,
 ) {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -279,7 +281,12 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
   // Search Bar State
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [hintOpen, setHintOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setHintOpen(window.localStorage.getItem('analyzeit_globe_hint_dismissed') !== '1');
+  }, []);
 
   const filteredLocations = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -842,7 +849,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
 
   return (
     <div
-      className={`fixed inset-0 select-none overflow-hidden transition-all duration-700 ${
+      className={`${contained ? 'absolute' : 'fixed'} inset-0 select-none overflow-hidden transition-all duration-700 ${
         isExpanded ? 'z-40' : 'z-0'
       } ${className}`}
     >
@@ -858,7 +865,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       )}
 
       {/* Ambient Mode Trigger Pill */}
-      {!isExpanded && isSceneReady && (
+      {!pageMode && !isExpanded && isSceneReady && (
         <div className="absolute bottom-6 right-6 z-10">
           <button
             type="button"
@@ -874,13 +881,15 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
 
       {/* Expanded Mode: Full Google Earth Controls, Search Bar & Layers */}
       {isExpanded && isSceneReady && (
-        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-5 pt-24 sm:p-8 sm:pt-24 z-50">
+        <div className={`absolute inset-0 pointer-events-none flex flex-col justify-between p-5 sm:p-8 z-50 ${pageMode ? 'pt-3' : 'pt-20 sm:pt-24'}`}>
           
           {/* Top Bar: Close Button + Interactive Search Bar + Fly To Quick Cities */}
           <div className="pointer-events-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 w-full">
             
             {/* Top-Left Controls: Close Button & Search Bar */}
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-col items-stretch gap-2 w-full sm:w-auto max-w-sm">
+            <div className="flex items-center gap-3 w-full">
+              {!pageMode ? (
               <button
                 type="button"
                 onClick={() => onToggleExpand(false)}
@@ -889,6 +898,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
                 <IconX size={16} />
                 <span>Close</span>
               </button>
+              ) : null}
 
               {/* ─── INTERACTIVE SEARCH BAR FOR GLOBE ─────────────────────── */}
               <div className="relative flex-1 sm:w-80">
@@ -951,6 +961,61 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
                   </div>
                 )}
               </div>
+            </div>
+            {hintOpen ? (
+              <div className="app-card pointer-events-auto flex items-start justify-between gap-2 px-3 py-2 text-[10px] font-mono uppercase tracking-[0.12em] text-[#786F64]">
+                <span>Ask about the world, not a schema</span>
+                <button
+                  type="button"
+                  className="shrink-0 rounded p-0.5 text-[#4A4238]"
+                  aria-label="Dismiss hint"
+                  onClick={() => {
+                    setHintOpen(false);
+                    window.localStorage.setItem('analyzeit_globe_hint_dismissed', '1');
+                  }}
+                >
+                  <IconX size={12} />
+                </button>
+              </div>
+            ) : null}
+            {selectedHub ? (
+              <div className="app-card pointer-events-auto w-full space-y-2 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h4 className="font-serif text-base font-semibold">{selectedHub.name}</h4>
+                    <span className="text-[10px] font-mono text-[#4A4238]/50">
+                      {selectedHub.country} · {selectedHub.region} · {selectedHub.lat.toFixed(2)}°, {selectedHub.lon.toFixed(2)}°
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-700">
+                    Sample
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono border-t border-[#4A4238]/10 pt-2">
+                  <div>
+                    <span className="text-[10px] opacity-50 block">Illustrative ping</span>
+                    <span className="font-bold text-[#E3836C]">{selectedHub.ping}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] opacity-50 block">Illustrative bandwidth</span>
+                    <span className="font-bold">{selectedHub.throughput}</span>
+                  </div>
+                </div>
+                {onSendToChat ? (
+                  <button
+                    type="button"
+                    className="btn-primary mt-1 w-full"
+                    onClick={() =>
+                      onSendToChat(
+                        `Research ${selectedHub.name}, ${selectedHub.country} (${selectedHub.lat.toFixed(2)}, ${selectedHub.lon.toFixed(2)}).`,
+                      )
+                    }
+                  >
+                    Send to chat
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             </div>
 
             {/* Google Earth "Fly To" City Chips */}
@@ -1058,46 +1123,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
           <div className="pointer-events-auto flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
             
             {/* Selected City or Hover Pinpoint */}
-            {selectedHub ? (
-              <div className="p-4 rounded-2xl glass-card border border-[#4A4238]/15 dark:border-[#3A3430] shadow-2xl backdrop-blur-2xl max-w-sm w-full space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-serif text-base font-semibold text-[#4A4238] dark:text-[#F4EDE5]">
-                      {selectedHub.name}
-                    </h4>
-                    <span className="text-[10px] font-mono text-[#4A4238]/50 dark:text-[#91867E]">
-                      {selectedHub.country} · {selectedHub.region} · {selectedHub.lat.toFixed(2)}°, {selectedHub.lon.toFixed(2)}°
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-[#D9AD70] font-bold">
-                    Sample hub
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1 border-t border-[#4A4238]/10 dark:border-[#3A3430]">
-                  <div>
-                    <span className="text-[10px] opacity-50 block">Illustrative ping</span>
-                    <span className="font-bold text-[#E3836C]">{selectedHub.ping}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] opacity-50 block">Illustrative bandwidth</span>
-                    <span className="font-bold">{selectedHub.throughput}</span>
-                  </div>
-                </div>
-                {onSendToChat ? (
-                  <button
-                    type="button"
-                    className="mt-1 w-full rounded-xl bg-[#E3836C] px-3 py-2 text-xs font-medium text-white"
-                    onClick={() =>
-                      onSendToChat(
-                        `Research ${selectedHub.name}, ${selectedHub.country} (${selectedHub.lat.toFixed(2)}, ${selectedHub.lon.toFixed(2)}).`,
-                      )
-                    }
-                  >
-                    Send to chat
-                  </button>
-                ) : null}
-              </div>
-            ) : cursorCoords ? (
+            {selectedHub ? null : cursorCoords ? (
               <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl glass-card text-xs font-mono text-[#4A4238]/80 dark:text-[#C5B9AE] shadow-lg">
                 <IconActivity size={14} className="text-[#E3836C]" />
                 <span>

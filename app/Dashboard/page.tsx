@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { AppShell } from '../Components/app/AppShell';
+import { PageTitle } from '../Components/app/PageTitle';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
@@ -590,147 +592,29 @@ export default function DashboardPage() {
   const analyticalWidgets = currentLayout.widgets.filter((w) => w.type !== 'metric_card' && (w.type as any) !== 'kpi');
 
   return (
-    <div className="structured-workspace flex h-screen w-screen overflow-hidden bg-[#0B0D10] text-[#EDEFF2] font-sans antialiased">
-      {/* Backdrop for open dropdowns */}
+    <AppShell active="dashboard" flush>
+    <div className="flex h-[calc(100vh-56px)] w-full flex-col overflow-hidden bg-[#F3EDE4] text-[#4A4238] font-sans antialiased">
       {isExportMenuOpen && (
-        <div
-          className="fixed inset-0 z-20 cursor-default"
-          onClick={() => setIsExportMenuOpen(false)}
-        />
+        <div className="fixed inset-0 z-20 cursor-default" onClick={() => setIsExportMenuOpen(false)} />
       )}
 
-      {/* ─── ZONE 1: ICON-ONLY LEFT NAVIGATION RAIL (64px) ─── */}
-      <aside className="w-16 shrink-0 h-full flex flex-col items-center justify-between py-4 bg-[#0E1014] border-r border-white/[0.08] z-30 select-none">
-        {/* Top: App Mark & Primary Navigation */}
-        <div className="flex flex-col items-center gap-5 w-full">
-          {/* Technical App Mark */}
-          <Link href="/" className="group p-1.5 rounded-xl hover:bg-white/[0.06] transition-colors" title="AnalyzeIt Home">
-            <div className="w-8 h-8 rounded-lg bg-[#3D6FE0] flex items-center justify-center font-serif font-semibold text-white text-lg shadow-sm">
-              A
-            </div>
-          </Link>
+      <div className="px-6 pt-4">
+        <PageTitle title="Dashboard" />
+      </div>
 
-          <div className="w-8 h-[1px] bg-white/[0.08]" />
+      <div className="mx-6 mt-3 flex flex-wrap gap-2">
+        <button type="button" onClick={() => setStudioTab('canvas')} className={studioTab === 'canvas' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Canvas</button>
+        <Link href="/objects" className="btn-secondary text-xs">Objects</Link>
+        <Link href="/connectors" className="btn-secondary text-xs">Connectors</Link>
+        <button type="button" onClick={() => setStudioTab('pipeline')} className={studioTab === 'pipeline' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Pipeline</button>
+        <button type="button" onClick={() => setStudioTab('templates')} className={studioTab === 'templates' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Templates</button>
+        <button type="button" onClick={() => setIsProjectsModalOpen(true)} className="btn-secondary text-xs">Projects</button>
+      </div>
 
-          {/* Nav Rail Buttons */}
-          <nav className="flex flex-col items-center gap-2.5 w-full px-2">
-            <button
-              onClick={() => setStudioTab('canvas')}
-              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
-                studioTab === 'canvas'
-                  ? 'bg-[#3D6FE0] text-white shadow-md'
-                  : 'text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]'
-              }`}
-              title="Dashboard Canvas"
-            >
-              <IconLayoutDashboard size={19} />
-              <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
-                Dashboard Canvas
-              </span>
-            </button>
-
-            <Link
-              href="/objects"
-              className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all group text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]"
-              title="Custom Objects (separate from dashboard)"
-            >
-              <IconDatabase size={19} />
-              <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
-                Custom Objects
-              </span>
-            </Link>
-
-            <Link
-              href="/connectors"
-              className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all group text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]"
-              title="Connectors (separate from dashboard)"
-            >
-              <IconBrandStripe size={19} />
-              <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
-                Live Connectors
-              </span>
-            </Link>
-
-            <button
-              onClick={() => setStudioTab('pipeline')}
-              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
-                studioTab === 'pipeline'
-                  ? 'bg-[#3D6FE0] text-white shadow-md'
-                  : 'text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]'
-              }`}
-              title="Module Pipeline"
-            >
-              <IconComponents size={19} />
-              <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
-                Module Pipeline
-              </span>
-            </button>
-
-            <button
-              onClick={() => setStudioTab('templates')}
-              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
-                studioTab === 'templates'
-                  ? 'bg-[#3D6FE0] text-white shadow-md'
-                  : 'text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]'
-              }`}
-              title="Starter Templates"
-            >
-              <IconLayoutGrid size={19} />
-              <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
-                Starter Templates
-              </span>
-            </button>
-          </nav>
-        </div>
-
-        {/* Bottom Rail Actions: Projects Switcher & User Settings */}
-        <div className="flex flex-col items-center gap-3 w-full px-2">
-          <button
-            onClick={() => setIsProjectsModalOpen(true)}
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer relative group"
-            title="Switch or Manage Projects"
-          >
-            <IconFolder size={19} />
-            <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
-              Manage Projects
-            </span>
-          </button>
-
-          {user ? (
-            <button
-              onClick={() => {
-                setUserActionMsg(null);
-                setUserActionErr(null);
-                setEditName(user.name || '');
-                setIsUserSettingsOpen(true);
-              }}
-              className="w-9 h-9 rounded-xl bg-[#1C2025] border border-white/[0.12] text-[#EDEFF2] flex items-center justify-center text-xs font-mono font-semibold hover:ring-2 hover:ring-[#3D6FE0] transition-all cursor-pointer"
-              title={`Account: ${user.name} (${user.email})`}
-            >
-              {user.name ? user.name.slice(0, 2).toUpperCase() : 'US'}
-            </button>
-          ) : (
-            <Link
-              href="/login"
-              className="w-9 h-9 rounded-xl bg-[#1C2025] text-[#3D6FE0] flex items-center justify-center hover:bg-white/[0.06] transition-colors"
-              title="Sign In"
-            >
-              <IconUser size={18} />
-            </Link>
-          )}
-        </div>
-      </aside>
-
-      {/* ─── MAIN RIGHT VIEWPORT (SLIM TOPBAR + SCROLLABLE CANVAS) ─── */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#0B0D10]">
-        
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* ─── ZONE 2: SLIM TOP BAR (56px) ─── */}
-        <header className="h-14 shrink-0 px-6 flex items-center justify-between border-b border-white/[0.08] bg-[#0E1014]/90 backdrop-blur-md z-20">
-          {/* Left: Project title & Live status indicator */}
+        <header className="h-14 shrink-0 px-6 flex items-center justify-between border-b border-[#4A4238]/12 bg-[#FAF7F2] z-20">
           <div className="flex items-center gap-3 min-w-0">
-            <span className="text-[11px] font-mono text-[#8B93A1] tracking-wider uppercase hidden sm:inline">AnalyzeIt</span>
-            <span className="text-[#8B93A1]/40 hidden sm:inline">/</span>
-
             {serverProjects.length > 1 ? (
               <select
                 value={activeProjectId || ''}
@@ -738,7 +622,7 @@ export default function DashboardPage() {
                   const found = serverProjects.find((p) => p.id === e.target.value);
                   if (found) handleSelectProject(found);
                 }}
-                className="bg-[#14171B] border border-white/[0.08] hover:border-white/[0.15] text-xs text-[#EDEFF2] font-medium py-1 px-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#3D6FE0] cursor-pointer max-w-[200px] truncate"
+                className="app-card text-xs py-1 px-2.5 max-w-[200px] truncate"
               >
                 {serverProjects.map((p) => (
                   <option key={p.id} value={p.id} className="bg-[#14171B] text-[#EDEFF2]">
@@ -747,27 +631,18 @@ export default function DashboardPage() {
                 ))}
               </select>
             ) : (
-              <h2 className="text-sm font-medium text-[#EDEFF2] truncate">{activeProjectName}</h2>
+              <h2 className="text-sm font-medium truncate">{activeProjectName}</h2>
             )}
 
             {/* Live Indicator with motion-safe pulse */}
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#14171B] border border-white/[0.06] text-[11px] text-[#8B93A1]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#3D6FE0] motion-safe:animate-pulse" />
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-[#4A4238]/12 text-[11px] text-[#6B6155]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#E3836C] motion-safe:animate-pulse" />
               <span className="font-mono text-[10px]">v{layoutVersion}</span>
             </div>
           </div>
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2.5">
-            <Link
-              href="/research"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] hover:border-white/[0.16] hover:bg-white/[0.03] text-xs font-medium text-[#8B93A1] hover:text-[#EDEFF2] transition-colors"
-              title="Open the Research & Discovery agent"
-            >
-              <IconWorld size={14} />
-              Research
-            </Link>
-            {/* Export Dropdown */}
             <div className="relative">
               <button
                 type="button"
@@ -1009,15 +884,15 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 /* Instrument-Grade Empty State */
-                <div className="py-16 px-6 rounded-2xl border border-dashed border-white/[0.12] bg-[#14171B]/40 flex flex-col items-center justify-center text-center space-y-4">
-                  <div className="w-12 h-12 rounded-xl bg-[#3D6FE0]/15 text-[#3D6FE0] flex items-center justify-center">
+                <div className="app-card py-16 px-6 flex flex-col items-center justify-center text-center space-y-4 border-dashed">
+                  <div className="w-12 h-12 rounded-xl bg-[#E3836C]/15 text-[#E3836C] flex items-center justify-center">
                     <IconLayoutDashboard size={24} />
                   </div>
                   <div className="space-y-1 max-w-md">
-                    <h3 className="text-base font-medium text-[#EDEFF2]">
+                    <h3 className="text-base font-medium">
                       {activeProjectId ? 'No widgets in this saved view' : 'No active workspace'}
                     </h3>
-                    <p className="text-xs text-[#8B93A1] leading-relaxed">
+                    <p className="text-xs text-[#6B6155] leading-relaxed">
                       {activeProjectId
                         ? 'The dashboard only displays widgets from research or templates. It does not start new research.'
                         : 'Create a project, then pin research results here.'}
@@ -1027,14 +902,14 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => setStudioTab('templates')}
-                      className="px-4 py-2 rounded-xl bg-[#1C2025] hover:bg-white/[0.08] text-xs font-medium text-[#EDEFF2] border border-white/[0.08] transition-colors cursor-pointer"
+                      className="btn-secondary text-xs"
                     >
                       Explore Templates
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsCopilotOpen(true)}
-                      className="px-4 py-2 rounded-xl bg-[#3D6FE0] hover:bg-[#4D7FF0] text-xs font-medium text-white transition-colors cursor-pointer shadow-sm"
+                      className="btn-primary text-xs"
                     >
                       Ask Copilot
                     </button>
@@ -1737,5 +1612,6 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
     </div>
+    </AppShell>
   );
 }

@@ -383,3 +383,90 @@ html, body {
   transform: translateY(-8px) scale(1.02);
   box-shadow: 0 20px 40px -10px rgba(74, 66, 56, 0.2);
 }
+
+/* Logged-in app shell (not marketing) */
+.app-shell {
+  min-height: 100vh;
+  background: #f3ede4;
+  color: #4a4238;
+}
+
+.app-topnav {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid rgba(74, 66, 56, 0.12);
+  background: #faf7f2;
+}
+
+.app-topnav-link {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #6b6155;
+  padding: 0.35rem 0.15rem;
+  border-bottom: 2px solid transparent;
+}
+
+.app-topnav-link[data-active='true'] {
+  color: #e3836c;
+  border-bottom-color: #e3836c;
+}
+
+.page-title {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 2.25rem;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.page-title em {
+  color: #e3836c;
+  font-style: italic;
+}
+
+.app-card {
+  background: #faf7f2;
+  border: 1px solid rgba(74, 66, 56, 0.12);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(74, 66, 56, 0.06);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #e3836c;
+  color: #fff;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(74, 66, 56, 0.2);
+  background: transparent;
+  color: #4a4238;
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+}
+
+.tier-badge {
+  font-size: 10px;
+  font-family: var(--font-mono), monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 9999px;
+  border: 1px solid rgba(74, 66, 56, 0.12);
+  background: #f3ede4;
+  color: #4a4238;
+  padding: 0.2rem 0.55rem;
+}

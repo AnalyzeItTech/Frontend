@@ -446,7 +446,7 @@ const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       const next = new URLSearchParams(window.location.search).get('next');
-      router.push(next && next.startsWith('/') ? next : '/Dashboard');
+      router.push(next && next.startsWith('/') ? next : '/research');
     }, 1200);
     return () => clearTimeout(timer);
   }, [router]);
@@ -471,7 +471,7 @@ const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => {
         </p>
       </div>
       <Link
-        href="/Dashboard"
+        href="/research"
         className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[#E3836C] hover:text-[#ED967F] transition-colors mt-2"
       >
         Go to Dashboard <IconArrowRight size={13} />

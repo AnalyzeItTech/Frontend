@@ -1,6 +1,7 @@
 'use client';
 
-import Link from 'next/link';
+import { AppShell } from '../Components/app/AppShell';
+import { PageTitle } from '../Components/app/PageTitle';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { fetchMe, getStoredToken } from '../lib/auth';
@@ -47,11 +48,9 @@ export default function BillingPage() {
   };
 
   return (
-    <main className="mx-auto max-w-lg space-y-6 px-6 py-16 text-[#4A4238]">
-      <Link href="/profile" className="text-sm text-[#E3836C]">
-        Profile
-      </Link>
-      <h1 className="font-serif text-4xl">Upgrade</h1>
+    <AppShell active="profile">
+      <div className="mx-auto max-w-lg space-y-6">
+      <PageTitle title="Upgrade" />
       <p className="text-sm text-[#6B6155]">
         You must be signed in. Premium is $50 (3× tokens). Premium Plus is $100 (6× tokens, longer
         artifact retention, more concurrent projects, priority queue).
@@ -59,13 +58,14 @@ export default function BillingPage() {
       {message ? <p className="rounded-xl bg-[#8FA98F]/20 px-3 py-2 text-sm">{message}</p> : null}
       {error ? <p role="alert" className="text-sm text-[#9B4D3B]">{error}</p> : null}
       <div className="flex gap-3">
-        <button type="button" disabled={busy} onClick={() => void upgrade('premium')} className="rounded-full bg-[#E3836C] px-4 py-2 text-sm text-white disabled:opacity-50">
+        <button type="button" disabled={busy} onClick={() => void upgrade('premium')} className="btn-primary disabled:opacity-50">
           Premium $50
         </button>
-        <button type="button" disabled={busy} onClick={() => void upgrade('premium_plus')} className="rounded-full border border-[#4A4238]/20 px-4 py-2 text-sm disabled:opacity-50">
+        <button type="button" disabled={busy} onClick={() => void upgrade('premium_plus')} className="btn-secondary disabled:opacity-50">
           Premium Plus $100
         </button>
       </div>
-    </main>
+      </div>
+    </AppShell>
   );
 }
