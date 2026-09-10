@@ -124,7 +124,7 @@ export default function GlobePage() {
           )}
         </div>
 
-        <div className="pointer-events-none absolute bottom-4 left-4 right-4 z-20 flex justify-start sm:max-w-md">
+        <div className="pointer-events-none absolute inset-x-0 top-14 bottom-16 z-30 flex justify-start p-3 sm:p-4">
           <PlaceContextCard
             context={context}
             loading={loading}

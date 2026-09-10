@@ -1,5 +1,6 @@
 'use client';
 
+import type { TouchEvent, WheelEvent } from 'react';
 import {
   IconCloud,
   IconNews,
@@ -84,8 +85,12 @@ export function PlaceContextCard({
   const onThisDay = context?.on_this_day;
   const clock = weather?.local_clock;
 
+  const stopScrollBleed = (event: WheelEvent | TouchEvent) => {
+    event.stopPropagation();
+  };
+
   return (
-    <div className="app-card pointer-events-auto flex max-h-[min(70vh,560px)] w-full max-w-md flex-col overflow-hidden shadow-xl">
+    <div className="app-card pointer-events-auto flex h-[min(78dvh,640px)] w-full max-w-md flex-col overflow-hidden shadow-xl">
       <div className="flex shrink-0 items-start justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
         <div className="min-w-0">
           <h4 className="truncate font-serif text-base font-semibold text-[var(--text-primary)]">
@@ -115,7 +120,11 @@ export function PlaceContextCard({
         ) : null}
       </div>
 
-      <div className="chat-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+      <div
+        className="chat-scroll min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-3"
+        onWheel={stopScrollBleed}
+        onTouchMove={stopScrollBleed}
+      >
         {loading ? (
           <div className="flex items-center gap-2 py-6 text-xs text-[var(--text-secondary)]">
             <IconLoader2 size={16} className="animate-spin text-[#E3836C]" />
@@ -314,7 +323,7 @@ export function PlaceContextCard({
                           href={art.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[var(--text-primary)] underline-offset-2 hover:underline"
+                          className="text-[var(--text-primary)] underline-offset-2 hover:underline break-words"
                         >
                           {art.title}
                         </a>

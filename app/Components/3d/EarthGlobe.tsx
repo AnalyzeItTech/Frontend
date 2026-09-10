@@ -18,6 +18,7 @@ import {
   IconMapPin,
   IconSearch,
 } from '@tabler/icons-react';
+import { searchPlaces, type GeoSearchHit } from '../../lib/geoApi';
 
 export interface EarthGlobeProps {
   isExpanded: boolean;
@@ -282,17 +283,20 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
   const [compassHeading, setCompassHeading] = useState(0);
   const [cameraAltitude, setCameraAltitude] = useState(6400);
 
-  // Search Bar State
+  // Search Bar State — world geocoding, not a closed hub list
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [worldHits, setWorldHits] = useState<GeoSearchHit[]>([]);
+  const [searchingWorld, setSearchingWorld] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const pointerDownRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     setHintOpen(window.localStorage.getItem('analyzeit_globe_hint_dismissed') !== '1');
   }, []);
 
-  const filteredLocations = useMemo(() => {
+  const localMatches = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
     return SEARCHABLE_LOCATIONS.filter(
@@ -300,7 +304,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
         loc.name.toLowerCase().includes(q) ||
         loc.country.toLowerCase().includes(q) ||
         loc.region.toLowerCase().includes(q)
-    ).slice(0, 7);
+    ).slice(0, 4);
   }, [searchQuery]);
 
   // Mutable Three.js Object References
@@ -337,24 +341,38 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     controls.update();
   }, []);
 
-  // Google Earth "Fly To" City Navigation with Great-Circle Spherical Slerp
-  const flyToCity = useCallback((hub: GlobeLocation) => {
-    setSelectedHub(hub);
-    setSearchQuery('');
-    setIsSearchOpen(false);
-    onPlaceSelect?.({ lat: hub.lat, lon: hub.lon, name: hub.name, country: hub.country });
+  const onPlaceSelectRef = useRef(onPlaceSelect);
+  onPlaceSelectRef.current = onPlaceSelect;
 
-    const camera = cameraRef.current;
-    const controls = controlsRef.current;
-    if (!camera || !controls) return;
+  const flyToLatLon = useCallback(
+    (lat: number, lon: number, meta?: { name?: string; country?: string; region?: string }) => {
+      const hub: GlobeLocation = {
+        name: meta?.name || `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`,
+        country: meta?.country || 'World',
+        lat,
+        lon,
+        ping: '—',
+        status: 'Live',
+        throughput: '—',
+        region: meta?.region || 'World',
+      };
+      setSelectedHub(hub);
+      setSearchQuery('');
+      setIsSearchOpen(false);
+      setWorldHits([]);
+      onPlaceSelectRef.current?.({ lat, lon, name: hub.name, country: hub.country });
 
-    const gen = ++flyGenRef.current;
-    isFlyingRef.current = true;
-    controls.enabled = false;
-    controls.autoRotate = false;
-    controls.enableDamping = false;
+      const camera = cameraRef.current;
+      const controls = controlsRef.current;
+      if (!camera || !controls) return;
 
-    const targetDir = latLonToVector3(hub.lat, hub.lon, 1.0).normalize();
+      const gen = ++flyGenRef.current;
+      isFlyingRef.current = true;
+      controls.enabled = false;
+      controls.autoRotate = false;
+      controls.enableDamping = false;
+
+      const targetDir = latLonToVector3(lat, lon, 1.0).normalize();
     const startPos = camera.position.clone();
     const startDist = startPos.length();
     const startDir = startPos.clone().normalize();
@@ -395,10 +413,41 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       }
     }
     requestAnimationFrame(stepFly);
-  }, [onPlaceSelect]);
+  }, []);
 
-  const onPlaceSelectRef = useRef(onPlaceSelect);
-  onPlaceSelectRef.current = onPlaceSelect;
+  const flyToCity = useCallback(
+    (hub: GlobeLocation) => {
+      flyToLatLon(hub.lat, hub.lon, { name: hub.name, country: hub.country, region: hub.region });
+    },
+    [flyToLatLon],
+  );
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setWorldHits([]);
+      setSearchingWorld(false);
+      return;
+    }
+    let cancelled = false;
+    setSearchingWorld(true);
+    const t = window.setTimeout(() => {
+      void searchPlaces(q, 8)
+        .then((hits) => {
+          if (!cancelled) setWorldHits(hits);
+        })
+        .catch(() => {
+          if (!cancelled) setWorldHits([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSearchingWorld(false);
+        });
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [searchQuery]);
 
   useImperativeHandle(
     ref,
@@ -418,6 +467,11 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     }),
     [flyToCity, onToggleExpand],
   );
+
+  const flyToLatLonRef = useRef(flyToLatLon);
+  flyToLatLonRef.current = flyToLatLon;
+  const flyToCityRef = useRef(flyToCity);
+  flyToCityRef.current = flyToCity;
 
   useEffect(() => {
     const group = sourceGroupRef.current;
@@ -691,7 +745,18 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       }
     };
 
-    const onPointerDown = (event: MouseEvent) => {
+    const onPointerDown = (event: PointerEvent) => {
+      pointerDownRef.current = { x: event.clientX, y: event.clientY };
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      const start = pointerDownRef.current;
+      pointerDownRef.current = null;
+      if (!start) return;
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      if (dx * dx + dy * dy > 36) return;
+
       const rect = renderer.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -702,32 +767,22 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       if (intersects.length > 0) {
         const hitIdx = hubMarkers.indexOf(intersects[0].object as THREE.Mesh);
         if (hitIdx !== -1) {
-          flyToCity(MAJOR_HUBS[hitIdx]);
+          flyToCityRef.current(MAJOR_HUBS[hitIdx]);
           return;
         }
       }
 
-      // Arbitrary surface click → reverse-geocode / place context via parent
       const earthHit = raycaster.intersectObject(earthMesh);
       if (earthHit.length > 0) {
         const localPoint = earthGroup.worldToLocal(earthHit[0].point.clone());
         const geo = vector3ToLatLon(localPoint);
-        setSelectedHub({
-          name: `${geo.lat.toFixed(2)}°, ${geo.lon.toFixed(2)}°`,
-          country: 'Resolving…',
-          lat: geo.lat,
-          lon: geo.lon,
-          ping: '—',
-          status: 'Live',
-          throughput: '—',
-          region: 'Globe',
-        });
-        onPlaceSelectRef.current?.({ lat: geo.lat, lon: geo.lon });
+        flyToLatLonRef.current(geo.lat, geo.lon);
       }
     };
 
     renderer.domElement.addEventListener('pointermove', onPointerMove);
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    renderer.domElement.addEventListener('pointerup', onPointerUp);
 
     const handleResize = () => {
       if (!mount) return;
@@ -787,6 +842,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointerup', onPointerUp);
 
       earthTexture.dispose();
       cloudTexture.dispose();
@@ -877,7 +933,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
   return (
     <div
       className={`${contained ? 'absolute' : 'fixed'} inset-0 select-none overflow-hidden transition-all duration-700 ${
-        isExpanded ? 'z-40' : 'z-0'
+        contained ? 'z-0' : isExpanded ? 'z-40' : 'z-0'
       } ${className}`}
     >
       {/* 3D WebGL Canvas */}
@@ -911,10 +967,10 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
         <div className={`absolute inset-0 pointer-events-none flex flex-col justify-between p-5 sm:p-8 z-50 ${pageMode ? 'pt-3' : 'pt-20 sm:pt-24'}`}>
           
           {/* Top Bar: Close Button + Interactive Search Bar + Fly To Quick Cities */}
-          <div className="pointer-events-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 w-full">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 w-full">
             
             {/* Top-Left Controls: Close Button & Search Bar */}
-            <div className="flex flex-col items-stretch gap-2 w-full sm:w-auto max-w-sm">
+            <div className="pointer-events-auto flex flex-col items-stretch gap-2 w-full sm:w-auto max-w-sm">
             <div className="flex items-center gap-3 w-full">
               {!pageMode ? (
               <button
@@ -940,7 +996,19 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
                       setIsSearchOpen(true);
                     }}
                     onFocus={() => setIsSearchOpen(true)}
-                    placeholder="Search city, country, region…"
+                    placeholder="Search any place on Earth…"
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter') return;
+                      e.preventDefault();
+                      const first = worldHits[0] || localMatches[0];
+                      if (first) {
+                        flyToLatLon(first.lat, first.lon, {
+                          name: first.name,
+                          country: first.country,
+                          region: 'region' in first ? first.region : undefined,
+                        });
+                      }
+                    }}
                     className="w-full bg-transparent text-xs font-mono text-[#4A4238] dark:text-[#F4EDE5] placeholder-[#4A4238]/40 dark:placeholder-[#80766F] focus:outline-none"
                   />
                   {searchQuery && (
@@ -958,32 +1026,44 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
                 </div>
 
                 {/* Autocomplete Dropdown */}
-                {isSearchOpen && filteredLocations.length > 0 && (
+                {isSearchOpen && searchQuery.trim().length >= 2 && (
                   <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl glass-card dark:bg-[#302B28]/95 border border-[#4A4238]/15 dark:border-[#504740] shadow-2xl backdrop-blur-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="p-1.5 space-y-0.5 max-h-60 overflow-y-auto">
-                      {filteredLocations.map((loc) => (
+                    <div className="max-h-72 overflow-y-auto p-1.5 space-y-0.5 overscroll-contain">
+                      {searchingWorld ? (
+                        <p className="px-3 py-2 text-[10px] font-mono text-[#4A4238]/50">Searching the world…</p>
+                      ) : null}
+                      {worldHits.map((loc) => (
                         <button
-                          key={loc.name}
+                          key={`${loc.name}-${loc.lat}-${loc.lon}`}
                           type="button"
-                          onClick={() => flyToCity(loc)}
+                          onClick={() =>
+                            flyToLatLon(loc.lat, loc.lon, {
+                              name: loc.name,
+                              country: loc.country,
+                              region: loc.region,
+                            })
+                          }
                           className="w-full px-3 py-2 text-left rounded-xl hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-between text-xs font-mono transition-colors cursor-pointer group"
                         >
-                          <div>
-                            <span className="font-serif text-sm text-[#4A4238] dark:text-[#F4EDE5] group-hover:text-[#ED967F] transition-colors block">
+                          <div className="min-w-0">
+                            <span className="font-serif text-sm text-[#4A4238] dark:text-[#F4EDE5] group-hover:text-[#ED967F] transition-colors block truncate">
                               {loc.name}
                             </span>
                             <span className="text-[10px] text-[#4A4238]/50 dark:text-[#91867E]">
-                              {loc.country} · {loc.region}
+                              {loc.country}
+                              {loc.region && loc.region !== loc.country ? ` · ${loc.region}` : ''}
                             </span>
                           </div>
-                          <div className="text-right">
-                            <span className="text-[10px] text-[#E3836C] font-bold block">{loc.ping}</span>
-                            <span className="text-[9px] text-[#4A4238]/40 dark:text-[#91867E]">
-                              {loc.lat.toFixed(1)}°, {loc.lon.toFixed(1)}°
-                            </span>
-                          </div>
+                          <span className="text-[9px] text-[#4A4238]/40 dark:text-[#91867E] shrink-0">
+                            {loc.lat.toFixed(1)}°, {loc.lon.toFixed(1)}°
+                          </span>
                         </button>
                       ))}
+                      {!searchingWorld && worldHits.length === 0 && localMatches.length === 0 ? (
+                        <p className="px-3 py-2 text-[10px] font-mono text-[#4A4238]/50">
+                          No match — click anywhere on the globe instead.
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -991,7 +1071,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
             </div>
             {hintOpen ? (
               <div className="app-card pointer-events-auto flex items-start justify-between gap-2 px-3 py-2 text-[10px] font-mono uppercase tracking-[0.12em] text-[#786F64]">
-                <span>Ask about the world, not a schema</span>
+                <span>Click anywhere on Earth, or search any city</span>
                 <button
                   type="button"
                   className="shrink-0 rounded p-0.5 text-[#4A4238]"
@@ -1046,9 +1126,9 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
             </div>
 
             {/* Google Earth "Fly To" City Chips */}
-            <div className="hidden lg:flex items-center gap-1.5 p-1.5 rounded-2xl glass-card backdrop-blur-xl border border-[#4A4238]/15 dark:border-[#3A3430] overflow-x-auto max-w-full">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#E3836C] px-2 font-bold flex items-center gap-1">
-                <IconMapPin size={12} /> Hubs:
+            <div className="pointer-events-auto hidden lg:flex items-center gap-1.5 p-1.5 rounded-2xl glass-card backdrop-blur-xl border border-[#4A4238]/15 dark:border-[#3A3430] overflow-x-auto max-w-[min(100%,42rem)]">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#E3836C] px-2 font-bold flex items-center gap-1 shrink-0">
+                <IconMapPin size={12} /> Jump:
               </span>
               {MAJOR_HUBS.map((hub) => (
                 <button
@@ -1147,25 +1227,25 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
           </div>
 
           {/* Bottom HUD: Live Selected City Card, Cursor Coordinates & Altitude Bar */}
-          <div className="pointer-events-auto flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
+          <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-3 w-full">
             
             {/* Selected City or Hover Pinpoint */}
             {selectedHub ? null : cursorCoords ? (
-              <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl glass-card text-xs font-mono text-[#4A4238]/80 dark:text-[#C5B9AE] shadow-lg">
+              <div className="pointer-events-auto hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl glass-card text-xs font-mono text-[#4A4238]/80 dark:text-[#C5B9AE] shadow-lg">
                 <IconActivity size={14} className="text-[#E3836C]" />
                 <span>
                   Cursor: {cursorCoords.lat.toFixed(2)}°{cursorCoords.lat >= 0 ? 'N' : 'S'}, {Math.abs(cursorCoords.lon).toFixed(2)}°{cursorCoords.lon >= 0 ? 'E' : 'W'}
                 </span>
               </div>
             ) : (
-              <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl glass-card text-xs font-mono text-[#4A4238]/70 dark:text-[#C5B9AE] shadow-lg">
+              <div className="pointer-events-auto hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl glass-card text-xs font-mono text-[#4A4238]/70 dark:text-[#C5B9AE] shadow-lg">
                 <IconActivity size={14} className="text-[#E3836C]" />
-                <span>Click or search any city to fly camera &amp; inspect metrics</span>
+                <span>Click any land or ocean — coverage is global</span>
               </div>
             )}
 
             {/* Bottom Google Earth Coordinate & Altitude Telemetry Status Bar */}
-            <div className="flex items-center gap-3 px-4 py-2.5 rounded-full glass-card border border-[#4A4238]/15 dark:border-[#3A3430] shadow-xl backdrop-blur-xl font-mono text-xs text-[#4A4238]/80 dark:text-[#C5B9AE]">
+            <div className="pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-full glass-card border border-[#4A4238]/15 dark:border-[#3A3430] shadow-xl backdrop-blur-xl font-mono text-xs text-[#4A4238]/80 dark:text-[#C5B9AE]">
               <span>Heading: <strong className="text-[#E3836C]">{compassHeading}°</strong></span>
               <span className="opacity-40">|</span>
               <span>Altitude: <strong>{cameraAltitude.toLocaleString()} km</strong></span>

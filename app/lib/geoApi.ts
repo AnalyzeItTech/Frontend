@@ -193,6 +193,31 @@ export interface PlaceContext {
   error?: string;
 }
 
+export interface GeoSearchHit {
+  name: string;
+  country: string;
+  region: string;
+  lat: number;
+  lon: number;
+  feature?: string;
+  population?: number;
+}
+
+export async function searchPlaces(query: string, limit = 8): Promise<GeoSearchHit[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const res = await fetch(
+    `${API_BASE}/v1/geo/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+    { headers: getAuthHeaders() },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail || `Place search failed (${res.status})`);
+  }
+  const data = (await res.json()) as { results?: GeoSearchHit[] };
+  return data.results || [];
+}
+
 export async function fetchPlaceContext(latitude: number, longitude: number): Promise<PlaceContext> {
   const res = await fetch(`${API_BASE}/v1/geo/context`, {
     method: 'POST',
