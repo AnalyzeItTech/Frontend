@@ -60,6 +60,7 @@ import {
 } from '../lib/auth';
 import { downloadProjectZip, duplicateProject } from '../lib/exportApi';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
+import { LayoutSwitcher } from '../Components/dashboard/LayoutSwitcher';
 import { ObjectBuilderView } from '../Components/dashboard/ObjectBuilderView';
 import { ConnectorsView } from '../Components/dashboard/ConnectorsView';
 import { ModulePipelineView } from '../Components/dashboard/ModulePipelineView';
@@ -628,35 +629,27 @@ export default function DashboardPage() {
               </span>
             </button>
 
-            <button
-              onClick={() => setStudioTab('objects')}
-              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
-                studioTab === 'objects'
-                  ? 'bg-[#3D6FE0] text-white shadow-md'
-                  : 'text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]'
-              }`}
-              title="Custom Objects Studio"
+            <Link
+              href="/objects"
+              className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all group text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]"
+              title="Custom Objects (separate from dashboard)"
             >
               <IconDatabase size={19} />
               <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
                 Custom Objects
               </span>
-            </button>
+            </Link>
 
-            <button
-              onClick={() => setStudioTab('connectors')}
-              className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer group ${
-                studioTab === 'connectors'
-                  ? 'bg-[#3D6FE0] text-white shadow-md'
-                  : 'text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]'
-              }`}
-              title="Live Connectors Hub"
+            <Link
+              href="/connectors"
+              className="relative w-10 h-10 rounded-xl flex items-center justify-center transition-all group text-[#8B93A1] hover:text-[#EDEFF2] hover:bg-white/[0.06]"
+              title="Connectors (separate from dashboard)"
             >
               <IconBrandStripe size={19} />
               <span className="absolute left-14 px-2 py-1 bg-[#1C2025] text-white text-[11px] font-medium rounded-md shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 border border-white/[0.08]">
                 Live Connectors
               </span>
-            </button>
+            </Link>
 
             <button
               onClick={() => setStudioTab('pipeline')}
@@ -911,6 +904,14 @@ export default function DashboardPage() {
               </AnimatePresence>
             </div>
 
+            <LayoutSwitcher
+              projectId={activeProjectId}
+              currentLayout={currentLayout}
+              onLoadLayout={(layout) =>
+                setCurrentLayout({ widgets: (layout.widgets as WidgetSpec[]) || [] })
+              }
+            />
+
             {/* Share Button */}
             <button
               type="button"
@@ -1014,12 +1015,12 @@ export default function DashboardPage() {
                   </div>
                   <div className="space-y-1 max-w-md">
                     <h3 className="text-base font-medium text-[#EDEFF2]">
-                      {activeProjectId ? 'Canvas ready for telemetry' : 'No active workspace'}
+                      {activeProjectId ? 'No widgets in this saved view' : 'No active workspace'}
                     </h3>
                     <p className="text-xs text-[#8B93A1] leading-relaxed">
                       {activeProjectId
-                        ? 'This canvas currently has no widgets. Click Copilot in the bottom-right or select a starter template to provision metrics and charts.'
-                        : 'Choose a starter template or create a new project to start analyzing records and telemetry.'}
+                        ? 'The dashboard only displays widgets from research or templates. It does not start new research.'
+                        : 'Create a project, then pin research results here.'}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 pt-2">

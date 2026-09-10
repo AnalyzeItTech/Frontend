@@ -14,7 +14,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { getStoredToken } from '../lib/auth';
-import { streamChat, StreamEvent, WidgetSpec } from '../lib/chatApi';
+import { ChatRequestError, streamChat, StreamEvent, WidgetSpec, getArtifactUrl } from '../lib/chatApi';
 
 const EarthGlobe = dynamic(
   () => import('../Components/3d/EarthGlobe').then((module) => module.EarthGlobe),
@@ -49,6 +49,10 @@ export default function ResearchPage() {
   const [result, setResult] = useState<ResearchResult | null>(null);
   const [isResearching, setIsResearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [mode, setMode] = useState<'chat' | 'report' | null>(null);
+  const [cancelled, setCancelled] = useState(false);
+  const [upgradeHref, setUpgradeHref] = useState(false);
 
   const runResearch = async (value = query) => {
     if (!value.trim()) return;
@@ -60,13 +64,49 @@ export default function ResearchPage() {
     setIsResearching(true);
     setError(null);
     setResult(null);
+    setCancelled(false);
+    setUpgradeHref(false);
+    setMode(null);
+    setStatus('Routing…');
 
     let widget: WidgetSpec | undefined;
+    let streamed = '';
     try {
       const response = await streamChat({
         message: value.trim(),
         projectTitle: 'Research & Discovery',
         onEvent: (event: StreamEvent) => {
+          if (event.event === 'route_decision') {
+            const nextMode = event.payload?.response_mode === 'report' ? 'report' : 'chat';
+            setMode(nextMode);
+            setStatus(nextMode === 'report' ? 'Generating report…' : 'Answering…');
+            return;
+          }
+          if (event.event === 'tool_call') {
+            const name = typeof event.payload?.tool === 'string' ? event.payload.tool : 'tool';
+            const args = event.payload?.args as Record<string, unknown> | undefined;
+            const hint = typeof args?.symbol === 'string' ? args.symbol : typeof args?.city === 'string' ? args.city : '';
+            setStatus(hint ? `Looking up ${hint}…` : `Calling ${name}…`);
+            return;
+          }
+          if (event.event === 'tool_progress') {
+            const detail = typeof event.payload?.detail === 'string' ? event.payload.detail : 'Gathering sources…';
+            setStatus(detail);
+            return;
+          }
+          if (event.event === 'run_cancelled') {
+            setCancelled(true);
+            setStatus('Cancelled');
+            return;
+          }
+          if (event.event === 'error') {
+            setStatus('Error');
+            return;
+          }
+          if (event.event === 'model_delta') {
+            setStatus('Synthesizing…');
+            return;
+          }
           if (event.event !== 'ui_proposal') return;
           const candidate = event.payload.widget_spec;
           if (candidate && typeof candidate === 'object') {
@@ -74,16 +114,23 @@ export default function ResearchPage() {
           }
         },
       });
+      streamed = response.finalText;
       setResult({
         kind: widgetToResultKind(widget),
-        text: response.finalText || 'The research agent returned no written findings.',
+        text: streamed || 'The research agent returned no written findings.',
         widget,
         artifacts: response.artifacts,
       });
-    } catch (researchError) {
-      setError(researchError instanceof Error ? researchError.message : 'Research request failed.');
+    } catch (researchError: unknown) {
+      if (researchError instanceof ChatRequestError && researchError.upgradeRequired) {
+        setUpgradeHref(true);
+        setError(researchError.message);
+      } else {
+        setError(researchError instanceof Error ? researchError.message : 'Research request failed.');
+      }
     } finally {
       setIsResearching(false);
+      setStatus(null);
     }
   };
 
@@ -105,7 +152,7 @@ export default function ResearchPage() {
         </Link>
       </header>
 
-      <section className="relative z-60 flex min-h-screen pointer-events-none items-center px-5 py-28 sm:px-12 lg:px-20">
+      <section className="relative z-[60] flex min-h-screen pointer-events-none items-center px-5 py-28 sm:px-12 lg:px-20">
         <div className="w-full max-w-xl pointer-events-auto">
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#4A4238]/10 bg-[#F3EDE4]/80 px-3 py-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-[#786F64] backdrop-blur">
             <IconSparkles size={13} className="text-[#E3836C]" /> Ask about the world, not a schema
@@ -129,9 +176,30 @@ export default function ResearchPage() {
             </div>
           </form>
 
-          {error && <p role="alert" className="mt-4 rounded-xl border border-[#B86450]/20 bg-[#B86450]/10 px-3 py-2 text-xs text-[#9B4D3B]">{error}</p>}
+          {error && (
+            <p role="alert" className="mt-4 rounded-xl border border-[#B86450]/20 bg-[#B86450]/10 px-3 py-2 text-xs text-[#9B4D3B]">
+              {error}
+              {upgradeHref ? (
+                <>
+                  {' '}
+                  <Link href="/billing" className="font-medium underline">
+                    Upgrade
+                  </Link>
+                </>
+              ) : null}
+            </p>
+          )}
+          {!query.trim() && !result && !isResearching && (
+            <p className="mt-4 text-xs text-[#8F8477]">Ask anything. Empty queries are ignored.</p>
+          )}
           {!result && !isResearching && <div className="mt-5 flex flex-wrap gap-2">{prompts.map((prompt) => <button key={prompt} onClick={() => { setQuery(prompt); void runResearch(prompt); }} className="rounded-full border border-[#4A4238]/12 bg-[#F3EDE4]/75 px-3 py-1.5 text-xs text-[#6B6155] backdrop-blur transition hover:border-[#E3836C]/50 hover:text-[#B86450]">{prompt}</button>)}</div>}
-          {isResearching && <p className="mt-5 text-xs font-mono uppercase tracking-[0.14em] text-[#B86450]">Following sources…</p>}
+          {isResearching && (
+            <p className="mt-5 text-xs font-mono uppercase tracking-[0.14em] text-[#B86450]">
+              {mode === 'report' ? 'Generating report… ' : ''}
+              {status || 'Following sources…'}
+            </p>
+          )}
+          {cancelled && <p className="mt-3 text-xs text-[#786F64]">Run cancelled.</p>}
         </div>
       </section>
 
@@ -143,8 +211,27 @@ export default function ResearchPage() {
               <button onClick={() => setResult(null)} className="rounded-full p-1 text-[#786F64] hover:bg-[#EDE4D8]"><IconX size={17} /></button>
             </div>
             <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#6B6155]">{result.text}</p>
-            {result.artifacts.length > 0 && <div className="mt-4 flex items-center gap-1.5 text-[11px] text-[#786F64]"><IconTable size={13} className="text-[#E3836C]" /> {result.artifacts.length} artifact{result.artifacts.length === 1 ? '' : 's'} attached</div>}
-            <div className="mt-5 flex items-center justify-between border-t border-[#4A4238]/10 pt-4"><div className="flex items-center gap-1.5 text-[11px] text-[#786F64]"><IconMapPin size={13} className="text-[#E3836C]" /> Live agent stream</div><Link href="/Dashboard" className="inline-flex items-center gap-1.5 rounded-full bg-[#4A4238] px-3 py-2 text-xs font-medium text-[#FFF9F3] hover:bg-[#E3836C]">Open structured data <IconArrowUpRight size={13} /></Link></div>
+            {result.artifacts.length > 0 && (
+              <div className="mt-4 space-y-1 text-[11px] text-[#786F64]">
+                {result.artifacts.map((art, index) => {
+                  const rec = art as { filename: string; type: string; artifact_id?: string; id?: string };
+                  const id = rec.artifact_id || rec.id;
+                  return (
+                    <div key={`${rec.filename}-${index}`} className="flex items-center gap-1.5">
+                      <IconTable size={13} className="text-[#E3836C]" />
+                      {id ? (
+                        <a className="underline" href={getArtifactUrl(String(id))}>
+                          {rec.filename}
+                        </a>
+                      ) : (
+                        <span>{rec.filename}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="mt-5 flex items-center justify-between border-t border-[#4A4238]/10 pt-4"><div className="flex items-center gap-1.5 text-[11px] text-[#786F64]"><IconMapPin size={13} className="text-[#E3836C]" /> Agent stream complete</div><Link href="/Dashboard" className="inline-flex items-center gap-1.5 rounded-full bg-[#4A4238] px-3 py-2 text-xs font-medium text-[#FFF9F3] hover:bg-[#E3836C]">Open structured data <IconArrowUpRight size={13} /></Link></div>
           </motion.aside>
         )}
       </AnimatePresence>

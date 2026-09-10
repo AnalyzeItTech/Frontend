@@ -16,7 +16,7 @@ const STEPS: Step[] = [
     title: 'Connect',
     tagline: 'Point it at your data.',
     description:
-      'Connect your PostgreSQL, BigQuery, Snowflake, Stripe, or spreadsheet imports with read-only permissions in a few clicks.',
+      'Connect Stripe or Salesforce in preview, or start from a sample dashboard template. Additional warehouses and spreadsheet uploads are coming next.',
   },
   {
     step: '02',

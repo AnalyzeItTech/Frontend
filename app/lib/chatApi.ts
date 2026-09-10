@@ -1,4 +1,7 @@
 import { getAuthHeaders, getStoredUser } from './auth';
+import { ChatRequestError, parseApiFailure } from './apiErrors';
+
+export { ChatRequestError };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_V1 = `${API_BASE}/v1`;
@@ -360,7 +363,8 @@ export async function streamChat(options: ChatOptions): Promise<{
   });
 
   if (!response.ok) {
-    throw new Error(`Chat request failed: ${response.status}`);
+    const body = await response.json().catch(() => ({}));
+    throw new ChatRequestError(parseApiFailure(response.status, body));
   }
 
   const reader = response.body?.getReader();

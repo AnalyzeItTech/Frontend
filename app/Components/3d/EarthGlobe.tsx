@@ -983,17 +983,17 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
                       {selectedHub.country} · {selectedHub.region} · {selectedHub.lat.toFixed(2)}°, {selectedHub.lon.toFixed(2)}°
                     </span>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#8FA98F]/20 text-[#8FA98F] font-bold">
-                    {selectedHub.status}
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-[#D9AD70] font-bold">
+                    Sample hub
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1 border-t border-[#4A4238]/10 dark:border-[#3A3430]">
                   <div>
-                    <span className="text-[10px] opacity-50 block">Round-trip Ping</span>
+                    <span className="text-[10px] opacity-50 block">Illustrative ping</span>
                     <span className="font-bold text-[#E3836C]">{selectedHub.ping}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] opacity-50 block">Telemetry Bandwidth</span>
+                    <span className="text-[10px] opacity-50 block">Illustrative bandwidth</span>
                     <span className="font-bold">{selectedHub.throughput}</span>
                   </div>
                 </div>

@@ -11,7 +11,7 @@ const FAQS: FAQItem[] = [
   {
     question: 'What data sources can I connect?',
     answer:
-      'AnalyzeIt connects directly with PostgreSQL, MySQL, Snowflake, BigQuery, ClickHouse, Stripe billing streams, and CSV/spreadsheet uploads. All database connections use strictly read-only credentials and encrypted tunnels.',
+      'AnalyzeIt currently supports Stripe and Salesforce connectors (preview / seed sync), plus agent tools for markets, weather, web search, and project data. Broader warehouse connectors and real file uploads are on the roadmap.',
   },
   {
     question: 'Do I need technical or SQL knowledge to use AnalyzeIt?',
@@ -26,12 +26,12 @@ const FAQS: FAQItem[] = [
   {
     question: 'How is my data protected?',
     answer:
-      'AnalyzeIt connects using strictly read-only credentials and encrypts all network communication and stored configurations with AES-256 encryption. Your private business data is never used to train public language models.',
+      'Credentials are encrypted at rest when a vault key is configured. Network traffic uses HTTPS in production. Private business data is not used to train public language models. Treat connector sync as preview until live provider pulls ship.',
   },
   {
     question: 'Can my whole team collaborate in one workspace?',
     answer:
-      'Yes. You can invite teammates with configurable permissions, share investigation threads, and set up automated digests delivered directly to your team’s Slack, Notion, or email channels.',
+      'Yes. Project sharing links and role-aware UI redaction are available. Full team invites, Slack digests, and Notion delivery are still rolling out.',
   },
 ];
 

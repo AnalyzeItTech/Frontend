@@ -28,6 +28,24 @@ import {
 import { useTheme } from '../ui/ThemeProvider';
 import { resolveWidgetData, type WidgetSpec, type ProvenanceInfo, type ChartAnnotation } from '../../lib/chatApi';
 
+
+// ── Empty / missing data (never invent fake series) ───────────────────────────
+
+function WidgetEmptyState({ title, hint }: { title?: string; hint?: string }) {
+  return (
+    <div className="bg-[#14171B] rounded-xl p-6 border border-dashed border-white/[0.12] flex flex-col items-center justify-center text-center h-full min-h-[140px] shadow-sm">
+      <p className="text-sm font-medium text-[#EDEFF2]">{title || 'No data yet'}</p>
+      <p className="mt-1.5 text-[11px] font-mono text-[#8B93A1] max-w-[220px]">
+        {hint || 'Ask the agent or bind a source — sample charts are not shown.'}
+      </p>
+    </div>
+  );
+}
+
+function hasRenderableRows(raw: unknown): boolean {
+  return Array.isArray(raw) && raw.length > 0;
+}
+
 // ── Universal Citation & Provenance Footer ───────────────────────────────────
 
 export function CitationFooter({
@@ -86,7 +104,7 @@ export function CitationFooter({
       )}
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] text-[#8B93A1] flex-shrink-0">
-          {lastRefreshed || provenance?.timestamp || freshness || 'Live'}
+          {lastRefreshed || provenance?.timestamp || freshness || (provenance?.kind === 'synthetic_ai' || !provenance ? 'Preview' : 'Live')}
         </span>
         {onRefresh && (
           <button
@@ -190,12 +208,10 @@ export function LineChartWidget({
         date: String(d.date || d.label || `T${idx + 1}`),
         value: typeof d.value === 'number' ? d.value : Number(d.value) || 0,
       }))
-    : [
-        { date: '09:30', value: 478 },
-        { date: '11:30', value: 481 },
-        { date: '13:30', value: 483 },
-        { date: '15:30', value: 485.2 },
-      ];
+    : [];
+  if (data.length === 0) {
+    return <WidgetEmptyState title={title} />;
+  }
 
   const maxVal = Math.max(...data.map((d) => d.value), 1);
   const minVal = Math.min(...data.map((d) => d.value), 0);
@@ -302,12 +318,10 @@ export function BarChartWidget({
         label: String(d.label || d.date || `Q${idx + 1}`),
         value: typeof d.value === 'number' ? d.value : Number(d.value) || 0,
       }))
-    : [
-        { label: 'Q1', value: 40 },
-        { label: 'Q2', value: 65 },
-        { label: 'Q3', value: 85 },
-        { label: 'Q4', value: 110 },
-      ];
+    : [];
+  if (data.length === 0) {
+    return <WidgetEmptyState title={title} />;
+  }
 
   const maxVal = Math.max(...data.map((d) => d.value), 1);
 
@@ -378,11 +392,10 @@ export function TableWidget({
   const rawData = p.data || widget.data;
   const rows: Array<Record<string, unknown>> = Array.isArray(rawData) && rawData.length > 0
     ? (rawData as Array<Record<string, unknown>>)
-    : [
-        { region: 'US-East', status: 'Optimal', latency: '22ms' },
-        { region: 'EU-Central', status: 'Optimal', latency: '28ms' },
-        { region: 'AP-South', status: 'Active', latency: '41ms' },
-      ];
+    : [];
+  if (rows.length === 0) {
+    return <WidgetEmptyState title={title} />;
+  }
   const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
 
   // Helper to test if a cell is numeric / tabular measurement
@@ -671,9 +684,12 @@ export function ComparisonPairWidget({
   const p = widget.props || widget;
   const metric = String(p.metric || widget.metric || 'Comparative Analysis');
   const title = String(p.title || widget.title || 'Asset Comparison');
-  const a = ((p as any).a || { label: 'Benchmark A', value: '$100', sub: 'Baseline' }) as { label: string; value: string; sub?: string };
-  const b = ((p as any).b || { label: 'Benchmark B', value: '$120', sub: '+20% Delta' }) as { label: string; value: string; sub?: string };
+  const a = (p as any).a as { label: string; value: string; sub?: string } | undefined;
+  const b = (p as any).b as { label: string; value: string; sub?: string } | undefined;
   const delta = (p as any).delta ? String((p as any).delta) : undefined;
+  if (!a?.value || !b?.value) {
+    return <WidgetEmptyState title={title} />;
+  }
 
   return (
     <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
@@ -759,13 +775,10 @@ export function TimelineWidget({
   const title = String(p.title || widget.title || 'Event Timeline');
   const rawEvents = (p as any).events || (widget as any).events || [];
   const events: Array<{ date: string; label: string; description?: string }> =
-    Array.isArray(rawEvents) && rawEvents.length > 0
-      ? rawEvents
-      : [
-          { date: '09:30 AM', label: 'Market Open', description: 'Opening bell with high tech volume' },
-          { date: '11:00 AM', label: 'Fed Policy Remarks', description: 'Yield volatility stabilizes' },
-          { date: '02:00 PM', label: 'Earnings Announcement', description: 'Key components report revenue beat' },
-        ];
+    Array.isArray(rawEvents) && rawEvents.length > 0 ? rawEvents : [];
+  if (events.length === 0) {
+    return <WidgetEmptyState title={title} />;
+  }
 
   return (
     <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
@@ -831,25 +844,19 @@ export function HeatmapWidget({
   const p = (widget.props || widget) as any;
   const title = String(p.title || widget.title || 'Intensity Heatmap');
   const metric = String(p.metric || widget.metric || 'DENSITY_MAP');
-  const rows: string[] = Array.isArray(p.rows) && p.rows.length > 0 ? p.rows : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-  const cols: string[] = Array.isArray(p.cols) && p.cols.length > 0 ? p.cols : ['09:00', '11:00', '13:00', '15:00', '17:00'];
-  const rawValues: number[][] = Array.isArray(p.values) && p.values.length > 0
-    ? p.values
-    : [
-        [35, 62, 88, 95, 42],
-        [48, 75, 92, 38, 55],
-        [22, 54, 78, 85, 64],
-        [60, 45, 70, 91, 83],
-        [30, 68, 84, 52, 29],
-      ];
+  const rows: string[] = Array.isArray(p.rows) ? p.rows : [];
+  const cols: string[] = Array.isArray(p.cols) ? p.cols : [];
+  const rawValues: number[][] = Array.isArray(p.values) ? p.values : [];
+  const [hoveredCell, setHoveredCell] = useState<{ r: string; c: string; v: number } | null>(null);
+  if (!rows.length || !cols.length || !rawValues.length) {
+    return <WidgetEmptyState title={title} />;
+  }
 
   const flat = rawValues.flat();
   const maxVal = Math.max(...flat, 1);
   const minVal = Math.min(...flat, 0);
   const range = maxVal - minVal || 1;
   const colorScale = p.colorScale || 'warm';
-
-  const [hoveredCell, setHoveredCell] = useState<{ r: string; c: string; v: number } | null>(null);
 
   const getCellBg = (val: number) => {
     const t = Math.max(0.12, (val - minVal) / range);
@@ -977,14 +984,10 @@ export function SparklineListWidget({
     change?: string;
     trend?: 'up' | 'down' | 'flat';
     sparkline: number[];
-  }> = Array.isArray(p.items) && p.items.length > 0
-    ? p.items
-    : [
-        { label: 'NVDA · NVIDIA Corp', value: '$128.40', change: '+3.2%', trend: 'up', sparkline: [121, 123, 122, 125, 124, 128.4] },
-        { label: 'AAPL · Apple Inc', value: '$224.23', change: '+0.8%', trend: 'up', sparkline: [221, 222, 220, 223, 222, 224.2] },
-        { label: 'MSFT · Microsoft Corp', value: '$448.90', change: '-0.4%', trend: 'down', sparkline: [452, 451, 450, 449, 450, 448.9] },
-        { label: 'QQQ · Invesco QQQ', value: '$485.20', change: '+1.8%', trend: 'up', sparkline: [478, 480, 481, 483, 482, 485.2] },
-      ];
+  }> = Array.isArray(p.items) && p.items.length > 0 ? p.items : [];
+  if (items.length === 0) {
+    return <WidgetEmptyState title={title} />;
+  }
 
   const renderSparkline = (data: number[], trend?: string) => {
     if (!data || data.length < 2) return null;
@@ -1118,14 +1121,10 @@ export function FunnelWidget({
     value: number;
     sublabel?: string;
     rate?: string;
-  }> = Array.isArray(p.stages) && p.stages.length > 0
-    ? p.stages
-    : [
-        { label: 'Impressions', value: 45000, sublabel: 'Top of funnel' },
-        { label: 'Product Visits', value: 18200, sublabel: 'High intent' },
-        { label: 'Added to Cart', value: 6400, sublabel: 'Cart checkout' },
-        { label: 'Purchases', value: 2480, sublabel: 'Paid converted' },
-      ];
+  }> = Array.isArray(p.stages) && p.stages.length > 0 ? p.stages : [];
+  if (stages.length === 0) {
+    return <WidgetEmptyState title={title} />;
+  }
 
   const topValue = stages[0]?.value || 1;
 
@@ -1220,15 +1219,10 @@ export function DistributionWidget({
     range: string;
     count: number;
     percentage?: number;
-  }> = Array.isArray(p.buckets) && p.buckets.length > 0
-    ? p.buckets
-    : [
-        { range: '0-25ms', count: 1240 },
-        { range: '25-50ms', count: 3500 },
-        { range: '50-100ms', count: 2150 },
-        { range: '100-200ms', count: 720 },
-        { range: '>200ms', count: 180 },
-      ];
+  }> = Array.isArray(p.buckets) && p.buckets.length > 0 ? p.buckets : [];
+  if (buckets.length === 0) {
+    return <WidgetEmptyState title={title} />;
+  }
 
   const maxCount = Math.max(...buckets.map((b) => b.count), 1);
   const totalCount = buckets.reduce((acc, b) => acc + b.count, 0) || 1;
@@ -1307,28 +1301,12 @@ export function NodeGraphWidget({
 
   // Hard safety limit: <= 20 nodes, <= 40 edges
   const rawNodes: Array<{ id: string; label: string; group?: string }> =
-    Array.isArray(p.nodes) && p.nodes.length > 0
-      ? p.nodes.slice(0, 20)
-      : [
-          { id: 'gw', label: 'API Gateway', group: 'ingress' },
-          { id: 'auth', label: 'Auth Service', group: 'core' },
-          { id: 'core', label: 'Core Engine', group: 'core' },
-          { id: 'db', label: 'PostgreSQL DB', group: 'storage' },
-          { id: 'cache', label: 'Redis Cache', group: 'storage' },
-          { id: 'worker', label: 'Queue Worker', group: 'async' },
-        ];
-
+    Array.isArray(p.nodes) && p.nodes.length > 0 ? p.nodes.slice(0, 20) : [];
   const rawEdges: Array<{ source: string; target: string; label?: string }> =
-    Array.isArray(p.edges) && p.edges.length > 0
-      ? p.edges.slice(0, 40)
-      : [
-          { source: 'gw', target: 'auth' },
-          { source: 'gw', target: 'core' },
-          { source: 'core', target: 'db' },
-          { source: 'core', target: 'cache' },
-          { source: 'core', target: 'worker' },
-          { source: 'worker', target: 'db' },
-        ];
+    Array.isArray(p.edges) && p.edges.length > 0 ? p.edges.slice(0, 40) : [];
+  if (rawNodes.length === 0) {
+    return <WidgetEmptyState title={title} />;
+  }
 
   const N = rawNodes.length;
   const cx = 190;
@@ -1484,21 +1462,16 @@ export function AnnotatedChartWidget({
       ? p.series
       : Array.isArray(p.data) && p.data.length > 0
       ? p.data.map((d: any, i: number) => ({ x: d.x || d.date || `T${i}`, y: Number(d.y ?? d.value) || 0 }))
-      : [
-          { x: '09:30', y: 478.1 },
-          { x: '10:30', y: 480.5 },
-          { x: '11:30', y: 483.2 },
-          { x: '13:00', y: 482.0 },
-          { x: '14:30', y: 485.4 },
-          { x: '16:00', y: 486.2 },
-        ];
+      : [];
+  const annotations: Array<ChartAnnotation> = Array.isArray(p.annotations) ? p.annotations : [];
+  const [selectedPoint, setSelectedPoint] = useState<{ x: string; y: number; px: number; py: number } | null>(null);
+  const [userNote, setUserNote] = useState('');
+  const [noteType, setNoteType] = useState<'note' | 'event' | 'milestone'>('note');
+  const [localAnnotations, setLocalAnnotations] = useState(annotations);
 
-  const annotations: Array<ChartAnnotation> = Array.isArray(p.annotations) && p.annotations.length > 0
-    ? p.annotations
-    : [
-        { x: '11:30', label: 'CPI Beat (+0.2%)', type: 'event' },
-        { x: '14:30', label: 'Volume Surge', type: 'anomaly' },
-      ];
+  if (series.length === 0) {
+    return <WidgetEmptyState title={title} />;
+  }
 
   const yVals = series.map((s) => s.y);
   const minVal = Math.min(...yVals);
@@ -1515,11 +1488,6 @@ export function AnnotatedChartWidget({
   });
 
   const polylineStr = points.map((pt) => `${pt.px},${pt.py}`).join(' ');
-
-  const [selectedPoint, setSelectedPoint] = useState<{ x: string; y: number; px: number; py: number } | null>(null);
-  const [userNote, setUserNote] = useState('');
-  const [noteType, setNoteType] = useState<'note' | 'event' | 'milestone'>('note');
-  const [localAnnotations, setLocalAnnotations] = useState(annotations);
 
   const handleAddUserAnnotation = () => {
     if (!selectedPoint || !userNote.trim()) return;
@@ -2316,20 +2284,45 @@ export function SandboxedWidgetRenderer({
         </div>
       )}
 
-      {/* Freshness Badge (visible by default) */}
-      <div className="absolute top-3 right-3 z-10 group-hover/canvas-widget:hidden transition-all">
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-[#9EBB9A] border border-emerald-500/20 dark:border-emerald-500/30 flex items-center gap-1.5 shadow-xs">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          {widget.freshness || 'Live · as of 09:40 EDT'}
-        </span>
-      </div>
+      {/* Freshness / provenance badge — never invent a fake "Live" clock */}
+      {(() => {
+        const binding = widget.binding as { last_refreshed_at?: string } | undefined;
+        const kind = widget.provenance?.kind;
+        const isSynthetic = !kind || kind === 'synthetic_ai';
+        const refreshedAt = binding?.last_refreshed_at
+          ? `Refreshed ${new Date(binding.last_refreshed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : null;
+        const label =
+          widget.freshness ||
+          refreshedAt ||
+          widget.provenance?.timestamp ||
+          (isSynthetic ? 'Preview · not live' : kind === 'verified_db' ? 'Verified DB' : 'Live API');
+        const tone = isSynthetic
+          ? 'bg-amber-500/10 text-amber-700 dark:text-[#D9AD70] border-amber-500/25 dark:border-amber-500/30'
+          : 'bg-emerald-500/10 text-emerald-600 dark:text-[#9EBB9A] border-emerald-500/20 dark:border-emerald-500/30';
+        const dot = isSynthetic ? 'bg-amber-500' : 'bg-emerald-500';
+        return (
+          <div className="absolute top-3 right-3 z-10 group-hover/canvas-widget:hidden transition-all">
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border flex items-center gap-1.5 shadow-xs ${tone}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${dot} ${isSynthetic ? '' : 'animate-pulse'}`} />
+              {label}
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Hover Action Toolbar */}
       {hasToolbarControls && (
         <div className="absolute top-2.5 right-2.5 z-20 hidden group-hover/canvas-widget:flex items-center gap-1 bg-[#FAF6F0]/95 dark:bg-[#302B28]/95 backdrop-blur-md px-2 py-1 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] shadow-md transition-all">
-          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-[#9EBB9A] mr-1 flex items-center gap-1">
-            <span className="w-1 h-1 rounded-full bg-emerald-500" />
-            Live
+          <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md mr-1 flex items-center gap-1 ${
+            !widget.provenance?.kind || widget.provenance.kind === 'synthetic_ai'
+              ? 'bg-amber-500/10 text-amber-700 dark:text-[#D9AD70]'
+              : 'bg-emerald-500/10 text-emerald-600 dark:text-[#9EBB9A]'
+          }`}>
+            <span className={`w-1 h-1 rounded-full ${
+              !widget.provenance?.kind || widget.provenance.kind === 'synthetic_ai' ? 'bg-amber-500' : 'bg-emerald-500'
+            }`} />
+            {!widget.provenance?.kind || widget.provenance.kind === 'synthetic_ai' ? 'Preview' : 'Live'}
           </span>
 
           {onRefine && (

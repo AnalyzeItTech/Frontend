@@ -38,6 +38,7 @@ import {
   refreshWidgetData,
   saveProjectTemplate,
   sendPresenceHeartbeat,
+  getArtifactUrl,
   removePresence,
   getProjectById,
   updateProject,
@@ -993,12 +994,9 @@ function NewProjectContent() {
   };
 
   const handleFileUpload = () => {
-    const sampleFiles = ['q3_financial_cohorts.csv', 'user_telemetry_events.parquet', 'stripe_invoices_2026.xlsx'];
-    const randomFile = sampleFiles[Math.floor(Math.random() * sampleFiles.length)];
-    if (!attachedFiles.includes(randomFile)) {
-      setAttachedFiles((prev) => [...prev, randomFile]);
-      handleSendMessage(`Attached data source: ${randomFile}. Please inspect the column schemas and summary stats.`);
-    }
+    window.alert(
+      'File upload is not wired yet. Attach is a planned feature — no file was uploaded or parsed.'
+    );
   };
 
   const handleBackToDashboard = (e: React.MouseEvent) => {
@@ -1402,8 +1400,13 @@ function NewProjectContent() {
                           const artFmt = (art.format || art.type || '').toLowerCase();
                           const isAudio = artFmt === 'audio_mp3' || artFmt === 'audio';
                           const isVideo = artFmt === 'video_mp4' || artFmt === 'video';
-                          const downloadUrl = art.download_url || `/artifacts/${art.artifact_id}/${art.filename}`;
-                          const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : `http://localhost:8001${downloadUrl}`;
+                          const downloadUrl = art.download_url
+                            || (art.artifact_id ? getArtifactUrl(String(art.artifact_id)) : '');
+                          const fullUrl = downloadUrl.startsWith('http')
+                            ? downloadUrl
+                            : downloadUrl
+                              ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${downloadUrl.startsWith('/') ? '' : '/'}${downloadUrl}`
+                              : '#';
 
                           return (
                             <div

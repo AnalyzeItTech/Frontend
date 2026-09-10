@@ -18,6 +18,18 @@
   --color-sage: #8FA98F;
   --color-v3d-red: #D97870;
 
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+
   /* Technical Dark Instrument Tokens */
   --color-canvas-base: #0B0D10;
   --color-surface-card: #14171B;

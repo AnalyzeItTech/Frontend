@@ -14,47 +14,44 @@ interface PricingTier {
   cta: string;
 }
 
+/** Illustrative only — billing is not wired. CTAs go to account creation. */
 const TIERS: PricingTier[] = [
   {
-    name: 'Starter',
-    price: '$49',
-    period: '/month',
-    tagline: 'For solo founders and small projects finding initial clarity.',
+    name: 'Free',
+    price: '$0',
+    period: '',
+    tagline: 'Personal research with a smaller model and 1× tokens.',
     features: [
-      'Up to 3 connected data sources',
-      'Unlimited narrative queries',
-      'Weekly scheduled digests',
-      'Standard CSV and table exports',
+      'Core research loop',
+      '3 projects · 12 widgets',
+      '7-day artifact retention',
     ],
-    cta: 'Start 14-day trial',
+    cta: 'Start free',
   },
   {
-    name: 'Team',
-    price: '$149',
-    period: '/month',
-    tagline: 'For growing teams sharing insights across departments.',
+    name: 'Premium',
+    price: '$50',
+    period: '/mo',
+    tagline: 'Better model and 3× token budget for deeper analysis.',
     popular: true,
     features: [
-      'Unlimited data sources & warehouses',
-      'Shared team workspace & threads',
-      'Slack & email digest integrations',
-      'Granular role-based permissions',
-      'Priority query engine',
+      'Better model + 3× tokens',
+      '15 projects · 30 widgets',
+      '30-day artifact retention',
     ],
-    cta: 'Start 14-day trial',
+    cta: 'Upgrade',
   },
   {
-    name: 'Custom',
-    price: 'Contact',
-    period: '',
-    tagline: 'For organizations with custom infrastructure and dedicated support.',
+    name: 'Premium Plus',
+    price: '$100',
+    period: '/mo',
+    tagline: '6× tokens, longer retention, more concurrent projects, priority queue.',
     features: [
-      'Custom database connectors',
-      'Dedicated compute instance',
-      'Custom SLA and onboarding',
-      'Tailored security review',
+      '6× tokens · large model',
+      '90-day artifacts · 10 concurrent projects',
+      'Priority queue when the agent is busy',
     ],
-    cta: 'Talk with us',
+    cta: 'Go Plus',
   },
 ];
 
@@ -64,7 +61,6 @@ export const PricingTeaserSection: React.FC = () => {
       id="pricing"
       className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto"
     >
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 28 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -74,80 +70,59 @@ export const PricingTeaserSection: React.FC = () => {
       >
         <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#91867E]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#E3836C]" />
-          Simple, Transparent Plans
+          Preview access
         </div>
         <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#F4EDE5] font-normal">
-          Fair pricing for quiet focus.
+          Fair pricing for quiet research.
         </h2>
         <p className="text-base text-[#4A4238]/70 dark:text-[#C5B9AE]">
-          14-day free trial on all plans. No credit card required.
+          Paid plans billed via PayU. Failed renewals keep entitlements for 7 days, then Free.
         </p>
       </motion.div>
 
-      {/* 3 Tiers Grid with Staggered Entrance */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
         {TIERS.map((tier, idx) => (
           <motion.div
             key={tier.name}
-            initial={{ opacity: 0, y: 35 }}
+            initial={{ opacity: 0, y: 28 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
-            transition={{
-              duration: 0.7,
-              delay: idx * 0.15,
-              ease: [0.16, 1, 0.3, 1],
-            }}
-            className={`rounded-3xl p-8 md:p-10 flex flex-col justify-between space-y-8 transition-all duration-300 transform hover:-translate-y-1.5 hover:shadow-xl ${
+            transition={{ duration: 0.65, delay: idx * 0.08, ease: [0.16, 1, 0.3, 1] }}
+            className={`relative flex flex-col rounded-3xl border p-7 ${
               tier.popular
-                ? 'bg-[#F3EDE4] dark:bg-[#5A332C] border-2 border-[#E3836C] dark:border-[#8A4D40] shadow-md relative text-[#4A4238] dark:text-[#F4EDE5]'
-                : 'glass-card border border-[#4A4238]/10 dark:border-[#3A3430] hover:border-[#4A4238]/20 dark:hover:border-[#E3836C]/40'
+                ? 'border-[#E3836C]/40 bg-[#FFF9F3] dark:bg-[#292522] shadow-lg'
+                : 'border-[#4A4238]/12 dark:border-[#3A3430] bg-[#F3EDE4]/50 dark:bg-[#211E1C]/60'
             }`}
           >
             {tier.popular && (
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-0.5 rounded-full bg-[#E3836C] text-[#FFF7F1] text-xs font-mono uppercase tracking-wider shadow-sm">
-                Most Popular
-              </div>
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#E3836C] text-white">
+                Most used
+              </span>
             )}
-
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-serif text-2xl text-[#4A4238] dark:text-[#F4EDE5] font-normal">
-                  {tier.name}
-                </h3>
-                <p className="text-xs text-[#4A4238]/70 dark:text-[#C5B9AE] mt-1">
-                  {tier.tagline}
-                </p>
-              </div>
-
-              <div className="flex items-baseline gap-1">
-                <span className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#F4EDE5] font-medium">
-                  {tier.price}
-                </span>
-                {tier.period && (
-                  <span className="text-sm text-[#4A4238]/60 dark:text-[#91867E]">{tier.period}</span>
-                )}
-              </div>
-
-              {/* Feature List */}
-              <div className="space-y-2.5 pt-4 border-t border-[#4A4238]/8 dark:border-[#3A3430]">
-                {tier.features.map((feat, fIdx) => (
-                  <div
-                    key={fIdx}
-                    className="flex items-start gap-2.5 text-sm text-[#4A4238]/80 dark:text-[#C5B9AE]"
-                  >
-                    <span className="text-[#9EBB9A] text-sm">✓</span>
-                    <span>{feat}</span>
-                  </div>
-                ))}
-              </div>
+            <div className="space-y-1 mb-6">
+              <h3 className="font-serif text-2xl text-[#4A4238] dark:text-[#F4EDE5]">{tier.name}</h3>
+              <p className="text-sm text-[#4A4238]/65 dark:text-[#C5B9AE]">{tier.tagline}</p>
             </div>
-
+            <div className="mb-6">
+              <span className="font-serif text-4xl text-[#4A4238] dark:text-[#F4EDE5]">{tier.price}</span>
+              {tier.period ? (
+                <span className="text-sm text-[#4A4238]/50 dark:text-[#91867E]">{tier.period}</span>
+              ) : null}
+            </div>
+            <ul className="space-y-2.5 mb-8 flex-1">
+              {tier.features.map((feature) => (
+                <li key={feature} className="text-sm text-[#4A4238]/75 dark:text-[#C5B9AE] flex gap-2">
+                  <span className="text-[#E3836C]">·</span>
+                  {feature}
+                </li>
+              ))}
+            </ul>
             <Link
-              href="/login"
-              className={`w-full py-3 rounded-full text-center text-sm font-medium transition-all duration-200 shadow-xs ${
+              href={tier.name === 'Free' ? '/login' : '/billing'}
+              className={`inline-flex justify-center rounded-full px-5 py-3 text-sm font-medium transition ${
                 tier.popular
-                  ? 'bg-[#E3836C] hover:bg-[#ED967F] active:bg-[#C96F5A] text-[#FFF7F1] shadow-sm'
-                  : 'bg-[#4A4238] hover:bg-[#383129] dark:bg-[#292522] dark:border dark:border-[#504740] dark:hover:bg-[#302B28] text-[#F3EDE4] dark:text-[#F4EDE5]'
+                  ? 'bg-[#E3836C] text-white hover:bg-[#ED967F]'
+                  : 'border border-[#4A4238]/20 dark:border-[#504740] text-[#4A4238] dark:text-[#F4EDE5] hover:border-[#E3836C]'
               }`}
             >
               {tier.cta}

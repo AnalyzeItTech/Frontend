@@ -7,6 +7,8 @@ export interface UserProfile {
   name: string;
   preferences?: Record<string, unknown>;
   created_at?: string;
+  tier?: string;
+  entitlements?: Record<string, unknown>;
 }
 
 export interface AuthResult {
@@ -137,7 +139,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
   const res = await fetch(`${API_V1}/auth/change-password`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    body: JSON.stringify({ old_password: currentPassword, new_password: newPassword }),
   });
 
   if (!res.ok) {

@@ -131,10 +131,12 @@ const OAuthButton: React.FC<{
 }> = ({ icon, label }) => (
   <button
     type="button"
-    className="flex items-center justify-center gap-2.5 w-full py-2.5 rounded-xl border border-[#4A4238]/12 dark:border-[#3A3430] bg-white/50 dark:bg-[#292522] hover:bg-white/80 dark:hover:bg-[#302B28] hover:border-[#4A4238]/20 dark:hover:border-[#504740] text-xs font-medium text-[#4A4238] dark:text-[#F4EDE5] transition-all duration-200 cursor-pointer shadow-xs"
+    disabled
+    title="Social sign-in is not configured yet"
+    className="flex items-center justify-center gap-2.5 w-full py-2.5 rounded-xl border border-[#4A4238]/12 dark:border-[#3A3430] bg-white/50 dark:bg-[#292522] text-xs font-medium text-[#4A4238]/50 dark:text-[#91867E] cursor-not-allowed opacity-70 shadow-xs"
   >
     {icon}
-    {label}
+    {label} (soon)
   </button>
 );
 
