@@ -14,7 +14,6 @@ import {
   IconCheck,
   IconX,
   IconLayoutDashboard,
-  IconSend,
   IconEdit,
   IconTrash,
   IconCopy,
@@ -40,16 +39,13 @@ import {
 } from '@tabler/icons-react';
 import {
   getProjectLayout,
-  applyUIAction,
   getProjects,
   getProjectById,
   createProject,
   updateProject,
   deleteProject,
   updateProjectLayout,
-  streamChat,
   type WidgetSpec,
-  type UIProposalPayload,
   type ProjectSummary,
 } from '../lib/chatApi';
 import {
@@ -83,26 +79,17 @@ export default function DashboardPage() {
 
   // Navigation rail tab state
   const [studioTab, setStudioTab] = useState<'canvas' | 'objects' | 'connectors' | 'pipeline' | 'templates'>('canvas');
-  const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
   const [isProjectsModalOpen, setIsProjectsModalOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // ─── Active Scoped Project & Generative Canvas State ─────────────────────────
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [activeProjectName, setActiveProjectName] = useState<string>('Workspace Canvas');
   const [layoutVersion, setLayoutVersion] = useState<number>(1);
   const [updatedBy, setUpdatedBy] = useState<string>('system');
   const [currentLayout, setCurrentLayout] = useState<{ widgets: WidgetSpec[] }>({
     widgets: [],
   });
-
-  // ─── Agent Proposal State ───────────────────────────────────────────────────
-  const [pendingProposal, setPendingProposal] = useState<UIProposalPayload | null>(null);
-  const [agentPrompt, setAgentPrompt] = useState<string>('');
-  const [isAgentRunning, setIsAgentRunning] = useState<boolean>(false);
-  const [agentStatus, setAgentStatus] = useState<string>('');
-  const [isApplying, setIsApplying] = useState<boolean>(false);
 
   // ─── User & Projects State ──────────────────────────────────────────────────
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -425,125 +412,7 @@ export default function DashboardPage() {
     router.push('/login');
   };
 
-  // ─── AI Copilot Prompt Execution ───────────────────────────────────────────
-  const handlePromptAgent = async (overridePrompt?: string) => {
-    const textToRun = overridePrompt || agentPrompt;
-    if (!textToRun.trim() || isAgentRunning) return;
-
-    const targetProjId = activeProjectId || 'default';
-    setIsAgentRunning(true);
-    setAgentStatus('Synthesizing workspace layout…');
-    if (!overridePrompt) setAgentPrompt('');
-    setIsCopilotOpen(true);
-    try {
-      await streamChat({
-        message: textToRun,
-        runId: activeRunId || undefined,
-        projectId: targetProjId,
-        onEvent: (event: any) => {
-          if (event.event === 'status' || event.type === 'status') {
-            setAgentStatus(event.payload?.message || event.message || '');
-          } else if (event.event === 'ui_proposal' || event.type === 'ui_proposal') {
-            setPendingProposal(event.payload);
-            setAgentStatus('Proposal ready for review');
-          } else if (event.event === 'done' || event.event === 'final' || event.type === 'done') {
-            setAgentStatus('');
-            if (event.run_id) setActiveRunId(event.run_id);
-          } else if (event.event === 'error' || event.type === 'error') {
-            setAgentStatus(`Error: ${event.payload?.message || event.payload?.error || event.message || 'Unknown error'}`);
-          }
-        },
-      });
-    } catch (err: any) {
-      console.error('Failed to stream agent chat:', err);
-      setAgentStatus('Error communicating with Copilot agent');
-    } finally {
-      setIsAgentRunning(false);
-    }
-  };
-
-  const handleAcceptProposal = async () => {
-    if (!pendingProposal) return;
-    const targetProjId = pendingProposal.project_id || activeProjectId;
-    if (!targetProjId) return;
-
-    setIsApplying(true);
-    try {
-      let res: any = null;
-      if (pendingProposal.action_id) {
-        try {
-          res = await applyUIAction(targetProjId, pendingProposal.action_id, true);
-        } catch (apiErr) {
-          console.warn('Backend applyUIAction failed, applying fallback merge:', apiErr);
-        }
-      }
-
-      if (res && res.applied && res.layout && Array.isArray(res.layout.widgets) && res.layout.widgets.length > 0) {
-        setCurrentLayout(res.layout);
-        if (res.layout_version) setLayoutVersion(res.layout_version);
-        setUpdatedBy('agent');
-      } else {
-        const proposedWidgets: WidgetSpec[] = [];
-        if (Array.isArray(pendingProposal.widgets) && pendingProposal.widgets.length > 0) {
-          proposedWidgets.push(...pendingProposal.widgets);
-        } else if (pendingProposal.widget_spec) {
-          proposedWidgets.push(pendingProposal.widget_spec);
-        }
-
-        if (proposedWidgets.length > 0) {
-          const mergedWidgets = [...currentLayout.widgets];
-          for (const pw of proposedWidgets) {
-            const idx = mergedWidgets.findIndex((w) => w.id === pw.id);
-            if (idx >= 0) {
-              mergedWidgets[idx] = pw;
-            } else {
-              mergedWidgets.push(pw);
-            }
-          }
-
-          const newLayout = { widgets: mergedWidgets };
-          setCurrentLayout(newLayout);
-          const nextVersion = layoutVersion + 1;
-          setLayoutVersion(nextVersion);
-          setUpdatedBy('agent');
-
-          try {
-            await updateProjectLayout(targetProjId, layoutVersion, newLayout, 'agent');
-          } catch (updateErr) {
-            console.warn('Failed to persist layout update to backend:', updateErr);
-          }
-        } else {
-          const updated = await getProjectLayout(targetProjId);
-          if (updated && updated.layout_json) {
-            setCurrentLayout(updated.layout_json);
-            setLayoutVersion(updated.version);
-            setUpdatedBy(updated.updated_by || 'agent');
-          }
-        }
-      }
-
-      setExportToastMsg('Dashboard updated successfully!');
-      setTimeout(() => setExportToastMsg(null), 3000);
-      setPendingProposal(null);
-    } catch (err) {
-      console.error('Failed to accept proposal:', err);
-    } finally {
-      setIsApplying(false);
-    }
-  };
-
-  const handleRejectProposal = async () => {
-    if (!pendingProposal) return;
-    const targetProjId = pendingProposal.project_id || activeProjectId;
-    if (pendingProposal.action_id && targetProjId) {
-      try {
-        await applyUIAction(targetProjId, pendingProposal.action_id, false);
-      } catch (err) {
-        console.warn('Failed to reject proposal on backend:', err);
-      }
-    }
-    setPendingProposal(null);
-  };
+  // Agent chat lives on /research — dashboard is display-only.
 
   const handleWidgetAction = (widgetId: string, action: string) => {
     if (action === 'delete' || action === 'remove_widget') {
@@ -593,7 +462,7 @@ export default function DashboardPage() {
 
   return (
     <AppShell active="dashboard" flush>
-    <div className="flex h-[calc(100vh-56px)] w-full flex-col overflow-hidden bg-[#F3EDE4] text-[#4A4238] font-sans antialiased">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased">
       {isExportMenuOpen && (
         <div className="fixed inset-0 z-20 cursor-default" onClick={() => setIsExportMenuOpen(false)} />
       )}
@@ -613,7 +482,7 @@ export default function DashboardPage() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* ─── ZONE 2: SLIM TOP BAR (56px) ─── */}
-        <header className="h-14 shrink-0 px-6 flex items-center justify-between border-b border-[#4A4238]/12 bg-[#FAF7F2] z-20">
+        <header className="h-14 shrink-0 px-6 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] z-20">
           <div className="flex items-center gap-3 min-w-0">
             {serverProjects.length > 1 ? (
               <select
@@ -831,7 +700,7 @@ export default function DashboardPage() {
         </header>
 
         {/* ─── ZONE 3: MAIN CANVAS WITH REAL GUTTERS & DISTINCT SURFACES ─── */}
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-6">
+        <main className="flex-1 min-h-0 overflow-y-auto p-6 lg:p-8 space-y-6 chat-scroll">
 
           {/* ─── TAB: DASHBOARD CANVAS ─── */}
           {studioTab === 'canvas' && (
@@ -906,13 +775,9 @@ export default function DashboardPage() {
                     >
                       Explore Templates
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsCopilotOpen(true)}
-                      className="btn-primary text-xs"
-                    >
-                      Ask Copilot
-                    </button>
+                    <Link href="/research" className="btn-primary text-xs">
+                      Continue in Chat
+                    </Link>
                   </div>
                 </div>
               )}
@@ -942,8 +807,8 @@ export default function DashboardPage() {
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
                 <div>
-                  <h2 className="text-lg font-medium text-[#EDEFF2]">Curated Starter Workspaces</h2>
-                  <p className="text-xs text-[#8B93A1] mt-0.5">
+                  <h2 className="text-lg font-medium text-[var(--text-primary)]">Curated Starter Workspaces</h2>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                     Pre-configured dashboards with verified schemas, telemetry bindings, and analytical views
                   </p>
                 </div>
@@ -955,8 +820,8 @@ export default function DashboardPage() {
                       onClick={() => setActiveTemplateCategory(cat)}
                       className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                         activeTemplateCategory === cat
-                          ? 'bg-[#3D6FE0] text-white shadow-xs'
-                          : 'bg-[#14171B] text-[#8B93A1] hover:text-[#EDEFF2] border border-white/[0.06]'
+                          ? 'bg-[#E3836C] text-white shadow-xs'
+                          : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)]'
                       }`}
                     >
                       {cat}
@@ -973,7 +838,7 @@ export default function DashboardPage() {
                   return (
                     <div
                       key={template.id}
-                      className="bg-[#14171B] rounded-xl p-5 border border-white/[0.08] hover:border-white/[0.16] flex flex-col justify-between space-y-4 transition-all group"
+                      className="app-card p-5 flex flex-col justify-between space-y-4 transition-all group hover:border-[#E3836C]/30"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
@@ -1029,146 +894,16 @@ export default function DashboardPage() {
         </main>
       </div>
 
-      {/* ─── FLOATING AI COPILOT DOCK (BOTTOM RIGHT, 420px MAX) ─── */}
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
-        <AnimatePresence>
-          {isCopilotOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: 16, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 12, scale: 0.96 }}
-              className="mb-3 w-[calc(100vw-3rem)] sm:w-[420px] max-h-[75vh] flex flex-col rounded-2xl bg-[#14171B] border border-white/[0.12] shadow-2xl overflow-hidden"
-            >
-              {/* Header */}
-              <div className="px-4 py-3 bg-[#1C2025] border-b border-white/[0.08] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-lg bg-[#3D6FE0]/20 text-[#3D6FE0] flex items-center justify-center">
-                    <IconSparkles size={14} />
-                  </div>
-                  <span className="text-xs font-semibold text-[#EDEFF2]">AI Copilot</span>
-                  <span className="text-[10px] font-mono text-[#8B93A1] px-1.5 py-0.5 rounded bg-white/[0.06]">
-                    Continuous
-                  </span>
-                </div>
-                <button
-                  onClick={() => setIsCopilotOpen(false)}
-                  className="text-[#8B93A1] hover:text-[#EDEFF2] p-1 rounded hover:bg-white/[0.06] transition-colors cursor-pointer"
-                >
-                  <IconX size={15} />
-                </button>
-              </div>
-
-              {/* Body: Status, Pending Proposal, Suggestions */}
-              <div className="p-4 overflow-y-auto space-y-3.5 max-h-[48vh]">
-                {/* Agent Status Pulse */}
-                {agentStatus && (
-                  <div className="text-xs text-[#5B8CF5] flex items-center gap-2 p-2.5 rounded-lg bg-[#3D6FE0]/10 border border-[#3D6FE0]/25">
-                    <span className="w-2 h-2 rounded-full bg-[#3D6FE0] motion-safe:animate-pulse" />
-                    <span>{agentStatus}</span>
-                  </div>
-                )}
-
-                {/* Safety Gate: Pending Proposal */}
-                {pendingProposal && (
-                  <div className="p-3.5 rounded-xl bg-[#1C2025] border border-[#3D6FE0]/40 space-y-2.5">
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-[#5B8CF5]">
-                      <IconSparkles size={14} />
-                      <span>Workspace Proposal Ready</span>
-                    </div>
-                    <p className="text-xs text-[#EDEFF2]">
-                      Action: <span className="font-semibold capitalize">{pendingProposal.action.replace('_', ' ')}</span>
-                      {pendingProposal.widget_spec?.title ? ` ("${pendingProposal.widget_spec.title}")` : ''}
-                    </p>
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={handleRejectProposal}
-                        disabled={isApplying}
-                        className="px-3 py-1.5 rounded-lg border border-white/[0.12] hover:bg-white/[0.06] text-xs text-[#8B93A1] hover:text-[#EDEFF2] cursor-pointer"
-                      >
-                        Reject
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleAcceptProposal}
-                        disabled={isApplying}
-                        className="px-3.5 py-1.5 rounded-lg bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      >
-                        {isApplying ? (
-                          <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <IconCheck size={13} />
-                        )}
-                        <span>Accept &amp; Apply</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Quick Suggestion Chips */}
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-medium text-[#8B93A1]">Quick analytical commands:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[
-                      '+ MRR Trend Chart',
-                      '+ Active Telemetry Card',
-                      '+ Regional Health Table',
-                      '+ Q4 Funnel Analysis',
-                    ].map((chip) => (
-                      <button
-                        key={chip}
-                        type="button"
-                        onClick={() => handlePromptAgent(chip.replace('+', '').trim())}
-                        disabled={isAgentRunning}
-                        className="px-2.5 py-1 rounded-md bg-[#1C2025] hover:bg-white/[0.08] text-[11px] text-[#8B93A1] hover:text-[#EDEFF2] transition-colors border border-white/[0.06] cursor-pointer disabled:opacity-40"
-                      >
-                        {chip}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Prompt Input Bar */}
-              <div className="p-3 border-t border-white/[0.08] bg-[#0E1014]">
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    value={agentPrompt}
-                    onChange={(e) => setAgentPrompt(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handlePromptAgent()}
-                    placeholder="Ask Copilot to synthesize widgets…"
-                    disabled={isAgentRunning}
-                    className="w-full pl-3 pr-20 py-2 rounded-xl text-xs bg-[#14171B] border border-white/[0.08] text-[#EDEFF2] placeholder-[#8B93A1]/60 focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handlePromptAgent()}
-                    disabled={isAgentRunning || !agentPrompt.trim()}
-                    className="absolute right-1.5 px-3 py-1 rounded-lg bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium flex items-center gap-1 transition-colors disabled:opacity-40 cursor-pointer"
-                  >
-                    {isAgentRunning ? <IconRefresh size={12} className="animate-spin" /> : <IconSend size={12} />}
-                    <span>Ask</span>
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Floating Dock Toggle Button */}
-        <button
-          type="button"
-          onClick={() => setIsCopilotOpen((prev) => !prev)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium shadow-xl hover:shadow-2xl transition-all cursor-pointer transform hover:scale-105"
-          title="Toggle AI Copilot dock"
+      {/* Chat entry — dashboard stays display-only; research happens in Chat */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <Link
+          href="/research"
+          className="flex items-center gap-2 rounded-full bg-[#E3836C] px-4 py-2.5 text-xs font-medium text-white shadow-xl transition-all hover:bg-[#ED967F] hover:scale-105"
+          title="Open Chat to ask questions or research"
         >
           <IconSparkles size={16} />
-          <span>Copilot</span>
-          {pendingProposal && (
-            <span className="w-2 h-2 rounded-full bg-[#EF6C6C] motion-safe:animate-pulse" />
-          )}
-        </button>
+          <span>Ask in Chat</span>
+        </Link>
       </div>
 
       {/* ─── TOAST NOTIFICATION ─── */}

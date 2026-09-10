@@ -95,9 +95,9 @@ export const Navbar: React.FC = () => {
             <ThemeToggle />
             <Link
               href="/research"
-              className="text-xs text-[#403934]/80 hover:text-[#E3836C] font-medium px-3 py-1.5 transition-colors"
+              className="text-xs text-[#403934]/80 hover:text-[#E3836C] font-medium px-3 py-1.5 transition-colors dark:text-[#F4EDE5]/80"
             >
-              Research
+              Chat
             </Link>
             <Link
               href="/login"

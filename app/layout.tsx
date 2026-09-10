@@ -28,7 +28,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col bg-[#F3EDE4] dark:bg-[#171514] text-[#4A4238] dark:text-[#F4EDE5] font-sans antialiased overflow-x-hidden transition-colors duration-300">
+      <body className="min-h-full flex flex-col bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased overflow-x-hidden transition-colors duration-300">
         <ThemeProvider>
           <SmoothScrollProvider>
             {/* Accessibility skip link */}

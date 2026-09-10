@@ -25,6 +25,10 @@ export interface EarthGlobeProps {
   className?: string;
   sourceMarkers?: GlobeSourceMarker[];
   onSendToChat?: (prompt: string) => void;
+  /** Fired on hub select or arbitrary surface click (lat/lon). */
+  onPlaceSelect?: (place: { lat: number; lon: number; name?: string; country?: string }) => void;
+  /** When true, hide the built-in sample hub card (parent renders live context). */
+  externalPlacePanel?: boolean;
   pageMode?: boolean;
   contained?: boolean;
 }
@@ -261,7 +265,7 @@ function createArcCurve(p1: THREE.Vector3, p2: THREE.Vector3, radius: number): T
 }
 
 export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(function EarthGlobe(
-  { isExpanded, onToggleExpand, className = '', sourceMarkers = [], onSendToChat, pageMode = false, contained = false },
+  { isExpanded, onToggleExpand, className = '', sourceMarkers = [], onSendToChat, onPlaceSelect, externalPlacePanel = false, pageMode = false, contained = false },
   ref,
 ) {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -338,6 +342,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     setSelectedHub(hub);
     setSearchQuery('');
     setIsSearchOpen(false);
+    onPlaceSelect?.({ lat: hub.lat, lon: hub.lon, name: hub.name, country: hub.country });
 
     const camera = cameraRef.current;
     const controls = controlsRef.current;
@@ -390,7 +395,10 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       }
     }
     requestAnimationFrame(stepFly);
-  }, []);
+  }, [onPlaceSelect]);
+
+  const onPlaceSelectRef = useRef(onPlaceSelect);
+  onPlaceSelectRef.current = onPlaceSelect;
 
   useImperativeHandle(
     ref,
@@ -695,7 +703,26 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
         const hitIdx = hubMarkers.indexOf(intersects[0].object as THREE.Mesh);
         if (hitIdx !== -1) {
           flyToCity(MAJOR_HUBS[hitIdx]);
+          return;
         }
+      }
+
+      // Arbitrary surface click → reverse-geocode / place context via parent
+      const earthHit = raycaster.intersectObject(earthMesh);
+      if (earthHit.length > 0) {
+        const localPoint = earthGroup.worldToLocal(earthHit[0].point.clone());
+        const geo = vector3ToLatLon(localPoint);
+        setSelectedHub({
+          name: `${geo.lat.toFixed(2)}°, ${geo.lon.toFixed(2)}°`,
+          country: 'Resolving…',
+          lat: geo.lat,
+          lon: geo.lon,
+          ping: '—',
+          status: 'Live',
+          throughput: '—',
+          region: 'Globe',
+        });
+        onPlaceSelectRef.current?.({ lat: geo.lat, lon: geo.lon });
       }
     };
 
@@ -978,7 +1005,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
                 </button>
               </div>
             ) : null}
-            {selectedHub ? (
+            {selectedHub && !externalPlacePanel ? (
               <div className="app-card pointer-events-auto w-full space-y-2 p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>

@@ -1,18 +1,25 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import Lenis from 'lenis';
 
+/** Smooth scroll only on marketing landing — app shells manage their own overflow. */
 export const SmoothScrollProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const pathname = usePathname();
   const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
-    // Avoid running on servers or if user prefers reduced motion
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) return;
+    const isMarketing = pathname === '/' || pathname === '';
+
+    if (prefersReducedMotion || !isMarketing) {
+      lenisRef.current?.destroy();
+      lenisRef.current = null;
+      return;
+    }
 
     const isMobile = window.innerWidth < 768;
-
     const lenis = new Lenis({
       duration: isMobile ? 1.0 : 1.25,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -32,8 +39,9 @@ export const SmoothScrollProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => {
       cancelAnimationFrame(animId);
       lenis.destroy();
+      lenisRef.current = null;
     };
-  }, []);
+  }, [pathname]);
 
   return <>{children}</>;
 };

@@ -17,7 +17,7 @@ export function SourceChips({ sources }: { sources: ResearchSource[] }) {
           href={source.url || `https://${source.host}`}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1 rounded-full border border-[#4A4238]/12 bg-[#F3EDE4]/90 px-2.5 py-1 text-[10px] text-[#6B6155]"
+          className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 text-[10px] text-[var(--text-secondary)] transition-colors hover:border-[#E3836C]/40 hover:text-[var(--text-primary)]"
         >
           <span className="opacity-50">found:</span>
           <span className="font-medium">{source.host}</span>

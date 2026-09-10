@@ -77,14 +77,13 @@ interface Message {
 }
 
 function NewProjectContent() {
-  const { theme } = useTheme();
+  const { theme, isIncognito, setIncognito } = useTheme();
   const isDark = theme === 'dark';
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const urlProjectId = searchParams.get('projectId') || searchParams.get('id') || undefined;
 
-  const [isIncognito, setIsIncognito] = useState(false);
   const [projectTitle, setProjectTitle] = useState('Untitled Analysis Workspace');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
@@ -105,7 +104,7 @@ function NewProjectContent() {
 
   // ─── Responsive View Mode ───────────────────────────────────────────────────
   const [isMobile, setIsMobile] = useState<boolean>(false);
-  const [activeView, setActiveView] = useState<'split' | 'chat' | 'canvas'>('split');
+  const [activeView, setActiveView] = useState<'split' | 'chat' | 'canvas'>('chat');
 
   useEffect(() => {
     const checkWidth = () => {
@@ -437,6 +436,7 @@ function NewProjectContent() {
             ? `${proposal.widgets.length} Widgets`
             : 'Widget');
         showToast(`Applied "${pTitle}" to canvas`, pTitle);
+        setActiveView((prev) => (prev === 'chat' ? (isMobile ? 'canvas' : 'split') : prev));
       } catch (err: any) {
         console.error('Failed to apply proposal:', err);
         const errMsg = err?.message || 'Failed to apply widget to dashboard.';
@@ -475,7 +475,7 @@ function NewProjectContent() {
         });
       }
     },
-    [proposals, projectId, currentLayout, showToast]
+    [proposals, projectId, currentLayout, showToast, isMobile, layoutVersion]
   );
 
   const handleRebaseAndApply = useCallback(async () => {
@@ -1013,10 +1013,10 @@ function NewProjectContent() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col transition-colors duration-500 ${
+      className={`flex h-dvh max-h-dvh flex-col overflow-hidden transition-colors duration-500 ${
         isIncognito
           ? 'bg-[#100D16] text-[#E7E2EE]'
-          : 'bg-[#F3EDE4] dark:bg-[#171514] text-[#4A4238] dark:text-[#F4EDE5]'
+          : 'bg-[var(--bg)] text-[var(--text-primary)]'
       }`}
     >
       {/* ─── Top Header Navigation ────────────────────────────────────────── */}
@@ -1128,7 +1128,7 @@ function NewProjectContent() {
           {/* Incognito Mode Pill Toggle */}
           <button
             type="button"
-            onClick={() => setIsIncognito((v) => !v)}
+            onClick={() => setIncognito(!isIncognito)}
             className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${
               isIncognito
                 ? 'bg-purple-900/60 border-purple-500 text-purple-200 shadow-md ring-2 ring-purple-500/30'
@@ -1178,10 +1178,10 @@ function NewProjectContent() {
       </AnimatePresence>
 
       {/* ─── Main Workspace Layout (Split vs Single Panel) ────────────────── */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* LEFT / CHAT PANEL */}
         <div
-          className={`flex flex-col h-[calc(100vh-61px)] transition-all ${
+          className={`flex min-h-0 flex-col transition-all ${
             activeView === 'split'
               ? 'w-full lg:w-[46%] xl:w-[44%] border-r border-[#4A4238]/10 dark:border-[#3A3430]'
               : activeView === 'chat'
@@ -1580,7 +1580,7 @@ function NewProjectContent() {
 
         {/* RIGHT / LIVE DASHBOARD CANVAS PANEL */}
         <div
-          className={`flex-1 flex flex-col h-[calc(100vh-61px)] overflow-hidden transition-all ${
+          className={`flex min-h-0 flex-1 flex-col overflow-hidden transition-all ${
             activeView === 'split'
               ? 'w-full lg:w-[54%] xl:w-[56%]'
               : activeView === 'canvas'

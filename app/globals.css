@@ -214,15 +214,14 @@ html, body {
   scrollbar-color: #3A3430 #171514;
 }
 
-/* Structured Data Platform: deliberately related to the editorial landing page,
-   but quieter and more utilitarian than the Research & Discovery surface. */
+/* Structured Data Platform: theme-aware workspace remaps for dark instrument hexes. */
 .structured-workspace {
-  --workspace-paper: #F3EDE4;
-  --workspace-surface: #FFF9F3;
-  --workspace-surface-2: #EDE4D8;
-  --workspace-ink: #4A4238;
-  --workspace-muted: #786F64;
-  --workspace-border: rgba(74, 66, 56, 0.14);
+  --workspace-paper: var(--bg);
+  --workspace-surface: var(--surface);
+  --workspace-surface-2: var(--surface-2);
+  --workspace-ink: var(--text-primary);
+  --workspace-muted: var(--text-secondary);
+  --workspace-border: var(--border);
   --workspace-accent: #E3836C;
   background: var(--workspace-paper) !important;
   color: var(--workspace-ink) !important;
@@ -313,9 +312,9 @@ html, body {
 }
 
 .dark .glass-pill {
-  background: #E9DDD2;
-  border-color: rgba(64, 57, 52, 0.15);
-  color: #403934;
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-primary);
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
 }
 
@@ -384,11 +383,23 @@ html, body {
   box-shadow: 0 20px 40px -10px rgba(74, 66, 56, 0.2);
 }
 
-/* Logged-in app shell (not marketing) */
+/* Logged-in app shell (not marketing) — uses CSS theme tokens */
 .app-shell {
-  min-height: 100vh;
-  background: #f3ede4;
-  color: #4a4238;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  background: var(--bg);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.app-shell-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-shell--incognito .app-topnav {
+  border-bottom-color: rgba(139, 92, 246, 0.25);
 }
 
 .app-topnav {
@@ -398,17 +409,31 @@ html, body {
   display: flex;
   align-items: center;
   height: 56px;
-  padding: 0 1.25rem;
-  border-bottom: 1px solid rgba(74, 66, 56, 0.12);
-  background: #faf7f2;
+  flex-shrink: 0;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@media (min-width: 640px) {
+  .app-topnav {
+    padding: 0 1.25rem;
+  }
 }
 
 .app-topnav-link {
   font-size: 0.8125rem;
   font-weight: 500;
-  color: #6b6155;
+  color: var(--text-secondary);
   padding: 0.35rem 0.15rem;
   border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.app-topnav-link:hover {
+  color: var(--text-primary);
 }
 
 .app-topnav-link[data-active='true'] {
@@ -418,10 +443,11 @@ html, body {
 
 .page-title {
   font-family: var(--font-serif), Georgia, serif;
-  font-size: 2.25rem;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
   font-weight: 500;
   letter-spacing: -0.03em;
   line-height: 1.05;
+  color: var(--text-primary);
 }
 
 .page-title em {
@@ -430,10 +456,11 @@ html, body {
 }
 
 .app-card {
-  background: #faf7f2;
-  border: 1px solid rgba(74, 66, 56, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 1rem;
-  box-shadow: 0 1px 2px rgba(74, 66, 56, 0.06);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 6%, transparent);
+  color: var(--text-primary);
 }
 
 .btn-primary {
@@ -445,6 +472,11 @@ html, body {
   color: #fff;
   font-size: 0.875rem;
   padding: 0.5rem 1rem;
+  transition: background 0.15s ease;
+}
+
+.btn-primary:hover {
+  background: #ed967f;
 }
 
 .btn-secondary {
@@ -452,11 +484,16 @@ html, body {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  border: 1px solid rgba(74, 66, 56, 0.2);
+  border: 1px solid var(--border-strong);
   background: transparent;
-  color: #4a4238;
+  color: var(--text-primary);
   font-size: 0.875rem;
   padding: 0.5rem 1rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--surface-2);
 }
 
 .tier-badge {
@@ -465,8 +502,22 @@ html, body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border-radius: 9999px;
-  border: 1px solid rgba(74, 66, 56, 0.12);
-  background: #f3ede4;
-  color: #4a4238;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
   padding: 0.2rem 0.55rem;
+}
+
+/* Chat surface helpers */
+.chat-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.composer-mode-btn[data-active='true'] {
+  background: color-mix(in srgb, #e3836c 18%, transparent);
+  color: #e3836c;
+  border-color: color-mix(in srgb, #e3836c 40%, transparent);
 }
