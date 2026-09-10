@@ -195,11 +195,13 @@ export interface PlaceContext {
 
 export interface GeoSearchHit {
   name: string;
+  display_name?: string;
   country: string;
   region: string;
   lat: number;
   lon: number;
   feature?: string;
+  category?: string;
   population?: number;
 }
 

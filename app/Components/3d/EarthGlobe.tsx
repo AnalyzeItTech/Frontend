@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback, useMemo, useImperativeHandle } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useImperativeHandle } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useTheme } from '../ui/ThemeProvider';
@@ -15,7 +15,6 @@ import {
   IconCloud,
   IconRoute,
   IconActivity,
-  IconMapPin,
   IconSearch,
 } from '@tabler/icons-react';
 import { searchPlaces, type GeoSearchHit } from '../../lib/geoApi';
@@ -52,54 +51,14 @@ export interface GlobeLocation {
   country: string;
   lat: number;
   lon: number;
-  ping: string;
-  status: string;
-  throughput: string;
-  region: string;
-  isMajorHub?: boolean;
+  ping?: string;
+  status?: string;
+  throughput?: string;
+  region?: string;
 }
 
-// Global Hubs and Major Searchable Destinations Worldwide
-const SEARCHABLE_LOCATIONS: GlobeLocation[] = [
-  { name: 'San Francisco', country: 'United States', lat: 37.7749, lon: -122.4194, ping: '12ms', status: 'Optimal', throughput: '4.8 GB/s', region: 'US West', isMajorHub: true },
-  { name: 'New York', country: 'United States', lat: 40.7128, lon: -74.006, ping: '18ms', status: 'Optimal', throughput: '6.2 GB/s', region: 'US East', isMajorHub: true },
-  { name: 'London', country: 'United Kingdom', lat: 51.5074, lon: -0.1278, ping: '24ms', status: 'Optimal', throughput: '5.1 GB/s', region: 'Europe West', isMajorHub: true },
-  { name: 'Frankfurt', country: 'Germany', lat: 50.1109, lon: 8.6821, ping: '26ms', status: 'Optimal', throughput: '7.4 GB/s', region: 'Europe Central', isMajorHub: true },
-  { name: 'Tokyo', country: 'Japan', lat: 35.6762, lon: 139.6503, ping: '42ms', status: 'Optimal', throughput: '4.2 GB/s', region: 'Asia East', isMajorHub: true },
-  { name: 'Singapore', country: 'Singapore', lat: 1.3521, lon: 103.8198, ping: '38ms', status: 'Optimal', throughput: '3.9 GB/s', region: 'Asia South', isMajorHub: true },
-  { name: 'Mumbai', country: 'India', lat: 19.076, lon: 72.8777, ping: '34ms', status: 'Optimal', throughput: '4.5 GB/s', region: 'India West', isMajorHub: true },
-  { name: 'Sydney', country: 'Australia', lat: -33.8688, lon: 151.2093, ping: '64ms', status: 'Optimal', throughput: '2.8 GB/s', region: 'Oceania', isMajorHub: true },
-  { name: 'São Paulo', country: 'Brazil', lat: -23.5505, lon: -46.6333, ping: '72ms', status: 'Optimal', throughput: '2.1 GB/s', region: 'South America', isMajorHub: true },
-  { name: 'Dubai', country: 'United Arab Emirates', lat: 25.2048, lon: 55.2708, ping: '30ms', status: 'Optimal', throughput: '3.6 GB/s', region: 'Middle East', isMajorHub: true },
-  { name: 'Paris', country: 'France', lat: 48.8566, lon: 2.3522, ping: '28ms', status: 'Optimal', throughput: '3.8 GB/s', region: 'Europe West' },
-  { name: 'Berlin', country: 'Germany', lat: 52.52, lon: 13.405, ping: '31ms', status: 'Optimal', throughput: '3.2 GB/s', region: 'Europe Central' },
-  { name: 'Amsterdam', country: 'Netherlands', lat: 52.3676, lon: 4.9041, ping: '22ms', status: 'Optimal', throughput: '5.8 GB/s', region: 'Europe West' },
-  { name: 'Toronto', country: 'Canada', lat: 43.6532, lon: -79.3832, ping: '25ms', status: 'Optimal', throughput: '3.4 GB/s', region: 'North America' },
-  { name: 'Chicago', country: 'United States', lat: 41.8781, lon: -87.6298, ping: '19ms', status: 'Optimal', throughput: '4.1 GB/s', region: 'US Midwest' },
-  { name: 'Los Angeles', country: 'United States', lat: 34.0522, lon: -118.2437, ping: '15ms', status: 'Optimal', throughput: '4.6 GB/s', region: 'US West' },
-  { name: 'Seattle', country: 'United States', lat: 47.6062, lon: -122.3321, ping: '14ms', status: 'Optimal', throughput: '4.9 GB/s', region: 'US Northwest' },
-  { name: 'Seoul', country: 'South Korea', lat: 37.5665, lon: 126.978, ping: '44ms', status: 'Optimal', throughput: '5.0 GB/s', region: 'Asia East' },
-  { name: 'Hong Kong', country: 'China', lat: 22.3193, lon: 114.1694, ping: '40ms', status: 'Optimal', throughput: '4.7 GB/s', region: 'Asia East' },
-  { name: 'Bengaluru', country: 'India', lat: 12.9716, lon: 77.5946, ping: '36ms', status: 'Optimal', throughput: '4.0 GB/s', region: 'India South' },
-  { name: 'Delhi', country: 'India', lat: 28.6139, lon: 77.209, ping: '35ms', status: 'Optimal', throughput: '3.8 GB/s', region: 'India North' },
-  { name: 'Zurich', country: 'Switzerland', lat: 47.3769, lon: 8.5417, ping: '29ms', status: 'Optimal', throughput: '3.1 GB/s', region: 'Europe Central' },
-  { name: 'Stockholm', country: 'Sweden', lat: 59.3293, lon: 18.0686, ping: '33ms', status: 'Optimal', throughput: '2.9 GB/s', region: 'Europe North' },
-  { name: 'Cape Town', country: 'South Africa', lat: -33.9249, lon: 18.4241, ping: '92ms', status: 'Optimal', throughput: '1.8 GB/s', region: 'Africa South' },
-  { name: 'Cairo', country: 'Egypt', lat: 30.0444, lon: 31.2357, ping: '48ms', status: 'Optimal', throughput: '2.4 GB/s', region: 'North Africa' },
-  { name: 'Buenos Aires', country: 'Argentina', lat: -34.6037, lon: -58.3816, ping: '78ms', status: 'Optimal', throughput: '1.9 GB/s', region: 'South America' },
-  { name: 'Mexico City', country: 'Mexico', lat: 19.4326, lon: -99.1332, ping: '38ms', status: 'Optimal', throughput: '2.6 GB/s', region: 'North America' },
-  { name: 'Auckland', country: 'New Zealand', lat: -36.8485, lon: 174.7633, ping: '68ms', status: 'Optimal', throughput: '2.2 GB/s', region: 'Oceania' },
-  { name: 'Dublin', country: 'Ireland', lat: 53.3498, lon: -6.2603, ping: '21ms', status: 'Optimal', throughput: '4.9 GB/s', region: 'Europe West' },
-  { name: 'Helsinki', country: 'Finland', lat: 60.1699, lon: 24.9384, ping: '35ms', status: 'Optimal', throughput: '2.7 GB/s', region: 'Europe North' },
-];
-
-const MAJOR_HUBS = SEARCHABLE_LOCATIONS.filter((l) => l.isMajorHub);
-
-export function resolveGlobePlace(text: string): GlobeLocation | null {
-  const lower = text.toLowerCase();
-  const byCity = SEARCHABLE_LOCATIONS.find((loc) => lower.includes(loc.name.toLowerCase()));
-  if (byCity) return byCity;
-  return SEARCHABLE_LOCATIONS.find((loc) => lower.includes(loc.country.toLowerCase())) || null;
+export function resolveGlobePlace(_text: string): GlobeLocation | null {
+  return null;
 }
 
 export function jitterNear(loc: GlobeLocation, seed: string): { lat: number; lon: number } {
@@ -110,19 +69,6 @@ export function jitterNear(loc: GlobeLocation, seed: string): { lat: number; lon
     lon: loc.lon + ((((hash >> 8) % 100) - 50) / 70),
   };
 }
-
-const ARC_PAIRS: Array<[number, number]> = [
-  [0, 1], // SF -> NY
-  [1, 2], // NY -> London
-  [2, 3], // London -> Frankfurt
-  [3, 9], // Frankfurt -> Dubai
-  [9, 6], // Dubai -> Mumbai
-  [6, 5], // Mumbai -> Singapore
-  [5, 4], // Singapore -> Tokyo
-  [4, 0], // Tokyo -> SF
-  [5, 7], // Singapore -> Sydney
-  [1, 8], // NY -> São Paulo
-];
 
 /**
  * Generate high-definition texture map using authentic Natural Earth landmass dataset
@@ -185,22 +131,7 @@ function createEditorialEarthTextures(isDark: boolean) {
     }
   });
 
-  // 3. Prominent City Hub Clusters (Glowing Amber / Gold)
-  SEARCHABLE_LOCATIONS.forEach((loc) => {
-    const x = toX(loc.lon);
-    const y = toY(loc.lat);
-    const radius = loc.isMajorHub ? 6 : 4;
-    const rad = ctx.createRadialGradient(x, y, 0, x, y, radius * 3.5);
-    rad.addColorStop(0, '#FFB74D');
-    rad.addColorStop(0.4, 'rgba(212, 130, 106, 0.7)');
-    rad.addColorStop(1, 'rgba(212, 130, 106, 0)');
-    ctx.fillStyle = rad;
-    ctx.beginPath();
-    ctx.arc(x, y, radius * 3.5, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  // 4. Cloud Canopy Texture
+  // 3. Cloud Canopy Texture
   const cloudCanvas = document.createElement('canvas');
   cloudCanvas.width = 1024;
   cloudCanvas.height = 512;
@@ -295,17 +226,6 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
   useEffect(() => {
     setHintOpen(window.localStorage.getItem('analyzeit_globe_hint_dismissed') !== '1');
   }, []);
-
-  const localMatches = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
-    return SEARCHABLE_LOCATIONS.filter(
-      (loc) =>
-        loc.name.toLowerCase().includes(q) ||
-        loc.country.toLowerCase().includes(q) ||
-        loc.region.toLowerCase().includes(q)
-    ).slice(0, 4);
-  }, [searchQuery]);
 
   // Mutable Three.js Object References
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -684,49 +604,12 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       opacity: 0.8,
     });
 
-    MAJOR_HUBS.forEach((hub) => {
-      const pos = latLonToVector3(hub.lat, hub.lon, earthRadius);
-      const pin = new THREE.Mesh(pinGeo, pinMat);
-      pin.position.copy(pos);
-      telemetryGroup.add(pin);
-      hubMarkers.push(pin);
-
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.position.copy(pos.clone().multiplyScalar(1.002));
-      ring.lookAt(new THREE.Vector3(0, 0, 0));
-      telemetryGroup.add(ring);
-    });
     hubMarkersRef.current = hubMarkers;
 
     const pulseObjects: Array<{ curve: THREE.CubicBezierCurve3; mesh: THREE.Mesh; progress: number; speed: number }> = [];
     const pulseGeo = new THREE.SphereGeometry(0.03, 12, 12);
     const pulseMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     arcMaterialsRef.current = [];
-
-    ARC_PAIRS.forEach(([fromIdx, toIdx], idx) => {
-      const p1 = latLonToVector3(MAJOR_HUBS[fromIdx].lat, MAJOR_HUBS[fromIdx].lon, earthRadius);
-      const p2 = latLonToVector3(MAJOR_HUBS[toIdx].lat, MAJOR_HUBS[toIdx].lon, earthRadius);
-      const curve = createArcCurve(p1, p2, earthRadius);
-
-      const tubeGeo = new THREE.TubeGeometry(curve, 44, 0.0065, 8, false);
-      const tubeMat = new THREE.MeshBasicMaterial({
-        color: 0xe3836c,
-        transparent: true,
-        opacity: isExpanded ? 0.45 : 0.25,
-      });
-      arcMaterialsRef.current.push(tubeMat);
-      const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
-      telemetryGroup.add(tubeMesh);
-
-      const pulseMesh = new THREE.Mesh(pulseGeo, pulseMat);
-      telemetryGroup.add(pulseMesh);
-      pulseObjects.push({
-        curve,
-        mesh: pulseMesh,
-        progress: (idx * 0.1) % 1.0,
-        speed: 0.0035 + (idx % 3) * 0.0012,
-      });
-    });
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -762,15 +645,6 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(hubMarkers);
-
-      if (intersects.length > 0) {
-        const hitIdx = hubMarkers.indexOf(intersects[0].object as THREE.Mesh);
-        if (hitIdx !== -1) {
-          flyToCityRef.current(MAJOR_HUBS[hitIdx]);
-          return;
-        }
-      }
 
       const earthHit = raycaster.intersectObject(earthMesh);
       if (earthHit.length > 0) {
@@ -1000,7 +874,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
                     onKeyDown={(e) => {
                       if (e.key !== 'Enter') return;
                       e.preventDefault();
-                      const first = worldHits[0] || localMatches[0];
+                      const first = worldHits[0];
                       if (first) {
                         flyToLatLon(first.lat, first.lon, {
                           name: first.name,
@@ -1059,7 +933,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
                           </span>
                         </button>
                       ))}
-                      {!searchingWorld && worldHits.length === 0 && localMatches.length === 0 ? (
+                      {!searchingWorld && worldHits.length === 0 ? (
                         <p className="px-3 py-2 text-[10px] font-mono text-[#4A4238]/50">
                           No match — click anywhere on the globe instead.
                         </p>
@@ -1125,26 +999,6 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
             ) : null}
             </div>
 
-            {/* Google Earth "Fly To" City Chips */}
-            <div className="pointer-events-auto hidden lg:flex items-center gap-1.5 p-1.5 rounded-2xl glass-card backdrop-blur-xl border border-[#4A4238]/15 dark:border-[#3A3430] overflow-x-auto max-w-[min(100%,42rem)]">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[#E3836C] px-2 font-bold flex items-center gap-1 shrink-0">
-                <IconMapPin size={12} /> Jump:
-              </span>
-              {MAJOR_HUBS.map((hub) => (
-                <button
-                  key={hub.name}
-                  type="button"
-                  onClick={() => flyToCity(hub)}
-                  className={`px-3 py-1 rounded-xl text-xs font-mono whitespace-nowrap transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#E3836C]/40 ${
-                    selectedHub?.name === hub.name
-                      ? 'bg-[#E3836C] text-white font-bold shadow-xs'
-                      : 'hover:bg-black/5 dark:hover:bg-white/10 text-[#4A4238]/70 dark:text-[#C5B9AE]'
-                  }`}
-                >
-                  {hub.name}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Right Floating Google Earth Control Dock (Zoom, Compass, Grid, Layers) */}
