@@ -14,6 +14,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { getStoredToken } from '../lib/auth';
+import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 import { ChatRequestError, streamChat, StreamEvent, WidgetSpec, getArtifactUrl } from '../lib/chatApi';
 
 const EarthGlobe = dynamic(
@@ -53,6 +54,7 @@ export default function ResearchPage() {
   const [mode, setMode] = useState<'chat' | 'report' | null>(null);
   const [cancelled, setCancelled] = useState(false);
   const [upgradeHref, setUpgradeHref] = useState(false);
+  const [proposalWidget, setProposalWidget] = useState<WidgetSpec | null>(null);
 
   const runResearch = async (value = query) => {
     if (!value.trim()) return;
@@ -66,6 +68,7 @@ export default function ResearchPage() {
     setResult(null);
     setCancelled(false);
     setUpgradeHref(false);
+    setProposalWidget(null);
     setMode(null);
     setStatus('Routing…');
 
@@ -111,6 +114,7 @@ export default function ResearchPage() {
           const candidate = event.payload.widget_spec;
           if (candidate && typeof candidate === 'object') {
             widget = candidate as WidgetSpec;
+            setProposalWidget(widget);
           }
         },
       });
@@ -147,6 +151,9 @@ export default function ResearchPage() {
         <div className="hidden items-center gap-2 text-[10px] font-mono uppercase tracking-[0.16em] text-[#786F64] md:flex">
           <span className="h-2 w-2 animate-pulse rounded-full bg-[#8FA98F]" /> Research & Discovery
         </div>
+        <Link href="/profile" className="hidden sm:inline text-xs font-medium text-[#786F64] hover:text-[#B86450]">
+          Profile
+        </Link>
         <Link href="/Dashboard" className="inline-flex items-center gap-1.5 rounded-full border border-[#4A4238]/15 px-3 py-1.5 text-xs font-medium transition hover:border-[#E3836C] hover:text-[#B86450]">
           Structured data <IconArrowUpRight size={14} />
         </Link>
@@ -202,6 +209,28 @@ export default function ResearchPage() {
           {cancelled && <p className="mt-3 text-xs text-[#786F64]">Run cancelled.</p>}
         </div>
       </section>
+
+      <AnimatePresence>
+        {proposalWidget && (
+          <motion.aside
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
+            className="fixed top-24 right-5 z-[68] hidden w-[min(420px,calc(100%-2.5rem))] overflow-hidden rounded-[1.5rem] border border-[#4A4238]/15 bg-[#0B0D10] p-3 shadow-2xl lg:block"
+          >
+            <div className="mb-2 flex items-center justify-between px-1">
+              <p className="text-[10px] font-mono uppercase tracking-[0.16em] text-[#8B93A1]">Dashboard preview</p>
+              <Link href="/Dashboard" className="text-[11px] text-[#5B8CF5]">
+                Open full view
+              </Link>
+            </div>
+            <div className="max-h-[52vh] overflow-auto">
+              <SandboxedWidgetRenderer widget={proposalWidget} isDraftPreview />
+            </div>
+            <p className="mt-2 px-1 text-[10px] text-[#8B93A1]">Not saved until you add it from the dashboard. Chat stays on this page.</p>
+          </motion.aside>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {result && (

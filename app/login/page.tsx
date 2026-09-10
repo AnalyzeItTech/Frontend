@@ -445,7 +445,8 @@ const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      router.push('/Dashboard');
+      const next = new URLSearchParams(window.location.search).get('next');
+      router.push(next && next.startsWith('/') ? next : '/Dashboard');
     }, 1200);
     return () => clearTimeout(timer);
   }, [router]);

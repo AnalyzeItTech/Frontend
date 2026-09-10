@@ -305,6 +305,8 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
 
     isFlyingRef.current = true;
     controls.enabled = false;
+    controls.autoRotate = false;
+    controls.enableDamping = false;
 
     const targetDir = latLonToVector3(hub.lat, hub.lon, 1.0).normalize();
     const startPos = camera.position.clone();
@@ -336,7 +338,10 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
       if (t < 1) {
         requestAnimationFrame(stepFly);
       } else {
+        camera!.lookAt(0, 0, 0);
         controls!.target.set(0, 0, 0);
+        controls!.enableDamping = true;
+        controls!.autoRotate = false;
         controls!.enabled = true;
         controls!.update();
         isFlyingRef.current = false;
@@ -694,7 +699,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
   useEffect(() => {
     const controls = controlsRef.current;
     const camera = cameraRef.current;
-    if (!controls || !camera) return;
+    if (!controls || !camera || isFlyingRef.current) return;
 
     controls.autoRotate = !isExpanded;
 
