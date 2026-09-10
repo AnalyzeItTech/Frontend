@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 /**
  * MapLibre style that points raster tiles at our proxy.
  * LOCATIONIQ_KEY never leaves the server (used only in /api/map/tiles).
+ * Pass ?theme=dark|streets|light to match app theme.
  */
 export async function GET(request: Request) {
   const key = (process.env.LOCATIONIQ_KEY || '').trim();
@@ -10,12 +11,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'LOCATIONIQ_KEY is not configured' }, { status: 503 });
   }
 
-  const origin = new URL(request.url).origin;
-  const tileUrl = `${origin}/api/map/tiles/{z}/{x}/{y}`;
+  const url = new URL(request.url);
+  const themeRaw = (url.searchParams.get('theme') || '').trim().toLowerCase();
+  const theme = themeRaw === 'dark' || themeRaw === 'light' || themeRaw === 'streets' ? themeRaw : 'streets';
+
+  const origin = url.origin;
+  const tileUrl = `${origin}/api/map/tiles/{z}/{x}/{y}?theme=${encodeURIComponent(theme)}`;
 
   const style = {
     version: 8,
-    name: 'locationiq-raster-proxied',
+    name: `locationiq-raster-${theme}`,
     projection: { type: 'globe' },
     sources: {
       'locationiq-tiles': {

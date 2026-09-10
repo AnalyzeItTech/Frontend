@@ -23,12 +23,34 @@ export interface LocalClock {
   source?: string;
 }
 
+export interface WeatherDay {
+  date?: string;
+  weather_code?: number | null;
+  temp_max_c?: number | null;
+  temp_min_c?: number | null;
+  precip_mm?: number | null;
+  uv_index_max?: number | null;
+  wind_max_kmh?: number | null;
+}
+
+export interface WeatherHour {
+  time?: string;
+  temp_c?: number | null;
+  precip_prob?: number | null;
+  weather_code?: number | null;
+}
+
 export interface WeatherInfo {
   available: boolean;
   temperature_c?: number;
   feels_like_c?: number;
   humidity_pct?: number;
   wind_speed_kmh?: number;
+  wind_direction_deg?: number;
+  precipitation_mm?: number;
+  cloud_cover_pct?: number;
+  pressure_hpa?: number;
+  visibility_m?: number;
   weather_code?: number;
   uv_index?: number;
   uv_index_max?: number;
@@ -37,6 +59,8 @@ export interface WeatherInfo {
   day_length_hours?: number;
   timezone?: string;
   local_clock?: LocalClock;
+  forecast_daily?: WeatherDay[];
+  forecast_hourly?: WeatherHour[];
   source?: string;
   error?: string;
 }
@@ -52,6 +76,7 @@ export interface NewsInfo {
   available: boolean;
   query?: string;
   articles: NewsArticle[];
+  count?: number;
   source?: string;
   error?: string;
 }
@@ -87,6 +112,9 @@ export interface AirQualityInfo {
   pm2_5?: number;
   pm10?: number;
   ozone?: number;
+  no2?: number;
+  so2?: number;
+  co?: number;
   source?: string;
   error?: string;
 }
@@ -96,7 +124,10 @@ export interface EarthquakeEvent {
   place?: string;
   time?: number;
   url?: string;
+  depth_km?: number | null;
   distance_km?: number | null;
+  tsunami?: number;
+  type?: string;
 }
 
 export interface EarthquakesInfo {
@@ -121,14 +152,74 @@ export interface HolidaysInfo {
 export interface CountryMetaInfo {
   available: boolean;
   common_name?: string;
+  official_name?: string;
   capital?: string;
+  capitals?: string[];
   region?: string;
   subregion?: string;
   population?: number;
+  area_km2?: number;
   languages?: string[];
   flag_emoji?: string;
   flag_png?: string;
   currencies?: string[];
+  currency_names?: Record<string, string | undefined>;
+  timezones?: string[];
+  borders?: string[];
+  tld?: string[];
+  calling_codes?: string[];
+  independent?: boolean;
+  un_member?: boolean;
+  car_side?: string;
+  source?: string;
+  error?: string;
+}
+
+export interface ElevationInfo {
+  available: boolean;
+  elevation_m?: number | null;
+  source?: string;
+  error?: string;
+}
+
+export interface WikipediaSummary {
+  title?: string;
+  extract?: string;
+  description?: string;
+  url?: string;
+  thumbnail?: string;
+  coordinates?: { lat?: number; lon?: number };
+}
+
+export interface WikipediaNearby {
+  title?: string;
+  distance_m?: number;
+  lat?: number;
+  lon?: number;
+  url?: string;
+}
+
+export interface WikipediaInfo {
+  available: boolean;
+  summary?: WikipediaSummary | null;
+  nearby?: WikipediaNearby[];
+  source?: string;
+  reason?: string;
+  error?: string;
+}
+
+export interface PoiItem {
+  name: string;
+  kind?: string;
+  lat?: number;
+  lon?: number;
+  tags?: Record<string, string>;
+}
+
+export interface PoisInfo {
+  available: boolean;
+  count?: number;
+  pois: PoiItem[];
   source?: string;
   error?: string;
 }
@@ -180,6 +271,7 @@ export interface PlaceContext {
   cached?: boolean;
   place: PlaceInfo;
   weather: WeatherInfo;
+  elevation?: ElevationInfo;
   news: NewsInfo;
   market: MarketInfo;
   air_quality?: AirQualityInfo;
@@ -189,6 +281,9 @@ export interface PlaceContext {
   iss?: IssInfo;
   flights?: FlightsInfo;
   on_this_day?: OnThisDayInfo;
+  wikipedia?: WikipediaInfo;
+  pois?: PoisInfo;
+  layers_available?: number;
   chat_prompt?: string;
   error?: string;
 }

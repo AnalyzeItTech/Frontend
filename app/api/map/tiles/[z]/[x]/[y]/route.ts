@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
 
-const THEME = (process.env.LOCATIONIQ_THEME || 'streets').trim() || 'streets';
+const DEFAULT_THEME = (process.env.LOCATIONIQ_THEME || 'streets').trim() || 'streets';
 const SUBDOMAINS = ['a', 'b', 'c'] as const;
+const ALLOWED = new Set(['streets', 'dark', 'light']);
+
+function resolveTheme(request: Request): string {
+  const url = new URL(request.url);
+  const q = (url.searchParams.get('theme') || '').trim().toLowerCase();
+  if (q && ALLOWED.has(q)) return q;
+  return ALLOWED.has(DEFAULT_THEME) ? DEFAULT_THEME : 'streets';
+}
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ z: string; x: string; y: string }> },
 ) {
   const key = (process.env.LOCATIONIQ_KEY || '').trim();
@@ -24,14 +32,13 @@ export async function GET(
     return NextResponse.json({ error: 'Tile out of range' }, { status: 400 });
   }
 
-  // Rotate subdomain for upstream parallelism (LocationIQ expects a|b|c)
+  const theme = resolveTheme(request);
   const sub = SUBDOMAINS[(xi + yi) % SUBDOMAINS.length];
-  const upstream = `https://${sub}-tiles.locationiq.com/v3/${encodeURIComponent(THEME)}/r/${zi}/${xi}/${yi}.png?key=${encodeURIComponent(key)}`;
+  const upstream = `https://${sub}-tiles.locationiq.com/v3/${encodeURIComponent(theme)}/r/${zi}/${xi}/${yi}.png?key=${encodeURIComponent(key)}`;
 
   try {
     const res = await fetch(upstream, {
       headers: { 'User-Agent': 'AnalyzeIt-MapProxy/1.0' },
-      // Edge/runtime caching of successful tiles
       next: { revalidate: 86400 },
     });
     if (!res.ok) {

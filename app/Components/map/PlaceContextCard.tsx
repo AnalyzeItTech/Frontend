@@ -16,6 +16,9 @@ import {
   IconWorld,
   IconBulb,
   IconSun,
+  IconBook,
+  IconMapPin,
+  IconMountain,
 } from '@tabler/icons-react';
 import type { PlaceContext } from '../../lib/geoApi';
 
@@ -27,7 +30,7 @@ interface PlaceContextCardProps {
   onSendToChat?: (prompt: string) => void;
 }
 
-function weatherLabel(code?: number) {
+function weatherLabel(code?: number | null) {
   if (code == null) return '—';
   if (code === 0) return 'Clear';
   if (code <= 3) return 'Partly cloudy';
@@ -63,6 +66,11 @@ function timeOnly(iso?: string) {
   return t?.slice(0, 5) || '—';
 }
 
+function shortDate(iso?: string) {
+  if (!iso) return '—';
+  return iso.slice(5, 10);
+}
+
 export function PlaceContextCard({
   context,
   loading,
@@ -83,6 +91,9 @@ export function PlaceContextCard({
   const iss = context?.iss;
   const flights = context?.flights;
   const onThisDay = context?.on_this_day;
+  const elevation = context?.elevation;
+  const wikipedia = context?.wikipedia;
+  const pois = context?.pois;
   const clock = weather?.local_clock;
 
   const stopScrollBleed = (event: WheelEvent | TouchEvent) => {
@@ -90,7 +101,7 @@ export function PlaceContextCard({
   };
 
   return (
-    <div className="app-card pointer-events-auto flex max-h-[min(72dvh,560px)] w-full max-w-md flex-col overflow-hidden shadow-xl">
+    <div className="app-card pointer-events-auto flex max-h-[min(78dvh,640px)] w-full max-w-md flex-col overflow-hidden shadow-xl">
       <div className="flex shrink-0 items-start justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
         <div className="min-w-0">
           <h4 className="truncate font-serif text-base font-semibold text-[var(--text-primary)]">
@@ -105,6 +116,10 @@ export function PlaceContextCard({
             {place?.country || place?.countrycode || '—'}
             {place ? ` · ${place.lat.toFixed(2)}°, ${place.lon.toFixed(2)}°` : ''}
             {clock?.available && clock.local_time ? ` · ${clock.local_time} local` : ''}
+            {elevation?.available && elevation.elevation_m != null
+              ? ` · ${Math.round(elevation.elevation_m)} m`
+              : ''}
+            {context?.layers_available != null ? ` · ${context.layers_available} layers` : ''}
             {context?.cached ? ' · cached' : ''}
           </p>
         </div>
@@ -128,7 +143,7 @@ export function PlaceContextCard({
         {loading ? (
           <div className="flex items-center gap-2 py-6 text-xs text-[var(--text-secondary)]">
             <IconLoader2 size={16} className="animate-spin text-[#E3836C]" />
-            Fan-out: weather, AQI, news, markets, quakes, flights, ISS…
+            Fan-out: weather, elevation, AQI, news, wiki, POIs, markets, quakes, flights, ISS…
           </div>
         ) : null}
 
@@ -140,16 +155,67 @@ export function PlaceContextCard({
 
         {!loading && context ? (
           <>
-            {(country?.available || holidays?.available) && (
+            {wikipedia?.available && wikipedia.summary?.extract ? (
+              <div className="rounded-xl bg-[var(--surface-2)] p-2.5 text-[11px] text-[var(--text-secondary)]">
+                <div className="mb-1 flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                  <IconBook size={12} className="text-[#E3836C]" /> Wikipedia
+                </div>
+                <p className="leading-snug text-[var(--text-primary)]">
+                  {wikipedia.summary.extract.slice(0, 420)}
+                  {wikipedia.summary.extract.length > 420 ? '…' : ''}
+                </p>
+                {wikipedia.summary.url ? (
+                  <a
+                    href={wikipedia.summary.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 inline-block text-[10px] text-[#E3836C] underline-offset-2 hover:underline"
+                  >
+                    Full article
+                  </a>
+                ) : null}
+                {wikipedia.nearby && wikipedia.nearby.length > 0 ? (
+                  <p className="mt-1.5 text-[10px] text-[var(--text-muted)]">
+                    Nearby pages:{' '}
+                    {wikipedia.nearby
+                      .slice(0, 5)
+                      .map((n) => n.title)
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {(country?.available || holidays?.available || elevation?.available) && (
               <div className="rounded-xl bg-[var(--surface-2)] p-2.5 text-[11px] text-[var(--text-secondary)]">
                 <div className="mb-1 flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
                   <IconWorld size={12} className="text-[#E3836C]" /> Civic
                 </div>
                 {country?.available ? (
-                  <p>
-                    {country.capital ? `Capital ${country.capital}` : null}
-                    {country.population != null ? ` · Pop ${fmtPop(country.population)}` : null}
-                    {country.languages?.length ? ` · ${country.languages.slice(0, 3).join(', ')}` : null}
+                  <>
+                    <p>
+                      {country.capital ? `Capital ${country.capital}` : null}
+                      {country.population != null ? ` · Pop ${fmtPop(country.population)}` : null}
+                      {country.area_km2 != null ? ` · ${Math.round(country.area_km2).toLocaleString()} km²` : null}
+                    </p>
+                    <p className="mt-0.5">
+                      {country.region}
+                      {country.subregion ? ` / ${country.subregion}` : ''}
+                      {country.languages?.length ? ` · ${country.languages.join(', ')}` : ''}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
+                      {country.currencies?.length ? `CCY ${country.currencies.join(', ')}` : ''}
+                      {country.calling_codes?.length ? ` · ${country.calling_codes.slice(0, 3).join(' ')}` : ''}
+                      {country.car_side ? ` · drive ${country.car_side}` : ''}
+                      {country.tld?.length ? ` · ${country.tld[0]}` : ''}
+                    </p>
+                  </>
+                ) : null}
+                {elevation?.available && elevation.elevation_m != null ? (
+                  <p className="mt-1 flex items-center gap-1">
+                    <IconMountain size={11} className="text-[#E3836C]" />
+                    Elevation {Math.round(elevation.elevation_m)} m
                   </p>
                 ) : null}
                 {holidays?.available && holidays.today && holidays.today.length > 0 ? (
@@ -176,19 +242,20 @@ export function PlaceContextCard({
                     </p>
                     <p className="text-[11px] text-[var(--text-secondary)]">
                       {weatherLabel(weather.weather_code)}
+                      {weather.feels_like_c != null ? ` · feels ${Math.round(weather.feels_like_c)}°` : ''}
                       {weather.humidity_pct != null ? ` · ${weather.humidity_pct}% RH` : ''}
                     </p>
                     <p className="mt-1 flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
                       <IconSun size={11} />
                       UV {weather.uv_index ?? '—'}
-                      {weather.sunrise ? ` · ↑${timeOnly(weather.sunrise)}` : ''}
-                      {weather.sunset ? ` ↓${timeOnly(weather.sunset)}` : ''}
+                      {weather.wind_speed_kmh != null ? ` · wind ${Math.round(weather.wind_speed_kmh)}` : ''}
+                      {weather.pressure_hpa != null ? ` · ${Math.round(weather.pressure_hpa)} hPa` : ''}
                     </p>
-                    {weather.day_length_hours != null ? (
-                      <p className="text-[10px] text-[var(--text-muted)]">
-                        Day length {weather.day_length_hours}h
-                      </p>
-                    ) : null}
+                    <p className="text-[10px] text-[var(--text-muted)]">
+                      {weather.sunrise ? `↑${timeOnly(weather.sunrise)}` : ''}
+                      {weather.sunset ? ` ↓${timeOnly(weather.sunset)}` : ''}
+                      {weather.day_length_hours != null ? ` · ${weather.day_length_hours}h day` : ''}
+                    </p>
                   </>
                 ) : (
                   <p className="text-[11px] text-[var(--text-muted)]">Unavailable</p>
@@ -207,6 +274,11 @@ export function PlaceContextCard({
                     <p className="text-[11px] text-[var(--text-secondary)]">
                       {aqiLabel(aqi.us_aqi)}
                       {aqi.pm2_5 != null ? ` · PM2.5 ${Math.round(aqi.pm2_5)}` : ''}
+                    </p>
+                    <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+                      {aqi.pm10 != null ? `PM10 ${Math.round(aqi.pm10)}` : ''}
+                      {aqi.ozone != null ? ` · O₃ ${Math.round(aqi.ozone)}` : ''}
+                      {aqi.no2 != null ? ` · NO₂ ${Math.round(aqi.no2)}` : ''}
                     </p>
                   </>
                 ) : (
@@ -270,53 +342,103 @@ export function PlaceContextCard({
               </div>
             </div>
 
-            {(quakes?.available && (quakes.count ?? 0) > 0) || (flights?.available && (flights.count ?? 0) > 0) ? (
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-[var(--surface-2)] p-2.5">
-                  <div className="mb-1 flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-                    <IconWaveSawTool size={12} className="text-[#E3836C]" /> Quakes (30d)
-                  </div>
-                  {quakes?.available && quakes.events.length > 0 ? (
-                    <ul className="space-y-1 text-[10px] text-[var(--text-secondary)]">
-                      {quakes.events.slice(0, 3).map((ev, i) => (
-                        <li key={`${ev.time}-${i}`} className="truncate">
-                          M{ev.mag} · {ev.distance_km != null ? `${Math.round(ev.distance_km)}km` : '—'}
-                          {ev.place ? ` · ${ev.place}` : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-[11px] text-[var(--text-muted)]">None nearby</p>
-                  )}
+            {weather?.available && weather.forecast_daily && weather.forecast_daily.length > 0 ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                  <IconSun size={12} className="text-[#E3836C]" /> 7-day forecast
                 </div>
-                <div className="rounded-xl bg-[var(--surface-2)] p-2.5">
-                  <div className="mb-1 flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-                    <IconPlane size={12} className="text-[#E3836C]" /> Flights
-                  </div>
-                  {flights?.available && flights.aircraft.length > 0 ? (
-                    <ul className="space-y-1 text-[10px] text-[var(--text-secondary)]">
-                      {flights.aircraft.slice(0, 3).map((ac, i) => (
-                        <li key={`${ac.callsign}-${i}`} className="truncate">
-                          {ac.callsign || 'Aircraft'} · {ac.distance_km != null ? `${Math.round(ac.distance_km)}km` : ''}
-                          {ac.altitude_m != null ? ` · ${Math.round(ac.altitude_m)}m` : ''}
-                        </li>
-                      ))}
-                      <li className="text-[var(--text-muted)]">{flights.count} in airspace</li>
-                    </ul>
-                  ) : (
-                    <p className="text-[11px] text-[var(--text-muted)]">Quiet skies / rate-limited</p>
-                  )}
+                <div className="grid grid-cols-7 gap-1">
+                  {weather.forecast_daily.slice(0, 7).map((day, i) => (
+                    <div
+                      key={day.date || `d-${i}`}
+                      className="rounded-lg bg-[var(--surface-2)] px-1 py-1.5 text-center"
+                    >
+                      <p className="text-[9px] font-mono text-[var(--text-muted)]">{shortDate(day.date)}</p>
+                      <p className="text-[10px] font-semibold text-[var(--text-primary)]">
+                        {day.temp_max_c != null ? Math.round(day.temp_max_c) : '—'}°
+                      </p>
+                      <p className="text-[9px] text-[var(--text-muted)]">
+                        {day.temp_min_c != null ? Math.round(day.temp_min_c) : '—'}°
+                      </p>
+                    </div>
+                  ))}
                 </div>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-[var(--surface-2)] p-2.5">
+                <div className="mb-1 flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                  <IconWaveSawTool size={12} className="text-[#E3836C]" /> Quakes (30d)
+                </div>
+                {quakes?.available && quakes.events.length > 0 ? (
+                  <ul className="space-y-1 text-[10px] text-[var(--text-secondary)]">
+                    {quakes.events.slice(0, 8).map((ev, i) => (
+                      <li key={`${ev.time}-${i}`} className="truncate">
+                        M{ev.mag}
+                        {ev.depth_km != null ? ` · ${Math.round(Number(ev.depth_km))}km deep` : ''}
+                        {ev.distance_km != null ? ` · ${Math.round(ev.distance_km)}km` : ''}
+                        {ev.place ? ` · ${ev.place}` : ''}
+                      </li>
+                    ))}
+                    {(quakes.count ?? 0) > 8 ? (
+                      <li className="text-[var(--text-muted)]">+{(quakes.count ?? 0) - 8} more</li>
+                    ) : null}
+                  </ul>
+                ) : (
+                  <p className="text-[11px] text-[var(--text-muted)]">None nearby</p>
+                )}
+              </div>
+              <div className="rounded-xl bg-[var(--surface-2)] p-2.5">
+                <div className="mb-1 flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                  <IconPlane size={12} className="text-[#E3836C]" /> Flights
+                </div>
+                {flights?.available && flights.aircraft.length > 0 ? (
+                  <ul className="space-y-1 text-[10px] text-[var(--text-secondary)]">
+                    {flights.aircraft.slice(0, 6).map((ac, i) => (
+                      <li key={`${ac.callsign}-${i}`} className="truncate">
+                        {ac.callsign || 'Aircraft'} ·{' '}
+                        {ac.distance_km != null ? `${Math.round(ac.distance_km)}km` : ''}
+                        {ac.altitude_m != null ? ` · ${Math.round(ac.altitude_m)}m` : ''}
+                      </li>
+                    ))}
+                    <li className="text-[var(--text-muted)]">{flights.count} in airspace</li>
+                  </ul>
+                ) : (
+                  <p className="text-[11px] text-[var(--text-muted)]">Quiet skies / rate-limited</p>
+                )}
+              </div>
+            </div>
+
+            {pois?.available && pois.pois.length > 0 ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                  <IconMapPin size={12} className="text-[#E3836C]" /> Nearby POIs
+                  <span className="normal-case tracking-normal text-[var(--text-muted)]">
+                    ({pois.count ?? pois.pois.length})
+                  </span>
+                </div>
+                <ul className="space-y-1">
+                  {pois.pois.slice(0, 12).map((p, idx) => (
+                    <li key={`${p.name}-${idx}`} className="text-[11px] leading-snug text-[var(--text-secondary)]">
+                      <span className="text-[var(--text-primary)]">{p.name}</span>
+                      {p.kind ? <span className="ml-1 text-[var(--text-muted)]">· {p.kind}</span> : null}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ) : null}
 
             <div className="space-y-1.5">
               <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
                 <IconNews size={12} className="text-[#E3836C]" /> News
+                {news?.count != null ? (
+                  <span className="normal-case tracking-normal">({news.count})</span>
+                ) : null}
               </div>
               {news?.available && news.articles.length > 0 ? (
                 <ul className="space-y-1.5">
-                  {news.articles.slice(0, 3).map((art, idx) => (
+                  {news.articles.slice(0, 12).map((art, idx) => (
                     <li key={`${art.url || art.title}-${idx}`} className="text-[11px] leading-snug">
                       {art.url ? (
                         <a
@@ -348,7 +470,7 @@ export function PlaceContextCard({
                   <IconCalendarEvent size={11} className="opacity-50" />
                 </div>
                 <ul className="space-y-1.5">
-                  {onThisDay.events.slice(0, 2).map((ev, idx) => (
+                  {onThisDay.events.slice(0, 5).map((ev, idx) => (
                     <li key={`${ev.year}-${idx}`} className="text-[11px] leading-snug text-[var(--text-secondary)]">
                       <span className="font-mono text-[#E3836C]">{ev.year}</span> — {ev.text}
                     </li>

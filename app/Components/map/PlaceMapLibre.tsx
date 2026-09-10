@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Map, { NavigationControl, Marker, type MapRef } from 'react-map-gl/maplibre';
 import type { StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { useTheme } from '../ui/ThemeProvider';
 
 /** Quick-jump hubs only — search still covers any place on Earth. */
 export const GLOBE_HUBS = [
@@ -18,7 +19,8 @@ export const GLOBE_HUBS = [
   { name: 'São Paulo', lat: -23.5505, lon: -46.6333 },
 ] as const;
 
-const OPENFREEMAP_FALLBACK = 'https://tiles.openfreemap.org/styles/liberty';
+const OPENFREEMAP_LIGHT = 'https://tiles.openfreemap.org/styles/liberty';
+const OPENFREEMAP_DARK = 'https://tiles.openfreemap.org/styles/dark';
 
 export interface MapPlaceSelection {
   lat: number;
@@ -40,6 +42,7 @@ interface PlaceMapLibreProps {
 
 type MapConfig = {
   provider: 'locationiq' | 'openfreemap';
+  theme?: string;
   mapStyle: string | StyleSpecification;
 };
 
@@ -54,11 +57,14 @@ export function PlaceMapLibre({
   onMapReady,
 }: PlaceMapLibreProps) {
   const mapRef = useRef<MapRef | null>(null);
+  const { theme } = useTheme();
+  const mapTheme = theme === 'dark' ? 'dark' : 'streets';
   const [config, setConfig] = useState<MapConfig | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void fetch('/api/map/config')
+    setConfig(null);
+    void fetch(`/api/map/config?theme=${encodeURIComponent(mapTheme)}`)
       .then(async (res) => {
         if (!res.ok) throw new Error('Map config failed');
         return res.json() as Promise<MapConfig>;
@@ -68,13 +74,17 @@ export function PlaceMapLibre({
       })
       .catch(() => {
         if (!cancelled) {
-          setConfig({ provider: 'openfreemap', mapStyle: OPENFREEMAP_FALLBACK });
+          setConfig({
+            provider: 'openfreemap',
+            theme: mapTheme,
+            mapStyle: mapTheme === 'dark' ? OPENFREEMAP_DARK : OPENFREEMAP_LIGHT,
+          });
         }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [mapTheme]);
 
   const handleClick = useCallback(
     (event: { lngLat: { lng: number; lat: number } }) => {
@@ -95,6 +105,26 @@ export function PlaceMapLibre({
     });
   }, [flyTo]);
 
+  const fog = useMemo(
+    () =>
+      mapTheme === 'dark'
+        ? {
+            color: 'rgb(12, 16, 28)',
+            'high-color': 'rgb(20, 40, 80)',
+            'horizon-blend': 0.04,
+            'space-color': 'rgb(4, 6, 14)',
+            'star-intensity': 0.7,
+          }
+        : {
+            color: 'rgb(186, 210, 235)',
+            'high-color': 'rgb(36, 92, 223)',
+            'horizon-blend': 0.02,
+            'space-color': 'rgb(11, 11, 25)',
+            'star-intensity': 0.55,
+          },
+    [mapTheme],
+  );
+
   if (!config) {
     return (
       <div className={`absolute inset-0 flex items-center justify-center bg-[var(--surface-2)] ${className}`}>
@@ -107,7 +137,9 @@ export function PlaceMapLibre({
 
   return (
     <div className={`absolute inset-0 h-full w-full ${className}`}>
+      {/* Remount when theme changes so raster style/tiles reload cleanly */}
       <Map
+        key={`map-${mapTheme}-${usingLocationIq ? 'liq' : 'ofm'}`}
         ref={mapRef}
         onClick={handleClick}
         mapStyle={config.mapStyle}
@@ -122,13 +154,7 @@ export function PlaceMapLibre({
               setFog?: (fog: Record<string, unknown> | null) => void;
             };
             map.setProjection?.({ type: 'globe' });
-            map.setFog?.({
-              color: 'rgb(186, 210, 235)',
-              'high-color': 'rgb(36, 92, 223)',
-              'horizon-blend': 0.02,
-              'space-color': 'rgb(11, 11, 25)',
-              'star-intensity': 0.55,
-            });
+            map.setFog?.(fog);
             onMapReady?.();
           } catch (err) {
             onMapError?.(err instanceof Error ? err.message : 'Could not enable globe projection');
@@ -169,14 +195,14 @@ export function PlaceMapLibre({
       </Map>
 
       {!usingLocationIq ? (
-        <div className="pointer-events-none absolute left-1/2 top-16 z-10 max-w-sm -translate-x-1/2 rounded-xl border border-amber-500/30 bg-amber-50/95 px-3 py-2 text-center text-[11px] text-amber-900 shadow-lg backdrop-blur">
+        <div className="pointer-events-none absolute left-1/2 top-16 z-10 max-w-sm -translate-x-1/2 rounded-xl border border-amber-500/30 bg-amber-50/95 px-3 py-2 text-center text-[11px] text-amber-900 shadow-lg backdrop-blur dark:border-amber-400/20 dark:bg-amber-950/90 dark:text-amber-100">
           Set server-only <code className="font-mono">LOCATIONIQ_KEY</code> (not{' '}
           <code className="font-mono">NEXT_PUBLIC_*</code>) on Vercel. Showing OpenFreeMap fallback.
         </div>
       ) : null}
 
       <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-lg bg-[var(--surface)]/90 px-2 py-1 text-[10px] font-mono text-[var(--text-muted)] backdrop-blur">
-        {usingLocationIq ? 'LocationIQ · proxied · MapLibre globe' : 'OpenFreeMap · MapLibre globe'} ·
+        {usingLocationIq ? `LocationIQ · ${mapTheme} · MapLibre globe` : 'OpenFreeMap · MapLibre globe'} ·
         click anywhere
       </div>
     </div>
