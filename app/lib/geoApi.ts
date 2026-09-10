@@ -14,6 +14,15 @@ export interface PlaceInfo {
   error?: string;
 }
 
+export interface LocalClock {
+  available: boolean;
+  timezone?: string;
+  local_time?: string;
+  local_date?: string;
+  utc_offset?: string;
+  source?: string;
+}
+
 export interface WeatherInfo {
   available: boolean;
   temperature_c?: number;
@@ -21,6 +30,13 @@ export interface WeatherInfo {
   humidity_pct?: number;
   wind_speed_kmh?: number;
   weather_code?: number;
+  uv_index?: number;
+  uv_index_max?: number;
+  sunrise?: string;
+  sunset?: string;
+  day_length_hours?: number;
+  timezone?: string;
+  local_clock?: LocalClock;
   source?: string;
   error?: string;
 }
@@ -64,6 +80,101 @@ export interface MarketInfo {
   } | null;
 }
 
+export interface AirQualityInfo {
+  available: boolean;
+  us_aqi?: number;
+  european_aqi?: number;
+  pm2_5?: number;
+  pm10?: number;
+  ozone?: number;
+  source?: string;
+  error?: string;
+}
+
+export interface EarthquakeEvent {
+  mag?: number;
+  place?: string;
+  time?: number;
+  url?: string;
+  distance_km?: number | null;
+}
+
+export interface EarthquakesInfo {
+  available: boolean;
+  count?: number;
+  events: EarthquakeEvent[];
+  source?: string;
+  window_days?: number;
+  error?: string;
+}
+
+export interface HolidaysInfo {
+  available: boolean;
+  countrycode?: string;
+  today?: Array<{ name?: string; date?: string }>;
+  upcoming?: Array<{ name?: string; date?: string }>;
+  source?: string;
+  reason?: string;
+  error?: string;
+}
+
+export interface CountryMetaInfo {
+  available: boolean;
+  common_name?: string;
+  capital?: string;
+  region?: string;
+  subregion?: string;
+  population?: number;
+  languages?: string[];
+  flag_emoji?: string;
+  flag_png?: string;
+  currencies?: string[];
+  source?: string;
+  error?: string;
+}
+
+export interface IssInfo {
+  available: boolean;
+  lat?: number;
+  lon?: number;
+  distance_km?: number;
+  timestamp?: number;
+  source?: string;
+  error?: string;
+}
+
+export interface FlightInfo {
+  callsign?: string | null;
+  lat?: number;
+  lon?: number;
+  altitude_m?: number | null;
+  velocity_ms?: number | null;
+  distance_km?: number;
+}
+
+export interface FlightsInfo {
+  available: boolean;
+  count?: number;
+  aircraft: FlightInfo[];
+  source?: string;
+  error?: string;
+}
+
+export interface OnThisDayEvent {
+  year?: number;
+  text?: string;
+  title?: string;
+}
+
+export interface OnThisDayInfo {
+  available: boolean;
+  month?: number;
+  day?: number;
+  events: OnThisDayEvent[];
+  source?: string;
+  error?: string;
+}
+
 export interface PlaceContext {
   ok: boolean;
   cached?: boolean;
@@ -71,6 +182,13 @@ export interface PlaceContext {
   weather: WeatherInfo;
   news: NewsInfo;
   market: MarketInfo;
+  air_quality?: AirQualityInfo;
+  earthquakes?: EarthquakesInfo;
+  holidays?: HolidaysInfo;
+  country?: CountryMetaInfo;
+  iss?: IssInfo;
+  flights?: FlightsInfo;
+  on_this_day?: OnThisDayInfo;
   chat_prompt?: string;
   error?: string;
 }

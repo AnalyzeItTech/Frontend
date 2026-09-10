@@ -69,6 +69,14 @@ export async function cancelSubscription() {
   return res.json();
 }
 
+export async function getCheckoutStatus(txnid: string) {
+  const res = await fetch(`${API_V1}/billing/checkout/${encodeURIComponent(txnid)}/status`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(await readError(res, 'Could not load checkout status'));
+  return res.json() as Promise<{ txnid: string; plan?: string; status?: string; paid: boolean }>;
+}
+
 export function submitPayuForm(payuUrl: string, fields: Record<string, string>) {
   const form = document.createElement('form');
   form.method = 'POST';
