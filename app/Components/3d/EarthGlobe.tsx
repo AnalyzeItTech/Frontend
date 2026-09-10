@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo, useImperativeHandle } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useTheme } from '../ui/ThemeProvider';
@@ -19,10 +19,25 @@ import {
   IconSearch,
 } from '@tabler/icons-react';
 
-interface EarthGlobeProps {
+export interface EarthGlobeProps {
   isExpanded: boolean;
   onToggleExpand: (expanded: boolean) => void;
   className?: string;
+  sourceMarkers?: GlobeSourceMarker[];
+  onSendToChat?: (prompt: string) => void;
+}
+
+export interface GlobeSourceMarker {
+  id: string;
+  lat: number;
+  lon: number;
+  label: string;
+}
+
+export interface EarthGlobeHandle {
+  flyToName: (name: string) => boolean;
+  flyToPlace: (place: GlobeLocation) => void;
+  expand: () => void;
 }
 
 export interface GlobeLocation {
@@ -72,6 +87,22 @@ const SEARCHABLE_LOCATIONS: GlobeLocation[] = [
 ];
 
 const MAJOR_HUBS = SEARCHABLE_LOCATIONS.filter((l) => l.isMajorHub);
+
+export function resolveGlobePlace(text: string): GlobeLocation | null {
+  const lower = text.toLowerCase();
+  const byCity = SEARCHABLE_LOCATIONS.find((loc) => lower.includes(loc.name.toLowerCase()));
+  if (byCity) return byCity;
+  return SEARCHABLE_LOCATIONS.find((loc) => lower.includes(loc.country.toLowerCase())) || null;
+}
+
+export function jitterNear(loc: GlobeLocation, seed: string): { lat: number; lon: number } {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return {
+    lat: loc.lat + (((hash % 100) - 50) / 70),
+    lon: loc.lon + ((((hash >> 8) % 100) - 50) / 70),
+  };
+}
 
 const ARC_PAIRS: Array<[number, number]> = [
   [0, 1], // SF -> NY
@@ -227,11 +258,10 @@ function createArcCurve(p1: THREE.Vector3, p2: THREE.Vector3, radius: number): T
   return new THREE.CubicBezierCurve3(p1, control1, control2, p2);
 }
 
-export const EarthGlobe: React.FC<EarthGlobeProps> = ({
-  isExpanded,
-  onToggleExpand,
-  className = '',
-}) => {
+export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(function EarthGlobe(
+  { isExpanded, onToggleExpand, className = '', sourceMarkers = [], onSendToChat },
+  ref,
+) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -275,6 +305,9 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
   const telemetryGroupRef = useRef<THREE.Group | null>(null);
   const arcMaterialsRef = useRef<THREE.MeshBasicMaterial[]>([]);
   const hubMarkersRef = useRef<THREE.Mesh[]>([]);
+  const earthGroupRef = useRef<THREE.Group | null>(null);
+  const sourceGroupRef = useRef<THREE.Group | null>(null);
+  const flyGenRef = useRef(0);
   const ambientLightRef = useRef<THREE.AmbientLight | null>(null);
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
   const rimLightRef = useRef<THREE.DirectionalLight | null>(null);
@@ -301,8 +334,9 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
 
     const camera = cameraRef.current;
     const controls = controlsRef.current;
-    if (!camera || !controls || isFlyingRef.current) return;
+    if (!camera || !controls) return;
 
+    const gen = ++flyGenRef.current;
     isFlyingRef.current = true;
     controls.enabled = false;
     controls.autoRotate = false;
@@ -321,6 +355,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
     const targetDist = 5.8;
 
     function stepFly(now: number) {
+      if (gen !== flyGenRef.current) return;
       const elapsed = now - startTime;
       const t = Math.min(1, elapsed / duration);
       const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -349,6 +384,48 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
     }
     requestAnimationFrame(stepFly);
   }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      flyToName: (name: string) => {
+        const loc = resolveGlobePlace(name);
+        if (!loc) return false;
+        onToggleExpand(true);
+        flyToCity(loc);
+        return true;
+      },
+      flyToPlace: (place: GlobeLocation) => {
+        onToggleExpand(true);
+        flyToCity(place);
+      },
+      expand: () => onToggleExpand(true),
+    }),
+    [flyToCity, onToggleExpand],
+  );
+
+  useEffect(() => {
+    const group = sourceGroupRef.current;
+    if (!group) return;
+    while (group.children.length) {
+      const child = group.children[0];
+      group.remove(child);
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        const mat = child.material;
+        if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
+        else mat.dispose();
+      }
+    }
+    const earthRadius = 2.6;
+    sourceMarkers.forEach((marker) => {
+      const geo = new THREE.SphereGeometry(0.045, 10, 10);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xe3836c });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(latLonToVector3(marker.lat, marker.lon, earthRadius * 1.02));
+      group.add(mesh);
+    });
+  }, [sourceMarkers, isSceneReady]);
 
   // Reset North Orientation
   const resetNorth = useCallback(() => {
@@ -439,6 +516,10 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
     const earthRadius = 2.6;
     const earthGroup = new THREE.Group();
     scene.add(earthGroup);
+    earthGroupRef.current = earthGroup;
+    const sourceGroup = new THREE.Group();
+    earthGroup.add(sourceGroup);
+    sourceGroupRef.current = sourceGroup;
 
     const { earthTexture, cloudTexture } = createEditorialEarthTextures(isDark);
 
@@ -793,7 +874,7 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
 
       {/* Expanded Mode: Full Google Earth Controls, Search Bar & Layers */}
       {isExpanded && isSceneReady && (
-        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-5 sm:p-8 z-50">
+        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-5 pt-24 sm:p-8 sm:pt-24 z-50">
           
           {/* Top Bar: Close Button + Interactive Search Bar + Fly To Quick Cities */}
           <div className="pointer-events-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 w-full">
@@ -1002,6 +1083,19 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
                     <span className="font-bold">{selectedHub.throughput}</span>
                   </div>
                 </div>
+                {onSendToChat ? (
+                  <button
+                    type="button"
+                    className="mt-1 w-full rounded-xl bg-[#E3836C] px-3 py-2 text-xs font-medium text-white"
+                    onClick={() =>
+                      onSendToChat(
+                        `Research ${selectedHub.name}, ${selectedHub.country} (${selectedHub.lat.toFixed(2)}, ${selectedHub.lon.toFixed(2)}).`,
+                      )
+                    }
+                  >
+                    Send to chat
+                  </button>
+                ) : null}
               </div>
             ) : cursorCoords ? (
               <div className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl glass-card text-xs font-mono text-[#4A4238]/80 dark:text-[#C5B9AE] shadow-lg">
@@ -1032,4 +1126,13 @@ export const EarthGlobe: React.FC<EarthGlobeProps> = ({
       )}
     </div>
   );
-};
+});
+
+EarthGlobe.displayName = 'EarthGlobe';
+
+export function EarthGlobeBound({
+  boundRef,
+  ...props
+}: EarthGlobeProps & { boundRef?: React.Ref<EarthGlobeHandle | null> }) {
+  return <EarthGlobe {...props} ref={boundRef} />;
+}

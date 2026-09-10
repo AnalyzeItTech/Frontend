@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   IconArrowUpRight,
@@ -11,16 +11,43 @@ import {
   IconSend,
   IconSparkles,
   IconTable,
+  IconWorld,
   IconX,
 } from '@tabler/icons-react';
 import { getStoredToken } from '../lib/auth';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
-import { ChatRequestError, streamChat, StreamEvent, WidgetSpec, getArtifactUrl } from '../lib/chatApi';
+import {
+  applyUIAction,
+  ChatRequestError,
+  getArtifactUrl,
+  getProjects,
+  streamChat,
+  StreamEvent,
+  WidgetSpec,
+} from '../lib/chatApi';
+import { SourceChips, type ResearchSource } from '../Components/research/SourceChips';
+import type { EarthGlobeHandle, GlobeSourceMarker } from '../Components/3d/EarthGlobe';
+import { jitterNear, resolveGlobePlace } from '../Components/3d/EarthGlobe';
 
-const EarthGlobe = dynamic(
-  () => import('../Components/3d/EarthGlobe').then((module) => module.EarthGlobe),
-  { ssr: false, loading: () => <div className="absolute inset-0 bg-[#E8DFD3]" /> }
+const EarthGlobeBound = dynamic(
+  () => import('../Components/3d/EarthGlobe').then((module) => module.EarthGlobeBound),
+  { ssr: false, loading: () => <div className="absolute inset-0 bg-[#E8DFD3]" /> },
 );
+
+function payloadPlaceText(payload: Record<string, unknown>): string {
+  const args = (payload.args as Record<string, unknown> | undefined) || {};
+  const parts = [
+    args.city,
+    args.location,
+    args.query,
+    args.symbol,
+    payload.tool,
+    payload.detail,
+    payload.url,
+    Array.isArray(payload.keys) ? payload.keys.join(' ') : '',
+  ];
+  return parts.filter((part): part is string => typeof part === 'string').join(' ');
+}
 
 type ResultKind = 'brief' | 'chart' | 'table';
 
@@ -55,6 +82,27 @@ export default function ResearchPage() {
   const [cancelled, setCancelled] = useState(false);
   const [upgradeHref, setUpgradeHref] = useState(false);
   const [proposalWidget, setProposalWidget] = useState<WidgetSpec | null>(null);
+  const [proposalMeta, setProposalMeta] = useState<{ action_id: string; project_id?: string } | null>(null);
+  const [foundSources, setFoundSources] = useState<ResearchSource[]>([]);
+  const [sourceMarkers, setSourceMarkers] = useState<GlobeSourceMarker[]>([]);
+  const [dashStatus, setDashStatus] = useState<string | null>(null);
+  const globeRef = useRef<EarthGlobeHandle | null>(null);
+  const flewOnceRef = useRef(false);
+
+  const noteGlobePlace = useCallback((text: string, markerId: string, fly: boolean) => {
+    const place = resolveGlobePlace(text);
+    if (!place) return;
+    const jitter = jitterNear(place, markerId);
+    setSourceMarkers((prev) => {
+      const next = prev.filter((marker) => marker.id !== markerId);
+      next.push({ id: markerId, lat: jitter.lat, lon: jitter.lon, label: place.name });
+      return next.slice(-24);
+    });
+    if (fly && !flewOnceRef.current) {
+      flewOnceRef.current = true;
+      globeRef.current?.flyToPlace(place);
+    }
+  }, []);
 
   const runResearch = async (value = query) => {
     if (!value.trim()) return;
@@ -69,8 +117,14 @@ export default function ResearchPage() {
     setCancelled(false);
     setUpgradeHref(false);
     setProposalWidget(null);
+    setProposalMeta(null);
+    setDashStatus(null);
     setMode(null);
     setStatus('Routing…');
+    setSourceMarkers([]);
+    setFoundSources([]);
+    flewOnceRef.current = false;
+    noteGlobePlace(value, 'query', true);
 
     let widget: WidgetSpec | undefined;
     let streamed = '';
@@ -85,16 +139,37 @@ export default function ResearchPage() {
             setStatus(nextMode === 'report' ? 'Generating report…' : 'Answering…');
             return;
           }
-          if (event.event === 'tool_call') {
-            const name = typeof event.payload?.tool === 'string' ? event.payload.tool : 'tool';
+          if (event.event === 'tool_call' || event.event === 'tool_result' || event.event === 'context_fetch') {
+            const name = typeof event.payload?.tool === 'string' ? event.payload.tool : event.event;
             const args = event.payload?.args as Record<string, unknown> | undefined;
             const hint = typeof args?.symbol === 'string' ? args.symbol : typeof args?.city === 'string' ? args.city : '';
-            setStatus(hint ? `Looking up ${hint}…` : `Calling ${name}…`);
+            if (event.event === 'tool_call') {
+              setStatus(hint ? `Looking up ${hint}…` : `Calling ${name}…`);
+            }
+            noteGlobePlace(payloadPlaceText(event.payload) + ' ' + value, `${event.event}-${event.seq}`, event.event === 'tool_call');
             return;
           }
           if (event.event === 'tool_progress') {
-            const detail = typeof event.payload?.detail === 'string' ? event.payload.detail : 'Gathering sources…';
+            const nested = event.payload?.progress as Record<string, unknown> | undefined;
+            const step = (typeof event.payload?.step === 'string' ? event.payload.step : nested?.step) || '';
+            const detail = typeof event.payload?.detail === 'string'
+              ? event.payload.detail
+              : typeof nested?.detail === 'string'
+                ? nested.detail
+                : 'Gathering sources…';
             setStatus(detail);
+            if (step === 'source_found') {
+              const host = detail.split('/').pop() || detail;
+              const url = typeof event.payload?.url === 'string' ? event.payload.url : typeof nested?.url === 'string' ? nested.url : `https://${host}`;
+              const title = typeof event.payload?.title === 'string' ? event.payload.title : '';
+              setFoundSources((prev) => {
+                if (prev.some((item) => item.host === host)) return prev;
+                return [...prev, { host, url, title }];
+              });
+              noteGlobePlace(`${host} ${title} ${value}`, `source-${event.seq}`, false);
+            } else {
+              noteGlobePlace(detail + ' ' + value, `progress-${event.seq}`, false);
+            }
             return;
           }
           if (event.event === 'run_cancelled') {
@@ -116,9 +191,24 @@ export default function ResearchPage() {
             widget = candidate as WidgetSpec;
             setProposalWidget(widget);
           }
+          const actionId = typeof event.payload.action_id === 'string' ? event.payload.action_id : '';
+          const projectId = typeof event.payload.project_id === 'string' ? event.payload.project_id : undefined;
+          if (actionId) setProposalMeta({ action_id: actionId, project_id: projectId });
         },
       });
       streamed = response.finalText;
+      if (response.sources?.length) {
+        setFoundSources((prev) => {
+          const next = [...prev];
+          for (const src of response.sources) {
+            const host = src.host || (src.url ? new URL(src.url).hostname : '');
+            if (host && !next.some((item) => item.host === host || item.url === src.url)) {
+              next.push({ host, url: src.url, title: src.title });
+            }
+          }
+          return next;
+        });
+      }
       setResult({
         kind: widgetToResultKind(widget),
         text: streamed || 'The research agent returned no written findings.',
@@ -138,9 +228,39 @@ export default function ResearchPage() {
     }
   };
 
+  const addProposalToDashboard = async () => {
+    if (!proposalMeta) return;
+    setDashStatus('Adding…');
+    try {
+      let projectId = proposalMeta.project_id;
+      if (!projectId) {
+        const projects = await getProjects();
+        projectId = projects[0]?.id;
+      }
+      if (!projectId) {
+        setDashStatus('Create a project on Dashboard first.');
+        return;
+      }
+      await applyUIAction(projectId, proposalMeta.action_id, true);
+      setDashStatus('Added to dashboard.');
+    } catch (applyError: unknown) {
+      setDashStatus(applyError instanceof Error ? applyError.message : 'Could not add to dashboard.');
+    }
+  };
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#E8DFD3] text-[#4A4238]">
-      <EarthGlobe isExpanded={expanded} onToggleExpand={setExpanded} className="!fixed opacity-95" />
+      <EarthGlobeBound
+        boundRef={globeRef}
+        isExpanded={expanded}
+        onToggleExpand={setExpanded}
+        sourceMarkers={sourceMarkers}
+        onSendToChat={(prompt) => {
+          setQuery(prompt);
+          void runResearch(prompt);
+        }}
+        className="!fixed opacity-95"
+      />
       <div className="fixed inset-0 z-10 bg-gradient-to-r from-[#F3EDE4]/90 via-[#F3EDE4]/25 to-transparent pointer-events-none" />
 
       <header className="fixed top-5 left-4 right-4 z-[70] flex items-center justify-between gap-4 rounded-full border border-[#4A4238]/15 bg-[#F3EDE4]/80 px-5 py-3 shadow-sm backdrop-blur-xl sm:left-8 sm:right-8">
@@ -151,6 +271,16 @@ export default function ResearchPage() {
         <div className="hidden items-center gap-2 text-[10px] font-mono uppercase tracking-[0.16em] text-[#786F64] md:flex">
           <span className="h-2 w-2 animate-pulse rounded-full bg-[#8FA98F]" /> Research & Discovery
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            setExpanded(true);
+            globeRef.current?.expand();
+          }}
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#4A4238]/15 px-3 py-1.5 text-xs font-medium transition hover:border-[#E3836C] hover:text-[#B86450]"
+        >
+          <IconWorld size={14} /> Globe
+        </button>
         <Link href="/profile" className="hidden sm:inline text-xs font-medium text-[#786F64] hover:text-[#B86450]">
           Profile
         </Link>
@@ -201,10 +331,13 @@ export default function ResearchPage() {
           )}
           {!result && !isResearching && <div className="mt-5 flex flex-wrap gap-2">{prompts.map((prompt) => <button key={prompt} onClick={() => { setQuery(prompt); void runResearch(prompt); }} className="rounded-full border border-[#4A4238]/12 bg-[#F3EDE4]/75 px-3 py-1.5 text-xs text-[#6B6155] backdrop-blur transition hover:border-[#E3836C]/50 hover:text-[#B86450]">{prompt}</button>)}</div>}
           {isResearching && (
-            <p className="mt-5 text-xs font-mono uppercase tracking-[0.14em] text-[#B86450]">
-              {mode === 'report' ? 'Generating report… ' : ''}
-              {status || 'Following sources…'}
-            </p>
+            <div className="mt-5">
+              <p className="text-xs font-mono uppercase tracking-[0.14em] text-[#B86450]">
+                {mode === 'report' ? 'Generating report… ' : ''}
+                {status || 'Following sources…'}
+              </p>
+              <SourceChips sources={foundSources} />
+            </div>
           )}
           {cancelled && <p className="mt-3 text-xs text-[#786F64]">Run cancelled.</p>}
         </div>
@@ -227,7 +360,18 @@ export default function ResearchPage() {
             <div className="max-h-[52vh] overflow-auto">
               <SandboxedWidgetRenderer widget={proposalWidget} isDraftPreview />
             </div>
-            <p className="mt-2 px-1 text-[10px] text-[#8B93A1]">Not saved until you add it from the dashboard. Chat stays on this page.</p>
+            <div className="mt-2 flex items-center justify-between gap-2 px-1">
+              <p className="text-[10px] text-[#8B93A1]">Report stays in chat. Dashboard only if you add it.</p>
+              <button
+                type="button"
+                disabled={!proposalMeta}
+                onClick={() => void addProposalToDashboard()}
+                className="shrink-0 rounded-full bg-[#5B8CF5] px-3 py-1 text-[11px] text-white disabled:opacity-40"
+              >
+                Add to dashboard
+              </button>
+            </div>
+            {dashStatus ? <p className="mt-1 px-1 text-[10px] text-[#8B93A1]">{dashStatus}</p> : null}
           </motion.aside>
         )}
       </AnimatePresence>
@@ -240,6 +384,7 @@ export default function ResearchPage() {
               <button onClick={() => setResult(null)} className="rounded-full p-1 text-[#786F64] hover:bg-[#EDE4D8]"><IconX size={17} /></button>
             </div>
             <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#6B6155]">{result.text}</p>
+            <SourceChips sources={foundSources} />
             {result.artifacts.length > 0 && (
               <div className="mt-4 space-y-1 text-[11px] text-[#786F64]">
                 {result.artifacts.map((art, index) => {
