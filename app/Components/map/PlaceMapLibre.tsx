@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import Map, { NavigationControl, Marker, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -69,7 +69,7 @@ export function PlaceMapLibre({
         onClick={handleClick}
         mapStyle={OPENFREEMAP_STYLE}
         initialViewState={{ longitude: 12, latitude: 20, zoom: 1.6 }}
-        attributionControl
+        attributionControl={{ compact: true }}
         style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
         cursor="crosshair"
         onError={(evt) => {
