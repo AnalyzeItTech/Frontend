@@ -445,6 +445,17 @@ export async function streamChat(options: ChatOptions): Promise<{
   }
 
   if (!finalText && streamError) {
+    const lower = streamError.toLowerCase();
+    if (
+      lower.includes('ngrok') ||
+      lower.includes('/agent/run') ||
+      lower.includes('relay_stream_error') ||
+      (lower.includes('404') && lower.includes('agent'))
+    ) {
+      throw new Error(
+        'The analysis agent is unreachable right now (Backend B). Try again shortly, or ask the team to point BACKEND_B_URL at a live Model deploy instead of a dead ngrok tunnel.',
+      );
+    }
     throw new Error(streamError);
   }
 

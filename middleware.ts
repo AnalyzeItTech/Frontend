@@ -17,6 +17,14 @@ const PROTECTED_PREFIXES = [
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
+  // Case-sensitive legacy path only — avoids Vercel next.config case-insensitive loop.
+  if (pathname === '/Dashboard' || pathname.startsWith('/Dashboard/')) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname.replace(/^\/Dashboard/, '/dashboard');
+    return NextResponse.redirect(url);
+  }
+
+
   const needsAuth = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`) ||
       pathname.toLowerCase() === prefix.toLowerCase() ||
