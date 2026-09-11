@@ -62,7 +62,16 @@ export async function getBillingQuote(country: string): Promise<BillingQuote> {
     headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(await readError(res, 'Could not load prices'));
-  return res.json();
+  const data = (await res.json()) as BillingQuote;
+  for (const key of ['premium', 'premium_plus'] as const) {
+    const row = data?.plans?.[key];
+    if (!row) continue;
+    const n = coerceMoney(row.amount);
+    if (n != null) row.amount = n;
+    const usd = coerceMoney(row.amount_usd);
+    if (usd != null) row.amount_usd = usd;
+  }
+  return data;
 }
 
 export async function startCheckout(
@@ -75,7 +84,10 @@ export async function startCheckout(
     body: JSON.stringify({ plan, country: country || detectBillingCountry() }),
   });
   if (!res.ok) throw new Error(await readError(res, 'Checkout failed'));
-  return res.json();
+  const session = (await res.json()) as CheckoutSession;
+  const n = coerceMoney(session.amount);
+  if (n != null) session.amount = n;
+  return session;
 }
 
 export async function completeSandboxCheckout(txnid: string, plan: string) {
@@ -118,17 +130,27 @@ const PAYU_REQUIRED = [
 ] as const;
 
 
+export function coerceMoney(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
+  if (typeof value === 'string') {
+    const n = Number(value.replace(/[^0-9.]/g, ''));
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
 export function isValidMoney(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+  return coerceMoney(value) !== null;
 }
 
 export function formatMoney(amount: unknown, currency: string, fallback = '—'): string {
-  if (!isValidMoney(amount)) return fallback;
+  const n = coerceMoney(amount);
+  if (n == null) return fallback;
   const code = (currency || 'INR').toUpperCase();
   try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(amount);
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(n);
   } catch {
-    return `${amount.toFixed(2)} ${code}`;
+    return `${n.toFixed(2)} ${code}`;
   }
 }
 
