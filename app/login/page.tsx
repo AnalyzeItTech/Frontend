@@ -16,7 +16,7 @@ import {
   IconCheck,
   IconAlertCircle,
 } from '@tabler/icons-react';
-import { getStoredToken, login, register, safeNextPath } from '../lib/auth';
+import { confirmAuthSession, getStoredToken, login, register, safeNextPath } from '../lib/auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Tab = 'login' | 'register';
@@ -156,6 +156,7 @@ const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
     setLoading(true);
     try {
       await login(email.trim(), password);
+      await confirmAuthSession();
       onSuccess();
     } catch (err: unknown) {
       setGeneralError(err instanceof Error ? err.message : 'Sign in failed');
@@ -278,6 +279,7 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
     setLoading(true);
     try {
       await register(name.trim(), email.trim(), password);
+      await confirmAuthSession();
       onSuccess();
     } catch (err: unknown) {
       setGeneralError(err instanceof Error ? err.message : 'Registration failed');
@@ -401,11 +403,16 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
           </span>
         ) : (
           <>
-            Create account
+            {generalError ? 'Try again' : 'Create account'}
             <IconArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-0.5" />
           </>
         )}
       </button>
+      {generalError && !loading ? (
+        <p className="text-center text-[11px] text-[#4A4238]/55 dark:text-[#91867E]">
+          Button unlocked — fix the issue above, then try again. If the account was created, use Sign in.
+        </p>
+      ) : null}
 
       <OAuthSoon />
     </form>
@@ -420,9 +427,12 @@ const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => {
   useEffect(() => {
     const dest = safeNextPath(new URLSearchParams(window.location.search).get('next'));
     setContinueHref(dest);
+    if (!getStoredToken()) {
+      return;
+    }
     const timer = setTimeout(() => {
-      router.push(dest);
-    }, 1200);
+      router.replace(dest);
+    }, 600);
     return () => clearTimeout(timer);
   }, [router]);
 

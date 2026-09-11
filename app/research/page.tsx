@@ -44,6 +44,49 @@ interface ChatMessage {
   proposal?: { action_id: string; project_id?: string };
   streaming?: boolean;
   status?: string;
+  /** 0-token tool fast-path — never label as AI-written */
+  zeroToken?: { toolName: string };
+  toolError?: string;
+  /** Soft note when 0-token path declined into full agent */
+  neededFullerResearch?: boolean;
+}
+
+const ZERO_TOKEN_TOOL_LABELS: Record<string, string> = {
+  weather_lookup: 'weather',
+  calculator: 'calculator',
+  currency_converter: 'FX',
+  stock_lookup: 'stock',
+};
+
+function labelZeroTokenTool(toolName: string): string {
+  return ZERO_TOKEN_TOOL_LABELS[toolName] || toolName.replace(/_/g, ' ');
+}
+
+function parseZeroTokenTool(route: unknown, hintTools: unknown): string | null {
+  if (Array.isArray(hintTools) && typeof hintTools[0] === 'string' && hintTools[0]) {
+    return hintTools[0];
+  }
+  if (typeof route === 'string' && route.startsWith('zero_token_tool:')) {
+    return route.slice('zero_token_tool:'.length) || null;
+  }
+  return null;
+}
+
+
+function looksLikeZeroTokenQuery(q: string): boolean {
+  const s = q.toLowerCase();
+  if (/\b(weather|forecast|temperature)\b/.test(s)) return true;
+  if (/\b(calculate|calculator|what is)\b/.test(s) && /[0-9]/.test(s)) return true;
+  if (/\b(convert|fx|exchange rate)\b/.test(s) && /\b(usd|eur|gbp|inr|jpy)\b/i.test(s)) return true;
+  if (/\b(stock|share price|ticker)\b/.test(s) || /\b[A-Z]{1,5}\b/.test(q) && /\b(price|quote)\b/.test(s)) return true;
+  return false;
+}
+
+function isZeroTokenFinal(payload: Record<string, unknown>): boolean {
+  const usage = payload.usage as Record<string, unknown> | undefined;
+  if (usage && usage.zero_token === true) return true;
+  const route = payload.route;
+  return typeof route === 'string' && route.startsWith('zero_token_tool:');
 }
 
 const CHAT_PROMPTS = [
@@ -219,6 +262,10 @@ function ChatInner() {
       let proposalMeta: { action_id: string; project_id?: string } | undefined;
       let sources: ResearchSource[] = [];
       let streamed = '';
+      let hintTools: string[] = [];
+      let zeroTokenTool: string | null = null;
+      let sawToolFailure = false;
+      let toolFailureName = '';
 
       const outbound =
         mode === 'research'
@@ -234,12 +281,23 @@ function ChatInner() {
             if (abortRef.current) return;
 
             if (event.event === 'route_decision') {
+              const hints = event.payload?.hint_tools;
+              if (Array.isArray(hints)) {
+                hintTools = hints.filter((h): h is string => typeof h === 'string');
+              }
+              const path = typeof event.payload?.path === 'string' ? event.payload.path : '';
+              const reason = typeof event.payload?.reason === 'string' ? event.payload.reason : '';
+              const fromRoute = parseZeroTokenTool(reason.startsWith('zero_token_tool:') ? reason : path === 'zero_token_tool' ? `zero_token_tool:${hintTools[0] || ''}` : '', hintTools);
+              if (fromRoute) zeroTokenTool = fromRoute;
               const nextMode = event.payload?.response_mode === 'report' ? 'report' : 'chat';
+              const ztStatus = zeroTokenTool
+                ? `Looking up via ${labelZeroTokenTool(zeroTokenTool)}…`
+                : nextMode === 'report'
+                  ? 'Generating report…'
+                  : 'Answering…';
               setMessages((prev) =>
                 prev.map((m) =>
-                  m.id === assistantId
-                    ? { ...m, status: nextMode === 'report' ? 'Generating report…' : 'Answering…' }
-                    : m,
+                  m.id === assistantId ? { ...m, status: ztStatus } : m,
                 ),
               );
               return;
@@ -259,6 +317,17 @@ function ChatInner() {
                   prev.map((m) =>
                     m.id === assistantId
                       ? { ...m, status: hint ? `Looking up ${hint}…` : `Calling ${name}…` }
+                      : m,
+                  ),
+                );
+              }
+              if (event.event === 'tool_result' && event.payload?.ok === false) {
+                sawToolFailure = true;
+                toolFailureName = name;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, status: `No live result from ${labelZeroTokenTool(name)}` }
                       : m,
                   ),
                 );
@@ -313,6 +382,35 @@ function ChatInner() {
               return;
             }
 
+            if (event.event === 'final') {
+              if (isZeroTokenFinal(event.payload || {})) {
+                const tool =
+                  parseZeroTokenTool(event.payload?.route, hintTools) ||
+                  zeroTokenTool ||
+                  'tool';
+                zeroTokenTool = tool;
+                const parsed =
+                  typeof event.payload?.text === 'string'
+                    ? event.payload.text
+                    : streamed;
+                if (parsed) streamed = parsed;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          content: streamed,
+                          zeroToken: { toolName: tool },
+                          toolError: undefined,
+                          status: undefined,
+                        }
+                      : m,
+                  ),
+                );
+              }
+              return;
+            }
+
             if (event.event === 'ui_proposal') {
               const candidate = event.payload.widget_spec;
               if (candidate && typeof candidate === 'object') {
@@ -345,17 +443,33 @@ function ChatInner() {
           );
         }
 
+        const endZeroToken = zeroTokenTool;
+        // Only surface tool-fail empty state when we got no answer and no 0-token final
+        // (Model skips zero_token final on tool failure).
+        const failedWithoutZeroToken = sawToolFailure && !endZeroToken && !streamed.trim();
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
               ? {
                   ...m,
-                  content: streamed || 'No written answer came back.',
+                  content: failedWithoutZeroToken
+                    ? ''
+                    : streamed || 'No written answer came back.',
                   sources,
                   widget: widget || m.widget,
                   proposal: proposalMeta || m.proposal,
                   streaming: false,
                   status: undefined,
+                  zeroToken: endZeroToken ? { toolName: endZeroToken } : m.zeroToken,
+                  toolError: failedWithoutZeroToken
+                    ? `No live result from ${labelZeroTokenTool(toolFailureName || 'tool')}. Check the query and try again.`
+                    : undefined,
+                  neededFullerResearch:
+                    mode === 'research' &&
+                    !endZeroToken &&
+                    !failedWithoutZeroToken &&
+                    Boolean(streamed.trim()) &&
+                    looksLikeZeroTokenQuery(value),
                 }
               : m,
           ),
@@ -503,6 +617,19 @@ function ChatInner() {
                           <IconSearch size={11} /> Research
                         </span>
                       )}
+                      {!isUser && msg.zeroToken && (
+                        <span
+                          className="ml-1 inline-flex items-center gap-1 rounded-full bg-[#8FA98F]/15 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[#4A7C59] dark:text-[#9EBB9A]"
+                          title="Answer came from a live tool with no LLM tokens"
+                        >
+                          From tools · 0 tokens · {labelZeroTokenTool(msg.zeroToken.toolName)}
+                        </span>
+                      )}
+                      {!isUser && msg.neededFullerResearch && !msg.zeroToken && !msg.toolError && (
+                        <p className="text-[11px] text-[var(--text-muted)]">
+                          Needed fuller research — answered with the full agent.
+                        </p>
+                      )}
                       {isUser && msg.mode === 'research' && (
                         <span className="mb-1 inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider opacity-60">
                           <IconSearch size={11} /> Research
@@ -510,11 +637,25 @@ function ChatInner() {
                       )}
 
                       <div className="whitespace-pre-wrap leading-relaxed">
-                        {msg.content || (msg.streaming ? '' : '…')}
+                        {msg.toolError
+                          ? msg.toolError
+                          : msg.content || (msg.streaming ? '' : '…')}
                         {msg.streaming && (
                           <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse align-middle bg-[#E3836C]" />
                         )}
                       </div>
+                      {!isUser && msg.toolError && !msg.streaming && (
+                        <button
+                          type="button"
+                          className="btn-secondary text-[11px]"
+                          onClick={() => {
+                            const prior = [...messages].reverse().find((m) => m.role === 'user');
+                            if (prior) void sendMessage(prior.content, prior.mode);
+                          }}
+                        >
+                          Retry
+                        </button>
+                      )}
 
                       {!isUser && msg.status && msg.streaming && (
                         <p className="text-[11px] font-mono text-[var(--text-muted)]">{msg.status}</p>

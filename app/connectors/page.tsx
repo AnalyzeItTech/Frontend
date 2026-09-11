@@ -51,7 +51,7 @@ export default function ConnectorsPage() {
   useEffect(() => load(), [load]);
 
   return (
-    <AppShell active="dashboard">
+    <AppShell active="connectors">
       <PageTitle title="Connectors" />
       <p className="mt-2 max-w-xl text-sm text-[var(--text-secondary)]">
         Connect Stripe or Salesforce with OAuth. Credentials are vault-encrypted. Live provider

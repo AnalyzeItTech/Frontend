@@ -1,6 +1,28 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_V1 = `${API_BASE}/v1`;
 
+export const AUTH_REQUEST_TIMEOUT_MS = 15000;
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs: number = AUTH_REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('Request timed out. Check your connection and try again.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -88,7 +110,7 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
-  const res = await fetch(`${API_V1}/auth/login`, {
+  const res = await fetchWithTimeout(`${API_V1}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -105,7 +127,7 @@ export async function login(email: string, password: string): Promise<AuthResult
 }
 
 export async function register(name: string, email: string, password: string): Promise<AuthResult> {
-  const res = await fetch(`${API_V1}/auth/register`, {
+  const res = await fetchWithTimeout(`${API_V1}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, email, password }),
@@ -121,12 +143,29 @@ export async function register(name: string, email: string, password: string): P
   return data;
 }
 
+
+export async function confirmAuthSession(): Promise<UserProfile> {
+  const token = getStoredToken();
+  if (!token) {
+    throw new Error('No session token after sign-in. Please try again.');
+  }
+  const user = await fetchMe();
+  if (!user) {
+    clearAuthSession();
+    throw new Error(
+      'Account request finished, but we could not confirm your session. Try signing in.',
+    );
+  }
+  writeAuthCookie(true);
+  return user;
+}
+
 export async function fetchMe(): Promise<UserProfile | null> {
   const token = getStoredToken();
   if (!token) return null;
 
   try {
-    const res = await fetch(`${API_V1}/auth/me`, {
+    const res = await fetchWithTimeout(`${API_V1}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) {

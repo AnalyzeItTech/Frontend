@@ -50,7 +50,7 @@ export default function ObjectsPage() {
   useEffect(() => load(), [load]);
 
   return (
-    <AppShell active="dashboard">
+    <AppShell active="objects">
       <PageTitle title="Custom objects" />
       <p className="mt-2 max-w-xl text-sm text-[var(--text-secondary)]">
         Object schemas live here so the dashboard can stay a display of saved widgets.

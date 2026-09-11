@@ -112,7 +112,15 @@ function ProfileInner() {
           <section className="space-y-2">
             <h2 className="text-sm font-medium">Billing history</h2>
             {history.length === 0 ? (
-              <p className="text-sm text-[#6B6155]">No billing events yet.</p>
+              <div className="app-card space-y-2 p-4">
+                <p className="text-sm text-[#6B6155]">No billing events yet.</p>
+                <p className="text-xs text-[#8F8477]">
+                  Invoices and plan changes will show up here after a checkout or upgrade.
+                </p>
+                <Link href="/billing" className="inline-block text-sm text-[#E3836C] hover:underline">
+                  View plans
+                </Link>
+              </div>
             ) : (
               <ul className="space-y-2 text-sm">
                 {history.map((row) => (
