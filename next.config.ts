@@ -3,16 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   async redirects() {
     return [
-      {
-        source: '/Dashboard',
-        destination: '/dashboard',
-        permanent: true,
-      },
-      {
-        source: '/Dashboard/:path*',
-        destination: '/dashboard/:path*',
-        permanent: true,
-      },
+      // Do NOT redirect /Dashboard ↔ /dashboard.
+      // On case-insensitive macOS both paths are one folder; on Linux/Vercel
+      // a permanent /Dashboard→/dashboard redirect fights Next case
+      // canonicalization and causes ERR_TOO_MANY_REDIRECTS.
       {
         source: '/settings',
         destination: '/profile',
