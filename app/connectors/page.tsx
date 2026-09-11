@@ -54,8 +54,8 @@ export default function ConnectorsPage() {
     <AppShell active="dashboard">
       <PageTitle title="Connectors" />
       <p className="mt-2 max-w-xl text-sm text-[var(--text-secondary)]">
-        Connect Stripe or Salesforce so the dashboard can display data you already trust. Setup
-        lives here — the canvas only shows what you have connected.
+        Connect Stripe or Salesforce with OAuth. Credentials are vault-encrypted. Live provider
+        pulls are not implemented yet — this is a preview, not a live CRM/billing sync.
       </p>
       <WorkspaceStatus
         status={status}

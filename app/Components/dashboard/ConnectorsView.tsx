@@ -70,7 +70,10 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
   const handleSync = async (connectorId: string) => {
     setSyncingId(connectorId);
     try {
-      await syncConnector(connectorId);
+      const result = await syncConnector(connectorId);
+      if (result?.status === 'skipped' || result?.data_mode === 'preview') {
+        alert(result.note || 'Live provider pull is not available yet. Credentials stay in the vault.');
+      }
       await loadData();
     } catch (err: any) {
       alert(err.message || 'Sync failed');
@@ -103,13 +106,13 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       name: 'Stripe Connect',
       icon: <IconBrandStripe className="w-6 h-6 text-indigo-400" />,
       color: 'indigo',
-      desc: 'Sync customers, credit card charges, invoices, and subscription telemetry directly into AnalyzeIt custom objects.',
+      desc: 'Connect with OAuth. Tokens are vault-encrypted. Live Stripe customer/charge pulls are not implemented yet.',
     },
     salesforce: {
       name: 'Salesforce CRM',
       icon: <IconCloud className="w-6 h-6 text-blue-400" />,
       color: 'blue',
-      desc: 'Pull standard and custom Salesforce objects (Accounts, Opportunities, Contacts) with bidirectional sync protection.',
+      desc: 'Connect with OAuth. Tokens are vault-encrypted. Live Salesforce object pulls are not implemented yet.',
     },
   };
 
@@ -125,10 +128,10 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
         <div>
           <h2 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2.5">
             <IconPlugConnected className="w-6 h-6 text-emerald-500" />
-            Live Data Connectors
+            Preview Connectors
           </h2>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            Connect production SaaS sources via secure OAuth. Tokens are encrypted at rest with HMAC-SHA256 and never transmitted to the Model agent.
+            OAuth is real and tokens stay in the vault. Provider APIs are not queried yet — sample sync exists only in local/dev.
           </p>
         </div>
 
@@ -190,18 +193,18 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                   <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-white/5 mb-4 text-xs">
                     <div className="flex items-center justify-between text-neutral-500">
                       <span className="flex items-center gap-1">
-                        <IconClock className="w-3.5 h-3.5" /> Last Synced:
+                        <IconClock className="w-3.5 h-3.5" /> Last activity:
                       </span>
                       <span className="font-mono text-neutral-800 dark:text-neutral-200">
-                        {activeConn.last_sync_at ? new Date(activeConn.last_sync_at).toLocaleTimeString() : 'Ready'}
+                        {activeConn.last_sync_at ? new Date(activeConn.last_sync_at).toLocaleTimeString() : 'Connected'}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-neutral-500">
                       <span className="flex items-center gap-1">
-                        <IconDatabase className="w-3.5 h-3.5" /> Discovered Objects:
+                        <IconDatabase className="w-3.5 h-3.5" /> Data mode:
                       </span>
-                      <span className="font-mono text-neutral-800 dark:text-neutral-200">
-                        {p.id === 'stripe' ? 'Customer, Charge' : 'Account, Contact'}
+                      <span className="font-mono text-amber-700 dark:text-amber-300">
+                        {activeConn.data_mode === 'seed_demo' ? 'Sample fixtures' : 'Preview (no live pull)'}
                       </span>
                     </div>
                   </div>
@@ -211,14 +214,20 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
               <div className="flex items-center justify-between gap-3 pt-4 border-t border-neutral-100 dark:border-white/5">
                 {isConnected && activeConn ? (
                   <>
-                    <button
-                      onClick={() => handleSync(activeConn.id)}
-                      disabled={isSyncing}
-                      className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
-                    >
-                      <IconRefresh className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                      <span>{isSyncing ? 'Syncing...' : 'Sync Now'}</span>
-                    </button>
+                    {activeConn.seed_demo_sync_allowed ? (
+                      <button
+                        onClick={() => handleSync(activeConn.id)}
+                        disabled={isSyncing}
+                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
+                      >
+                        <IconRefresh className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                        <span>{isSyncing ? 'Loading sample…' : 'Load sample data'}</span>
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        Live pull not available yet
+                      </span>
+                    )}
                     <button
                       onClick={() => handleDisconnect(activeConn.id, p.name)}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-neutral-400 hover:text-red-500 text-xs transition-colors"

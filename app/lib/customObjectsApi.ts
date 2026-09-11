@@ -81,6 +81,9 @@ export interface Connector {
   sync_frequency?: string;
   last_sync_at?: string;
   error_message?: string;
+  data_mode?: 'preview' | 'seed_demo' | string;
+  live_pull_available?: boolean;
+  seed_demo_sync_allowed?: boolean;
   objects_discovered?: Array<{
     api_name: string;
     label: string;
@@ -345,7 +348,10 @@ export async function syncConnector(connectorId: string): Promise<any> {
     method: 'POST',
     headers: { ...getAuthHeaders() },
   });
-  if (!res.ok) throw new Error('Sync failed');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || err.note || 'Sync failed');
+  }
   return res.json();
 }
 
