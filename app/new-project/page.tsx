@@ -52,6 +52,7 @@ import {
   type ChartAnnotation,
 } from '../lib/chatApi';
 import { getStoredUser, type UserProfile } from '../lib/auth';
+import { RequireAuth } from '../Components/app/RequireAuth';
 import { DashboardCanvas, type LayoutSnapshot } from '../Components/dashboard/DashboardCanvas';
 
 interface Message {
@@ -1724,14 +1725,16 @@ function NewProjectContent() {
 
 export default function NewProjectPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center font-mono text-xs opacity-50">
-          Loading analysis workspace…
-        </div>
-      }
-    >
-      <NewProjectContent />
-    </Suspense>
+    <RequireAuth>
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex items-center justify-center font-mono text-xs opacity-50">
+            Loading analysis workspace…
+          </div>
+        }
+      >
+        <NewProjectContent />
+      </Suspense>
+    </RequireAuth>
   );
 }

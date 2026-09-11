@@ -31,11 +31,11 @@ export const Footer: React.FC = () => {
             Product
           </div>
           <ul className="space-y-2 text-[#4A4238]/80 dark:text-[#C5B9AE]">
-            <li><a href="#hero" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Overview</a></li>
-            <li><a href="#descent" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">3D Descent</a></li>
-            <li><a href="#capabilities" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Capabilities</a></li>
-            <li><a href="#how-it-works" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">How it works</a></li>
-            <li><a href="#pricing" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Pricing</a></li>
+            <li><Link href="/#hero" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Overview</Link></li>
+            <li><Link href="/#descent" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">3D Descent</Link></li>
+            <li><Link href="/#capabilities" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Capabilities</Link></li>
+            <li><Link href="/#how-it-works" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">How it works</Link></li>
+            <li><Link href="/#pricing" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Pricing</Link></li>
           </ul>
         </div>
 
@@ -46,8 +46,8 @@ export const Footer: React.FC = () => {
           </div>
           <ul className="space-y-2 text-[#4A4238]/80 dark:text-[#C5B9AE]">
             <li><Link href="/login" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Sign In</Link></li>
-            <li><Link href="/Dashboard" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Dashboard</Link></li>
-            <li><a href="mailto:hello@analyzeit.ai" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Contact Support</a></li>
+            <li><Link href="/login?tab=register" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Create account</Link></li>
+            <li><Link href="/contact" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Contact Support</Link></li>
           </ul>
         </div>
 
@@ -57,10 +57,11 @@ export const Footer: React.FC = () => {
             Security &amp; Terms
           </div>
           <ul className="space-y-2 text-[#4A4238]/80 dark:text-[#C5B9AE]">
-            <li><a href="#faq" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">FAQ</a></li>
-            <li><span className="text-[#4A4238]/60 dark:text-[#91867E] cursor-pointer hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Read-Only IAM</span></li>
-            <li><span className="text-[#4A4238]/60 dark:text-[#91867E] cursor-pointer hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Privacy Policy</span></li>
-            <li><span className="text-[#4A4238]/60 dark:text-[#91867E] cursor-pointer hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Terms of Service</span></li>
+            <li><Link href="/#faq" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">FAQ</Link></li>
+            <li><Link href="/security" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Security</Link></li>
+            <li><Link href="/privacy" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Privacy Policy</Link></li>
+            <li><Link href="/terms" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Terms of Service</Link></li>
+            <li><Link href="/cookies" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Cookie Policy</Link></li>
           </ul>
         </div>
       </div>
@@ -68,7 +69,11 @@ export const Footer: React.FC = () => {
       {/* Bottom Bar */}
       <div className="pt-8 border-t border-[#4A4238]/8 dark:border-[#3A3430] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#4A4238]/60 dark:text-[#91867E] font-mono">
         <div>© 2026 AnalyzeIt Inc. All rights reserved.</div>
-        <div>Designed for calm clarity.</div>
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+          <Link href="/acceptable-use" className="hover:text-[#E3836C] transition-colors">Acceptable use</Link>
+          <Link href="/dpa" className="hover:text-[#E3836C] transition-colors">DPA</Link>
+          <Link href="/refunds" className="hover:text-[#E3836C] transition-colors">Refunds</Link>
+        </div>
       </div>
     </footer>
   );

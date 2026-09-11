@@ -35,6 +35,20 @@ export function getStoredUser(): UserProfile | null {
   }
 }
 
+export function isAuthenticated(): boolean {
+  return Boolean(getStoredToken());
+}
+
+/** Prevent open redirects from `?next=` values. */
+export function safeNextPath(raw: string | null | undefined, fallback = '/research'): string {
+  if (!raw) return fallback;
+  if (!raw.startsWith('/')) return fallback;
+  if (raw.startsWith('//')) return fallback;
+  if (raw.startsWith('/login')) return fallback;
+  if (raw.includes('://')) return fallback;
+  return raw;
+}
+
 export function setAuthSession(token: string, user: UserProfile): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TOKEN_KEY, token);

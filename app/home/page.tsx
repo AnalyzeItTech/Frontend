@@ -1,6 +1,7 @@
 'use client'
 import { IconArrowRight } from "@tabler/icons-react"
 import { NavbarDemo } from "../Components/Navbar/NavbarDemo"
+import { RequireAuth } from "../Components/app/RequireAuth"
 import api from "../lib/axios"
 import { useState } from "react"
 
@@ -22,6 +23,7 @@ const Home = () => {
   }
 
   return (
+    <RequireAuth>
     <div>
       <NavbarDemo />
       {/* Reply */}
@@ -56,6 +58,7 @@ const Home = () => {
         </div>
       </div>
     </div>
+    </RequireAuth>
   )
 }
 

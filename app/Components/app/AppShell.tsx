@@ -8,6 +8,7 @@ import { clearAuthSession, getStoredUser, logout, type UserProfile } from '../..
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { IncognitoToggle } from '../ui/IncognitoToggle';
 import { useTheme } from '../ui/ThemeProvider';
+import { RequireAuth } from './RequireAuth';
 
 export type AppNavId = 'chat' | 'research' | 'globe' | 'dashboard' | 'profile';
 
@@ -55,6 +56,7 @@ export function AppShell({
   }, []);
 
   return (
+    <RequireAuth>
     <div className={`app-shell flex flex-col ${isIncognito ? 'app-shell--incognito' : ''}`}>
       <header className="app-topnav">
         <Link href="/research" className="mr-4 flex items-center gap-2 font-serif text-lg tracking-tight sm:mr-6">
@@ -138,5 +140,6 @@ export function AppShell({
         {children}
       </div>
     </div>
+    </RequireAuth>
   );
 }

@@ -94,13 +94,13 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center gap-2.5 sm:gap-3">
             <ThemeToggle />
             <Link
-              href="/research"
+              href="/login"
               className="text-xs text-[#403934]/80 hover:text-[#E3836C] font-medium px-3 py-1.5 transition-colors dark:text-[#F4EDE5]/80"
             >
-              Chat
+              Sign in
             </Link>
             <Link
-              href="/login"
+              href="/login?tab=register"
               className="text-xs bg-[#302824] hover:bg-[#E3836C] text-[#FFF7F1] font-medium px-4 py-1.5 rounded-full transition-all duration-200 shadow-xs"
             >
               Get started
@@ -174,7 +174,7 @@ export const Navbar: React.FC = () => {
               Sign In
             </Link>
             <Link
-              href="/login"
+              href="/login?tab=register"
               className="px-6 py-2 rounded-full bg-[#E3836C] hover:bg-[#ED967F] text-xs font-mono uppercase text-[#FFF7F1] transition-colors shadow-xs"
             >
               Get Started

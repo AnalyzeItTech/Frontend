@@ -46,7 +46,7 @@ export const ClosingCTASection: React.FC = () => {
         className="pt-4 space-y-3"
       >
         <Link
-          href="/login"
+          href="/login?tab=register"
           className="inline-flex items-center justify-center px-8 py-4 rounded-full bg-[#E3836C] hover:bg-[#ED967F] active:bg-[#C96F5A] text-[#FFF7F1] font-medium text-base transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 whitespace-nowrap"
         >
           Create an account

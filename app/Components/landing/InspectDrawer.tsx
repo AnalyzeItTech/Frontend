@@ -106,10 +106,10 @@ export const InspectDrawer: React.FC<InspectDrawerProps> = ({
         {/* Footer Deep-Dive Action */}
         <div className="pt-6 border-t border-[#4A4238]/10 dark:border-[#504740]">
           <Link
-            href="/Dashboard"
+            href="/login?tab=register"
             className="w-full py-3.5 rounded-full bg-[#E3836C] hover:bg-[#ED967F] active:bg-[#C96F5A] text-[#FFF7F1] text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-200 shadow-sm"
           >
-            <span>Launch Live Workspace Sandbox</span>
+            <span>Create an account to start</span>
             <span className="text-sm">→</span>
           </Link>
         </div>

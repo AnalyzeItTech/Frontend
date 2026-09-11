@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -18,7 +18,7 @@ import {
   IconCheck,
   IconAlertCircle,
 } from '@tabler/icons-react';
-import { login, register } from '../lib/auth';
+import { getStoredToken, login, register, safeNextPath } from '../lib/auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Tab = 'login' | 'register';
@@ -225,12 +225,12 @@ const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
           }
         />
         <div className="flex justify-end">
-          <button
-            type="button"
+          <Link
+            href="/forgot-password"
             className="text-xs text-[#E3836C] hover:text-[#ED967F] font-mono transition-colors cursor-pointer"
           >
             Forgot password?
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -401,9 +401,11 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
           </button>
           <span className="text-xs text-[#4A4238]/60 dark:text-[#C5B9AE] leading-relaxed">
             I agree to the{' '}
-            <button type="button" className="text-[#E3836C] hover:text-[#ED967F] hover:underline cursor-pointer">Terms of Service</button>
-            {' '}and{' '}
-            <button type="button" className="text-[#E3836C] hover:text-[#ED967F] hover:underline cursor-pointer">Privacy Policy</button>
+            <Link href="/terms" target="_blank" className="text-[#E3836C] hover:text-[#ED967F] hover:underline">Terms of Service</Link>
+            {', '}
+            <Link href="/privacy" target="_blank" className="text-[#E3836C] hover:text-[#ED967F] hover:underline">Privacy Policy</Link>
+            {', and '}
+            <Link href="/acceptable-use" target="_blank" className="text-[#E3836C] hover:text-[#ED967F] hover:underline">Acceptable Use Policy</Link>
           </span>
         </label>
         {errors.agreed && (
@@ -442,11 +444,13 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
 // ─── Success State ────────────────────────────────────────────────────────────
 const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => {
   const router = useRouter();
+  const [continueHref, setContinueHref] = useState('/research');
 
   useEffect(() => {
+    const dest = safeNextPath(new URLSearchParams(window.location.search).get('next'));
+    setContinueHref(dest);
     const timer = setTimeout(() => {
-      const next = new URLSearchParams(window.location.search).get('next');
-      router.push(next && next.startsWith('/') ? next : '/research');
+      router.push(dest);
     }, 1200);
     return () => clearTimeout(timer);
   }, [router]);
@@ -471,21 +475,44 @@ const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => {
         </p>
       </div>
       <Link
-        href="/research"
+        href={continueHref}
         className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-[#E3836C] hover:text-[#ED967F] transition-colors mt-2"
       >
-        Go to Dashboard <IconArrowRight size={13} />
+        Continue to workspace <IconArrowRight size={13} />
       </Link>
     </motion.div>
   );
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-export default function LoginPage() {
+function LoginInner() {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>('login');
   const [success, setSuccess] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'register') setTab('register');
+    if (getStoredToken()) {
+      router.replace(safeNextPath(params.get('next')));
+      return;
+    }
+    setChecking(false);
+  }, [router]);
 
   const handleSuccess = () => setSuccess(true);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-[#F3EDE4] dark:bg-[#171514]">
+        <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#E3836C]/25 border-t-[#E3836C]" />
+        <p className="font-mono text-[11px] uppercase tracking-wider text-[#4A4238]/50 dark:text-[#91867E]">
+          Checking account…
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F3EDE4] dark:bg-[#171514] text-[#4A4238] dark:text-[#F4EDE5] flex flex-col transition-colors duration-300">
@@ -603,11 +630,29 @@ export default function LoginPage() {
             )}
           </div>
 
-          <p className="text-center text-xs text-[#4A4238]/30 dark:text-[#91867E]/60 mt-6 font-mono">
-            Protected with end-to-end encryption
+          <p className="text-center text-xs text-[#4A4238]/40 dark:text-[#91867E]/70 mt-6 font-mono space-x-3">
+            <Link href="/privacy" className="hover:text-[#E3836C] transition-colors">Privacy</Link>
+            <span aria-hidden="true">·</span>
+            <Link href="/terms" className="hover:text-[#E3836C] transition-colors">Terms</Link>
+            <span aria-hidden="true">·</span>
+            <Link href="/security" className="hover:text-[#E3836C] transition-colors">Security</Link>
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#F3EDE4] dark:bg-[#171514]">
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#E3836C]/25 border-t-[#E3836C]" />
+        </div>
+      }
+    >
+      <LoginInner />
+    </Suspense>
   );
 }

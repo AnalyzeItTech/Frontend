@@ -525,3 +525,12 @@ html, body {
   color: #e3836c;
   border-color: color-mix(in srgb, #e3836c 40%, transparent);
 }
+
+.legal-prose strong {
+  font-weight: 600;
+  color: #4A4238;
+}
+
+.dark .legal-prose strong {
+  color: #F4EDE5;
+}

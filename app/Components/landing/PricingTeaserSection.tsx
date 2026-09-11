@@ -118,7 +118,7 @@ export const PricingTeaserSection: React.FC = () => {
               ))}
             </ul>
             <Link
-              href={tier.name === 'Free' ? '/login' : '/billing'}
+              href={tier.name === 'Free' ? '/login?tab=register' : '/login?next=/billing'}
               className={`inline-flex justify-center rounded-full px-5 py-3 text-sm font-medium transition ${
                 tier.popular
                   ? 'bg-[#E3836C] text-white hover:bg-[#ED967F]'
