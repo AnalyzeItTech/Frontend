@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { fetchMe, getStoredToken } from '../lib/auth';
 import {
   completeSandboxCheckout,
+  coerceMoney,
   formatMoney,
   getBillingQuote,
   isValidMoney,
@@ -50,8 +51,7 @@ const CHECKOUT_COUNTRY = 'IN';
 
 function planAmount(quote: BillingQuote | null, plan: PlanId): number | null {
   const row = quote?.plans?.[plan];
-  if (!row || !isValidMoney(row.amount)) return null;
-  return row.amount;
+  return coerceMoney(row?.amount);
 }
 
 function planCurrency(quote: BillingQuote | null, plan: PlanId): string {
@@ -68,7 +68,7 @@ export default function BillingPage() {
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [reviewPlan, setReviewPlan] = useState<PlanId | null>(null);
 
-  useEffect(() => {
+  const loadQuote = () => {
     if (!getStoredToken()) {
       router.replace('/login?next=/billing');
       return;
@@ -82,6 +82,18 @@ export default function BillingPage() {
         setQuote(null);
         setQuoteError(err instanceof Error ? err.message : 'Could not load prices');
       });
+  };
+
+  useEffect(() => {
+    loadQuote();
+    const onShow = () => loadQuote();
+    window.addEventListener('pageshow', onShow);
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      window.removeEventListener('pageshow', onShow);
+      document.removeEventListener('visibilitychange', onShow);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   const review = useMemo(() => {
