@@ -22,6 +22,16 @@ const nextConfig: NextConfig = {
         destination: '/profile',
         permanent: false,
       },
+      {
+        source: '/refunds',
+        destination: '/refund',
+        permanent: false,
+      },
+      {
+        source: '/pricing',
+        destination: '/products',
+        permanent: false,
+      },
     ];
   },
 };

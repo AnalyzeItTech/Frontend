@@ -613,6 +613,8 @@ function LoginInner() {
 
           <p className="text-center text-xs text-[#4A4238]/40 dark:text-[#91867E]/70 mt-6 font-mono space-x-3">
             <Link href="/privacy" className="hover:text-[#E3836C] transition-colors">Privacy</Link>
+            <Link href="/refund" className="hover:text-[#E3836C] transition-colors">Refund</Link>
+            <Link href="/shipping" className="hover:text-[#E3836C] transition-colors">Shipping</Link>
             <span aria-hidden="true">·</span>
             <Link href="/terms" className="hover:text-[#E3836C] transition-colors">Terms</Link>
             <span aria-hidden="true">·</span>

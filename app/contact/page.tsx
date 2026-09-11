@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LegalLayout, LegalSection } from '../Components/legal/LegalLayout';
+import { EMAIL, GSTIN, LEGAL_NAME, PHONE, REGISTERED_ADDRESS } from '../lib/legalEntity';
 
 export const metadata: Metadata = {
   title: 'Contact — AnalyzeIt',
@@ -36,6 +37,28 @@ export default function ContactPage() {
         ))}
       </div>
 
+
+      <LegalSection title="Legal entity">
+        <p>
+          AnalyzeIt is operated by <strong>{LEGAL_NAME}</strong>.
+        </p>
+        <p>{REGISTERED_ADDRESS}</p>
+        {GSTIN ? <p>GSTIN: {GSTIN}</p> : null}
+        {PHONE ? (
+          <p>
+            Phone:{' '}
+            <a href={`tel:${PHONE}`} className="text-[#E3836C] hover:underline">
+              {PHONE}
+            </a>
+          </p>
+        ) : null}
+        <p>
+          Support:{' '}
+          <a href={`mailto:${EMAIL.support}`} className="text-[#E3836C] hover:underline">
+            {EMAIL.support}
+          </a>
+        </p>
+      </LegalSection>
       <LegalSection title="Hours">
         <p>
           We read email on business days. For payment issues, include your account email and PayU
