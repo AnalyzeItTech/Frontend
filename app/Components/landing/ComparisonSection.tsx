@@ -36,14 +36,14 @@ export const ComparisonSection: React.FC = () => {
   return (
     <section
       id="comparison"
-      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto scroll-mt-28"
+      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto scroll-mt-[calc(var(--nav-h,56px)+24px)]"
     >
       <div id="why-calm" className="absolute -top-28 h-px w-px overflow-hidden" aria-hidden="true" />
       {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: 28 }}
+        initial={{ opacity: 1, y: 28 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+        viewport={{ once: true, amount: 0.15 }}
         transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         className="max-w-2xl space-y-4"
       >
@@ -66,7 +66,7 @@ export const ComparisonSection: React.FC = () => {
       <motion.div
         initial={{ opacity: 0, y: 32 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+        viewport={{ once: true, amount: 0.15 }}
         transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
         className="glass-card rounded-3xl overflow-hidden border border-[#4A4238]/10 dark:border-[#3A3430] divide-y divide-[#4A4238]/8 dark:divide-[#3A3430] shadow-sm"
       >

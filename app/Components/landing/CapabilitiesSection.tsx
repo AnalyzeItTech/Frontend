@@ -76,13 +76,13 @@ export const CapabilitiesSection: React.FC = () => {
   return (
     <section
       id="capabilities"
-      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-20 pointer-events-auto scroll-mt-28"
+      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-20 pointer-events-auto scroll-mt-[calc(var(--nav-h,56px)+24px)]"
     >
       {/* Section Header */}
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 1, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+        viewport={{ once: true, amount: 0.15 }}
         transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         className="max-w-2xl space-y-4"
       >
@@ -105,7 +105,7 @@ export const CapabilitiesSection: React.FC = () => {
             key={cap.id}
             initial={{ opacity: 0, y: 35 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+            viewport={{ once: true, amount: 0.15 }}
             transition={{
               duration: 0.7,
               delay: idx * 0.12,

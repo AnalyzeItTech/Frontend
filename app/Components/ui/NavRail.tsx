@@ -50,7 +50,7 @@ export const NavRail: React.FC = () => {
   };
 
   return (
-    <nav className="fixed left-4 top-1/2 -translate-y-1/2 z-20 hidden xl:flex flex-col gap-3 pointer-events-none" aria-label="Page sections">
+    <nav className="fixed left-3 top-1/2 -translate-y-1/2 z-20 hidden xl:flex flex-col gap-3 pointer-events-none w-14" aria-label="Page sections">
       <div className="flex flex-col gap-3 p-3 rounded-full glass-pill border border-[#4A4238]/10 dark:border-[#3A3430] dark:bg-[#211E1C]/80 pointer-events-auto shadow-xs">
         {NAV_POINTS.map((pt) => {
           const isActive = activeSection === pt.targetId;
@@ -72,10 +72,10 @@ export const NavRail: React.FC = () => {
 
               {/* Hover Label Tooltip */}
               <span
-                className={`absolute left-7 whitespace-nowrap text-[11px] font-mono tracking-wider transition-all duration-200 uppercase pointer-events-none rounded-md px-2 py-0.5 ${
+                className={`absolute left-8 whitespace-nowrap text-[11px] leading-none font-mono tracking-wider transition-all duration-200 uppercase pointer-events-none rounded-md px-2 py-1 min-h-[11px] ${
                   isActive
-                    ? 'text-[#4A4238] dark:text-[#F4EDE5] font-medium opacity-100 bg-[#F3EDE4]/95 dark:bg-[#302B28]/95 border border-[#4A4238]/10 dark:border-[#504740] shadow-xs translate-x-0'
-                    : 'text-[#4A4238]/60 dark:text-[#91867E] opacity-0 group-hover:opacity-100 bg-[#F3EDE4]/90 dark:bg-[#302B28]/90 -translate-x-1 group-hover:translate-x-0'
+                    ? 'text-[var(--text-muted,#81786F)] dark:text-[#C5B9AE] font-medium opacity-100 bg-[var(--surface,#FFFCF8)]/95 dark:bg-[#302B28]/95 border border-[var(--border,#E2D7CA)] dark:border-[#504740] shadow-xs translate-x-0'
+                    : 'text-[var(--text-muted,#81786F)] dark:text-[#C5B9AE] opacity-0 group-hover:opacity-100 bg-[var(--surface,#FFFCF8)]/95 dark:bg-[#302B28]/90 -translate-x-1 group-hover:translate-x-0'
                 }`}
               >
                 {pt.label}

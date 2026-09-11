@@ -181,7 +181,7 @@ export const DescentSection: React.FC<DescentSectionProps> = ({
 
   if (reduceMotion) {
     return (
-      <section id="descent" className="relative w-full scroll-mt-28 py-16 px-6 md:px-16 max-w-7xl mx-auto space-y-8">
+      <section id="descent" className="relative w-full scroll-mt-[calc(var(--nav-h,56px)+24px)] py-16 px-6 md:px-16 max-w-7xl mx-auto space-y-8">
         {HIGHLIGHTS.map((item) => (
           <div key={item.id} className="glass-card p-6 md:p-8 rounded-3xl space-y-3 border border-[#4A4238]/10 dark:border-[#3A3430]">
             <p className="text-xs font-medium uppercase tracking-wider text-[#5C534A] dark:text-[#C5B9AE]">{item.category}</p>
@@ -194,18 +194,19 @@ export const DescentSection: React.FC<DescentSectionProps> = ({
   }
 
   // Map normalized scroll progress [0.0 - 1.0] with generous travel gaps between milestones
+  // Contiguous ranges so mid-descent is never multi-screen blank cream/3D with no content
   let activeIndex: number | null = null;
-  if (scrollProgress >= 0.12 && scrollProgress <= 0.30) activeIndex = 0;
-  else if (scrollProgress >= 0.36 && scrollProgress <= 0.54) activeIndex = 1;
-  else if (scrollProgress >= 0.60 && scrollProgress <= 0.78) activeIndex = 2;
-  else if (scrollProgress >= 0.84 && scrollProgress <= 0.99) activeIndex = 3;
+  if (scrollProgress >= 0.08 && scrollProgress < 0.30) activeIndex = 0;
+  else if (scrollProgress >= 0.30 && scrollProgress < 0.52) activeIndex = 1;
+  else if (scrollProgress >= 0.52 && scrollProgress < 0.74) activeIndex = 2;
+  else if (scrollProgress >= 0.74) activeIndex = 3;
 
   const currentItem = activeIndex !== null ? HIGHLIGHTS[activeIndex] : null;
 
   return (
     <section
       id="descent"
-      className="relative h-[460vh] w-full motion-reduce:h-auto motion-reduce:min-h-0 scroll-mt-28"
+      className="relative h-[320vh] w-full motion-reduce:h-auto motion-reduce:min-h-0 scroll-mt-[calc(var(--nav-h,56px)+24px)]"
     >
       {/* Sticky Fullscreen Pinned Stage */}
       <div className="sticky top-0 h-screen w-full flex items-center justify-between px-6 md:px-16 xl:pl-24 max-w-7xl mx-auto pointer-events-none z-10 motion-reduce:static motion-reduce:h-auto motion-reduce:py-16">

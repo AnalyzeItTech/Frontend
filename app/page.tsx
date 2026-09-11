@@ -101,15 +101,34 @@ export default function Home() {
     >
       {/* Phase 1: Precision SVG 3D Loading Screen */}
       {isLoading && (
-        <LoadingScreen onComplete={() => setIsLoading(false)} />
+        <LoadingScreen
+          onComplete={() => {
+            setIsLoading(false);
+            // Hash nav after loader so anchors land on readable content, not mid-loader
+            requestAnimationFrame(() => {
+              const hash = window.location.hash.replace('#', '');
+              if (!hash) return;
+              const el = document.getElementById(hash);
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          }}
+        />
       )}
 
-      <a
-        href="#capabilities"
-        className="fixed bottom-5 right-5 z-40 min-h-11 px-4 rounded-full bg-[#322C28] text-[#FFF7F1] text-sm font-medium shadow-lg pointer-events-auto inline-flex items-center"
-      >
-        Skip animation
-      </a>
+      {/* Skip: corner control; auto-hides once past descent so it never covers content cards */}
+      {!isLoading && scrollProgress < 1 && (
+        <a
+          href="#capabilities"
+          className="fixed bottom-5 right-5 z-30 min-h-11 px-4 rounded-full bg-[#322C28] text-[#FFF7F1] text-sm font-medium shadow-lg pointer-events-auto inline-flex items-center xl:right-8"
+          onClick={(e) => {
+            e.preventDefault();
+            const el = document.getElementById('capabilities');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
+        >
+          Skip animation
+        </a>
+      )}
 
       {/* Vertical Navigation Rail */}
       <NavRail />
@@ -132,7 +151,7 @@ export default function Home() {
       <Navbar />
 
       {/* Main Narrative Content Flow */}
-      <main className="relative z-10 xl:pl-16">
+      <main className="relative z-10 xl:pl-36">
         {/* Phase 3: Hero Section */}
         <HeroSection />
 
