@@ -117,6 +117,21 @@ const PAYU_REQUIRED = [
   'hash',
 ] as const;
 
+
+export function isValidMoney(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+export function formatMoney(amount: unknown, currency: string, fallback = '—'): string {
+  if (!isValidMoney(amount)) return fallback;
+  const code = (currency || 'INR').toUpperCase();
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: code }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${code}`;
+  }
+}
+
 /** Coerce PayU hosted fields and refuse submit if amount/txnid would become NaN/blank. */
 export function normalizePayuFields(fields: Record<string, unknown>): Record<string, string> {
   const out: Record<string, string> = {};

@@ -11,7 +11,7 @@ import { IncognitoToggle } from '../ui/IncognitoToggle';
 import { useTheme } from '../ui/ThemeProvider';
 import { RequireAuth } from './RequireAuth';
 
-export type AppNavId = 'chat' | 'research' | 'globe' | 'dashboard' | 'connectors' | 'objects' | 'profile';
+export type AppNavId = 'chat' | 'research' | 'globe' | 'dashboard' | 'connectors' | 'objects' | 'billing' | 'profile';
 
 const LINKS: Array<{ id: AppNavId; href: string; label: string }> = [
   { id: 'chat', href: '/research', label: 'Chat' },
@@ -19,6 +19,7 @@ const LINKS: Array<{ id: AppNavId; href: string; label: string }> = [
   { id: 'dashboard', href: '/dashboard', label: 'Dashboard' },
   { id: 'connectors', href: '/connectors', label: 'Connectors' },
   { id: 'objects', href: '/objects', label: 'Objects' },
+  { id: 'billing', href: '/billing', label: 'Billing' },
   { id: 'profile', href: '/profile', label: 'Profile' },
 ];
 
