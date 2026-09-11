@@ -693,7 +693,7 @@ function ChatInner() {
                     <span className="text-sm font-medium">Dashboard preview</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Link href="/Dashboard" className="btn-secondary text-[11px]">
+                    <Link href="/dashboard" className="btn-secondary text-[11px]">
                       Open full <IconArrowUpRight size={12} className="ml-1" />
                     </Link>
                     <button
@@ -731,7 +731,7 @@ function ChatInner() {
                       <p className="text-sm text-[var(--text-secondary)]">
                         No widgets yet. Ask in chat to build a chart, or open the full dashboard for saved views.
                       </p>
-                      <Link href="/Dashboard" className="btn-secondary text-xs">
+                      <Link href="/dashboard" className="btn-secondary text-xs">
                         Go to Dashboard
                       </Link>
                     </div>
@@ -763,7 +763,7 @@ function ChatInner() {
                 ) : (
                   <p className="text-sm text-[var(--text-secondary)]">
                     Ask for a chart in chat, or{' '}
-                    <Link href="/Dashboard" className="text-[#E3836C] underline">
+                    <Link href="/dashboard" className="text-[#E3836C] underline">
                       open Dashboard
                     </Link>
                     .

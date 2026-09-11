@@ -12,6 +12,10 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
   const [isHiding, setIsHiding] = useState(false);
 
   useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      onComplete();
+      return;
+    }
     // Dynamic smooth progress progression with stabilization
     const interval = setInterval(() => {
       setProgress((prev) => {

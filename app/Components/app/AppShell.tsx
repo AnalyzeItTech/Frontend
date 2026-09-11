@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { IconShieldLock } from '@tabler/icons-react';
@@ -15,7 +16,7 @@ export type AppNavId = 'chat' | 'research' | 'globe' | 'dashboard' | 'profile';
 const LINKS: Array<{ id: AppNavId; href: string; label: string }> = [
   { id: 'chat', href: '/research', label: 'Chat' },
   { id: 'globe', href: '/globe', label: 'Globe' },
-  { id: 'dashboard', href: '/Dashboard', label: 'Dashboard' },
+  { id: 'dashboard', href: '/dashboard', label: 'Dashboard' },
   { id: 'profile', href: '/profile', label: 'Profile' },
 ];
 
@@ -60,10 +61,14 @@ export function AppShell({
     <div className={`app-shell flex flex-col ${isIncognito ? 'app-shell--incognito' : ''}`}>
       <header className="app-topnav">
         <Link href="/research" className="mr-4 flex items-center gap-2 font-serif text-lg tracking-tight sm:mr-6">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#E3836C] text-sm font-semibold text-white">
-            A
-          </span>
-          <span className="hidden xs:inline sm:inline">AnalyzeIt</span>
+          <Image
+            src="/logo.png"
+            alt="AnalyzeIt"
+            width={120}
+            height={28}
+            className="h-6 w-auto object-contain"
+            priority
+          />
         </Link>
         <nav className="flex flex-1 items-center gap-3 overflow-x-auto sm:gap-5">
           {LINKS.map((link) => (

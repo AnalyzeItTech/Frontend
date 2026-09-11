@@ -52,39 +52,39 @@ export const Navbar: React.FC = () => {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <div className="hidden md:flex items-center gap-6 text-xs font-mono tracking-wider uppercase text-[#403934]/75">
+          <div className="hidden md:flex items-center gap-5 text-sm font-medium tracking-wide text-[#322C28]">
             <button
               type="button"
               onClick={() => scrollTo('capabilities')}
-              className="hover:text-[#E3836C] transition-colors cursor-pointer"
+              className="hover:text-[#C45A42] transition-colors cursor-pointer min-h-11 px-1"
             >
               Capabilities
             </button>
             <button
               type="button"
               onClick={() => scrollTo('how-it-works')}
-              className="hover:text-[#E3836C] transition-colors cursor-pointer"
+              className="hover:text-[#C45A42] transition-colors cursor-pointer min-h-11 px-1"
             >
               How It Works
             </button>
             <button
               type="button"
               onClick={() => scrollTo('comparison')}
-              className="hover:text-[#E3836C] transition-colors cursor-pointer"
+              className="hover:text-[#C45A42] transition-colors cursor-pointer min-h-11 px-1"
             >
               Why Calm
             </button>
             <button
               type="button"
               onClick={() => scrollTo('pricing')}
-              className="hover:text-[#E3836C] transition-colors cursor-pointer"
+              className="hover:text-[#C45A42] transition-colors cursor-pointer min-h-11 px-1"
             >
               Pricing
             </button>
             <button
               type="button"
               onClick={() => scrollTo('faq')}
-              className="hover:text-[#E3836C] transition-colors cursor-pointer"
+              className="hover:text-[#C45A42] transition-colors cursor-pointer min-h-11 px-1"
             >
               FAQ
             </button>

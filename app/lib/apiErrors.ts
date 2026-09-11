@@ -31,7 +31,10 @@ export function parseApiFailure(status: number, body: unknown): ApiFailure {
     const rec = detail as Record<string, unknown>;
     return {
       status,
-      message: String(rec.message || rec.detail || `Request failed (${status})`),
+      message: friendlyHttpMessage(
+        status,
+        String(rec.message || rec.detail || 'Request failed'),
+      ),
       upgradeRequired: Boolean(rec.upgrade_required) || status === 429,
       code: typeof rec.code === 'string' ? rec.code : undefined,
       tier: typeof rec.tier === 'string' ? rec.tier : undefined,
@@ -40,13 +43,31 @@ export function parseApiFailure(status: number, body: unknown): ApiFailure {
   if (typeof detail === 'string') {
     return {
       status,
-      message: detail,
+      message: friendlyHttpMessage(status, detail),
       upgradeRequired: status === 429,
     };
   }
   return {
     status,
-    message: `Request failed (${status})`,
+    message: friendlyHttpMessage(status, 'Request failed'),
     upgradeRequired: status === 429,
   };
+}
+
+export function friendlyHttpMessage(status: number, fallback: string): string {
+  if (status === 401) return 'Please sign in to continue.';
+  if (status === 403) return 'You do not have access to this workspace.';
+  if (status === 404) return 'Nothing was found for this request.';
+  if (status === 409) return 'This changed in another session. Refresh and try again.';
+  if (status === 429) return 'You have reached today’s limit. Try again later or upgrade.';
+  if (status >= 500) return 'The service is unavailable right now. Try again in a moment.';
+  return fallback;
+}
+
+export function redactClientError(err: unknown, fallback: string): string {
+  const raw = err instanceof Error ? err.message : fallback;
+  if (/\b(401|403|404|409|429|500|502|503)\b/.test(raw) || /failed to fetch/i.test(raw)) {
+    return fallback;
+  }
+  return raw || fallback;
 }

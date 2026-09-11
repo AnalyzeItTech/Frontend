@@ -73,6 +73,7 @@ import {
   CURATED_TEMPLATES,
   type DashboardTemplate,
 } from '../lib/dashboardTemplates';
+import { redactClientError } from '../lib/apiErrors';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -95,6 +96,8 @@ export default function DashboardPage() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [serverProjects, setServerProjects] = useState<ProjectSummary[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(true);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [loadKey, setLoadKey] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
 
   // ─── Export Menu & Toast State ───────────────────────────────────────────────
@@ -142,8 +145,18 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    let finished = false;
+    const timeout = window.setTimeout(() => {
+      if (!cancelled && !finished) {
+        setIsLoadingProjects(false);
+        setWorkspaceError('This is taking longer than expected. Check your connection and try again.');
+      }
+    }, 12000);
+
     async function loadWorkspace() {
       setIsLoadingProjects(true);
+      setWorkspaceError(null);
       try {
         const stored = getStoredUser();
         if (stored) {
@@ -161,6 +174,7 @@ export default function DashboardPage() {
         }
 
         const projs = await getProjects();
+        if (cancelled) return;
         setServerProjects(projs);
 
         if (projs.length > 0) {
@@ -177,8 +191,7 @@ export default function DashboardPage() {
             } else {
               setCurrentLayout({ widgets: [] });
             }
-          } catch (err) {
-            console.warn('Failed to load project layout:', err);
+          } catch {
             setCurrentLayout({ widgets: [] });
           }
         } else {
@@ -187,18 +200,22 @@ export default function DashboardPage() {
           setCurrentLayout({ widgets: [] });
         }
       } catch (err) {
-        console.warn('Could not load remote projects:', err);
+        if (cancelled) return;
         setServerProjects([]);
         setCurrentLayout({ widgets: [] });
-        setExportToastMsg(err instanceof Error ? err.message : 'Could not load workspace projects.');
-        setTimeout(() => setExportToastMsg(null), 5000);
+        setWorkspaceError(redactClientError(err, 'Couldn’t load your dashboard.'));
       } finally {
-        setIsLoadingProjects(false);
+        finished = true;
+        if (!cancelled) setIsLoadingProjects(false);
       }
     }
 
-    loadWorkspace();
-  }, []);
+    void loadWorkspace();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [loadKey]);
 
   // ─── Switch Active Project ──────────────────────────────────────────────────
   const handleSelectProject = async (proj: ProjectSummary) => {
@@ -707,12 +724,20 @@ export default function DashboardPage() {
             <>
               {isLoadingProjects ? (
                 <div role="status" aria-live="polite" className="space-y-4">
-                  <div className="h-24 rounded-2xl border border-white/[0.08] bg-[#14171B]/60 animate-pulse" />
+                  <div className="h-24 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] animate-pulse" />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="h-64 rounded-2xl border border-white/[0.08] bg-[#14171B]/40 animate-pulse" />
-                    <div className="h-64 rounded-2xl border border-white/[0.08] bg-[#14171B]/40 animate-pulse" />
+                    <div className="h-64 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] animate-pulse" />
+                    <div className="h-64 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] animate-pulse" />
                   </div>
-                  <span className="sr-only">Loading workspaces and dashboard layout</span>
+                  <p className="text-sm text-[var(--text-secondary)]">Loading your dashboard…</p>
+                </div>
+              ) : workspaceError ? (
+                <div role="alert" className="app-card py-16 px-6 flex flex-col items-center justify-center text-center space-y-4 max-w-lg mx-auto">
+                  <h3 className="text-lg font-medium">Couldn’t load your dashboard</h3>
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{workspaceError}</p>
+                  <button type="button" className="btn-primary min-h-11 px-5" onClick={() => setLoadKey((k) => k + 1)}>
+                    Retry
+                  </button>
                 </div>
               ) : currentLayout.widgets.length > 0 ? (
                 <div className="space-y-6">
@@ -758,26 +783,39 @@ export default function DashboardPage() {
                     <IconLayoutDashboard size={24} />
                   </div>
                   <div className="space-y-1 max-w-md">
-                    <h3 className="text-base font-medium">
-                      {activeProjectId ? 'No widgets in this saved view' : 'No active workspace'}
+                    <h3 className="text-lg font-medium">
+                      {activeProjectId ? 'This canvas is empty' : 'Create your first project'}
                     </h3>
-                    <p className="text-xs text-[#6B6155] leading-relaxed">
+                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
                       {activeProjectId
-                        ? 'The dashboard only displays widgets from research or templates. It does not start new research.'
-                        : 'Create a project, then pin research results here.'}
+                        ? 'Ask in Chat or apply a template. The dashboard only displays widgets you save — it does not start research on its own.'
+                        : 'A project holds charts and KPIs from Chat. You need an account to save work — you are already signed in.'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 pt-2">
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    {!activeProjectId ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewProjectName('');
+                          setIsNewProjectOpen(true);
+                        }}
+                        className="btn-primary min-h-11 px-5 text-sm"
+                      >
+                        Create first project
+                      </button>
+                    ) : (
+                      <Link href="/research" className="btn-primary min-h-11 px-5 text-sm">
+                        Continue in Chat
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={() => setStudioTab('templates')}
-                      className="btn-secondary text-xs"
+                      className="btn-secondary min-h-11 px-5 text-sm"
                     >
-                      Explore Templates
+                      Explore templates
                     </button>
-                    <Link href="/research" className="btn-primary text-xs">
-                      Continue in Chat
-                    </Link>
                   </div>
                 </div>
               )}

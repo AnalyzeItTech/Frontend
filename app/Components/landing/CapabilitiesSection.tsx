@@ -76,7 +76,7 @@ export const CapabilitiesSection: React.FC = () => {
   return (
     <section
       id="capabilities"
-      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-20 pointer-events-auto"
+      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-20 pointer-events-auto scroll-mt-28"
     >
       {/* Section Header */}
       <motion.div
@@ -86,7 +86,7 @@ export const CapabilitiesSection: React.FC = () => {
         transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         className="max-w-2xl space-y-4"
       >
-        <div className="inline-flex items-center gap-2 text-xs font-mono tracking-[0.25em] uppercase text-[#E3836C]">
+        <div className="inline-flex items-center gap-2 text-xs font-medium tracking-[0.18em] uppercase text-[#C45A42]">
           <span className="w-2 h-2 rounded-full bg-[#E3836C]" />
           Core Capabilities
         </div>
@@ -115,7 +115,7 @@ export const CapabilitiesSection: React.FC = () => {
           >
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono uppercase tracking-widest text-[#4A4238]/60 dark:text-[#91867E]">
+                <span className="text-xs font-medium uppercase tracking-wider text-[#5C534A] dark:text-[#C5B9AE]">
                   {cap.category}
                 </span>
                 <span className="w-2 h-2 rounded-full bg-[#9EBB9A]" />

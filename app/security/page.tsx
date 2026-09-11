@@ -16,9 +16,11 @@ export default function SecurityPage() {
 
       <LegalSection title="1. Account gate">
         <p>
-          Chat, research, globe, dashboards, connectors, objects, billing, and related tools require
-          a valid AnalyzeIt account. Visitors without a session are sent to sign in or register.
-          API routes that serve customer data expect a bearer token.
+          Middleware on the AnalyzeIt site redirects visitors without an auth cookie to sign in
+          before Chat, globe, dashboards, connectors, objects, billing, profile, and related tools
+          can load. Those routes never fetch workspace APIs for anonymous visitors. API routes that
+          serve customer data still expect a bearer token. The marketing homepage, login, and legal
+          pages stay public.
         </p>
       </LegalSection>
 

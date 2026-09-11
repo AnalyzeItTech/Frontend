@@ -50,7 +50,7 @@ export const NavRail: React.FC = () => {
   };
 
   return (
-    <nav className="fixed left-6 top-1/2 -translate-y-1/2 z-40 hidden xl:flex flex-col gap-3 pointer-events-none">
+    <nav className="fixed left-4 top-1/2 -translate-y-1/2 z-20 hidden xl:flex flex-col gap-3 pointer-events-none" aria-label="Page sections">
       <div className="flex flex-col gap-3 p-3 rounded-full glass-pill border border-[#4A4238]/10 dark:border-[#3A3430] dark:bg-[#211E1C]/80 pointer-events-auto shadow-xs">
         {NAV_POINTS.map((pt) => {
           const isActive = activeSection === pt.targetId;
@@ -58,7 +58,7 @@ export const NavRail: React.FC = () => {
             <button
               key={pt.id}
               onClick={() => scrollTo(pt.targetId)}
-              className="group relative flex items-center gap-3 cursor-pointer py-1 px-1 text-left"
+              className="group relative flex items-center gap-3 cursor-pointer py-2 px-2 min-h-11 min-w-11 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E3836C] rounded-full"
               title={pt.label}
             >
               {/* Dot Indicator */}

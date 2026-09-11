@@ -428,10 +428,13 @@ html, body {
 }
 
 .app-topnav-link {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-secondary);
-  padding: 0.35rem 0.15rem;
+  padding: 0.5rem 0.2rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   border-bottom: 2px solid transparent;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
@@ -467,6 +470,26 @@ html, body {
   color: var(--text-primary);
 }
 
+:focus-visible {
+  outline: 2px solid #e3836c;
+  outline-offset: 3px;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #e3836c;
+  outline-offset: 3px;
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible {
+  outline: 2px solid #e3836c;
+  outline-offset: 3px;
+}
+
 .btn-primary {
   display: inline-flex;
   align-items: center;
@@ -476,6 +499,7 @@ html, body {
   color: #fff;
   font-size: 0.875rem;
   padding: 0.5rem 1rem;
+  min-height: 44px;
   transition: background 0.15s ease;
 }
 

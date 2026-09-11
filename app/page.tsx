@@ -34,22 +34,25 @@ export default function Home() {
 
   // Initialize Lenis Smooth Scrolling Physics
   useEffect(() => {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const isMobile = window.innerWidth < 768;
+    let animId = 0;
+    let lenis: Lenis | null = null;
 
-    const lenis = new Lenis({
-      duration: isMobile ? 1.0 : 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothWheel: true,
-      touchMultiplier: 1.6,
-    });
-
-    lenisRef.current = lenis;
-
-    function raf(time: number) {
-      lenis.raf(time);
-      requestAnimationFrame(raf);
+    if (!reduce) {
+      lenis = new Lenis({
+        duration: isMobile ? 1.0 : 1.2,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+        touchMultiplier: 1.6,
+      });
+      lenisRef.current = lenis;
+      function raf(time: number) {
+        lenis?.raf(time);
+        animId = requestAnimationFrame(raf);
+      }
+      animId = requestAnimationFrame(raf);
     }
-    const animId = requestAnimationFrame(raf);
 
     const onScroll = () => {
       const scrollY = window.scrollY;
@@ -85,9 +88,9 @@ export default function Home() {
     onScroll();
 
     return () => {
-      cancelAnimationFrame(animId);
+      if (animId) cancelAnimationFrame(animId);
       window.removeEventListener('scroll', onScroll);
-      lenis.destroy();
+      lenis?.destroy();
     };
   }, []);
 
@@ -100,6 +103,13 @@ export default function Home() {
       {isLoading && (
         <LoadingScreen onComplete={() => setIsLoading(false)} />
       )}
+
+      <a
+        href="#capabilities"
+        className="fixed bottom-5 right-5 z-40 min-h-11 px-4 rounded-full bg-[#322C28] text-[#FFF7F1] text-sm font-medium shadow-lg pointer-events-auto inline-flex items-center"
+      >
+        Skip animation
+      </a>
 
       {/* Vertical Navigation Rail */}
       <NavRail />
@@ -122,7 +132,7 @@ export default function Home() {
       <Navbar />
 
       {/* Main Narrative Content Flow */}
-      <main className="relative z-10">
+      <main className="relative z-10 xl:pl-16">
         {/* Phase 3: Hero Section */}
         <HeroSection />
 

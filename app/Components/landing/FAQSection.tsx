@@ -53,7 +53,7 @@ export const FAQSection: React.FC = () => {
   return (
     <section
       id="faq"
-      className="relative py-24 md:py-36 px-6 md:px-16 max-w-4xl mx-auto space-y-16 pointer-events-auto"
+      className="relative py-24 md:py-36 px-6 md:px-16 max-w-4xl mx-auto space-y-16 pointer-events-auto scroll-mt-28"
     >
       {/* Header */}
       <div className="text-center space-y-4">

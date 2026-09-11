@@ -17,6 +17,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '', showLa
     <button
       type="button"
       onClick={toggleTheme}
+      suppressHydrationWarning
       className={`relative inline-flex items-center justify-center rounded-full border p-2 transition-all duration-300 cursor-pointer ${
         isDark
           ? 'bg-[var(--surface-2)] border-[var(--border-strong)] text-[var(--peach,#EBA58F)] hover:text-[var(--text-primary)] hover:border-[#E3836C]'

@@ -8,7 +8,7 @@ export const HeroSection: React.FC = () => {
   return (
     <section
       id="hero"
-      className="relative min-h-[92vh] flex flex-col justify-between pt-36 sm:pt-40 pb-20 px-6 md:px-16 max-w-7xl mx-auto pointer-events-none"
+      className="relative min-h-[88vh] flex flex-col justify-between pt-36 sm:pt-40 pb-20 px-6 md:px-16 max-w-7xl mx-auto pointer-events-none scroll-mt-28"
     >
       {/* Top Eyebrow Tag */}
       <motion.div
@@ -17,7 +17,7 @@ export const HeroSection: React.FC = () => {
         transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         className="flex items-center justify-between pointer-events-auto"
       >
-        <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#F3EDE4]/85 dark:bg-[#211E1C]/90 backdrop-blur-md border border-[#4A4238]/10 dark:border-[#3A3430] text-xs font-mono tracking-widest uppercase text-[#4A4238]/80 dark:text-[#C5B9AE] shadow-xs">
+        <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#F3EDE4]/95 dark:bg-[#211E1C]/95 backdrop-blur-md border border-[#4A4238]/15 dark:border-[#3A3430] text-xs font-medium tracking-widest uppercase text-[#322C28] dark:text-[#F4EDE5] shadow-xs">
           <span className="w-2 h-2 rounded-full bg-[#9EBB9A] animate-pulse" />
           <span>Analytics, made calm</span>
         </div>
@@ -29,17 +29,17 @@ export const HeroSection: React.FC = () => {
           initial={{ opacity: 0, y: 32 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-          className="max-w-2xl space-y-6"
+          className="max-w-2xl space-y-6 rounded-3xl bg-[#F3EDE4]/90 dark:bg-[#171514]/88 backdrop-blur-md border border-[#4A4238]/10 dark:border-[#3A3430] p-6 sm:p-8 shadow-sm"
         >
           {/* Main Editorial Headline */}
           <motion.h1
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.85, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="font-serif text-5xl sm:text-6xl md:text-7xl lg:text-8xl tracking-tight text-[#4A4238] dark:text-[#F4EDE5] font-normal leading-[1.04]"
+            className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight text-[#322C28] dark:text-[#F4EDE5] font-normal leading-[1.08]"
           >
             See what your data <br className="hidden sm:inline" />
-            <em className="font-serif italic text-[#E3836C]">already knows.</em>
+            <em className="font-serif italic text-[#C45A42] dark:text-[#EBA58F]">already knows.</em>
           </motion.h1>
 
           {/* Subhead */}
@@ -47,7 +47,7 @@ export const HeroSection: React.FC = () => {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="text-base md:text-lg text-[#4A4238]/75 dark:text-[#C5B9AE] font-normal max-w-xl leading-relaxed"
+            className="text-base md:text-lg text-[#3F3830] dark:text-[#E6DCD2] font-normal max-w-xl leading-relaxed"
           >
             A quiet analytics workspace that monitors your metrics in real-time 3D, writes clear narrative summaries, and lets anyone ask questions in plain words.
           </motion.p>
@@ -66,11 +66,10 @@ export const HeroSection: React.FC = () => {
               Start exploring free
             </Link>
             <a
-              href="#descent"
-              className="inline-flex items-center gap-1.5 px-4 py-4 text-xs font-mono uppercase tracking-wider text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#4A4238] dark:hover:text-[#F4EDE5] transition-colors"
+              href="#capabilities"
+              className="inline-flex items-center gap-1.5 min-h-11 px-4 py-3 text-sm font-medium text-[#322C28] dark:text-[#E6DCD2] hover:text-[#C45A42] transition-colors"
             >
-              <span>See how it works</span>
-              <span className="text-sm">↓</span>
+              <span>Skip to product</span>
             </a>
           </motion.div>
         </motion.div>
@@ -88,7 +87,7 @@ export const HeroSection: React.FC = () => {
           <span className="w-[1px] h-full bg-gradient-to-b from-[#4A4238]/20 dark:from-[#3A3430] via-[#E3836C] to-[#4A4238]/20 dark:to-[#3A3430] animate-pulse" />
           <span className="w-1.5 h-1.5 rounded-full bg-[#E3836C] shadow-xs shadow-[#E3836C] animate-bounce" />
         </div>
-        <span className="text-[10px] font-mono tracking-[0.25em] uppercase text-[#4A4238]/50 dark:text-[#91867E] whitespace-nowrap">
+        <span className="text-[11px] font-medium tracking-[0.18em] uppercase text-[#5C534A] dark:text-[#C5B9AE] whitespace-nowrap">
           SCROLL TO DISCOVER
         </span>
       </motion.div>

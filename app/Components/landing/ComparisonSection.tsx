@@ -36,8 +36,9 @@ export const ComparisonSection: React.FC = () => {
   return (
     <section
       id="comparison"
-      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto"
+      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto scroll-mt-28"
     >
+      <div id="why-calm" className="absolute -top-28 h-px w-px overflow-hidden" aria-hidden="true" />
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 28 }}

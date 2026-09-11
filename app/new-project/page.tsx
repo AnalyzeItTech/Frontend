@@ -1031,7 +1031,7 @@ function NewProjectContent() {
         <div className="flex items-center gap-3 sm:gap-5">
           {/* Back to Dashboard Link with preserved Project ID */}
           <Link
-            href={projectId ? `/Dashboard?projectId=${projectId}` : '/Dashboard'}
+            href={projectId ? `/dashboard?projectId=${projectId}` : '/dashboard'}
             onClick={handleBackToDashboard}
             className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all ${
               isIncognito

@@ -13,8 +13,6 @@ import {
   IconEye,
   IconEyeOff,
   IconArrowRight,
-  IconBrandGoogle,
-  IconBrandGithub,
   IconCheck,
   IconAlertCircle,
 } from '@tabler/icons-react';
@@ -125,28 +123,11 @@ const PasswordStrength: React.FC<{ password: string }> = ({ password }) => {
 };
 
 // ─── OAuth Button ─────────────────────────────────────────────────────────────
-const OAuthButton: React.FC<{
-  icon: React.ReactNode;
-  label: string;
-}> = ({ icon, label }) => (
-  <button
-    type="button"
-    disabled
-    title="Social sign-in is not configured yet"
-    className="flex items-center justify-center gap-2.5 w-full py-2.5 rounded-xl border border-[#4A4238]/12 dark:border-[#3A3430] bg-white/50 dark:bg-[#292522] text-xs font-medium text-[#4A4238]/50 dark:text-[#91867E] cursor-not-allowed opacity-70 shadow-xs"
-  >
-    {icon}
-    {label} (soon)
-  </button>
-);
-
-// ─── Divider ──────────────────────────────────────────────────────────────────
-const Divider = () => (
-  <div className="flex items-center gap-3">
-    <span className="flex-1 h-px bg-[#4A4238]/10 dark:bg-[#3A3430]" />
-    <span className="text-xs font-mono text-[#4A4238]/35 dark:text-[#91867E] uppercase tracking-wider">or</span>
-    <span className="flex-1 h-px bg-[#4A4238]/10 dark:bg-[#3A3430]" />
-  </div>
+const OAuthSoon: React.FC = () => (
+  <p className="text-center text-sm text-[#5C534A] dark:text-[#C5B9AE] leading-relaxed">
+    Email and password only for now. Google and GitHub sign-in will appear here when they are ready —
+    they are not available yet.
+  </p>
 );
 
 // ─── Login Form ───────────────────────────────────────────────────────────────
@@ -252,12 +233,7 @@ const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
         )}
       </button>
 
-      <Divider />
-
-      <div className="grid grid-cols-2 gap-3">
-        <OAuthButton icon={<IconBrandGoogle size={16} />} label="Google" />
-        <OAuthButton icon={<IconBrandGithub size={16} />} label="GitHub" />
-      </div>
+      <OAuthSoon />
     </form>
   );
 };
@@ -431,12 +407,7 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
         )}
       </button>
 
-      <Divider />
-
-      <div className="grid grid-cols-2 gap-3">
-        <OAuthButton icon={<IconBrandGoogle size={16} />} label="Google" />
-        <OAuthButton icon={<IconBrandGithub size={16} />} label="GitHub" />
-      </div>
+      <OAuthSoon />
     </form>
   );
 };

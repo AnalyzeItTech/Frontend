@@ -57,7 +57,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
 
   const handleConnect = async (provider: string) => {
     try {
-      const redirectUri = window.location.origin + '/Dashboard';
+      const redirectUri = window.location.origin + '/dashboard';
       const res = await authorizeConnector(projectId, provider, redirectUri);
       if (res.auth_url) {
         window.open(res.auth_url, '_blank', 'width=600,height=700');

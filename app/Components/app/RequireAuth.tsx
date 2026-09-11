@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { fetchMe, getStoredToken } from '../../lib/auth';
+import { fetchMe, getStoredToken, syncAuthCookieFromStorage } from '../../lib/auth';
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -19,7 +19,10 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (!cancelled) setAllowed(true);
+      if (!cancelled) {
+        syncAuthCookieFromStorage();
+        setAllowed(true);
+      }
 
       const me = await fetchMe();
       if (cancelled) return;

@@ -1,5 +1,5 @@
 import { getAuthHeaders, getStoredUser } from './auth';
-import { ChatRequestError, parseApiFailure } from './apiErrors';
+import { ChatRequestError, friendlyHttpMessage, parseApiFailure } from './apiErrors';
 
 export { ChatRequestError };
 
@@ -468,7 +468,7 @@ export async function getProjectLayout(projectId: string): Promise<ProjectLayout
   if (!res.ok) {
     if (res.status === 401) throw new Error('Your session has expired. Please sign in again.');
     if (res.status === 403) throw new Error('You are not authorized to view this project layout.');
-    throw new Error(`Failed to fetch project layout: ${res.status}`);
+    throw new Error(friendlyHttpMessage(res.status, 'Could not load this layout'));
   }
   return res.json();
 }
@@ -531,7 +531,7 @@ export async function getProjects(_userId?: string): Promise<ProjectSummary[]> {
   const res = await fetch(`${API_V1}/projects`, {
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error(`Failed to fetch projects: ${res.status}`);
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not load projects'));
   return res.json();
 }
 
@@ -539,7 +539,7 @@ export async function getProjectById(projectId: string): Promise<ProjectSummary>
   const res = await fetch(`${API_V1}/projects/${projectId}`, {
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error(`Failed to fetch project: ${res.status}`);
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not load this project'));
   return res.json();
 }
 
@@ -549,7 +549,7 @@ export async function createProject(name: string, _userId?: string): Promise<Pro
     headers: getAuthHeaders(),
     body: JSON.stringify({ name }),
   });
-  if (!res.ok) throw new Error(`Failed to create project: ${res.status}`);
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not create the project'));
   return res.json();
 }
 

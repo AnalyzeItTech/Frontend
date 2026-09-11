@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "./Components/ui/ThemeProvider";
 import { SmoothScrollProvider } from "./Components/ui/SmoothScrollProvider";
+import { SkipToContent } from "./Components/ui/SkipToContent";
 
 export const metadata: Metadata = {
   title: "AnalyzeIt — See what your data already knows",
@@ -27,17 +28,19 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
           rel="stylesheet"
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('analyzeit_token')){document.cookie='analyzeit_auth=1; Path=/; SameSite=Lax; Max-Age=2592000'}else{document.cookie='analyzeit_auth=; Path=/; SameSite=Lax; Max-Age=0'}var t=localStorage.getItem('analyzeit-theme');if(t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');document.documentElement.setAttribute('data-theme','dark')}else{document.documentElement.setAttribute('data-theme','light')}}catch(e){}`,
+          }}
+        />
       </head>
-      <body className="min-h-full flex flex-col bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased overflow-x-hidden transition-colors duration-300">
+      <body
+        suppressHydrationWarning
+        className="min-h-full flex flex-col bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased overflow-x-hidden transition-colors duration-300"
+      >
         <ThemeProvider>
           <SmoothScrollProvider>
-            {/* Accessibility skip link */}
-            <a
-              href="#main-content"
-              className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[999999] focus:px-4 focus:py-2 focus:bg-[#E3836C] focus:text-white focus:rounded-full focus:shadow-lg focus:outline-none text-xs font-mono uppercase"
-            >
-              Skip to main content
-            </a>
+            <SkipToContent />
             {children}
           </SmoothScrollProvider>
         </ThemeProvider>

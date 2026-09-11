@@ -18,6 +18,19 @@ export interface AuthResult {
 
 const TOKEN_KEY = 'analyzeit_token';
 const USER_KEY = 'analyzeit_user';
+export const AUTH_COOKIE = 'analyzeit_auth';
+
+function writeAuthCookie(present: boolean) {
+  if (typeof document === 'undefined') return;
+  document.cookie = present
+    ? `${AUTH_COOKIE}=1; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}`
+    : `${AUTH_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0`;
+}
+
+/** Keep middleware cookie in sync for sessions that already exist in localStorage. */
+export function syncAuthCookieFromStorage(): void {
+  writeAuthCookie(Boolean(getStoredToken()));
+}
 
 export function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -53,12 +66,14 @@ export function setAuthSession(token: string, user: UserProfile): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  writeAuthCookie(true);
 }
 
 export function clearAuthSession(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  writeAuthCookie(false);
 }
 
 export function getAuthHeaders(): Record<string, string> {
@@ -81,7 +96,7 @@ export async function login(email: string, password: string): Promise<AuthResult
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ detail: 'Sign in failed' }));
-    throw new Error(errorData.detail || `Sign in failed (${res.status})`);
+    throw new Error(typeof errorData.detail === 'string' ? errorData.detail : 'Sign in failed');
   }
 
   const data: AuthResult = await res.json();
@@ -98,7 +113,7 @@ export async function register(name: string, email: string, password: string): P
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ detail: 'Registration failed' }));
-    throw new Error(errorData.detail || `Registration failed (${res.status})`);
+    throw new Error(typeof errorData.detail === 'string' ? errorData.detail : 'Registration failed');
   }
 
   const data: AuthResult = await res.json();
