@@ -218,7 +218,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                       <button
                         onClick={() => handleSync(activeConn.id)}
                         disabled={isSyncing}
-                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
+                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
                       >
                         <IconRefresh className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                         <span>{isSyncing ? 'Loading sample…' : 'Load sample data'}</span>
@@ -239,7 +239,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                 ) : (
                   <button
                     onClick={() => handleConnect(p.id)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 text-xs font-semibold transition-colors shadow-sm ml-auto"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-semibold transition-colors shadow-sm ml-auto"
                   >
                     <span>Connect {p.name}</span>
                     <IconArrowUpRight className="w-4 h-4" />

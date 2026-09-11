@@ -58,7 +58,7 @@ const FIELD_TYPES: Array<{ value: ObjectField['type']; label: string; icon: Reac
   { value: 'email', label: 'Email Address', icon: <IconMail className="w-4 h-4 text-pink-400" /> },
   { value: 'url', label: 'Website / URL', icon: <IconWorld className="w-4 h-4 text-teal-400" /> },
   { value: 'picklist', label: 'Picklist / Select', icon: <IconListDetails className="w-4 h-4 text-orange-400" /> },
-  { value: 'lookup', label: 'Relation (Lookup)', icon: <IconLink className="w-4 h-4 text-indigo-400" /> },
+  { value: 'lookup', label: 'Relation (Lookup)', icon: <IconLink className="w-4 h-4 text-[var(--coral)]" /> },
 ];
 
 export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
@@ -427,12 +427,12 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
       <div className="w-full lg:w-72 shrink-0 flex flex-col gap-4">
         <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-white/10">
           <div className="flex items-center gap-2">
-            <IconDatabase className="w-5 h-5 text-indigo-500" />
+            <IconDatabase className="w-5 h-5 text-[var(--coral)]" />
             <span className="font-semibold text-neutral-900 dark:text-white text-sm">Custom Entities</span>
           </div>
           <button
             onClick={openCreateSchemaModal}
-            className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm cursor-pointer"
+            className="p-1.5 rounded-lg bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white transition-colors shadow-sm cursor-pointer"
             title="Create Custom Object"
           >
             <IconPlus className="w-4 h-4" />
@@ -455,7 +455,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                   onClick={() => setSelectedSchema(schema)}
                   className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all border ${
                     isSelected
-                      ? 'bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-500/50 shadow-sm'
+                      ? 'bg-[var(--coral)]/10 border-[var(--coral)]/40 shadow-sm'
                       : 'bg-white dark:bg-neutral-900/60 border-neutral-200 dark:border-white/5 hover:border-neutral-300 dark:hover:border-white/15'
                   }`}
                 >
@@ -493,7 +493,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
             {/* Header Toolbar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-200 dark:border-white/10">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                <div className="p-2.5 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-[var(--coral)]">
                   <IconTable className="w-5 h-5" />
                 </div>
                 <div>
@@ -522,12 +522,12 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                     placeholder="Filter records..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 pr-3 py-1.5 text-xs rounded-xl bg-neutral-100 dark:bg-neutral-800 border-none text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 w-44"
+                    className="pl-9 pr-3 py-1.5 text-xs rounded-xl bg-neutral-100 dark:bg-neutral-800 border-none text-neutral-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[var(--coral)] w-44"
                   />
                 </div>
                 <button
                   onClick={openNewRecordModal}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-sm cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-medium transition-colors shadow-sm cursor-pointer"
                 >
                   <IconPlus className="w-3.5 h-3.5" />
                   <span>Add Record</span>
@@ -612,7 +612,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                               <td key={f.api_name} className="py-2.5 px-3 text-neutral-900 dark:text-neutral-200">
                                 <div className="flex items-center gap-1.5">
                                   {(f.type === 'lookup' || f.type === 'relation') && val ? (
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-mono text-[11px]">
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-[var(--coral)] font-mono text-[11px]">
                                       <IconLink className="w-3 h-3" />
                                       {display}
                                     </span>
@@ -637,7 +637,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                                 r.origin.startsWith('sync')
                                   ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                                   : r.origin === 'agent'
-                                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                                  ? 'bg-indigo-500/10 text-[var(--coral)]'
                                   : 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400'
                               }`}
                             >
@@ -648,7 +648,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 onClick={() => openRecordDetail(r)}
-                                className="p-1 rounded text-neutral-400 hover:text-indigo-500 transition-colors cursor-pointer"
+                                className="p-1 rounded text-neutral-400 hover:text-[var(--coral)] transition-colors cursor-pointer"
                                 title="View/Edit Details & Relations"
                               >
                                 <IconEye className="w-3.5 h-3.5" />
@@ -680,7 +680,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                   <button
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="px-3 py-1.5 text-xs rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    className="px-3 py-1.5 text-xs rounded-lg bg-[var(--coral)] hover:bg-[var(--coral-dark)] disabled:opacity-50 text-white font-medium transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
                   >
                     {loadingMore ? 'Loading...' : `Load More (${totalRecords - records.length} remaining)`}
                   </button>
@@ -715,7 +715,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
             >
               <div className="flex items-center justify-between pb-4 border-b border-neutral-200 dark:border-white/10">
                 <div className="flex items-center gap-2">
-                  <IconDatabase className="w-5 h-5 text-indigo-500" />
+                  <IconDatabase className="w-5 h-5 text-[var(--coral)]" />
                   <h3 className="font-semibold text-base text-neutral-900 dark:text-white">
                     {isEditingExistingSchema ? `Edit Schema: ${selectedSchema?.label}` : 'Create Custom Entity'}
                   </h3>
@@ -740,7 +740,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                       placeholder="e.g. Deal, Contact, Invoice"
                       value={schemaLabel}
                       onChange={(e) => handleSchemaLabelChange(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--coral)]"
                     />
                   </div>
                   <div>
@@ -752,14 +752,14 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                       placeholder="e.g. Deals, Contacts"
                       value={schemaLabelPlural}
                       onChange={(e) => setSchemaLabelPlural(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--coral)]"
                     />
                   </div>
                 </div>
 
                 <div>
                   <p className="text-[11px] text-neutral-400 font-mono">
-                    API Name: <span className="font-semibold text-indigo-500">{schemaApiName || '—'}</span>
+                    API Name: <span className="font-semibold text-[var(--coral)]">{schemaApiName || '—'}</span>
                     {isEditingExistingSchema && ' (read-only)'}
                   </p>
                 </div>
@@ -772,7 +772,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                     <button
                       type="button"
                       onClick={handleAddField}
-                      className="text-xs font-medium text-indigo-600 dark:text-indigo-400 flex items-center gap-1 hover:underline cursor-pointer"
+                      className="text-xs font-medium text-[var(--coral)] flex items-center gap-1 hover:underline cursor-pointer"
                     >
                       <IconPlus className="w-3 h-3" /> Add Field
                     </button>
@@ -809,7 +809,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                               type="checkbox"
                               checked={field.required}
                               onChange={(e) => handleUpdateField(idx, { required: e.target.checked })}
-                              className="rounded border-neutral-300 text-indigo-600"
+                              className="rounded border-neutral-300 text-[var(--coral)]"
                             />
                             Req
                           </label>
@@ -828,7 +828,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                         {/* Additional configuration for Relation / Lookup fields */}
                         {(field.type === 'lookup' || field.type === 'relation') && (
                           <div className="flex items-center gap-2 pt-1 border-t border-neutral-200/50 dark:border-white/5">
-                            <span className="text-[11px] text-indigo-500 font-medium flex items-center gap-1">
+                            <span className="text-[11px] text-[var(--coral)] font-medium flex items-center gap-1">
                               <IconLink className="w-3 h-3" /> Target Entity:
                             </span>
                             <select
@@ -885,7 +885,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-xs rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-sm cursor-pointer"
+                    className="px-4 py-2 text-xs rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white font-medium shadow-sm cursor-pointer"
                   >
                     {isEditingExistingSchema ? 'Save Schema Updates' : 'Create Entity'}
                   </button>
@@ -964,7 +964,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                             type="checkbox"
                             checked={Boolean(recordFormData[f.api_name])}
                             onChange={(e) => setRecordFormData({ ...recordFormData, [f.api_name]: e.target.checked })}
-                            className="rounded border-neutral-300 text-indigo-600 w-4 h-4"
+                            className="rounded border-neutral-300 text-[var(--coral)] w-4 h-4"
                           />
                           <span className="text-xs text-neutral-600 dark:text-neutral-400">Yes / True</span>
                         </div>
@@ -995,7 +995,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                   <button
                     type="submit"
                     disabled={isCreatingRecord}
-                    className="px-4 py-2 text-xs rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium shadow-sm cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-2 text-xs rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] disabled:opacity-50 text-white font-medium shadow-sm cursor-pointer flex items-center gap-1.5"
                   >
                     {isCreatingRecord ? (
                       <>
@@ -1026,7 +1026,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
               {/* Header */}
               <div className="flex items-center justify-between pb-4 border-b border-neutral-200 dark:border-white/10">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                  <div className="p-2 rounded-xl bg-indigo-100 dark:bg-indigo-950/60 text-[var(--coral)]">
                     <IconEye className="w-5 h-5" />
                   </div>
                   <div>
@@ -1052,7 +1052,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                   onClick={() => setDetailTab('fields')}
                   className={`pb-2 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer ${
                     detailTab === 'fields'
-                      ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                      ? 'border-indigo-600 text-[var(--coral)]'
                       : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                 >
@@ -1062,7 +1062,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                   onClick={() => setDetailTab('related')}
                   className={`pb-2 px-3 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
                     detailTab === 'related'
-                      ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                      ? 'border-indigo-600 text-[var(--coral)]'
                       : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-white'
                   }`}
                 >
@@ -1126,7 +1126,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                                 type="checkbox"
                                 checked={Boolean(detailFormData[f.api_name])}
                                 onChange={(e) => setDetailFormData({ ...detailFormData, [f.api_name]: e.target.checked })}
-                                className="rounded border-neutral-300 text-indigo-600 w-4 h-4"
+                                className="rounded border-neutral-300 text-[var(--coral)] w-4 h-4"
                               />
                               <span className="text-xs text-neutral-600 dark:text-neutral-400">Yes / True</span>
                             </div>
@@ -1165,7 +1165,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                       <button
                         type="submit"
                         disabled={savingRecord || isUpdatingRecord}
-                        className="px-4 py-2 text-xs rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium shadow-sm cursor-pointer flex items-center gap-1.5"
+                        className="px-4 py-2 text-xs rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] disabled:opacity-50 text-white font-medium shadow-sm cursor-pointer flex items-center gap-1.5"
                       >
                         {(savingRecord || isUpdatingRecord) ? (
                           <>
@@ -1202,7 +1202,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                       >
                         <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-white/5">
                           <span className="font-semibold text-xs text-neutral-900 dark:text-white flex items-center gap-1.5">
-                            <IconLink className="w-3.5 h-3.5 text-indigo-500" />
+                            <IconLink className="w-3.5 h-3.5 text-[var(--coral)]" />
                             {group.object_label} ({group.count})
                           </span>
                           <span className="text-[10px] text-neutral-400 font-mono">
@@ -1217,7 +1217,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                             return (
                               <div
                                 key={cr.id}
-                                className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/5 text-xs hover:border-indigo-300 transition-colors"
+                                className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-white/5 text-xs hover:border-[var(--coral)]/40 transition-colors"
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium text-neutral-900 dark:text-white">{title}</span>
