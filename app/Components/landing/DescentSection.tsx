@@ -205,7 +205,7 @@ export const DescentSection: React.FC<DescentSectionProps> = ({
   return (
     <section
       id="descent"
-      className="relative h-[180vh] w-full motion-reduce:h-auto motion-reduce:min-h-0 scroll-mt-28"
+      className="relative h-[460vh] w-full motion-reduce:h-auto motion-reduce:min-h-0 scroll-mt-28"
     >
       {/* Sticky Fullscreen Pinned Stage */}
       <div className="sticky top-0 h-screen w-full flex items-center justify-between px-6 md:px-16 xl:pl-24 max-w-7xl mx-auto pointer-events-none z-10 motion-reduce:static motion-reduce:h-auto motion-reduce:py-16">
