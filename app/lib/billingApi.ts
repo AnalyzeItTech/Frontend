@@ -149,6 +149,7 @@ export function normalizePayuFields(fields: Record<string, unknown>): Record<str
     );
   }
   out.amount = amountNum.toFixed(2);
+  delete out.currency;
 
   if (!out.txnid || out.txnid.length > 25) {
     throw new Error(
@@ -170,6 +171,8 @@ export function submitPayuForm(payuUrl: string, fields: Record<string, string>) 
     throw new Error('PayU checkout URL is missing');
   }
   const safe = normalizePayuFields(fields);
+  // PayU hosted checkout is INR-only; a `currency` field yields Total Payable NaN.
+  delete safe.currency;
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = payuUrl;
