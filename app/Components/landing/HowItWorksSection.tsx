@@ -38,13 +38,13 @@ export const HowItWorksSection: React.FC = () => {
   return (
     <section
       id="how-it-works"
-      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto scroll-mt-28"
+      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto scroll-mt-[calc(var(--nav-h,56px)+24px)]"
     >
       {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: 28 }}
+        initial={{ opacity: 1, y: 28 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+        viewport={{ once: true, amount: 0.15 }}
         transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         className="max-w-2xl space-y-4"
       >
@@ -67,7 +67,7 @@ export const HowItWorksSection: React.FC = () => {
             key={s.step}
             initial={{ opacity: 0, y: 35 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+            viewport={{ once: true, amount: 0.15 }}
             transition={{
               duration: 0.7,
               delay: idx * 0.15,

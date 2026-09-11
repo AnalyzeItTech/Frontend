@@ -72,12 +72,12 @@ export const PricingTeaserSection: React.FC = () => {
   return (
     <section
       id="pricing"
-      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto scroll-mt-28"
+      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto scroll-mt-[calc(var(--nav-h,56px)+24px)]"
     >
       <motion.div
-        initial={{ opacity: 0, y: 28 }}
+        initial={{ opacity: 1, y: 28 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+        viewport={{ once: true, amount: 0.15 }}
         transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
         className="text-center max-w-2xl mx-auto space-y-4"
       >
@@ -101,7 +101,7 @@ export const PricingTeaserSection: React.FC = () => {
             key={tier.name}
             initial={{ opacity: 0, y: 28 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-10% 0px -10% 0px' }}
+            viewport={{ once: true, amount: 0.15 }}
             transition={{ duration: 0.65, delay: idx * 0.08, ease: [0.16, 1, 0.3, 1] }}
             className={`relative flex flex-col rounded-3xl border p-7 ${
               tier.popular

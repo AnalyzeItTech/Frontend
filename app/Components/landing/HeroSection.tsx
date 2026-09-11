@@ -8,7 +8,7 @@ export const HeroSection: React.FC = () => {
   return (
     <section
       id="hero"
-      className="relative min-h-[88vh] flex flex-col justify-between pt-36 sm:pt-40 pb-20 px-6 md:px-16 max-w-7xl mx-auto pointer-events-none scroll-mt-28"
+      className="relative min-h-[88vh] flex flex-col justify-between pt-36 sm:pt-40 pb-20 px-6 md:px-16 max-w-7xl mx-auto pointer-events-none scroll-mt-[calc(var(--nav-h,56px)+24px)]"
     >
       {/* Top Eyebrow Tag */}
       <motion.div
