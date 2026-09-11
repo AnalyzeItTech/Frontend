@@ -139,7 +139,11 @@ export default function BillingPage() {
         throw new Error('Server returned an invalid checkout amount. PayU was not opened.');
       }
       if (session.payu_fields && session.payu_url) {
-        submitPayuForm(session.payu_url, session.payu_fields);
+        const fields = { ...session.payu_fields };
+        if (!fields.amount && session.amount != null) {
+          fields.amount = String(session.amount);
+        }
+        submitPayuForm(session.payu_url, fields);
         return;
       }
       if (session.sandbox) {

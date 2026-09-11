@@ -162,15 +162,15 @@ export function normalizePayuFields(fields: Record<string, unknown>): Record<str
     out[name] = String(raw).trim();
   }
 
-  // Amount must be a plain number string (e.g. "50.00"), never "₹50" / "undefined".
-  const amountRaw = out.amount ?? '';
-  const amountNum = Number(String(amountRaw).replace(/[^0-9.]/g, ''));
-  if (!Number.isFinite(amountNum) || amountNum <= 0) {
+  // Amount must match the hashed PayU string exactly. Do not re-format via
+  // Number/toFixed (4775.69 can become 4775.68 and PayU shows Total Payable NaN).
+  const amountRaw = String(out.amount ?? '').trim();
+  if (!/^[0-9]+(\.[0-9]{1,2})?$/.test(amountRaw) || Number(amountRaw) <= 0) {
     throw new Error(
       `PayU amount is invalid (${JSON.stringify(fields.amount)}). Refusing to open checkout.`,
     );
   }
-  out.amount = amountNum.toFixed(2);
+  out.amount = amountRaw;
   delete out.currency;
 
   if (!out.txnid || out.txnid.length > 25) {
@@ -199,13 +199,37 @@ export function submitPayuForm(payuUrl: string, fields: Record<string, string>) 
   form.method = 'POST';
   form.action = payuUrl;
   form.acceptCharset = 'UTF-8';
+  form.enctype = 'application/x-www-form-urlencoded';
   form.style.display = 'none';
-  Object.entries(safe).forEach(([name, value]) => {
+  const payuOrder = [
+    'key',
+    'txnid',
+    'amount',
+    'productinfo',
+    'firstname',
+    'email',
+    'phone',
+    'surl',
+    'furl',
+    'hash',
+    'service_provider',
+  ];
+  const posted = new Set<string>();
+  const append = (name: string, value: string) => {
     const input = document.createElement('input');
     input.type = 'hidden';
     input.name = name;
     input.value = value;
     form.appendChild(input);
+    posted.add(name);
+  };
+  for (const name of payuOrder) {
+    if (safe[name]) append(name, safe[name]);
+  }
+  Object.entries(safe).forEach(([name, value]) => {
+    if (posted.has(name)) return;
+    if (name === 'currency' || name.startsWith('udf')) return;
+    append(name, value);
   });
   document.body.appendChild(form);
   form.submit();
