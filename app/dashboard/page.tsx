@@ -535,7 +535,7 @@ export default function DashboardPage() {
                 onClick={() => setIsExportMenuOpen((prev) => !prev)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] hover:border-white/[0.16] hover:bg-white/[0.03] text-xs font-medium text-[#8B93A1] hover:text-[#EDEFF2] transition-all cursor-pointer"
               >
-                <IconDownload size={14} className="text-[#3D6FE0]" />
+                <IconDownload size={14} className="text-[var(--coral)]" />
                 <span className="hidden sm:inline">Export</span>
                 <IconChevronDown size={12} className={`transition-transform duration-200 ${isExportMenuOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -607,7 +607,7 @@ export default function DashboardPage() {
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
                     >
-                      <IconFileTypeDoc size={16} className="text-[#3D6FE0] shrink-0" />
+                      <IconFileTypeDoc size={16} className="text-[var(--coral)] shrink-0" />
                       <div>
                         <div className="font-medium">Narrative Brief (Word)</div>
                         <div className="text-[10px] text-[#8B93A1]">Editable document</div>
@@ -651,7 +651,7 @@ export default function DashboardPage() {
                             setTimeout(() => setExportToastMsg(null), 5000);
                           }
                         }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#5B8CF5] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[var(--coral)] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
                       >
                         <IconShare size={16} className="shrink-0" />
                         <div>
@@ -699,7 +699,7 @@ export default function DashboardPage() {
                 setNewProjectName('');
                 setIsNewProjectOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium transition-colors shadow-sm cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-medium transition-colors shadow-sm cursor-pointer"
             >
               <IconPlus size={14} />
               <span>New Project</span>
@@ -880,7 +880,7 @@ export default function DashboardPage() {
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#3D6FE0]/15 text-[#5B8CF5] border border-[#3D6FE0]/30">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--coral)]/15 text-[var(--coral)] border border-[var(--coral)]/30">
                             {template.badge}
                           </span>
                           <span className="text-[10px] font-mono text-[#8B93A1]">
@@ -913,7 +913,7 @@ export default function DashboardPage() {
                         type="button"
                         onClick={() => handleUseTemplate(template)}
                         disabled={isApplyingTemplate !== null}
-                        className="w-full py-2 px-3 rounded-lg bg-[#1C2025] hover:bg-[#3D6FE0] text-[#EDEFF2] hover:text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/[0.08] disabled:opacity-50"
+                        className="w-full py-2 px-3 rounded-lg bg-[#1C2025] hover:bg-[var(--coral)] text-[#EDEFF2] hover:text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/[0.08] disabled:opacity-50"
                       >
                         {isApplying ? (
                           <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -984,7 +984,7 @@ export default function DashboardPage() {
             >
               <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#3D6FE0]/15 text-[#3D6FE0] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-[var(--coral)]/15 text-[var(--coral)] flex items-center justify-center">
                     <IconFolder size={18} />
                   </div>
                   <div>
@@ -1008,7 +1008,7 @@ export default function DashboardPage() {
                   placeholder="Filter workspaces by name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl text-xs bg-[#1C2025] border border-white/[0.08] text-[#EDEFF2] placeholder-[#8B93A1]/60 focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl text-xs bg-[#1C2025] border border-white/[0.08] text-[#EDEFF2] placeholder-[#8B93A1]/60 focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                 />
               </div>
 
@@ -1022,7 +1022,7 @@ export default function DashboardPage() {
                       <div
                         key={proj.id}
                         className={`py-3 px-3.5 flex items-center justify-between rounded-xl transition-colors cursor-pointer ${
-                          isActive ? 'bg-[#1C2025] border border-[#3D6FE0]/30' : 'hover:bg-white/[0.03]'
+                          isActive ? 'bg-[#1C2025] border border-[var(--coral)]/30' : 'hover:bg-white/[0.03]'
                         }`}
                         role="button"
                         tabIndex={0}
@@ -1071,7 +1071,7 @@ export default function DashboardPage() {
                           <button
                             onClick={() => void handleDuplicateProject(proj)}
                             disabled={isDuplicatingProject !== null}
-                            className="p-1.5 text-[#8B93A1] hover:text-[#5B8CF5] transition-colors disabled:opacity-40"
+                            className="p-1.5 text-[#8B93A1] hover:text-[var(--coral)] transition-colors disabled:opacity-40"
                             title="Duplicate"
                           >
                             {isDuplicatingProject === proj.id ? <IconRefresh size={14} className="animate-spin" /> : <IconCopy size={14} />}
@@ -1091,7 +1091,7 @@ export default function DashboardPage() {
                           setNewProjectName('');
                           setIsNewProjectOpen(true);
                         }}
-                        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#3D6FE0] px-3 py-1.5 text-xs font-medium text-white"
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[var(--coral)] px-3 py-1.5 text-xs font-medium text-white"
                       >
                         <IconPlus size={14} /> Create workspace
                       </button>
@@ -1108,7 +1108,7 @@ export default function DashboardPage() {
                     setNewProjectName('');
                     setIsNewProjectOpen(true);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-medium cursor-pointer"
                 >
                   <IconPlus size={14} />
                   <span>New Workspace</span>
@@ -1137,7 +1137,7 @@ export default function DashboardPage() {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#3D6FE0]/15 text-[#3D6FE0] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-[var(--coral)]/15 text-[var(--coral)] flex items-center justify-center">
                     <IconFolderPlus size={18} />
                   </div>
                   <h3 className="text-base font-medium text-[#EDEFF2]">Create New Project</h3>
@@ -1161,7 +1161,7 @@ export default function DashboardPage() {
                     placeholder="e.g. Q4 Revenue & Retention Audit"
                     autoFocus
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] placeholder-[#8B93A1]/60 focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                    className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] placeholder-[#8B93A1]/60 focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                   />
                   <p className="text-[11px] text-[#8B93A1]">
                     Saved securely in MongoDB with continuous telemetry and layout state.
@@ -1179,7 +1179,7 @@ export default function DashboardPage() {
                   <button
                     type="submit"
                     disabled={isCreatingProject || !newProjectName.trim()}
-                    className="px-4 py-2 rounded-xl bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-medium shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {isCreatingProject ? 'Creating…' : 'Create Workspace'}
                   </button>
@@ -1218,7 +1218,7 @@ export default function DashboardPage() {
                   onChange={(e) => setRenameName(e.target.value)}
                   autoFocus
                   required
-                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                 />
                 <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/[0.08]">
                   <button
@@ -1231,7 +1231,7 @@ export default function DashboardPage() {
                   <button
                     type="submit"
                     disabled={isRenamingProject || !renameName.trim()}
-                    className="px-4 py-2 rounded-xl bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium disabled:opacity-50"
+                    className="px-4 py-2 rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-medium disabled:opacity-50"
                   >
                     {isRenamingProject ? 'Saving…' : 'Save Name'}
                   </button>
@@ -1290,7 +1290,7 @@ export default function DashboardPage() {
             >
               <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#3D6FE0]/15 text-[#3D6FE0] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-[var(--coral)]/15 text-[var(--coral)] flex items-center justify-center">
                     <IconUser size={18} />
                   </div>
                   <div>
@@ -1326,7 +1326,7 @@ export default function DashboardPage() {
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                    className="flex-1 px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                   />
                   <button
                     type="submit"
@@ -1346,27 +1346,27 @@ export default function DashboardPage() {
                   placeholder="Current password"
                   value={currentPass}
                   onChange={(e) => setCurrentPass(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                 />
                 <input
                   type="password"
                   placeholder="New password (min 8 chars)"
                   value={newPass}
                   onChange={(e) => setNewPass(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                 />
                 <input
                   type="password"
                   placeholder="Confirm new password"
                   value={confirmPass}
                   onChange={(e) => setConfirmPass(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[#3D6FE0]"
+                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                 />
                 <div className="flex items-center justify-between pt-1">
                   <button
                     type="submit"
                     disabled={isChangingPass || !currentPass || !newPass}
-                    className="px-3.5 py-2 rounded-xl bg-[#3D6FE0] hover:bg-[#4D7FF0] text-white text-xs font-medium disabled:opacity-50"
+                    className="px-3.5 py-2 rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-medium disabled:opacity-50"
                   >
                     Update Password
                   </button>
