@@ -17,6 +17,8 @@ const LINKS: Array<{ id: AppNavId; href: string; label: string }> = [
   { id: 'chat', href: '/research', label: 'Chat' },
   { id: 'globe', href: '/globe', label: 'Globe' },
   { id: 'dashboard', href: '/dashboard', label: 'Dashboard' },
+  { id: 'connectors', href: '/connectors', label: 'Connectors' },
+  { id: 'objects', href: '/objects', label: 'Objects' },
   { id: 'profile', href: '/profile', label: 'Profile' },
 ];
 
