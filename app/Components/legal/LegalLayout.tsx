@@ -2,16 +2,19 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { Footer } from '../landing/Footer';
+import { OperatorBlock } from './OperatorBlock';
 
 export const LEGAL_NAV = [
-  { href: '/privacy', label: 'Privacy' },
   { href: '/terms', label: 'Terms' },
-  { href: '/cookies', label: 'Cookies' },
+  { href: '/privacy', label: 'Privacy' },
+  { href: '/refund', label: 'Refund' },
+  { href: '/shipping', label: 'Shipping' },
+  { href: '/products', label: 'Products' },
+  { href: '/contact', label: 'Contact' },
   { href: '/security', label: 'Security' },
+  { href: '/cookies', label: 'Cookies' },
   { href: '/acceptable-use', label: 'Acceptable use' },
   { href: '/dpa', label: 'DPA' },
-  { href: '/refunds', label: 'Refunds' },
-  { href: '/contact', label: 'Contact' },
 ] as const;
 
 export function LegalLayout({
@@ -70,6 +73,7 @@ export function LegalLayout({
 
         <article className="legal-prose space-y-8 text-sm sm:text-[15px] leading-relaxed text-[#4A4238]/80 dark:text-[#C5B9AE]">
           {children}
+          <OperatorBlock />
         </article>
 
         <nav className="mt-16 pt-8 border-t border-[#4A4238]/10 dark:border-[#3A3430] flex flex-wrap gap-x-5 gap-y-2 text-xs font-mono uppercase tracking-wider text-[#4A4238]/50 dark:text-[#91867E]">

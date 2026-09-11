@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { LEGAL_NAME, REGISTERED_ADDRESS } from '../../lib/legalEntity';
 
 export const Footer: React.FC = () => {
   return (
@@ -59,20 +60,26 @@ export const Footer: React.FC = () => {
           <ul className="space-y-2 text-[#4A4238]/80 dark:text-[#C5B9AE]">
             <li><Link href="/#faq" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">FAQ</Link></li>
             <li><Link href="/security" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Security</Link></li>
-            <li><Link href="/privacy" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Privacy Policy</Link></li>
-            <li><Link href="/terms" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Terms of Service</Link></li>
-            <li><Link href="/cookies" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Cookie Policy</Link></li>
+            <li><Link href="/terms" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Terms</Link></li>
+            <li><Link href="/privacy" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Privacy</Link></li>
+            <li><Link href="/refund" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Refund</Link></li>
+            <li><Link href="/shipping" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Shipping</Link></li>
+            <li><Link href="/products" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Products</Link></li>
+            <li><Link href="/contact" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Contact</Link></li>
+            <li><Link href="/cookies" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Cookies</Link></li>
           </ul>
         </div>
       </div>
 
       {/* Bottom Bar */}
       <div className="pt-8 border-t border-[#4A4238]/8 dark:border-[#3A3430] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#4A4238]/60 dark:text-[#91867E] font-mono">
-        <div>© 2026 AnalyzeIt Inc. All rights reserved.</div>
+        <div className="max-w-xl leading-relaxed">
+          © {new Date().getFullYear()} AnalyzeIt. Operated by {LEGAL_NAME}, {REGISTERED_ADDRESS}.
+        </div>
         <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+          <Link href="/security" className="hover:text-[#E3836C] transition-colors">Security</Link>
           <Link href="/acceptable-use" className="hover:text-[#E3836C] transition-colors">Acceptable use</Link>
           <Link href="/dpa" className="hover:text-[#E3836C] transition-colors">DPA</Link>
-          <Link href="/refunds" className="hover:text-[#E3836C] transition-colors">Refunds</Link>
         </div>
       </div>
     </footer>

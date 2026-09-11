@@ -19,9 +19,9 @@ interface PricingTier {
 const TIERS: PricingTier[] = [
   {
     name: 'Free',
-    price: '$0',
+    price: '₹0',
     period: '/mo',
-    currencyNote: 'USD reference · billed as $0',
+    currencyNote: 'INR · billed as ₹0',
     tagline: 'Personal research after you create an account.',
     features: [
       'Requires an AnalyzeIt account',
@@ -35,9 +35,9 @@ const TIERS: PricingTier[] = [
   },
   {
     name: 'Premium',
-    price: '$50',
+    price: '₹4,775.69',
     period: '/mo',
-    currencyNote: 'USD shown for reference · charged in INR via PayU',
+    currencyNote: 'INR via PayU · $50 USD reference',
     tagline: 'Better model and 3× token budget for deeper analysis.',
     popular: true,
     features: [
@@ -52,9 +52,9 @@ const TIERS: PricingTier[] = [
   },
   {
     name: 'Premium Plus',
-    price: '$100',
+    price: '₹9,551.38',
     period: '/mo',
-    currencyNote: 'USD shown for reference · charged in INR via PayU',
+    currencyNote: 'INR via PayU · $100 USD reference',
     tagline: '6× tokens, longer retention, more concurrent projects.',
     features: [
       'Everything in Premium',
