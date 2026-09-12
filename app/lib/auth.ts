@@ -144,6 +144,24 @@ export async function register(name: string, email: string, password: string): P
 }
 
 
+export async function loginWithGoogle(credential: string): Promise<AuthResult> {
+  const res = await fetchWithTimeout(`${API_V1}/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: 'Google sign-in failed' }));
+    throw new Error(typeof errorData.detail === 'string' ? errorData.detail : 'Google sign-in failed');
+  }
+
+  const data: AuthResult = await res.json();
+  setAuthSession(data.token, data.user);
+  return data;
+}
+
+
 export async function confirmAuthSession(): Promise<UserProfile> {
   const token = getStoredToken();
   if (!token) {

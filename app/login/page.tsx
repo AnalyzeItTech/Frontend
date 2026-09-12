@@ -17,6 +17,7 @@ import {
   IconAlertCircle,
 } from '@tabler/icons-react';
 import { confirmAuthSession, getStoredToken, login, register, safeNextPath } from '../lib/auth';
+import { GoogleSignInButton } from '../Components/auth/GoogleSignInButton';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Tab = 'login' | 'register';
@@ -122,13 +123,11 @@ const PasswordStrength: React.FC<{ password: string }> = ({ password }) => {
   );
 };
 
-// ─── OAuth Button ─────────────────────────────────────────────────────────────
-const OAuthSoon: React.FC = () => (
-  <p className="text-center text-sm text-[#5C534A] dark:text-[#C5B9AE] leading-relaxed">
-    Email and password only for now. Google and GitHub sign-in will appear here when they are ready —
-    they are not available yet.
-  </p>
-);
+// ─── OAuth (Google Identity Services) ─────────────────────────────────────────
+const GoogleAuthSection: React.FC<{ onSuccess: () => void; context: 'signin' | 'signup' }> = ({
+  onSuccess,
+  context,
+}) => <GoogleSignInButton onSuccess={onSuccess} context={context} enableOneTap={context === 'signin'} />;
 
 // ─── Login Form ───────────────────────────────────────────────────────────────
 const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
@@ -234,7 +233,7 @@ const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
         )}
       </button>
 
-      <OAuthSoon />
+      <GoogleAuthSection onSuccess={onSuccess} context="signin" />
     </form>
   );
 };
@@ -414,7 +413,7 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
         </p>
       ) : null}
 
-      <OAuthSoon />
+      <GoogleAuthSection onSuccess={onSuccess} context="signup" />
     </form>
   );
 };

@@ -1,6 +1,18 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        // GIS + One Tap: allow referrer on http localhost; COOP for popup/FedCM fallbacks
+        source: "/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer-when-downgrade" },
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       // Do NOT redirect /Dashboard ↔ /dashboard.
