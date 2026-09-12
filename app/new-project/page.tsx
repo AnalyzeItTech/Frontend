@@ -52,6 +52,12 @@ import {
   type ChartAnnotation,
 } from '../lib/chatApi';
 import { getStoredUser, type UserProfile } from '../lib/auth';
+import {
+  uploadDataset,
+  describeDataset,
+  DATASET_ACCEPT_ATTR,
+  type Dataset,
+} from '../lib/datasetsApi';
 import { RequireAuth } from '../Components/app/RequireAuth';
 import { DashboardCanvas, type LayoutSnapshot } from '../Components/dashboard/DashboardCanvas';
 
@@ -90,6 +96,9 @@ function NewProjectContent() {
   const [inputMessage, setInputMessage] = useState('');
   const [isThinking, setIsThinking] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [uploadingFile, setUploadingFile] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | undefined>(urlProjectId);
   const [activeTools, setActiveTools] = useState<string[]>([]);
@@ -995,9 +1004,64 @@ function NewProjectContent() {
   };
 
   const handleFileUpload = () => {
-    window.alert(
-      'File upload is not wired yet. Attach is a planned feature — no file was uploaded or parsed.'
-    );
+    if (!projectId) {
+      window.alert('Create or open a project before importing data.');
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFilesSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!files.length || !projectId) return;
+
+    setUploadingFile(files[0].name);
+    try {
+      for (const file of files) {
+        setUploadingFile(file.name);
+        const dataset = await uploadDataset(projectId, file);
+
+        setAttachedFiles((prev) => [...prev, dataset.filename]);
+        setDatasets((prev) => [dataset, ...prev]);
+
+        const noteLines = dataset.notes.length ? `\n\n${dataset.notes.join('\n')}` : '';
+        const columnSummary = dataset.columns
+          .slice(0, 12)
+          .map((c) => `${c.label} (${c.type})`)
+          .join(', ');
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `upload-${dataset.id}`,
+            sender: 'assistant',
+            timestamp: new Date().toISOString(),
+            content:
+              `Imported **${dataset.filename}** as \`${dataset.object_api_name}\` — ` +
+              `${describeDataset(dataset)}.\n\nColumns: ${columnSummary}` +
+              `${dataset.columns.length > 12 ? `, +${dataset.columns.length - 12} more` : ''}` +
+              noteLines +
+              `\n\nAsk me to build a dashboard from it.`,
+            streaming: false,
+          },
+        ]);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Import failed.';
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `upload-error-${Date.now()}`,
+          sender: 'assistant',
+          timestamp: new Date().toISOString(),
+          content: `⚠️ ${message}`,
+          streaming: false,
+        },
+      ]);
+    } finally {
+      setUploadingFile(null);
+    }
   };
 
   const handleBackToDashboard = (e: React.MouseEvent) => {
@@ -1527,6 +1591,13 @@ function NewProjectContent() {
 
           {/* ─── Bottom Chat Input Bar ────────────────────────────────────── */}
           <div className="p-4 border-t border-[#4A4238]/10 dark:border-[#3A3430] space-y-2 bg-[#F3EDE4]/50 dark:bg-[#171514]/80 backdrop-blur-md">
+            {uploadingFile && (
+              <div className="mb-2 flex items-center gap-2 text-xs font-mono text-[#4A4238]/70 dark:text-[#91867E]">
+                <IconRefresh size={13} className="animate-spin text-[#E3836C]" />
+                <span>Importing {uploadingFile}…</span>
+              </div>
+            )}
+
             {attachedFiles.length > 0 && (
               <div className="flex flex-wrap gap-2 px-1">
                 {attachedFiles.map((file, i) => (
@@ -1548,13 +1619,28 @@ function NewProjectContent() {
               }}
               className="p-1.5 rounded-2xl border border-[#4A4238]/15 dark:border-[#3A3430] bg-white/70 dark:bg-[#292522] shadow-md flex items-center gap-2 transition-all focus-within:border-[#E3836C] focus-within:ring-2 focus-within:ring-[#E3836C]/20"
             >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={DATASET_ACCEPT_ATTR}
+                onChange={handleFilesSelected}
+                className="hidden"
+                aria-hidden="true"
+                tabIndex={-1}
+              />
               <button
                 type="button"
                 onClick={handleFileUpload}
-                className="p-2 rounded-xl text-[#4A4238]/50 dark:text-[#91867E] hover:text-[#E3836C] hover:bg-black/5 dark:hover:bg-[#302B28] transition-colors cursor-pointer"
-                title="Attach CSV or data file"
+                disabled={Boolean(uploadingFile)}
+                className="p-2 rounded-xl text-[#4A4238]/50 dark:text-[#91867E] hover:text-[#E3836C] hover:bg-black/5 dark:hover:bg-[#302B28] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-wait"
+                title="Import data (CSV, TSV, JSON, XLSX, PDF tables, Tableau schema)"
               >
-                <IconUpload size={16} />
+                {uploadingFile ? (
+                  <IconRefresh size={16} className="animate-spin" />
+                ) : (
+                  <IconUpload size={16} />
+                )}
               </button>
 
               <input
