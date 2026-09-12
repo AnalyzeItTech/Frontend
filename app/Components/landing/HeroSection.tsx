@@ -38,6 +38,9 @@ export const HeroSection: React.FC = () => {
             transition={{ duration: 0.85, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight text-[#322C28] dark:text-[#F4EDE5] font-normal leading-[1.08]"
           >
+            <span className="block font-sans text-sm sm:text-base tracking-[0.28em] uppercase font-medium text-[#C45A42] dark:text-[#EBA58F] mb-4">
+              AnalyzeIt
+            </span>
             See what your data <br className="hidden sm:inline" />
             <em className="font-serif italic text-[#C45A42] dark:text-[#EBA58F]">already knows.</em>
           </motion.h1>
@@ -49,7 +52,7 @@ export const HeroSection: React.FC = () => {
             transition={{ duration: 0.8, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="text-base md:text-lg text-[#3F3830] dark:text-[#E6DCD2] font-normal max-w-xl leading-relaxed"
           >
-            A quiet analytics workspace that monitors your metrics in real-time 3D, writes clear narrative summaries, and lets anyone ask questions in plain words.
+            AnalyzeIt is a quiet analytics workspace that monitors your metrics in real-time 3D, writes clear narrative summaries, and lets anyone ask questions in plain words.
           </motion.p>
 
           {/* Action CTAs */}
