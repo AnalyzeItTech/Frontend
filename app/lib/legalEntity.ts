@@ -3,12 +3,12 @@
  * Fill LEGAL_NAME / REGISTERED_ADDRESS / JURISDICTION / optional GSTIN+PHONE
  * from Devansh — do not invent a company name.
  */
-export const LEGAL_NAME = '{{LEGAL_NAME}}';
+export const LEGAL_NAME = 'Devansh Yadav';
 export const BRAND_NAME = 'AnalyzeIt';
-export const REGISTERED_ADDRESS = '{{REGISTERED_ADDRESS}}';
-export const JURISDICTION = '{{JURISDICTION}}';
+export const REGISTERED_ADDRESS = 'Sambhal, Uttar Pradesh';
+export const JURISDICTION = 'Courts at Sambhal, Uttar Pradesh';
 export const GSTIN: string | null = null;
-export const PHONE: string | null = null;
+export const PHONE: string | null = '+91 8433475698';
 
 export const EMAIL = {
   support: 'hello@analyzeit.ai',
