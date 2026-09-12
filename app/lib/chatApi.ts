@@ -38,7 +38,14 @@ export type WidgetType =
   | 'node_graph'
   | 'annotated_chart'
   | 'alert_banner'
-  | 'composite_group';
+  | 'composite_group'
+  | 'donut_chart'
+  | 'radar_chart'
+  | 'choropleth_map'
+  | 'transaction_list'
+  | 'bubble_grid'
+  | 'multi_series_chart'
+  | 'kpi_sparkline';
 
 export interface AnomalyRule {
   metric_path: string;
@@ -48,7 +55,14 @@ export interface AnomalyRule {
 }
 
 export interface DataSourceBinding {
-  query_type: 'stock_quote' | 'weather_forecast' | 'timeseries_history' | 'telemetry_metric' | 'custom_api';
+  query_type:
+    | 'stock_quote'
+    | 'weather_forecast'
+    | 'timeseries_history'
+    | 'telemetry_metric'
+    | 'custom_api'
+    | 'sql_query'
+    | 'object_records';
   params: Record<string, unknown>;
   refresh_interval_sec?: number;
   last_refreshed_at?: string;
@@ -241,6 +255,62 @@ export interface CompositeGroupWidgetSpec extends BaseWidgetSpec {
   widgets?: WidgetSpec[];
 }
 
+export interface DonutChartWidgetSpec extends BaseWidgetSpec {
+  type?: 'donut_chart';
+  component?: 'donut_chart';
+  slices?: Array<{ label: string; value: number; color?: string }>;
+  centerLabel?: string;
+  unit?: string;
+}
+
+export interface RadarChartWidgetSpec extends BaseWidgetSpec {
+  type?: 'radar_chart';
+  component?: 'radar_chart';
+  axes?: string[];
+  series?: Array<{ name: string; values: number[]; color?: string }>;
+  max?: number;
+}
+
+export interface ChoroplethMapWidgetSpec extends BaseWidgetSpec {
+  type?: 'choropleth_map';
+  component?: 'choropleth_map';
+  regions?: Array<{ id: string; label: string; value: number }>;
+  colorScale?: 'warm' | 'cool' | 'emerald';
+}
+
+export interface TransactionListWidgetSpec extends BaseWidgetSpec {
+  type?: 'transaction_list';
+  component?: 'transaction_list';
+  rows?: Array<Record<string, string | number>>;
+  limit?: number;
+}
+
+export interface BubbleGridWidgetSpec extends BaseWidgetSpec {
+  type?: 'bubble_grid';
+  component?: 'bubble_grid';
+  points?: Array<{ x: number; y: number; r: number; label?: string; group?: string }>;
+  xLabel?: string;
+  yLabel?: string;
+}
+
+export interface MultiSeriesChartWidgetSpec extends BaseWidgetSpec {
+  type?: 'multi_series_chart';
+  component?: 'multi_series_chart';
+  series?: Array<{ name: string; data: Array<{ x: string; y: number }>; color?: string }>;
+  unit?: string;
+  timeframe?: string;
+}
+
+export interface KpiSparklineWidgetSpec extends BaseWidgetSpec {
+  type?: 'kpi_sparkline';
+  component?: 'kpi_sparkline';
+  value?: string | number;
+  change?: string;
+  positive?: boolean;
+  sparkline?: number[];
+  unit?: string;
+}
+
 export interface SandboxedFrameWidgetSpec extends BaseWidgetSpec {
   type?: 'sandboxed';
   component?: 'sandboxed';
@@ -266,6 +336,13 @@ export type WidgetSpec =
   | AnnotatedChartWidgetSpec
   | AlertBannerWidgetSpec
   | CompositeGroupWidgetSpec
+  | DonutChartWidgetSpec
+  | RadarChartWidgetSpec
+  | ChoroplethMapWidgetSpec
+  | TransactionListWidgetSpec
+  | BubbleGridWidgetSpec
+  | MultiSeriesChartWidgetSpec
+  | KpiSparklineWidgetSpec
   | SandboxedFrameWidgetSpec;
 
 export type ProposalStatus = 'pending' | 'applying' | 'applied' | 'rejected' | 'error';
@@ -285,16 +362,46 @@ export interface ManagedProposal {
 }
 
 /**
- * Centralized data resolver for widgets.
- * Extracts data from props or top-level spec, and acts as the future hook for dynamic dataset slicing.
+ * Resolve widget rows: prefer embedded data; if a live binding exists and projectId
+ * is provided, refresh via Backend so object_records / sql_query stay current.
  */
 export async function resolveWidgetData(
   widget: WidgetSpec,
-  _projectId?: string
+  projectId?: string
 ): Promise<Array<Record<string, unknown>>> {
   const candidate = widget.props?.data || widget.data;
-  if (Array.isArray(candidate)) {
+  if (Array.isArray(candidate) && candidate.length > 0) {
     return candidate as Array<Record<string, unknown>>;
+  }
+
+  const binding = widget.binding || (widget.props as any)?.binding;
+  const queryType = binding?.query_type;
+  if (
+    projectId &&
+    binding &&
+    (queryType === 'sql_query' || queryType === 'object_records' || queryType === 'custom_api')
+  ) {
+    try {
+      const res = await refreshWidgetData(projectId, widget.id);
+      const updated = res.updated_widget;
+      const refreshed =
+        updated?.props?.data || updated?.data || (updated?.props as any)?.rows;
+      if (Array.isArray(refreshed)) {
+        if (refreshed.length && Array.isArray(refreshed[0])) {
+          const cols = (updated?.props as any)?.columns || [];
+          return (refreshed as unknown[][]).map((row) => {
+            const obj: Record<string, unknown> = {};
+            cols.forEach((c: string, i: number) => {
+              obj[c] = row[i];
+            });
+            return obj;
+          });
+        }
+        return refreshed as Array<Record<string, unknown>>;
+      }
+    } catch {
+      // Fall through to empty — never invent rows
+    }
   }
   return [];
 }

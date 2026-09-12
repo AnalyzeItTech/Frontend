@@ -343,6 +343,36 @@ export async function authorizeConnector(
   return res.json();
 }
 
+export async function connectSqlConnector(
+  projectId: string,
+  provider: 'postgres' | 'sqlite',
+  connection: Record<string, unknown>,
+  name?: string
+): Promise<Connector> {
+  const res = await fetch(`${API_V1}/connectors/${provider}/connect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({ project_id: projectId, connection, name }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(typeof err.detail === 'string' ? err.detail : 'Failed to connect SQL database');
+  }
+  return res.json();
+}
+
+export async function testSqlConnector(connectorId: string): Promise<{ ok: boolean; sample?: any }> {
+  const res = await fetch(`${API_V1}/connectors/${connectorId}/test`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || 'Connection test failed');
+  }
+  return res.json();
+}
+
 export async function syncConnector(connectorId: string): Promise<any> {
   const res = await fetch(`${API_V1}/connectors/${connectorId}/sync`, {
     method: 'POST',

@@ -27,6 +27,15 @@ import {
 } from '@tabler/icons-react';
 import { useTheme } from '../ui/ThemeProvider';
 import { resolveWidgetData, type WidgetSpec, type ProvenanceInfo, type ChartAnnotation } from '../../lib/chatApi';
+import {
+  BubbleGridWidget,
+  ChoroplethMapWidget,
+  DonutChartWidget,
+  KpiSparklineWidget,
+  MultiSeriesChartWidget,
+  RadarChartWidget,
+  TransactionListWidget,
+} from './NewWidgets';
 
 
 // ── Empty / missing data (never invent fake series) ───────────────────────────
@@ -1916,6 +1925,13 @@ export const NATIVE_WIDGET_REGISTRY: Record<
   annotated_chart: AnnotatedChartWidget,
   alert_banner: AlertBannerWidget,
   composite_group: CompositeGroupWidget,
+  donut_chart: DonutChartWidget,
+  radar_chart: RadarChartWidget,
+  choropleth_map: ChoroplethMapWidget,
+  transaction_list: TransactionListWidget,
+  bubble_grid: BubbleGridWidget,
+  multi_series_chart: MultiSeriesChartWidget,
+  kpi_sparkline: KpiSparklineWidget,
 };
 
 // ── 5. Sandboxed HTML Harness Generator ─────────────────────────────────────

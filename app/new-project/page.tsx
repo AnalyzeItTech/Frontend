@@ -582,26 +582,38 @@ function NewProjectContent() {
   const handleWidgetAction = useCallback(
     async (widgetId: string, action: string, payload?: unknown) => {
       if (action === 'delete' || action === 'remove_widget') {
-        setCurrentLayout((prev) => {
-          const target = prev.widgets.find((w) => w.id === widgetId);
-          setLayoutHistory((hist) => [
-            ...hist.slice(-20),
-            {
-              id: `snap_${Date.now()}`,
-              version: layoutVersion,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              actionSummary: `Removed "${target?.title || 'Widget'}"`,
-              widgets: prev.widgets,
-            },
-          ]);
-          if (target) {
-            showToast(`Removed "${target.title || 'Widget'}" from canvas`, target.title);
+        const prevWidgets = currentLayout.widgets;
+        const target = prevWidgets.find((w) => w.id === widgetId);
+        const nextWidgets = prevWidgets.filter((w) => w.id !== widgetId);
+        setLayoutHistory((hist) => [
+          ...hist.slice(-20),
+          {
+            id: `snap_${Date.now()}`,
+            version: layoutVersion,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            actionSummary: `Removed "${target?.title || 'Widget'}"`,
+            widgets: prevWidgets,
+          },
+        ]);
+        setCurrentLayout((prev) => ({ ...prev, widgets: nextWidgets }));
+        if (target) {
+          showToast(`Removed "${target.title || 'Widget'}" from canvas`, target.title);
+        }
+        const targetProjectId = projectId || 'default';
+        if (projectId && !isIncognito) {
+          try {
+            const res = await updateProjectLayout(
+              targetProjectId,
+              layoutVersion,
+              { widgets: nextWidgets },
+              'user'
+            );
+            if (res?.version) setLayoutVersion(res.version);
+          } catch (err) {
+            console.warn('Failed to persist widget delete:', err);
+            showToast('Removed locally — sync failed; refresh may restore the widget');
           }
-          return {
-            ...prev,
-            widgets: prev.widgets.filter((w) => w.id !== widgetId),
-          };
-        });
+        }
       } else if (action === 'refresh') {
         const targetProjectId = projectId || 'default';
         try {
@@ -611,6 +623,7 @@ function NewProjectContent() {
               ...prev,
               widgets: prev.widgets.map((w) => (w.id === widgetId ? res.updated_widget! : w)),
             }));
+            if (res.layout_version) setLayoutVersion(res.layout_version);
             const widgetTitle = res.updated_widget.title || 'Widget';
             showToast(`Refreshed live data for "${widgetTitle}"`, widgetTitle);
           }
@@ -654,14 +667,18 @@ function NewProjectContent() {
             return w;
           });
           if (projectId) {
-            updateProjectLayout(projectId, layoutVersion, { widgets: updated }, 'user').catch(console.warn);
+            updateProjectLayout(projectId, layoutVersion, { widgets: updated }, 'user')
+              .then((res) => {
+                if (res?.version) setLayoutVersion(res.version);
+              })
+              .catch(console.warn);
           }
           return { ...prev, widgets: updated };
         });
         showToast('Saved chart annotation');
       }
     },
-    [layoutVersion, showToast, projectId]
+    [layoutVersion, showToast, projectId, currentLayout.widgets, isIncognito]
   );
 
   const handleMoveWidget = useCallback(
@@ -688,10 +705,17 @@ function NewProjectContent() {
         ]);
         const [moved] = newWidgets.splice(fromIndex, 1);
         newWidgets.splice(toIndex, 0, moved);
+        if (projectId && !isIncognito) {
+          updateProjectLayout(projectId, layoutVersion, { widgets: newWidgets }, 'user')
+            .then((res) => {
+              if (res?.version) setLayoutVersion(res.version);
+            })
+            .catch((err) => console.warn('Failed to persist reorder:', err));
+        }
         return { ...prev, widgets: newWidgets };
       });
     },
-    [layoutVersion]
+    [layoutVersion, projectId, isIncognito]
   );
 
   const handleToggleWidgetWidth = useCallback(
@@ -713,10 +737,17 @@ function NewProjectContent() {
           const nextSpan = (currentSpan === 2 ? 1 : 2) as 1 | 2;
           return { ...w, span: nextSpan };
         });
+        if (projectId && !isIncognito) {
+          updateProjectLayout(projectId, layoutVersion, { widgets: newWidgets }, 'user')
+            .then((res) => {
+              if (res?.version) setLayoutVersion(res.version);
+            })
+            .catch((err) => console.warn('Failed to persist span change:', err));
+        }
         return { ...prev, widgets: newWidgets };
       });
     },
-    [layoutVersion]
+    [layoutVersion, projectId, isIncognito]
   );
 
   const handleUpdateProposalSpec = useCallback(

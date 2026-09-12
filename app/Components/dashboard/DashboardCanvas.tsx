@@ -807,7 +807,14 @@ export function DashboardCanvas({
               widget.type === 'table' ||
               widget.type === 'annotated_chart' ||
               widget.type === 'alert_banner' ||
-              widget.type === 'composite_group';
+              widget.type === 'composite_group' ||
+              widget.type === 'multi_series_chart' ||
+              widget.type === 'transaction_list' ||
+              widget.type === 'choropleth_map' ||
+              widget.component === 'line_chart' ||
+              widget.component === 'multi_series_chart' ||
+              widget.component === 'transaction_list' ||
+              widget.component === 'choropleth_map';
             return (
               <div
                 key={widget.id}
