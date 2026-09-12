@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   IconPlugConnected,
   IconBrandStripe,
+  IconBrandGithub,
   IconCloud,
   IconRefresh,
   IconCheck,
@@ -147,6 +148,12 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       desc: 'OAuth preview. Tokens vault-encrypted. Live Salesforce pulls are not implemented yet.',
       authMode: 'oauth',
     },
+    github: {
+      name: 'GitHub Repositories',
+      icon: <IconBrandGithub className="w-6 h-6 text-neutral-800 dark:text-neutral-100" />,
+      desc: 'OAuth connect. Sync your repos into AnalyzeIt objects (read-only live pull).',
+      authMode: 'oauth',
+    },
     postgres: {
       name: 'PostgreSQL',
       icon: <IconDatabase className="w-6 h-6 text-emerald-500" />,
@@ -164,7 +171,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
   const providerIds =
     available.length > 0
       ? available.map((a) => a.id as string)
-      : ['stripe', 'salesforce', 'postgres', 'sqlite'];
+      : ['stripe', 'salesforce', 'github', 'postgres', 'sqlite'];
 
   const allProviders = providerIds.map((id) => ({
     id,

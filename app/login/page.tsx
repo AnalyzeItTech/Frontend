@@ -18,6 +18,7 @@ import {
 } from '@tabler/icons-react';
 import { confirmAuthSession, getStoredToken, login, register, safeNextPath } from '../lib/auth';
 import { GoogleSignInButton } from '../Components/auth/GoogleSignInButton';
+import { GitHubSignInButton } from '../Components/auth/GitHubSignInButton';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Tab = 'login' | 'register';
@@ -123,14 +124,19 @@ const PasswordStrength: React.FC<{ password: string }> = ({ password }) => {
   );
 };
 
-// ─── OAuth (Google Identity Services) ─────────────────────────────────────────
-const GoogleAuthSection: React.FC<{ onSuccess: () => void; context: 'signin' | 'signup' }> = ({
-  onSuccess,
-  context,
-}) => <GoogleSignInButton onSuccess={onSuccess} context={context} enableOneTap={context === 'signin'} />;
+// ─── OAuth (Google + GitHub) ──────────────────────────────────────────────────
+const SocialAuthSection: React.FC<{
+  onSuccess: (meta?: { is_new?: boolean }) => void;
+  context: 'signin' | 'signup';
+}> = ({ onSuccess, context }) => (
+  <div className="flex flex-col gap-2.5 w-full">
+    <GoogleSignInButton onSuccess={onSuccess} context={context} enableOneTap={context === 'signin'} />
+    <GitHubSignInButton context={context} />
+  </div>
+);
 
 // ─── Login Form ───────────────────────────────────────────────────────────────
-const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
+const LoginForm: React.FC<{ onSuccess: (meta?: { is_new?: boolean }) => void }> = ({ onSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -233,13 +239,13 @@ const LoginForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
         )}
       </button>
 
-      <GoogleAuthSection onSuccess={onSuccess} context="signin" />
+      <SocialAuthSection onSuccess={onSuccess} context="signin" />
     </form>
   );
 };
 
 // ─── Register Form ────────────────────────────────────────────────────────────
-const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
+const RegisterForm: React.FC<{ onSuccess: (meta?: { is_new?: boolean }) => void }> = ({ onSuccess }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -279,7 +285,7 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
     try {
       await register(name.trim(), email.trim(), password);
       await confirmAuthSession();
-      onSuccess();
+      onSuccess({ is_new: true });
     } catch (err: unknown) {
       setGeneralError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -413,13 +419,13 @@ const RegisterForm: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
         </p>
       ) : null}
 
-      <GoogleAuthSection onSuccess={onSuccess} context="signup" />
+      <SocialAuthSection onSuccess={onSuccess} context="signup" />
     </form>
   );
 };
 
 // ─── Success State ────────────────────────────────────────────────────────────
-const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => {
+const SuccessState: React.FC<{ isNew: boolean }> = ({ isNew }) => {
   const router = useRouter();
   const [continueHref, setContinueHref] = useState('/research');
 
@@ -446,12 +452,12 @@ const SuccessState: React.FC<{ tab: Tab }> = ({ tab }) => {
       </div>
       <div>
         <h3 className="font-serif text-xl text-[#4A4238] dark:text-[#F4EDE5] mb-1">
-          {tab === 'login' ? 'Welcome back!' : 'Account created!'}
+          {isNew ? 'Account created!' : 'Welcome back!'}
         </h3>
         <p className="text-sm text-[#4A4238]/55 dark:text-[#C5B9AE]">
-          {tab === 'login'
-            ? "You're signed in. Redirecting to your dashboard…"
-            : 'Your account is ready. Redirecting you now…'}
+          {isNew
+            ? 'Your account is ready. Redirecting you now…'
+            : "You're signed in. Redirecting to your dashboard…"}
         </p>
       </div>
       <Link
@@ -469,6 +475,7 @@ function LoginInner() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('login');
   const [success, setSuccess] = useState(false);
+  const [isNewAccount, setIsNewAccount] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -481,7 +488,10 @@ function LoginInner() {
     setChecking(false);
   }, [router]);
 
-  const handleSuccess = () => setSuccess(true);
+  const handleSuccess = (meta?: { is_new?: boolean }) => {
+    setIsNewAccount(typeof meta?.is_new === 'boolean' ? meta.is_new : tab === 'register');
+    setSuccess(true);
+  };
 
   if (checking) {
     return (
@@ -606,7 +616,7 @@ function LoginInner() {
                 </p>
               </>
             ) : (
-              <SuccessState tab={tab} />
+              <SuccessState isNew={isNewAccount} />
             )}
           </div>
 

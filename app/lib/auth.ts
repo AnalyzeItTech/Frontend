@@ -36,6 +36,7 @@ export interface UserProfile {
 export interface AuthResult {
   token: string;
   user: UserProfile;
+  is_new?: boolean;
 }
 
 const TOKEN_KEY = 'analyzeit_token';
@@ -154,6 +155,39 @@ export async function loginWithGoogle(credential: string): Promise<AuthResult> {
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ detail: 'Google sign-in failed' }));
     throw new Error(typeof errorData.detail === 'string' ? errorData.detail : 'Google sign-in failed');
+  }
+
+  const data: AuthResult = await res.json();
+  setAuthSession(data.token, data.user);
+  return data;
+}
+
+
+export async function startGitHubAuth(nextPath = '/research'): Promise<void> {
+  const params = new URLSearchParams({ next: nextPath });
+  const res = await fetchWithTimeout(`${API_V1}/auth/github/start?${params.toString()}`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: 'GitHub sign-in is not configured' }));
+    throw new Error(typeof errorData.detail === 'string' ? errorData.detail : 'GitHub sign-in is not configured');
+  }
+  const data = (await res.json()) as { auth_url?: string };
+  if (!data.auth_url) {
+    throw new Error('GitHub did not return an authorize URL');
+  }
+  window.location.assign(data.auth_url);
+}
+
+
+export async function loginWithGitHub(code: string, state: string): Promise<AuthResult> {
+  const res = await fetchWithTimeout(`${API_V1}/auth/github`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, state }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: 'GitHub sign-in failed' }));
+    throw new Error(typeof errorData.detail === 'string' ? errorData.detail : 'GitHub sign-in failed');
   }
 
   const data: AuthResult = await res.json();

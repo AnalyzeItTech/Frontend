@@ -40,7 +40,7 @@ declare global {
 }
 
 type Props = {
-  onSuccess: () => void;
+  onSuccess: (meta?: { is_new?: boolean }) => void;
   onError?: (message: string) => void;
   /** Show One Tap / automatic sign-in prompt once GIS loads */
   enableOneTap?: boolean;
@@ -69,9 +69,9 @@ export function GoogleSignInButton({
       setBusy(true);
       setLocalError('');
       try {
-        await loginWithGoogle(response.credential);
+        const result = await loginWithGoogle(response.credential);
         await confirmAuthSession();
-        onSuccess();
+        onSuccess({ is_new: Boolean(result.is_new) });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Google sign-in failed';
         setLocalError(msg);
