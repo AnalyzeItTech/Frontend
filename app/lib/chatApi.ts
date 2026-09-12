@@ -713,7 +713,13 @@ export interface PresenceUser {
 export async function refreshWidgetData(
   projectId: string,
   widgetId: string
-): Promise<{ ok: boolean; updated_widget?: WidgetSpec; refreshed_at?: string; anomaly_proposal?: UIProposalPayload }> {
+): Promise<{
+  ok: boolean;
+  updated_widget?: WidgetSpec;
+  refreshed_at?: string;
+  layout_version?: number;
+  anomaly_proposal?: UIProposalPayload;
+}> {
   const res = await fetch(`${API_V1}/projects/${projectId}/widgets/${widgetId}/refresh`, {
     method: 'POST',
     headers: getAuthHeaders(),
