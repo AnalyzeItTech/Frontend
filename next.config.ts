@@ -44,6 +44,16 @@ const nextConfig: NextConfig = {
         destination: '/products',
         permanent: false,
       },
+      {
+        source: '/home',
+        destination: '/research',
+        permanent: false,
+      },
+      {
+        source: '/home/:path*',
+        destination: '/research',
+        permanent: false,
+      },
     ];
   },
 };

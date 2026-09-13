@@ -138,13 +138,7 @@ function ChatInner() {
 
   const [composerMode, setComposerMode] = useState<ComposerMode>('chat');
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: `Hi ${firstName}. Ask anything here — toggle Research when you want the agent to pull live sources from the web. Dashboard stays out of the way until you ask for it.`,
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upgradeHref, setUpgradeHref] = useState(false);
@@ -567,28 +561,32 @@ function ChatInner() {
               data-lenis-prevent
               className="chat-scroll flex-1 space-y-4 px-4 py-5 sm:px-6"
             >
-              {messages.length <= 1 && (
-                <div className="mx-auto max-w-lg space-y-4 pt-8 text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E3836C]/15 text-[#E3836C]">
-                    <IconMessageDots size={22} />
-                  </div>
-                  <h1 className="font-serif text-2xl tracking-tight text-[var(--text-primary)]">
-                    Ask <em className="text-[#E3836C] not-italic italic">anything</em>
-                  </h1>
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Chat for analysis. Flip on Research for live sources. Open Dashboard only when you need the canvas.
-                  </p>
-                  <div className="flex flex-wrap justify-center gap-2 pt-2">
-                    {prompts.map((prompt) => (
-                      <button
-                        key={prompt}
-                        type="button"
-                        onClick={() => void sendMessage(prompt)}
-                        className="btn-secondary text-left text-xs"
-                      >
-                        {prompt}
-                      </button>
-                    ))}
+              {messages.length === 0 && (
+                <div className="mx-auto flex max-h-[420px] max-w-xl flex-col justify-center px-1 pt-6 sm:pt-10">
+                  <div className="app-card space-y-5 p-6 sm:p-8">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-card,14px)] bg-[var(--coral,#EA8069)]/12 text-[var(--coral,#EA8069)]">
+                      <IconMessageDots size={22} />
+                    </div>
+                    <div className="space-y-2">
+                      <h1 className="font-serif text-[28px] leading-[1.15] tracking-tight text-[var(--text,#3A342D)] dark:text-[var(--text-primary)]">
+                        Ask what your data already knows
+                      </h1>
+                      <p className="text-sm leading-relaxed text-[var(--text-muted,#81786F)]">
+                        Hi {firstName}. Chat for a quiet read of the numbers. Switch to Research when you need live sources.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {prompts.map((prompt) => (
+                        <button
+                          key={prompt}
+                          type="button"
+                          onClick={() => void sendMessage(prompt)}
+                          className="rounded-full border border-[var(--coral,#EA8069)]/35 bg-[var(--coral,#EA8069)]/10 px-3.5 py-2 text-left text-xs font-medium text-[var(--coral-dark,#C96551)] transition-colors hover:bg-[var(--coral,#EA8069)]/18"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -714,10 +712,10 @@ function ChatInner() {
 
             {/* Errors */}
             {error && (
-              <p role="alert" className="mx-4 mb-2 rounded-xl border border-[#B86450]/25 bg-[#B86450]/10 px-3 py-2 text-xs text-[#9B4D3B] sm:mx-6">
+              <p role="alert" className="mx-4 mb-2 rounded-[var(--radius-card,14px)] border border-[var(--border)] bg-[var(--surface,#FFFCF8)] px-3 py-2 text-xs text-[var(--text,#3A342D)] sm:mx-6">
                 {error}
                 {upgradeHref ? (
-                  <Link href="/billing" className="ml-1 font-medium underline">
+                  <Link href="/billing" className="ml-2 inline-flex min-h-8 items-center rounded-full bg-[var(--coral,#EA8069)] px-3 text-[11px] font-medium text-white">
                     Upgrade
                   </Link>
                 ) : null}
@@ -730,33 +728,50 @@ function ChatInner() {
             {/* Composer */}
             <div className="shrink-0 border-t border-[var(--border)] bg-[var(--bg)]/90 px-3 py-3 backdrop-blur-md sm:px-6">
               <div className="mx-auto max-w-3xl space-y-2">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    data-active={composerMode === 'chat'}
-                    onClick={() => setComposerMode('chat')}
-                    className="composer-mode-btn inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-2)]"
+                <div className="flex flex-wrap items-center gap-3">
+                  <div
+                    role="tablist"
+                    aria-label="Conversation mode"
+                    className="inline-flex min-h-8 items-center rounded-full border border-[var(--border)] bg-[var(--surface,#FFFCF8)] p-0.5 shadow-sm"
                   >
-                    <IconMessageDots size={13} />
-                    Chat
-                  </button>
-                  <button
-                    type="button"
-                    data-active={composerMode === 'research'}
-                    onClick={() => setComposerMode('research')}
-                    className="composer-mode-btn inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-2)]"
-                    title="Research uses live web and geo tools"
-                  >
-                    <IconSearch size={13} />
-                    Research
-                  </button>
-                  <Link
-                    href="/globe"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-2)]"
-                  >
-                    <IconWorld size={13} />
-                    Globe
-                  </Link>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={composerMode === 'chat'}
+                      onClick={() => setComposerMode('chat')}
+                      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium transition-colors ${
+                        composerMode === 'chat'
+                          ? 'bg-[var(--coral,#EA8069)] text-white'
+                          : 'text-[var(--text-muted,#81786F)] hover:text-[var(--text,#3A342D)]'
+                      }`}
+                    >
+                      <IconMessageDots size={14} />
+                      Chat
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={composerMode === 'research'}
+                      onClick={() => setComposerMode('research')}
+                      title="Research uses live web and geo tools"
+                      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium transition-colors ${
+                        composerMode === 'research'
+                          ? 'bg-[var(--coral,#EA8069)] text-white'
+                          : 'text-[var(--text-muted,#81786F)] hover:text-[var(--text,#3A342D)]'
+                      }`}
+                    >
+                      <IconSearch size={14} />
+                      Research
+                    </button>
+                    <Link
+                      href="/globe"
+                      role="tab"
+                      className="inline-flex min-h-8 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium text-[var(--text-muted,#81786F)] hover:text-[var(--text,#3A342D)]"
+                    >
+                      <IconWorld size={14} />
+                      Globe
+                    </Link>
+                  </div>
                   <span className="ml-auto hidden text-[10px] text-[var(--text-muted)] sm:inline">
                     Enter to send · Shift+Enter for newline
                   </span>
