@@ -339,7 +339,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
 
   const handleDeleteSchema = async (schema: ObjectSchema) => {
     if (!projectId) return;
-    if (!confirm(`Are you sure you want to delete entity '${schema.label}'? All records will be permanently removed.`)) {
+    if (!confirm(`Are you sure you want to delete object '${schema.label}'? All records will be permanently removed.`)) {
       return;
     }
     try {
@@ -349,7 +349,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
       }
       await loadSchemas();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete entity');
+      alert(err.message || 'Failed to delete object');
     }
   };
 
@@ -695,7 +695,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-neutral-400">
             <IconDatabase className="w-12 h-12 mb-3 text-neutral-300 dark:text-neutral-600" />
-            <h4 className="font-semibold text-neutral-900 dark:text-white text-base">Select or Create an Entity</h4>
+            <h4 className="font-semibold text-neutral-900 dark:text-white text-base">Select or Create an Object</h4>
             <p className="text-xs max-w-sm mt-1">
               Choose a custom object from the directory on the left to view records, or create a new entity schema.
             </p>
@@ -717,7 +717,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                 <div className="flex items-center gap-2">
                   <IconDatabase className="w-5 h-5 text-[var(--coral)]" />
                   <h3 className="font-semibold text-base text-neutral-900 dark:text-white">
-                    {isEditingExistingSchema ? `Edit Schema: ${selectedSchema?.label}` : 'Create Custom Entity'}
+                    {isEditingExistingSchema ? `Edit Schema: ${selectedSchema?.label}` : 'Create Custom Object'}
                   </h3>
                 </div>
                 <button
@@ -887,7 +887,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                     type="submit"
                     className="px-4 py-2 text-xs rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white font-medium shadow-sm cursor-pointer"
                   >
-                    {isEditingExistingSchema ? 'Save Schema Updates' : 'Create Entity'}
+                    {isEditingExistingSchema ? 'Save Schema Updates' : 'Create Object'}
                   </button>
                 </div>
               </form>
