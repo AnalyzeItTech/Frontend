@@ -488,7 +488,7 @@ export default function DashboardPage() {
         <PageTitle title="Dashboard" />
       </div>
 
-      <div className="mx-6 mt-3 flex flex-wrap gap-2">
+      <div className="mx-6 mt-6 mb-2 flex flex-wrap gap-2">
         <button type="button" onClick={() => setStudioTab('canvas')} className={studioTab === 'canvas' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Canvas</button>
         <Link href="/objects" className="btn-secondary text-xs">Objects</Link>
         <Link href="/connectors" className="btn-secondary text-xs">Connectors</Link>
@@ -717,7 +717,7 @@ export default function DashboardPage() {
         </header>
 
         {/* ─── ZONE 3: MAIN CANVAS WITH REAL GUTTERS & DISTINCT SURFACES ─── */}
-        <main className="flex-1 min-h-0 overflow-y-auto p-6 lg:p-8 space-y-6 chat-scroll">
+        <main className="flex-1 min-h-0 overflow-y-auto p-6 lg:p-10 space-y-8 chat-scroll">
 
           {/* ─── TAB: DASHBOARD CANVAS ─── */}
           {studioTab === 'canvas' && (
@@ -743,7 +743,7 @@ export default function DashboardPage() {
                 <div className="space-y-6">
                   {/* 1. Hero KPI Strip (Compact, High-Density 28px Tabular Figures) */}
                   {kpiWidgets.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 [&_.font-mono]:text-[11px] [&_.font-mono]:text-[var(--text-muted)]">
                       {kpiWidgets.map((w) => (
                         <div key={w.id} className="col-span-1">
                           <SandboxedWidgetRenderer
@@ -777,22 +777,22 @@ export default function DashboardPage() {
                   )}
                 </div>
               ) : (
-                /* Instrument-Grade Empty State */
-                <div className="app-card py-16 px-6 flex flex-col items-center justify-center text-center space-y-4 border-dashed">
-                  <div className="w-12 h-12 rounded-xl bg-[#E3836C]/15 text-[#E3836C] flex items-center justify-center">
-                    <IconLayoutDashboard size={24} />
+                /* Calm studio empty state */
+                <div className="mx-auto max-w-lg rounded-[var(--radius-card,14px)] border border-[var(--border)] bg-[var(--surface)] px-8 py-14 flex flex-col items-center text-center space-y-5 shadow-sm">
+                  <div className="w-14 h-14 rounded-2xl bg-[var(--coral)]/12 text-[var(--coral)] flex items-center justify-center">
+                    <IconLayoutDashboard size={26} />
                   </div>
-                  <div className="space-y-1 max-w-md">
-                    <h3 className="text-lg font-medium">
-                      {activeProjectId ? 'This canvas is empty' : 'Create your first project'}
+                  <div className="space-y-2 max-w-md">
+                    <h3 className="font-serif text-2xl font-normal tracking-tight text-[var(--text-primary)]">
+                      {activeProjectId ? 'A quiet canvas' : 'Start a research studio'}
                     </h3>
-                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                    <p className="text-sm text-[var(--text-muted)] leading-relaxed">
                       {activeProjectId
-                        ? 'Ask in Chat or apply a template. The dashboard only displays widgets you save — it does not start research on its own.'
-                        : 'A project holds charts and KPIs from Chat. You need an account to save work — you are already signed in.'}
+                        ? 'Add your first widget from Chat, or apply a template. This surface only shows what you save — it never invents charts on its own.'
+                        : 'Projects hold charts and KPIs from Chat. Create one, then ask a question or pick a template.'}
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
                     {!activeProjectId ? (
                       <button
                         type="button"
@@ -806,7 +806,7 @@ export default function DashboardPage() {
                       </button>
                     ) : (
                       <Link href="/research" className="btn-primary min-h-11 px-5 text-sm">
-                        Continue in Chat
+                        Add first widget in Chat
                       </Link>
                     )}
                     <button
@@ -816,6 +816,11 @@ export default function DashboardPage() {
                     >
                       Explore templates
                     </button>
+                    {activeProjectId ? (
+                      <Link href="/research" className="text-xs text-[var(--text-muted)] hover:text-[var(--coral)] underline-offset-2 hover:underline">
+                        How widgets land here
+                      </Link>
+                    ) : null}
                   </div>
                 </div>
               )}

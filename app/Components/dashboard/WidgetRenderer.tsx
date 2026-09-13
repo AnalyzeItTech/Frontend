@@ -80,15 +80,15 @@ export function CitationFooter({
         };
       case 'verified_db':
         return {
-          dotColor: 'bg-[#3D6FE0]',
-          badgeClass: 'bg-[#3D6FE0]/10 text-[#5B8CF5] border-[#3D6FE0]/25',
+          dotColor: 'bg-[#EA8069]',
+          badgeClass: 'bg-[#EA8069]/10 text-[#C96551] border-[#EA8069]/25',
           label: 'Verified DB',
         };
       case 'synthetic_ai':
       default:
         return {
-          dotColor: 'bg-[#8B5CF6]',
-          badgeClass: 'bg-[#8B5CF6]/10 text-[#A78BFA] border-[#8B5CF6]/25',
+          dotColor: 'bg-[#81786F]',
+          badgeClass: 'bg-[#81786F]/10 text-[#81786F] border-[#81786F]/25',
           label: 'Synthesized AI',
         };
     }
@@ -267,13 +267,13 @@ export function LineChartWidget({
           {/* Area fill */}
           <polygon
             points={`30,90 ${points} 270,90`}
-            fill="rgba(61, 111, 224, 0.12)"
+            fill="rgba(234, 128, 105, 0.14)"
           />
 
           {/* Technical Cobalt curve */}
           <polyline
             fill="none"
-            stroke="#3D6FE0"
+            stroke="#EA8069"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -284,7 +284,7 @@ export function LineChartWidget({
             const cy = 90 - ((d.value - minVal) / range) * 70;
             return (
               <g key={i}>
-                <circle cx={cx} cy={cy} r="3" fill="#14171B" stroke="#3D6FE0" strokeWidth="2" />
+                <circle cx={cx} cy={cy} r="3" fill="#14171B" stroke="#EA8069" strokeWidth="2" />
                 <text
                   x={cx}
                   y={104}
@@ -365,7 +365,7 @@ export function BarChartWidget({
                 {item.value}
               </span>
               <div
-                className="w-full max-w-[32px] bg-[#3D6FE0] hover:bg-[#4D7FF0] rounded-t transition-all shadow-xs"
+                className="w-full max-w-[32px] bg-[#EA8069] hover:bg-[#C96551] rounded-t transition-all shadow-xs"
                 style={{ height: `${Math.max(heightPct, 8)}%` }}
               />
               <span className="text-[10px] font-medium text-[#8B93A1]">
@@ -503,9 +503,9 @@ export function TextBlockWidget({
 
   const variantStyles = {
     insight: {
-      border: 'border-[#3D6FE0]/30',
-      badge: 'bg-[#3D6FE0]/10 text-[#5B8CF5]',
-      dot: 'bg-[#3D6FE0]',
+      border: 'border-[#EA8069]/30',
+      badge: 'bg-[#EA8069]/10 text-[#C96551]',
+      dot: 'bg-[#EA8069]',
       label: 'Insight',
     },
     warning: {
@@ -567,7 +567,7 @@ export function TextBlockWidget({
           if (pText.trim().startsWith('- ') || pText.trim().startsWith('• ')) {
             const bullets = pText.split('\n').map((l) => l.replace(/^[-•]\s*/, '').trim()).filter(Boolean);
             return (
-              <ul key={idx} className="space-y-1 pl-4 list-disc marker:text-[#3D6FE0]">
+              <ul key={idx} className="space-y-1 pl-4 list-disc marker:text-[#EA8069]">
                 {bullets.map((b, bIdx) => (
                   <li key={bIdx} className="font-sans text-[#8B93A1]">{b}</li>
                 ))}
@@ -1518,8 +1518,8 @@ export function AnnotatedChartWidget({
   const getAnnotationBadge = (type?: string, isUser = false) => {
     if (isUser) {
       return {
-        bg: 'bg-[#8B5CF6]/15 text-[#A78BFA] border-[#8B5CF6]/30',
-        dot: 'bg-[#8B5CF6]',
+        bg: 'bg-[#81786F]/15 text-[#81786F] border-[#81786F]/30',
+        dot: 'bg-[#81786F]',
       };
     }
     switch (type) {
@@ -1536,8 +1536,8 @@ export function AnnotatedChartWidget({
       case 'event':
       default:
         return {
-          bg: 'bg-[#3D6FE0]/15 text-[#5B8CF5] border-[#3D6FE0]/30',
-          dot: 'bg-[#3D6FE0]',
+          bg: 'bg-[#EA8069]/15 text-[#C96551] border-[#EA8069]/30',
+          dot: 'bg-[#EA8069]',
         };
     }
   };
@@ -1573,7 +1573,7 @@ export function AnnotatedChartWidget({
 
             <polyline
               fill="none"
-              stroke="#3D6FE0"
+              stroke="#EA8069"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -1587,7 +1587,7 @@ export function AnnotatedChartWidget({
                 cy={pt.py}
                 r="3"
                 fill="#14171B"
-                stroke="#3D6FE0"
+                stroke="#EA8069"
                 strokeWidth="2"
                 className="cursor-pointer hover:opacity-80 transition-all"
                 onClick={(e) => {
@@ -1610,7 +1610,7 @@ export function AnnotatedChartWidget({
                     y1="14"
                     x2={matchedPt.px}
                     y2={matchedPt.py}
-                    stroke={isUser ? "#8B5CF6" : "#3D6FE0"}
+                    stroke={isUser ? "#81786F" : "#EA8069"}
                     strokeWidth="1.25"
                     strokeDasharray="2,2"
                     strokeOpacity="0.75"
@@ -1619,7 +1619,7 @@ export function AnnotatedChartWidget({
                     cx={matchedPt.px}
                     cy={matchedPt.py}
                     r={isUser ? "5" : "4"}
-                    fill={isUser ? "#8B5CF6" : "#EF6C6C"}
+                    fill={isUser ? "#81786F" : "#EF6C6C"}
                     stroke="#14171B"
                     strokeWidth="1.5"
                   />
