@@ -29,14 +29,15 @@ export function parseApiFailure(status: number, body: unknown): ApiFailure {
       : body;
   if (detail && typeof detail === 'object') {
     const rec = detail as Record<string, unknown>;
+    const code = typeof rec.code === 'string' ? rec.code : undefined;
+    const rawMessage = String(rec.message || rec.detail || 'Request failed');
+    // Structured `code` means the API authored a user-facing message — keep it
+    // (generic 403/409 maps would otherwise hide trial/support copy).
     return {
       status,
-      message: friendlyHttpMessage(
-        status,
-        String(rec.message || rec.detail || 'Request failed'),
-      ),
+      message: code ? rawMessage : friendlyHttpMessage(status, rawMessage),
       upgradeRequired: Boolean(rec.upgrade_required) || status === 429,
-      code: typeof rec.code === 'string' ? rec.code : undefined,
+      code,
       tier: typeof rec.tier === 'string' ? rec.tier : undefined,
     };
   }

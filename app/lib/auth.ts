@@ -30,6 +30,9 @@ export interface UserProfile {
   preferences?: Record<string, unknown>;
   created_at?: string;
   tier?: string;
+  trial_status?: string;
+  trial_ends_at?: string | null;
+  trial_used?: boolean;
   entitlements?: Record<string, unknown>;
 }
 
