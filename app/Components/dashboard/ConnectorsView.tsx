@@ -298,6 +298,8 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
           const isConnected = Boolean(activeConn);
           const isSyncing = syncingId === activeConn?.id;
           const isSql = p.authMode === 'connection';
+          const isComingSoon = !isConnected && (p.id === 'stripe' || p.id === 'salesforce');
+          const hasError = connectors.some((c) => c.provider === p.id && c.status === 'error');
 
           return (
             <div
@@ -321,13 +323,15 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                   </div>
 
                   {isConnected ? (
-                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium border border-emerald-500/20">
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--success)]/10 text-[var(--success)] text-xs font-medium border border-[var(--success)]/25">
                       <IconCheck className="w-3.5 h-3.5" /> Connected
                     </span>
+                  ) : hasError ? (
+                    <span className="px-2.5 py-1 rounded-full bg-[var(--danger)]/10 text-[var(--danger)] text-xs font-medium border border-[var(--danger)]/25">Error</span>
+                  ) : isComingSoon ? (
+                    <span className="px-2.5 py-1 rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-medium border border-[var(--border)]">Coming soon</span>
                   ) : (
-                    <span className="px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 text-xs font-medium">
-                      Not Connected
-                    </span>
+                    <span className="px-2.5 py-1 rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-medium border border-[var(--border)]">Ready to connect</span>
                   )}
                 </div>
 
@@ -385,6 +389,8 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                       <span>Disconnect</span>
                     </button>
                   </>
+                ) : isComingSoon ? (
+                  <span className="ml-auto text-xs text-[var(--text-muted)]">OAuth preview only — live sync coming soon</span>
                 ) : (
                   <button
                     onClick={() =>
