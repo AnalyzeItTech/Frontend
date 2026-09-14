@@ -4,11 +4,19 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // GIS + One Tap: allow referrer on http localhost; COOP for popup/FedCM fallbacks
-        source: "/:path*",
+        source: '/ads.txt',
         headers: [
-          { key: "Referrer-Policy", value: "no-referrer-when-downgrade" },
-          { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
+          { key: 'Content-Type', value: 'text/plain; charset=utf-8' },
+          { key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' },
+          { key: 'Content-Disposition', value: 'inline' },
+        ],
+      },
+      {
+        // GIS + One Tap: allow referrer on http localhost; COOP for popup/FedCM fallbacks
+        source: '/:path*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer-when-downgrade' },
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
         ],
       },
     ];
