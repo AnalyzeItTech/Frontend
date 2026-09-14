@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "./Components/ui/ThemeProvider";
 import { SmoothScrollProvider } from "./Components/ui/SmoothScrollProvider";
 import { SkipToContent } from "./Components/ui/SkipToContent";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "./lib/site";
 
-const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || "ca-pub-5383317547226180";
+/** Public AdSense publisher ID — must appear as a real <script> in <head> for crawler verification. */
+const ADSENSE_CLIENT =
+  process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || "ca-pub-5383317547226180";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: `${SITE_NAME} — ${SITE_TAGLINE}`,
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
+  other: {
+    "google-adsense-account": ADSENSE_CLIENT,
+  },
   keywords: [
     "AnalyzeIt",
     "analyzeit.in",
@@ -97,6 +101,12 @@ export default function RootLayout({
       className="h-full antialiased selection:bg-[#E3836C]/30 selection:text-[#4A4238] dark:selection:bg-[#E3836C]/30 dark:selection:text-[#F4EDE5]"
     >
       <head>
+        {/* AdSense requires this exact tag in <head> (not next/script afterInteractive). */}
+        <script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+          crossOrigin="anonymous"
+        />
         <link rel="icon" href="/favicon-48x48.png" type="image/png" sizes="48x48" />
         <link rel="icon" href="/favicon-96x96.png" type="image/png" sizes="96x96" />
         <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
@@ -123,14 +133,6 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-full flex flex-col bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased overflow-x-hidden transition-colors duration-300"
       >
-        {/* Google AdSense — site verification + loader (ad units still gated by ads_free). */}
-        <Script
-          id="adsense-loader"
-          async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
         <ThemeProvider>
           <SmoothScrollProvider>
             <SkipToContent />
