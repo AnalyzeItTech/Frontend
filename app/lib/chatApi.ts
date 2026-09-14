@@ -643,6 +643,8 @@ export interface ProjectSummary {
   widget_count?: number;
   created_at: string;
   updated_at?: string;
+  dashboard_slug?: string | null;
+  owner_user_id?: string;
 }
 
 export async function getProjects(_userId?: string): Promise<ProjectSummary[]> {
@@ -659,6 +661,45 @@ export async function getProjectById(projectId: string): Promise<ProjectSummary>
   });
   if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not load this project'));
   return res.json();
+}
+
+export async function resolveDashboardSlug(slug: string): Promise<ProjectSummary> {
+  const res = await fetch(`${API_V1}/dashboards/by-slug/${encodeURIComponent(slug)}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { detail?: string }).detail ||
+        friendlyHttpMessage(res.status, 'Could not open this dashboard link'),
+    );
+  }
+  return res.json();
+}
+
+export async function claimDashboardSlug(projectId: string, slug: string): Promise<{ id: string; dashboard_slug: string; url: string }> {
+  const res = await fetch(`${API_V1}/projects/${projectId}/dashboard-slug`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ slug }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const detail = (body as { detail?: unknown }).detail;
+    if (detail && typeof detail === 'object' && detail !== null && 'message' in detail) {
+      throw new Error(String((detail as { message: string }).message));
+    }
+    throw new Error(typeof detail === 'string' ? detail : friendlyHttpMessage(res.status, 'Could not claim link'));
+  }
+  return res.json();
+}
+
+export async function clearDashboardSlug(projectId: string): Promise<void> {
+  const res = await fetch(`${API_V1}/projects/${projectId}/dashboard-slug`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not clear dashboard link'));
 }
 
 export async function createProject(name: string, _userId?: string): Promise<ProjectSummary> {

@@ -52,6 +52,8 @@ import {
   type ChartAnnotation,
 } from '../lib/chatApi';
 import { getStoredUser, type UserProfile } from '../lib/auth';
+import { getEntitlements } from '../lib/billingApi';
+import { SessionStartAd } from '../Components/ads/SessionStartAd';
 import {
   uploadDataset,
   describeDataset,
@@ -104,6 +106,10 @@ function NewProjectContent() {
   const [activeTools, setActiveTools] = useState<string[]>([]);
   const [streamStatus, setStreamStatus] = useState('');
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [adsFree, setAdsFree] = useState(() => {
+    const tier = getStoredUser()?.tier;
+    return tier === 'premium' || tier === 'premium_plus';
+  });
 
   // ─── Generative Canvas & Proposal State ─────────────────────────────────────
   const [currentLayout, setCurrentLayout] = useState<{ widgets: WidgetSpec[] }>({ widgets: [] });
@@ -133,6 +139,9 @@ function NewProjectContent() {
   useEffect(() => {
     const cu = getStoredUser();
     setUser(cu);
+    void getEntitlements()
+      .then((snap) => setAdsFree(snap.ads_free !== false))
+      .catch(() => setAdsFree(true));
 
     if (urlProjectId) {
       setProjectId(urlProjectId);
@@ -1115,6 +1124,7 @@ function NewProjectContent() {
           : 'bg-[var(--bg)] text-[var(--text-primary)]'
       }`}
     >
+      <SessionStartAd enabled={!adsFree} />
       {/* ─── Top Header Navigation ────────────────────────────────────────── */}
       <header
         className={`sticky top-0 z-30 px-4 sm:px-8 py-3 flex items-center justify-between border-b backdrop-blur-xl transition-colors duration-300 ${
