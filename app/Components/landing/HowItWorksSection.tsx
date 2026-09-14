@@ -16,7 +16,7 @@ const STEPS: Step[] = [
     title: 'Connect',
     tagline: 'Point it at your data.',
     description:
-      'Connect Stripe or Salesforce in preview, or start from a sample dashboard template. Additional warehouses and spreadsheet uploads are coming next.',
+      'Upload a spreadsheet (CSV/XLSX) or connect Stripe/Salesforce in preview. Start from a sample dashboard template when you want a head start.',
   },
   {
     step: '02',

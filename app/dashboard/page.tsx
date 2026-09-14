@@ -36,6 +36,8 @@ import {
   IconRefresh,
   IconLogout,
   IconWorld,
+  IconCode,
+  IconLink,
 } from '@tabler/icons-react';
 import {
   getProjectLayout,
@@ -45,6 +47,8 @@ import {
   updateProject,
   deleteProject,
   updateProjectLayout,
+  resolveDashboardSlug,
+  claimDashboardSlug,
   type WidgetSpec,
   type ProjectSummary,
 } from '../lib/chatApi';
@@ -57,6 +61,7 @@ import {
   type UserProfile,
 } from '../lib/auth';
 import { downloadProjectZip, duplicateProject } from '../lib/exportApi';
+import { buildDesignExport, downloadDesignExport } from '../lib/designExport';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 import { LayoutSwitcher } from '../Components/dashboard/LayoutSwitcher';
 import { ObjectBuilderView } from '../Components/dashboard/ObjectBuilderView';
@@ -74,7 +79,6 @@ import {
   type DashboardTemplate,
 } from '../lib/dashboardTemplates';
 import { redactClientError } from '../lib/apiErrors';
-
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -98,6 +102,8 @@ export default function DashboardPage() {
   const [isLoadingProjects, setIsLoadingProjects] = useState<boolean>(true);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [loadKey, setLoadKey] = useState(0);
+  const [slugDraft, setSlugDraft] = useState('');
+  const [slugBusy, setSlugBusy] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
 
   // ─── Export Menu & Toast State ───────────────────────────────────────────────
@@ -177,13 +183,32 @@ export default function DashboardPage() {
         if (cancelled) return;
         setServerProjects(projs);
 
-        if (projs.length > 0) {
-          const first = projs[0];
-          setActiveProjectId(first.id);
-          setActiveProjectName(first.name);
+        const slugParam =
+          typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('slug')
+            : null;
+
+        let target: ProjectSummary | null = null;
+        if (slugParam) {
+          try {
+            target = await resolveDashboardSlug(slugParam);
+          } catch (err) {
+            setWorkspaceError(
+              err instanceof Error ? err.message : 'Could not open this personal dashboard link.',
+            );
+          }
+        }
+        if (!target && projs.length > 0) {
+          target = projs[0];
+        }
+
+        if (target) {
+          setActiveProjectId(target.id);
+          setActiveProjectName(target.name);
+          setSlugDraft(target.dashboard_slug || '');
 
           try {
-            const layoutData = await getProjectLayout(first.id);
+            const layoutData = await getProjectLayout(target.id);
             if (layoutData && layoutData.layout_json?.widgets) {
               setCurrentLayout(layoutData.layout_json);
               setLayoutVersion(layoutData.version);
@@ -221,6 +246,7 @@ export default function DashboardPage() {
   const handleSelectProject = async (proj: ProjectSummary) => {
     setActiveProjectId(proj.id);
     setActiveProjectName(proj.name);
+    setSlugDraft(proj.dashboard_slug || '');
     try {
       const layoutData = await getProjectLayout(proj.id);
       if (layoutData && layoutData.layout_json?.widgets) {
@@ -525,6 +551,47 @@ export default function DashboardPage() {
               <span className="w-1.5 h-1.5 rounded-full bg-[#E3836C] motion-safe:animate-pulse" />
               <span className="font-mono text-[10px]">v{layoutVersion}</span>
             </div>
+
+            {activeProjectId && (
+              <div className="hidden md:flex items-center gap-1.5 max-w-[280px]">
+                <IconLink size={12} className="text-[#8B93A1] shrink-0" />
+                <input
+                  value={slugDraft}
+                  onChange={(e) => setSlugDraft(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder="personal-link"
+                  className="w-28 bg-transparent border-b border-white/[0.12] text-[11px] font-mono text-[#EDEFF2] outline-none placeholder:text-[#8B93A1]/50"
+                  title="Premium personal subdomain: slug.analyzeit.in"
+                />
+                <span className="text-[10px] text-[#8B93A1] shrink-0">.analyzeit.in</span>
+                <button
+                  type="button"
+                  disabled={slugBusy || !slugDraft.trim()}
+                  onClick={async () => {
+                    if (!activeProjectId || !slugDraft.trim()) return;
+                    setSlugBusy(true);
+                    try {
+                      const result = await claimDashboardSlug(activeProjectId, slugDraft.trim());
+                      setSlugDraft(result.dashboard_slug);
+                      setServerProjects((prev) =>
+                        prev.map((p) =>
+                          p.id === activeProjectId ? { ...p, dashboard_slug: result.dashboard_slug } : p,
+                        ),
+                      );
+                      setExportToastMsg(`Link ready: ${result.url}`);
+                      setTimeout(() => setExportToastMsg(null), 4000);
+                    } catch (err) {
+                      setExportToastMsg(err instanceof Error ? err.message : 'Could not claim link');
+                      setTimeout(() => setExportToastMsg(null), 4000);
+                    } finally {
+                      setSlugBusy(false);
+                    }
+                  }}
+                  className="text-[10px] px-1.5 py-0.5 rounded border border-white/[0.12] text-[#8B93A1] hover:text-[#EDEFF2] disabled:opacity-40"
+                >
+                  Save
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Right: Actions */}
@@ -611,6 +678,30 @@ export default function DashboardPage() {
                       <div>
                         <div className="font-medium">Narrative Brief (Word)</div>
                         <div className="text-[10px] text-[#8B93A1]">Editable document</div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsExportMenuOpen(false);
+                        if (!activeProjectId) return;
+                        downloadDesignExport(
+                          buildDesignExport({
+                            projectId: activeProjectId,
+                            projectName: activeProjectName,
+                            layout: currentLayout as Record<string, unknown>,
+                          }),
+                        );
+                        setExportToastMsg('Design spec downloaded (layout + tokens)');
+                        setTimeout(() => setExportToastMsg(null), 3000);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+                    >
+                      <IconCode size={16} className="text-[#3D6FE0] shrink-0" />
+                      <div>
+                        <div className="font-medium">Design spec (JSON)</div>
+                        <div className="text-[10px] text-[#8B93A1]">Layout + tokens — not app source</div>
                       </div>
                     </button>
 

@@ -19,7 +19,10 @@ import {
   IconPlayerStop,
 } from '@tabler/icons-react';
 import { getStoredToken, getStoredUser } from '../lib/auth';
+import { getEntitlements } from '../lib/billingApi';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
+import { AdSlot, AD_LOAD_TIMEOUT_MS } from '../Components/ads/AdSlot';
+import { SessionStartAd } from '../Components/ads/SessionStartAd';
 import {
   applyUIAction,
   ChatRequestError,
@@ -140,6 +143,12 @@ function ChatInner() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [awaitingAd, setAwaitingAd] = useState(false);
+  const [showPostRunAd, setShowPostRunAd] = useState(false);
+  const [adsFree, setAdsFree] = useState(() => {
+    const tier = getStoredUser()?.tier;
+    return tier === 'premium' || tier === 'premium_plus';
+  });
   const [error, setError] = useState<string | null>(null);
   const [upgradeHref, setUpgradeHref] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
@@ -149,6 +158,7 @@ function ChatInner() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const nearBottomRef = useRef(true);
+  const postRunAdArmed = useRef(false);
 
   useEffect(() => {
     const preset = params.get('q');
@@ -159,9 +169,46 @@ function ChatInner() {
   }, [params]);
 
   useEffect(() => {
+    if (!getStoredToken()) {
+      setAdsFree(true);
+      return;
+    }
+    void getEntitlements()
+      .then((snap) => {
+        // Premium/Plus: ads_free true → never fetch AdSense
+        setAdsFree(snap.ads_free !== false);
+      })
+      .catch(() => setAdsFree(true));
+  }, []);
+
+  useEffect(() => {
     if (!nearBottomRef.current || !scrollRef.current) return;
     scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, isStreaming, showDashboard]);
+  }, [messages, isStreaming, showDashboard, showPostRunAd]);
+
+  const armPostRunAd = useCallback(() => {
+    if (adsFree || postRunAdArmed.current) return;
+    postRunAdArmed.current = true;
+    setShowPostRunAd(true);
+    setAwaitingAd(true);
+  }, [adsFree]);
+
+  const onPostRunAdLoaded = useCallback(() => {
+    setAwaitingAd(false);
+    postRunAdArmed.current = false;
+  }, []);
+
+  // Parent-level escape hatch: never trap the composer if AdSlot fails to mount/fire.
+  useEffect(() => {
+    if (!awaitingAd) return;
+    const t = window.setTimeout(() => {
+      setAwaitingAd(false);
+      postRunAdArmed.current = false;
+    }, AD_LOAD_TIMEOUT_MS + 500);
+    return () => window.clearTimeout(t);
+  }, [awaitingAd]);
+
+  const inputLocked = isStreaming || awaitingAd;
 
   const handleScroll = () => {
     const el = scrollRef.current;
@@ -215,7 +262,7 @@ function ChatInner() {
   const sendMessage = useCallback(
     async (raw?: string, modeOverride?: ComposerMode) => {
       const value = (raw ?? input).trim();
-      if (!value || isStreaming) return;
+      if (!value || isStreaming || awaitingAd) return;
 
       if (!getStoredToken()) {
         setError('Sign in to chat with AnalyzeIt.');
@@ -249,6 +296,9 @@ function ChatInner() {
       setError(null);
       setUpgradeHref(false);
       setDashStatus(null);
+      setShowPostRunAd(false);
+      setAwaitingAd(false);
+      postRunAdArmed.current = false;
       abortRef.current = false;
       nearBottomRef.current = true;
 
@@ -273,6 +323,11 @@ function ChatInner() {
           incognito: isIncognito,
           onEvent: (event: StreamEvent) => {
             if (abortRef.current) return;
+
+            if (event.event === 'run_completed') {
+              armPostRunAd();
+              return;
+            }
 
             if (event.event === 'route_decision') {
               const hints = event.payload?.hint_tools;
@@ -494,14 +549,18 @@ function ChatInner() {
         }
       } finally {
         setIsStreaming(false);
+        // Stream end without run_completed still arms the post-run slot for free users
+        if (!abortRef.current) armPostRunAd();
       }
     },
-    [composerMode, input, isIncognito, isStreaming],
+    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming],
   );
 
   const stopStreaming = () => {
     abortRef.current = true;
     setIsStreaming(false);
+    setAwaitingAd(false);
+    postRunAdArmed.current = false;
   };
 
   const prompts = composerMode === 'research' ? RESEARCH_PROMPTS : CHAT_PROMPTS;
@@ -511,6 +570,7 @@ function ChatInner() {
   return (
     <AppShell active="chat" flush>
       <div className="flex h-full min-h-0 flex-col">
+        <SessionStartAd enabled={!adsFree} />
         <div className="flex min-h-0 flex-1">
           {/* Main chat column */}
           <div
@@ -725,6 +785,12 @@ function ChatInner() {
               <p className="mx-4 mb-1 text-[11px] text-[var(--text-muted)] sm:mx-6">{dashStatus}</p>
             )}
 
+            {showPostRunAd && !adsFree && (
+              <div className="mx-4 mb-3 sm:mx-6">
+                <AdSlot placement="post-run" enabled onLoaded={onPostRunAdLoaded} />
+              </div>
+            )}
+
             {/* Composer */}
             <div className="shrink-0 border-t border-[var(--border)] bg-[var(--bg)]/90 px-3 py-3 backdrop-blur-md sm:px-6">
               <div className="mx-auto max-w-3xl space-y-2">
@@ -802,11 +868,13 @@ function ChatInner() {
                         void sendMessage();
                       }
                     }}
-                    disabled={isStreaming}
+                    disabled={inputLocked}
                     placeholder={
-                      composerMode === 'research'
-                        ? 'Research a question, place, or trend…'
-                        : 'Message AnalyzeIt…'
+                      awaitingAd
+                        ? 'Sponsored unit loading…'
+                        : composerMode === 'research'
+                          ? 'Research a question, place, or trend…'
+                          : 'Message AnalyzeIt…'
                     }
                     className="max-h-[140px] min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-[var(--text-muted)] disabled:opacity-60"
                   />
@@ -822,7 +890,7 @@ function ChatInner() {
                   ) : (
                     <button
                       type="submit"
-                      disabled={!input.trim()}
+                      disabled={!input.trim() || awaitingAd}
                       aria-label="Send"
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E3836C] text-white disabled:opacity-40"
                     >

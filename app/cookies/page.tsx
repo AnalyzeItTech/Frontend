@@ -37,8 +37,13 @@ export default function CookiesPage() {
 
       <LegalSection title="2. Analytics and advertising">
         <p>
-          We do not currently set third-party advertising cookies. If we add optional analytics in
-          the future, we will update this page and, where required, ask for consent.
+          Free-tier research may load Google AdSense units after a run completes and once per
+          session on research surfaces. AdSense may set third-party cookies or similar storage
+          when those units load. Premium and Premium Plus do not load AdSense at all
+          (<code>ads_free</code>). You can also use browser controls or an ad blocker.
+        </p>
+        <p>
+          Optional product analytics, if enabled later, will be documented here before they ship.
         </p>
       </LegalSection>
 
