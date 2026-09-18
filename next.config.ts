@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Public AdSense IDs (not secrets). Baked into the client bundle at build time.
+  // Vercel Environment Variables still override these if set.
+  env: {
+    NEXT_PUBLIC_ADSENSE_CLIENT_ID:
+      process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || 'ca-pub-5383317547226180',
+    NEXT_PUBLIC_ADSENSE_SLOT_POST_RUN:
+      process.env.NEXT_PUBLIC_ADSENSE_SLOT_POST_RUN || '7279906325',
+    NEXT_PUBLIC_ADSENSE_SLOT_SESSION:
+      process.env.NEXT_PUBLIC_ADSENSE_SLOT_SESSION || '7279906325',
+  },
   async headers() {
     return [
       {

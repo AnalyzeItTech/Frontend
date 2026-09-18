@@ -40,6 +40,32 @@ type Selected = { lat: number; lon: number; name?: string; country?: string };
 type ComparePlace = Selected & { id: string; context?: PlaceContext | null };
 type LayerId = 'weather' | 'markets' | 'custom';
 
+const RAIL_KEY = 'analyzeit_globe_rails';
+const LEFT_DEFAULT = 280;
+const RIGHT_DEFAULT = 360;
+const LEFT_MIN = 200;
+const LEFT_MAX = 480;
+const RIGHT_MIN = 240;
+const RIGHT_MAX = 560;
+
+function clamp(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, n));
+}
+
+function readRails(): { left: number; right: number } {
+  try {
+    const raw = localStorage.getItem(RAIL_KEY);
+    if (!raw) return { left: LEFT_DEFAULT, right: RIGHT_DEFAULT };
+    const parsed = JSON.parse(raw) as { left?: number; right?: number };
+    return {
+      left: clamp(Number(parsed.left) || LEFT_DEFAULT, LEFT_MIN, LEFT_MAX),
+      right: clamp(Number(parsed.right) || RIGHT_DEFAULT, RIGHT_MIN, RIGHT_MAX),
+    };
+  } catch {
+    return { left: LEFT_DEFAULT, right: RIGHT_DEFAULT };
+  }
+}
+
 const LAYERS: { id: LayerId; label: string }[] = [
   { id: 'weather', label: 'Weather' },
   { id: 'markets', label: 'Markets' },
@@ -79,6 +105,9 @@ export default function GlobePage() {
   });
   const [compare, setCompare] = useState<ComparePlace[]>([]);
   const [mapReady, setMapReady] = useState(false);
+  const [leftRail, setLeftRail] = useState(LEFT_DEFAULT);
+  const [rightRail, setRightRail] = useState(RIGHT_DEFAULT);
+  const [railsReady, setRailsReady] = useState(false);
   const fetchGen = useRef(0);
   const searchGen = useRef(0);
 
@@ -223,6 +252,41 @@ export default function GlobePage() {
     );
   }, [compare, sendToResearch]);
 
+  useEffect(() => {
+    const rails = readRails();
+    setLeftRail(rails.left);
+    setRightRail(rails.right);
+    setRailsReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!railsReady) return;
+    try {
+      localStorage.setItem(RAIL_KEY, JSON.stringify({ left: leftRail, right: rightRail }));
+    } catch {
+      /* ignore */
+    }
+  }, [leftRail, rightRail, railsReady]);
+
+  const startResize = useCallback((side: 'left' | 'right', ev: React.PointerEvent<HTMLDivElement>) => {
+    ev.preventDefault();
+    const startX = ev.clientX;
+    const start = side === 'left' ? leftRail : rightRail;
+    const target = ev.currentTarget;
+    target.setPointerCapture(ev.pointerId);
+    const onMove = (e: PointerEvent) => {
+      const dx = e.clientX - startX;
+      if (side === 'left') setLeftRail(clamp(start + dx, LEFT_MIN, LEFT_MAX));
+      else setRightRail(clamp(start - dx, RIGHT_MIN, RIGHT_MAX));
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }, [leftRail, rightRail]);
+
   const inCompare = selected ? compare.some((p) => p.id === placeId(selected)) : false;
 
   return (
@@ -231,13 +295,26 @@ export default function GlobePage() {
         className="grid w-full min-h-0 flex-1 overflow-hidden bg-[var(--surface-2)]"
         style={{
           minHeight: 'calc(100dvh - 56px)',
-          /* Hard caps (not %): % tracks fall back to content width (~280/320) when
-             the flex parent size is indefinite — that left map ~53% at 1280. */
-          gridTemplateColumns: '11rem minmax(0, 1fr) 12rem',
+          gridTemplateColumns: `${leftRail}px 8px minmax(0, 1fr) 8px ${rightRail}px`,
         }}
       >
         <aside className="flex min-w-0 flex-col overflow-hidden border-r border-[var(--border)] bg-[var(--surface)]">
           <div className="space-y-3 border-b border-[var(--border)] p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                Drag edges to widen
+              </p>
+              <button
+                type="button"
+                className="text-[10px] text-[var(--text-muted)] underline underline-offset-2"
+                onClick={() => {
+                  setLeftRail(LEFT_DEFAULT);
+                  setRightRail(RIGHT_DEFAULT);
+                }}
+              >
+                Reset width
+              </button>
+            </div>
             <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2">
               <IconSearch size={15} className="shrink-0 text-[#E3836C]" />
               <input
@@ -449,6 +526,16 @@ export default function GlobePage() {
           </div>
         </aside>
 
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize search panel"
+          tabIndex={0}
+          onPointerDown={(e) => startResize('left', e)}
+          onDoubleClick={() => setLeftRail(LEFT_DEFAULT)}
+          className="z-10 cursor-col-resize bg-[var(--border)] hover:bg-[#E3836C]"
+        />
+
         <section className="relative min-w-0 bg-[var(--surface-2)]">
           <PlaceMapLibre
             selected={selected}
@@ -502,6 +589,16 @@ export default function GlobePage() {
             </div>
           ) : null}
         </section>
+
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize place panel"
+          tabIndex={0}
+          onPointerDown={(e) => startResize('right', e)}
+          onDoubleClick={() => setRightRail(RIGHT_DEFAULT)}
+          className="z-10 cursor-col-resize bg-[var(--border)] hover:bg-[#E3836C]"
+        />
 
         <aside className="flex min-w-0 flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--surface)]">
           {!selected && !loading && !error ? (

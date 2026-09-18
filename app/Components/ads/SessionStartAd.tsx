@@ -7,13 +7,10 @@ import { AdSlot } from './AdSlot';
 const SESSION_KEY = 'analyzeit_session_ad_shown';
 
 type SessionStartAdProps = {
-  /** Only render when entitlements say ads are shown (ads_free === false). */
   enabled: boolean;
 };
 
-/**
- * One dismissible banner per browser session for free users on research / new project.
- */
+/** Compact top-of-chat banner, once per browser session. */
 export function SessionStartAd({ enabled }: SessionStartAdProps) {
   const [visible, setVisible] = useState(false);
 
@@ -22,7 +19,7 @@ export function SessionStartAd({ enabled }: SessionStartAdProps) {
     try {
       if (sessionStorage.getItem(SESSION_KEY) === '1') return;
     } catch {
-      // private mode — still show once via state
+      /* private mode */
     }
     setVisible(true);
   }, [enabled]);
@@ -39,16 +36,16 @@ export function SessionStartAd({ enabled }: SessionStartAdProps) {
   if (!enabled || !visible) return null;
 
   return (
-    <div className="relative mx-auto mb-4 w-full max-w-3xl px-4 pt-3">
+    <div className="relative shrink-0 border-b border-[var(--border)] px-4 py-2 sm:px-6">
       <button
         type="button"
         onClick={dismiss}
-        className="absolute right-6 top-5 z-10 rounded-md p-1 text-[#8A7F74] hover:bg-black/5 dark:hover:bg-white/10"
+        className="absolute right-5 top-2 z-10 rounded-md p-1 text-[var(--text-muted)] hover:bg-[var(--surface-2)]"
         aria-label="Dismiss sponsored banner"
       >
         <IconX size={14} />
       </button>
-      <AdSlot placement="session-start" enabled onLoaded={() => undefined} />
+      <AdSlot placement="session-start" enabled className="pr-8" onLoaded={() => undefined} />
     </div>
   );
 }

@@ -318,7 +318,7 @@ function ChatInner() {
     void getEntitlements()
       .then(async (snap) => {
         // Premium/Plus: ads_free true → never fetch AdSense
-        setAdsFree(snap.ads_free !== false);
+        setAdsFree(Boolean(snap.ads_free));
         const quota = parseLlmQuota(snap);
         setLlmQuota(quota);
         if (quota?.show && quota.exhausted) setQuotaBanner('exhausted');
@@ -922,7 +922,6 @@ function ChatInner() {
   return (
     <AppShell active="chat" flush>
       <div className="flex min-h-0 flex-1 flex-col">
-        <SessionStartAd enabled={!adsFree} />
         <div className="flex min-h-0 flex-1">
           {/* Main chat column */}
           <div
@@ -965,6 +964,8 @@ function ChatInner() {
                 </button>
               </div>
             </div>
+
+            <SessionStartAd enabled={!adsFree} />
 
             {/* Messages */}
             <div
@@ -1222,7 +1223,12 @@ function ChatInner() {
                 </div>
                 {showAdExtend && !adsFree ? (
                   <div className="mt-2">
-                    <AdSlot placement="post-run" enabled onLoaded={() => void onAdExtendLoaded()} />
+                    <AdSlot
+                      placement="video"
+                      enabled
+                      onLoaded={() => void onAdExtendLoaded()}
+                      onDismiss={() => setShowAdExtend(false)}
+                    />
                     {adExtendBusy ? (
                       <p className="mt-1 text-[11px] text-[var(--text-muted)]">Unlocking…</p>
                     ) : null}
