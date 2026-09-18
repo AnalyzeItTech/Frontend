@@ -141,7 +141,7 @@ function NewProjectContent() {
     const cu = getStoredUser();
     setUser(cu);
     void getEntitlements()
-      .then((snap) => setAdsFree(snap.ads_free !== false))
+      .then((snap) => setAdsFree(Boolean(snap.ads_free)))
       .catch(() => setAdsFree(true));
 
     if (urlProjectId) {

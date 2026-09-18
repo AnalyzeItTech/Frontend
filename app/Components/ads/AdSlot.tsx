@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 declare global {
@@ -8,28 +9,27 @@ declare global {
   }
 }
 
-export type AdPlacement = 'post-run' | 'session-start';
+export type AdPlacement = 'post-run' | 'session-start' | 'video';
 
 type AdSlotProps = {
   placement: AdPlacement;
-  /**
-   * Must be true only for free-tier users (ads_free === false).
-   * When false, this component renders nothing and never loads AdSense.
-   */
   enabled: boolean;
-  /** Fires when the ad unit has loaded, timed out, or was skipped. Not on click. */
   onLoaded?: () => void;
+  /** Video only: close without unlocking a run. */
+  onDismiss?: () => void;
   className?: string;
 };
 
 const CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || 'ca-pub-5383317547226180';
 const SLOT_BY_PLACEMENT: Record<AdPlacement, string> = {
-  'post-run': process.env.NEXT_PUBLIC_ADSENSE_SLOT_POST_RUN || '',
-  'session-start': process.env.NEXT_PUBLIC_ADSENSE_SLOT_SESSION || '',
+  'post-run': process.env.NEXT_PUBLIC_ADSENSE_SLOT_POST_RUN || process.env.NEXT_PUBLIC_ADSENSE_SLOT_SESSION || '',
+  'session-start': process.env.NEXT_PUBLIC_ADSENSE_SLOT_SESSION || process.env.NEXT_PUBLIC_ADSENSE_SLOT_POST_RUN || '',
+  video: process.env.NEXT_PUBLIC_ADSENSE_SLOT_VIDEO || process.env.NEXT_PUBLIC_ADSENSE_SLOT_POST_RUN || '',
 };
+const HOUSE_VIDEO = process.env.NEXT_PUBLIC_HOUSE_AD_VIDEO_URL || '';
+const VIDEO_WATCH_SEC = 15;
 
-/** Hard unlock so ad blockers / network failures never trap the composer. */
-export const AD_LOAD_TIMEOUT_MS = 5000;
+export const AD_LOAD_TIMEOUT_MS = 20_000;
 
 function ensureAdSenseScript(client: string): Promise<void> {
   if (typeof document === 'undefined') return Promise.resolve();
@@ -45,10 +45,7 @@ function ensureAdSenseScript(client: string): Promise<void> {
             resolve();
           }, { once: true });
           existing.addEventListener('error', () => resolve(), { once: true });
-          // Already completed before we attached listeners
-          if ((existing as HTMLScriptElement).src) {
-            window.setTimeout(() => resolve(), 0);
-          }
+          window.setTimeout(() => resolve(), 400);
         });
   }
   return new Promise((resolve) => {
@@ -66,20 +63,39 @@ function ensureAdSenseScript(client: string): Promise<void> {
   });
 }
 
-/**
- * Sponsored AdSense unit — visually distinct from chat/tool cards.
- * Never mounts the AdSense script unless `enabled` and env slots are set.
- */
-export function AdSlot({ placement, enabled, onLoaded, className = '' }: AdSlotProps) {
+function HouseBanner() {
+  return (
+    <div className="flex min-h-[52px] items-center justify-between gap-3 px-1">
+      <p className="min-w-0 text-[12px] leading-snug text-[var(--text-secondary)]">
+        Free Chat is ad-supported.{' '}
+        <Link href="/billing" className="font-medium text-[#E3836C] underline-offset-2 hover:underline">
+          Go ad-free
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+function HouseVideo() {
+  return (
+    <div className="flex aspect-video max-h-[200px] w-full max-w-[360px] flex-col justify-end rounded-lg bg-gradient-to-br from-[#E3836C]/25 to-[#C4B5A5]/20 p-3">
+      <p className="font-serif text-sm text-[var(--text-primary)]">15s sponsored watch</p>
+      <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">Stays in this card — never full screen.</p>
+    </div>
+  );
+}
+
+export function AdSlot({ placement, enabled, onLoaded, onDismiss, className = '' }: AdSlotProps) {
   const pushed = useRef(false);
   const loadedRef = useRef(false);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'empty' | 'skipped'>('loading');
-  const [showSkip, setShowSkip] = useState(false);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'skipped'>('loading');
+  const [remaining, setRemaining] = useState(placement === 'video' ? VIDEO_WATCH_SEC : 0);
   const slot = SLOT_BY_PLACEMENT[placement];
+  const isVideo = placement === 'video';
+  const isBanner = placement === 'session-start' || placement === 'post-run';
   const configured = Boolean(CLIENT && slot);
 
   useEffect(() => {
-    // Premium / ads_free: zero network calls — do not load googlesyndication.
     if (!enabled) {
       loadedRef.current = true;
       onLoaded?.();
@@ -87,98 +103,115 @@ export function AdSlot({ placement, enabled, onLoaded, className = '' }: AdSlotP
     }
 
     let cancelled = false;
-    const finish = (next: 'ready' | 'empty' | 'skipped' = configured ? 'ready' : 'empty') => {
+    const finish = () => {
       if (cancelled || loadedRef.current) return;
       loadedRef.current = true;
-      setStatus(next);
+      setStatus('ready');
       onLoaded?.();
     };
 
-    const timer = window.setTimeout(() => finish(configured ? 'ready' : 'empty'), AD_LOAD_TIMEOUT_MS);
-    const skipHint = window.setTimeout(() => {
-      if (!cancelled && !loadedRef.current) setShowSkip(true);
-    }, 2500);
-
-    if (!configured) {
-      finish('empty');
-      return () => {
-        cancelled = true;
-        window.clearTimeout(timer);
-        window.clearTimeout(skipHint);
-      };
-    }
+    const hard = window.setTimeout(finish, isVideo ? AD_LOAD_TIMEOUT_MS : 8_000);
 
     void (async () => {
-      await ensureAdSenseScript(CLIENT);
-      if (cancelled || pushed.current) return;
-      try {
-        window.adsbygoogle = window.adsbygoogle || [];
-        window.adsbygoogle.push({});
-        pushed.current = true;
-      } catch {
-        // Ad blocker / CSP — still unlock UI
+      if (configured) {
+        await ensureAdSenseScript(CLIENT);
+        if (cancelled || pushed.current) return;
+        try {
+          window.adsbygoogle = window.adsbygoogle || [];
+          window.adsbygoogle.push({});
+          pushed.current = true;
+        } catch {
+          /* blockers */
+        }
       }
-      finish('ready');
+      setStatus('ready');
+      if (!isVideo) window.setTimeout(finish, 400);
     })();
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
-      window.clearTimeout(skipHint);
+      window.clearTimeout(hard);
     };
-  }, [configured, enabled, onLoaded]);
+  }, [configured, enabled, isVideo, onLoaded]);
 
-  if (!enabled) return null;
-  // Collapse empty / skipped so the dashed placeholder never eats the flex gap.
-  if (status === 'empty' || status === 'skipped') return null;
-  // Unconfigured slots: never paint a tall dashed box in prod.
-  if (!configured && status !== 'loading') return null;
+  useEffect(() => {
+    if (!enabled || !isVideo || status === 'skipped') return;
+    if (remaining <= 0) {
+      if (!loadedRef.current) {
+        loadedRef.current = true;
+        onLoaded?.();
+      }
+      return;
+    }
+    const t = window.setTimeout(() => setRemaining((n) => n - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [enabled, isVideo, remaining, status, onLoaded]);
+
+  if (!enabled || status === 'skipped') return null;
+
+  const skip = () => {
+    loadedRef.current = true;
+    setStatus('skipped');
+    if (isVideo) onDismiss?.();
+    else onLoaded?.();
+  };
 
   return (
     <aside
-      className={`ad-slot rounded-xl border border-dashed border-[#C4B5A5] dark:border-[#3A424E] bg-[#F7F0E6] dark:bg-[#161A20] px-3 py-3 ${className}`}
+      className={`ad-slot overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 ${className}`}
       data-placement={placement}
       data-sponsored="true"
       aria-label="Sponsored"
     >
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#8A7F74] dark:text-[#8B93A1]">
-          Sponsored
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">
+          Sponsored{isVideo ? ' · video' : ''}
         </span>
         <div className="flex items-center gap-2">
-          {status === 'loading' && (
-            <span className="text-[10px] text-[#8A7F74] dark:text-[#8B93A1]">Loading…</span>
-          )}
-          {(showSkip || status === 'loading') && (
-            <button
-              type="button"
-              onClick={() => {
-                if (loadedRef.current) {
-                  onLoaded?.();
-                  return;
-                }
-                loadedRef.current = true;
-                setStatus('skipped');
-                setShowSkip(false);
-                onLoaded?.();
-              }}
-              className="text-[10px] font-medium text-[#8A7F74] underline underline-offset-2 hover:text-[#4A4238] dark:hover:text-[#EDEFF2]"
-            >
-              Skip
-            </button>
-          )}
+          {isVideo ? (
+            <span className="text-[10px] tabular-nums text-[var(--text-muted)]">
+              {remaining > 0 ? `${remaining}s to unlock` : 'Unlocked'}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={skip}
+            className="text-[10px] font-medium text-[var(--text-muted)] underline underline-offset-2"
+          >
+            Skip
+          </button>
         </div>
       </div>
+
       {configured ? (
         <ins
-          className="adsbygoogle"
-          style={{ display: 'block', minHeight: placement === 'session-start' ? 90 : 100 }}
+          className="adsbygoogle block w-full overflow-hidden"
+          style={{
+            display: 'block',
+            width: '100%',
+            height: isVideo ? 180 : 72,
+            maxHeight: isVideo ? 180 : 72,
+            overflow: 'hidden',
+          }}
           data-ad-client={CLIENT}
           data-ad-slot={slot}
-          data-ad-format="auto"
-          data-full-width-responsive="true"
+          data-ad-format={isBanner ? 'horizontal' : 'rectangle'}
+          data-full-width-responsive="false"
         />
-      ) : null}
+      ) : HOUSE_VIDEO && isVideo ? (
+        <video
+          className="mx-auto max-h-[180px] w-full max-w-[360px] rounded-lg bg-black object-cover"
+          src={HOUSE_VIDEO}
+          autoPlay
+          muted
+          playsInline
+          controls={false}
+        />
+      ) : isVideo ? (
+        <HouseVideo />
+      ) : (
+        <HouseBanner />
+      )}
     </aside>
   );
 }
