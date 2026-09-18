@@ -61,6 +61,7 @@ const TIERS: PricingTier[] = [
       '6× tokens · large model',
       '10 concurrent projects · 90-day artifacts',
       'Ad-free + personal dashboard link',
+      'Deep · orchestrated context (RLM-style inspect)',
       'Priority queue when the agent is busy',
       'Monthly billing after you sign in',
     ],
