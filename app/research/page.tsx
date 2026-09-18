@@ -19,7 +19,8 @@ import {
   IconPlayerStop,
 } from '@tabler/icons-react';
 import { getStoredToken, getStoredUser } from '../lib/auth';
-import { getEntitlements, getModels } from '../lib/billingApi';
+import { claimAdExtend, getEntitlements, getModels } from '../lib/billingApi';
+import { formatLlmRunsLeft, parseLlmQuota, type LlmQuota } from '../lib/llmQuota';
 import {
   MODEL_SIZE_LABELS,
   allowedModelSizes,
@@ -266,6 +267,11 @@ function ChatInner() {
   });
   const [error, setError] = useState<string | null>(null);
   const [upgradeHref, setUpgradeHref] = useState(false);
+  const [llmQuota, setLlmQuota] = useState<LlmQuota | null>(null);
+  const [quotaBanner, setQuotaBanner] = useState<'near' | 'exhausted' | null>(null);
+  const [showAdExtend, setShowAdExtend] = useState(false);
+  const [adExtendBusy, setAdExtendBusy] = useState(false);
+  const [adExtendNote, setAdExtendNote] = useState<string | null>(null);
   const [showDashboard, setShowDashboard] = useState(false);
   const [dashStatus, setDashStatus] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -292,6 +298,11 @@ function ChatInner() {
       .then(async (snap) => {
         // Premium/Plus: ads_free true → never fetch AdSense
         setAdsFree(snap.ads_free !== false);
+        const quota = parseLlmQuota(snap);
+        setLlmQuota(quota);
+        if (quota?.show && quota.exhausted) setQuotaBanner('exhausted');
+        else if (quota?.show && quota.nearCap) setQuotaBanner('near');
+        else setQuotaBanner(null);
         const maxAllowed = normalizeModelSize(snap.model_access);
         setModelSizeMax(maxAllowed);
         setSelectedModelSize(resolveInitialModelSize(maxAllowed));
@@ -328,6 +339,45 @@ function ChatInner() {
     setAwaitingAd(false);
     postRunAdArmed.current = false;
   }, []);
+
+  const refreshLlmQuota = useCallback(async () => {
+    if (!getStoredToken()) {
+      setLlmQuota(null);
+      setQuotaBanner(null);
+      return;
+    }
+    try {
+      const snap = await getEntitlements();
+      const quota = parseLlmQuota(snap);
+      setLlmQuota(quota);
+      if (quota?.show && quota.exhausted) setQuotaBanner('exhausted');
+      else if (quota?.show && quota.nearCap) setQuotaBanner('near');
+      else setQuotaBanner(null);
+    } catch {
+      /* keep last known */
+    }
+  }, []);
+
+  const onAdExtendLoaded = useCallback(async () => {
+    if (adExtendBusy) return;
+    setAdExtendBusy(true);
+    try {
+      const result = await claimAdExtend();
+      if (result.ok) {
+        setAdExtendNote(result.message || 'One more run unlocked. Thanks for watching.');
+        setShowAdExtend(false);
+        setQuotaBanner(null);
+        setError(null);
+        setUpgradeHref(false);
+        await refreshLlmQuota();
+      } else {
+        setAdExtendNote(result.message || 'Sponsored unlock unavailable — upgrade for more runs.');
+      }
+    } finally {
+      setAdExtendBusy(false);
+    }
+  }, [adExtendBusy, refreshLlmQuota]);
+
 
   // Parent-level escape hatch: never trap the composer if AdSlot fails to mount/fire.
   useEffect(() => {
@@ -783,6 +833,8 @@ function ChatInner() {
         } else if (chatError instanceof ChatRequestError && chatError.upgradeRequired) {
           setUpgradeHref(true);
           setError(chatError.message);
+          setQuotaBanner('exhausted');
+          void refreshLlmQuota();
           setMessages((prev) => prev.filter((m) => m.id !== assistantId && m.id !== userMsg.id));
         } else {
           const msg = chatError instanceof Error ? chatError.message : 'Request failed.';
@@ -799,9 +851,10 @@ function ChatInner() {
         setIsStreaming(false);
         // Stream end without run_completed still arms the post-run slot for free users
         if (!abortRef.current) armPostRunAd();
+        void refreshLlmQuota();
       }
     },
-    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming, messages, selectedModelSize],
+    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming, messages, refreshLlmQuota, selectedModelSize],
   );
 
   const stopStreaming = () => {
@@ -1082,6 +1135,49 @@ function ChatInner() {
               </div>
             )}
 
+            {quotaBanner && llmQuota?.show ? (
+              <div className="mx-4 mb-2 rounded-[var(--radius-card,14px)] border border-[var(--border)] bg-[var(--surface,#FFFCF8)] px-3 py-2.5 sm:mx-6">
+                <p className="text-xs text-[var(--text,#3A342D)]">
+                  {quotaBanner === 'exhausted'
+                    ? llmQuota.unit === 'tokens'
+                      ? 'You have used today’s free token budget. Upgrade for more headroom, or watch a short sponsored unit for one more try.'
+                      : 'You have used this month’s free LLM runs. Upgrade for a calmer monthly budget, or watch a short sponsored unit for one more run.'
+                    : `Running low — ${formatLlmRunsLeft(llmQuota)}. Upgrade anytime for more headroom.`}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Link
+                    href="/billing"
+                    className="inline-flex min-h-8 items-center rounded-full bg-[var(--coral,#EA8069)] px-3 text-[11px] font-medium text-white"
+                  >
+                    Upgrade
+                  </Link>
+                  {quotaBanner === 'exhausted' && !adsFree ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAdExtend(true);
+                        setAdExtendNote(null);
+                      }}
+                      className="inline-flex min-h-8 items-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 text-[11px] font-medium text-[var(--text-secondary)]"
+                    >
+                      Watch sponsored unit
+                    </button>
+                  ) : null}
+                </div>
+                {showAdExtend && !adsFree ? (
+                  <div className="mt-2">
+                    <AdSlot placement="post-run" enabled onLoaded={() => void onAdExtendLoaded()} />
+                    {adExtendBusy ? (
+                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">Unlocking…</p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {adExtendNote ? (
+                  <p className="mt-1.5 text-[11px] text-[var(--text-muted)]">{adExtendNote}</p>
+                ) : null}
+              </div>
+            ) : null}
+
             {/* Composer */}
             <div className="shrink-0 border-t border-[var(--border)] bg-[var(--bg)]/90 px-3 py-3 backdrop-blur-md sm:px-6">
               <div className="mx-auto max-w-3xl space-y-2">
@@ -1136,6 +1232,18 @@ function ChatInner() {
                     <span className="h-1.5 w-1.5 rounded-full bg-[var(--coral,#EA8069)]" aria-hidden />
                     Prepared on device
                   </span>
+                  {llmQuota?.show ? (
+                    <span
+                      className={`inline-flex min-h-8 items-center rounded-full border px-3 text-[11px] ${
+                        llmQuota.exhausted || llmQuota.nearCap
+                          ? 'border-[var(--coral,#EA8069)]/40 bg-[var(--coral,#EA8069)]/10 text-[var(--text,#3A342D)]'
+                          : 'border-[var(--border)] bg-[var(--surface,#FFFCF8)] text-[var(--text-muted)]'
+                      }`}
+                      title={llmQuota.exhausted ? 'Monthly free LLM runs used' : 'Remaining free LLM runs this period'}
+                    >
+                      {formatLlmRunsLeft(llmQuota)}
+                    </span>
+                  ) : null}
                   {liveBudget && (
                     <span
                       title="Live context budget from the research stream"
@@ -1229,7 +1337,7 @@ function ChatInner() {
                   ) : (
                     <button
                       type="submit"
-                      disabled={!input.trim() || awaitingAd}
+                      disabled={!input.trim() || awaitingAd || Boolean(llmQuota?.show && llmQuota.exhausted)}
                       aria-label="Send"
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E3836C] text-white disabled:opacity-40"
                     >
