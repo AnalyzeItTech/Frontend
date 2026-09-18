@@ -228,10 +228,15 @@ export default function GlobePage() {
   return (
     <AppShell active="globe" flush>
       <div
-        className="flex min-h-0 flex-1 overflow-hidden bg-[var(--surface-2)]"
-        style={{ minHeight: 'calc(100dvh - 56px)' }}
+        className="grid w-full min-h-0 flex-1 overflow-hidden bg-[var(--surface-2)]"
+        style={{
+          minHeight: 'calc(100dvh - 56px)',
+          /* Hard caps (not %): % tracks fall back to content width (~280/320) when
+             the flex parent size is indefinite — that left map ~53% at 1280. */
+          gridTemplateColumns: '11rem minmax(0, 1fr) 12rem',
+        }}
       >
-        <aside className="flex w-[280px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)]">
+        <aside className="flex min-w-0 flex-col overflow-hidden border-r border-[var(--border)] bg-[var(--surface)]">
           <div className="space-y-3 border-b border-[var(--border)] p-3">
             <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2">
               <IconSearch size={15} className="shrink-0 text-[#E3836C]" />
@@ -444,7 +449,7 @@ export default function GlobePage() {
           </div>
         </aside>
 
-        <section className="relative min-w-0 flex-[1_1_70%] bg-[var(--surface-2)]">
+        <section className="relative min-w-0 bg-[var(--surface-2)]">
           <PlaceMapLibre
             selected={selected}
             flyTo={flyTo}
@@ -498,7 +503,7 @@ export default function GlobePage() {
           ) : null}
         </section>
 
-        <aside className="flex w-[320px] shrink-0 flex-col border-l border-[var(--border)] bg-[var(--surface)]">
+        <aside className="flex min-w-0 flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--surface)]">
           {!selected && !loading && !error ? (
             <div className="flex flex-1 flex-col items-start justify-center gap-3 p-5">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E3836C]/12 text-[#E3836C]">
