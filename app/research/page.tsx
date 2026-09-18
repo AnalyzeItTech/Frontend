@@ -47,6 +47,26 @@ import { useTheme } from '../Components/ui/ThemeProvider';
 
 type ComposerMode = 'chat' | 'research';
 
+interface ContextBudget {
+  tier: string;
+  used: number;
+  limit: number;
+  unit: string;
+  truncated?: boolean;
+}
+
+interface RlmStep {
+  depth: number;
+  action: string;
+  spanLabel?: string;
+}
+
+interface ContextCompress {
+  method: string;
+  ratio?: number;
+  kept?: number;
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -62,6 +82,11 @@ interface ChatMessage {
   toolError?: string;
   /** Soft note when 0-token path declined into full agent */
   neededFullerResearch?: boolean;
+  /** Live context budget from Model B (research / RLM paths) */
+  contextBudget?: ContextBudget;
+  contextCompress?: ContextCompress;
+  rlmSteps?: RlmStep[];
+  contextRetrieve?: { query?: string; hits?: number; source?: string };
 }
 
 const ZERO_TOKEN_TOOL_LABELS: Record<string, string> = {
@@ -101,6 +126,79 @@ function isZeroTokenFinal(payload: Record<string, unknown>): boolean {
   const route = payload.route;
   return typeof route === 'string' && route.startsWith('zero_token_tool:');
 }
+
+function formatBudgetCount(n: number): string {
+  if (!Number.isFinite(n)) return '—';
+  if (n >= 1_000_000) {
+    const v = n / 1_000_000;
+    return `${Number.isInteger(v) ? v : v.toFixed(1)}M`;
+  }
+  if (n >= 1_000) {
+    const v = n / 1_000;
+    return `${Number.isInteger(v) ? v : v.toFixed(1)}k`;
+  }
+  return String(Math.round(n));
+}
+
+function formatBudgetChip(b: ContextBudget, rlmDepth?: number): string {
+  const tier = b.tier || 'Focused';
+  if (typeof rlmDepth === 'number' && rlmDepth > 0) {
+    return `${tier} · Deep · ${rlmDepth} step${rlmDepth === 1 ? '' : 's'}`;
+  }
+  const unitSuffix = b.unit === 'compressed_units' ? ' cu' : '';
+  return `${tier} · ${formatBudgetCount(b.used)}/${formatBudgetCount(b.limit)}${unitSuffix}`;
+}
+
+function parseContextBudget(payload: Record<string, unknown> | undefined): ContextBudget | null {
+  if (!payload) return null;
+  const used = Number(payload.used ?? payload.context_used);
+  const limit = Number(payload.limit ?? payload.context_limit);
+  if (!Number.isFinite(used) || !Number.isFinite(limit)) return null;
+  const tierRaw = payload.tier ?? payload.context_mode;
+  const tier = typeof tierRaw === 'string' && tierRaw ? tierRaw : 'Focused';
+  const unit = typeof payload.unit === 'string' && payload.unit ? payload.unit : 'tokens';
+  const truncated = payload.truncated === true || used >= limit;
+  return { tier, used, limit, unit, truncated };
+}
+
+function parseRlmStep(payload: Record<string, unknown> | undefined): RlmStep | null {
+  if (!payload) return null;
+  const depth = Number(payload.depth);
+  if (!Number.isFinite(depth)) return null;
+  const action = typeof payload.action === 'string' ? payload.action : 'inspect';
+  const spanLabel =
+    typeof payload.span_label === 'string'
+      ? payload.span_label
+      : typeof payload.spanLabel === 'string'
+        ? payload.spanLabel
+        : undefined;
+  return { depth, action, spanLabel };
+}
+
+function parseContextCompress(payload: Record<string, unknown> | undefined): ContextCompress | null {
+  if (!payload) return null;
+  const method =
+    typeof payload.method === 'string'
+      ? payload.method
+      : typeof payload.method_name === 'string'
+        ? payload.method_name
+        : null;
+  if (!method) return null;
+  const keptRaw = payload.kept;
+  const kept = typeof keptRaw === 'number' ? keptRaw : Number(keptRaw);
+  return {
+    method,
+    ratio: typeof payload.ratio === 'number' ? payload.ratio : undefined,
+    kept: Number.isFinite(kept) ? kept : undefined,
+  };
+}
+
+function compressLabel(method: string): string {
+  if (method === 'freq_encode' || method === 'frequency') return 'freq';
+  if (method === 'sparse_rag') return 'sparse';
+  return method.replace(/_/g, ' ');
+}
+
 
 const CHAT_PROMPTS = [
   'Summarize what changed in my last analysis',
@@ -157,6 +255,8 @@ function ChatInner() {
   );
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [liveBudget, setLiveBudget] = useState<ContextBudget | null>(null);
+  const [liveRlmDepth, setLiveRlmDepth] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
   const [awaitingAd, setAwaitingAd] = useState(false);
   const [showPostRunAd, setShowPostRunAd] = useState(false);
@@ -324,6 +424,8 @@ function ChatInner() {
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
       setInput('');
       setIsStreaming(true);
+      setLiveBudget(null);
+      setLiveRlmDepth(0);
       setError(null);
       setUpgradeHref(false);
       setDashStatus(null);
@@ -451,6 +553,91 @@ function ChatInner() {
               return;
             }
 
+            if (event.event === 'context_budget' || event.event === 'context_budget_update') {
+              const budget = parseContextBudget(event.payload as Record<string, unknown> | undefined);
+              if (budget) {
+                setLiveBudget(budget);
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          contextBudget: budget,
+                          status: budget.truncated
+                            ? `${budget.tier} context full — upgrade for a wider window`
+                            : m.status,
+                        }
+                      : m,
+                  ),
+                );
+              }
+              return;
+            }
+
+            if (event.event === 'context_compress') {
+              const compress = parseContextCompress(event.payload as Record<string, unknown> | undefined);
+              if (compress) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          contextCompress: compress,
+                          status: `Compressing · ${compressLabel(compress.method)}…`,
+                        }
+                      : m,
+                  ),
+                );
+              }
+              return;
+            }
+
+            if (event.event === 'context_retrieve') {
+              const payload = (event.payload || {}) as Record<string, unknown>;
+              const hits = Number(payload.hits);
+              const retrieve = {
+                query: typeof payload.query === 'string' ? payload.query : undefined,
+                hits: Number.isFinite(hits) ? hits : undefined,
+                source: typeof payload.source === 'string' ? payload.source : undefined,
+              };
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId
+                    ? {
+                        ...m,
+                        contextRetrieve: retrieve,
+                        status:
+                          typeof retrieve.hits === 'number'
+                            ? `Retrieved ${retrieve.hits} hit${retrieve.hits === 1 ? '' : 's'}…`
+                            : 'Retrieving context…',
+                      }
+                    : m,
+                ),
+              );
+              return;
+            }
+
+            if (event.event === 'rlm_step') {
+              const step = parseRlmStep(event.payload as Record<string, unknown> | undefined);
+              if (step) {
+                setLiveRlmDepth((d) => Math.max(d, step.depth));
+                setMessages((prev) =>
+                  prev.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    const rlmSteps = [...(m.rlmSteps || []), step];
+                    return {
+                      ...m,
+                      rlmSteps,
+                      status: `Recursive inspect · depth ${step.depth}${
+                        step.spanLabel ? ` · ${step.spanLabel}` : ''
+                      }…`,
+                    };
+                  }),
+                );
+              }
+              return;
+            }
+
             if (event.event === 'model_delta') {
               const delta =
                 typeof event.payload?.text === 'string'
@@ -470,6 +657,29 @@ function ChatInner() {
             }
 
             if (event.event === 'final') {
+              const finalPayload = (event.payload || {}) as Record<string, unknown>;
+              const usage = finalPayload.usage as Record<string, unknown> | undefined;
+              if (usage) {
+                const fromUsage = parseContextBudget({
+                  tier: usage.tier ?? usage.context_mode ?? finalPayload.context_mode,
+                  used: usage.used ?? usage.context_used,
+                  limit: usage.limit ?? usage.context_limit,
+                  unit: usage.unit ?? 'tokens',
+                  truncated: usage.truncated,
+                } as Record<string, unknown>);
+                const rlmDepth = Number(usage.rlm_depth ?? usage.rlmDepth);
+                if (fromUsage) {
+                  setLiveBudget(fromUsage);
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantId ? { ...m, contextBudget: fromUsage } : m,
+                    ),
+                  );
+                }
+                if (Number.isFinite(rlmDepth) && rlmDepth > 0) {
+                  setLiveRlmDepth(rlmDepth);
+                }
+              }
               if (isZeroTokenFinal(event.payload || {})) {
                 const tool =
                   parseZeroTokenTool(event.payload?.route, hintTools) ||
@@ -721,7 +931,50 @@ function ChatInner() {
                           From tools · 0 tokens · {labelZeroTokenTool(msg.zeroToken.toolName)}
                         </span>
                       )}
-                      {!isUser && msg.neededFullerResearch && !msg.zeroToken && !msg.toolError && (
+                      
+                      {!isUser && msg.contextCompress && (
+                        <span
+                          className="ml-1 inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]"
+                          title="Context was compressed before the model call"
+                        >
+                          Compressed · {compressLabel(msg.contextCompress.method)}
+                        </span>
+                      )}
+                      {!isUser && msg.rlmSteps && msg.rlmSteps.length > 0 && (
+                        <span
+                          className="ml-1 inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface)] px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]"
+                          title="Recursive language-model inspect steps over an external store"
+                        >
+                          Recursive inspect · depth {Math.max(...msg.rlmSteps.map((s) => s.depth))}
+                        </span>
+                      )}
+                      {!isUser && msg.contextBudget && (
+                        <span
+                          className={`ml-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider ${
+                            msg.contextBudget.truncated
+                              ? 'bg-amber-500/15 text-amber-800 dark:text-amber-200'
+                              : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]'
+                          }`}
+                          title="Orchestrated context window — not a single pasted prompt"
+                        >
+                          {formatBudgetChip(
+                            msg.contextBudget,
+                            msg.rlmSteps && msg.rlmSteps.length
+                              ? Math.max(...msg.rlmSteps.map((s) => s.depth))
+                              : undefined,
+                          )}
+                        </span>
+                      )}
+                      {!isUser && msg.contextBudget?.truncated && (
+                        <p className="text-[11px] text-amber-800 dark:text-amber-200">
+                          Context window filled for this tier.{' '}
+                          <a href="/billing" className="underline underline-offset-2">
+                            Upgrade
+                          </a>{' '}
+                          for a wider orchestrated window.
+                        </p>
+                      )}
+{!isUser && msg.neededFullerResearch && !msg.zeroToken && !msg.toolError && (
                         <p className="text-[11px] text-[var(--text-muted)]">
                           Needed fuller research — answered with the full agent.
                         </p>
@@ -883,6 +1136,18 @@ function ChatInner() {
                     <span className="h-1.5 w-1.5 rounded-full bg-[var(--coral,#EA8069)]" aria-hidden />
                     Prepared on device
                   </span>
+                  {liveBudget && (
+                    <span
+                      title="Live context budget from the research stream"
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium ${
+                        liveBudget.truncated
+                          ? 'bg-amber-500/15 text-amber-800 dark:text-amber-200'
+                          : 'border border-[var(--border)] bg-[var(--surface,#FFFCF8)] text-[var(--text-muted,#81786F)]'
+                      }`}
+                    >
+                      {formatBudgetChip(liveBudget, liveRlmDepth || undefined)}
+                    </span>
+                  )}
                   <span className="ml-auto hidden text-[10px] text-[var(--text-muted)] sm:inline">
                     Enter to send · Shift+Enter for newline
                   </span>
