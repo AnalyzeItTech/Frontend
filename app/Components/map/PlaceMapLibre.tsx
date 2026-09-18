@@ -35,6 +35,8 @@ interface PlaceMapLibreProps {
   activeHub?: string | null;
   onHubSelect?: (hub: (typeof GLOBE_HUBS)[number]) => void;
   flyTo?: { lat: number; lon: number; zoom?: number } | null;
+  comparePlaces?: Array<{ lat: number; lon: number; name?: string }>;
+  hideNavControl?: boolean;
   className?: string;
   onMapError?: (message: string) => void;
   onMapReady?: () => void;
@@ -52,6 +54,8 @@ export function PlaceMapLibre({
   activeHub,
   onHubSelect,
   flyTo,
+  comparePlaces = [],
+  hideNavControl = false,
   className = '',
   onMapError,
   onMapReady,
@@ -167,7 +171,7 @@ export function PlaceMapLibre({
           onMapError?.(msg);
         }}
       >
-        <NavigationControl position="top-right" showCompass />
+        {hideNavControl ? null : <NavigationControl position="top-right" showCompass />}
         {GLOBE_HUBS.map((hub) => (
           <Marker
             key={hub.name}
@@ -188,6 +192,15 @@ export function PlaceMapLibre({
               aria-label={`Fly to ${hub.name}`}
             />
           </Marker>
+        ))}
+        {comparePlaces.map((p, i) => (
+          <Marker
+            key={`cmp-${p.lat}-${p.lon}-${i}`}
+            longitude={p.lon}
+            latitude={p.lat}
+            anchor="center"
+            color="#C9A27A"
+          />
         ))}
         {selected ? (
           <Marker longitude={selected.lon} latitude={selected.lat} anchor="bottom" color="#E3836C" />
