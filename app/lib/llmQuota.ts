@@ -1,4 +1,4 @@
-/** Free-plan monthly LLM run quota — mirrors Overseer entitlements contract. */
+/** Free-plan monthly LLM run quota — mirrors Backend A entitlements (PR #12). */
 
 export type LlmQuota = {
   limit: number | null;
@@ -8,7 +8,7 @@ export type LlmQuota = {
   exhausted: boolean;
   unlimited: boolean;
   period?: string;
-  /** True when we should show the chip (capped Free plans only). */
+  /** True when we should show the chip (capped plans only). */
   show: boolean;
   /** monthly llm_runs once A ships; tokens is interim daily fallback. */
   unit: 'runs' | 'tokens';
@@ -28,30 +28,53 @@ function isNearCap(remaining: number, limit: number, flag?: boolean): boolean {
   return false;
 }
 
+function resolvePeriod(snap: Record<string, unknown>): string | undefined {
+  if (typeof snap.llm_runs_month === 'string') return snap.llm_runs_month;
+  if (typeof snap.llm_runs_period === 'string') return snap.llm_runs_period;
+  return undefined;
+}
+
+/** Backend A: null / <=0 llm_runs_per_month means unlimited (Premium+). */
+function resolveUnlimited(snap: Record<string, unknown>, tier: string): boolean {
+  if (snap.llm_runs_unlimited === true) return true;
+  if ('llm_runs_per_month' in snap) {
+    if (snap.llm_runs_per_month == null) return true;
+    const n = num(snap.llm_runs_per_month);
+    return n !== null && n <= 0;
+  }
+  if ('llm_runs_limit' in snap) {
+    if (snap.llm_runs_limit == null) return true;
+    const n = num(snap.llm_runs_limit);
+    return n !== null && n <= 0;
+  }
+  // Pre-ship: paid tiers without monthly fields yet.
+  return tier === 'premium' || tier === 'premium_plus';
+}
+
 /**
- * Overseer contract fields on entitlements /me:
- * llm_runs_per_month, llm_runs_used, llm_runs_remaining,
- * llm_runs_unlimited, llm_runs_near_cap, llm_runs_exhausted, llm_runs_period
+ * Backend A / Overseer fields on entitlements snapshot:
+ * llm_runs_per_month (null = unlimited), llm_runs_limit (alias),
+ * llm_runs_used, llm_runs_remaining, llm_runs_month,
+ * optional llm_runs_unlimited / near_cap / exhausted
  *
+ * Hard wall: HTTP 429 code LLM_MONTHLY_QUOTA + upgrade_required.
  * Falls back to daily tokens_* only when no monthly llm_runs fields are present yet.
  */
 export function parseLlmQuota(snap: Record<string, unknown> | null | undefined): LlmQuota | null {
   if (!snap) return null;
   const tier = String(snap.tier || 'free').toLowerCase();
-  const period = typeof snap.llm_runs_period === 'string' ? snap.llm_runs_period : undefined;
-
-  const unlimited =
-    snap.llm_runs_unlimited === true ||
-    tier === 'premium' ||
-    tier === 'premium_plus';
+  const period = resolvePeriod(snap);
+  const unlimited = resolveUnlimited(snap, tier);
 
   const hasMonthly =
-    snap.llm_runs_per_month != null ||
-    snap.llm_runs_limit != null ||
+    'llm_runs_per_month' in snap ||
+    'llm_runs_limit' in snap ||
     snap.llm_runs_used != null ||
     snap.llm_runs_remaining != null ||
     snap.llm_runs_unlimited != null ||
-    snap.llm_runs_exhausted != null;
+    snap.llm_runs_exhausted != null ||
+    snap.llm_runs_month != null ||
+    snap.llm_runs_period != null;
 
   if (hasMonthly) {
     if (unlimited) {
@@ -136,4 +159,11 @@ export function formatLlmRunsLeft(quota: LlmQuota): string {
   const left = quota.remaining ?? 0;
   if (left === 1) return '1 LLM run left';
   return `${left} LLM runs left`;
+}
+
+/** True when chat hard-wall is the monthly LLM ceiling. */
+export function isLlmMonthlyQuotaError(err: { code?: string; upgradeRequired?: boolean; status?: number } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code === 'LLM_MONTHLY_QUOTA' || err.code === 'LLM_QUOTA' || err.code === 'LLM_RUNS') return true;
+  return Boolean(err.upgradeRequired && err.status === 429);
 }

@@ -20,7 +20,7 @@ import {
 } from '@tabler/icons-react';
 import { getStoredToken, getStoredUser } from '../lib/auth';
 import { claimAdExtend, getEntitlements, getModels } from '../lib/billingApi';
-import { formatLlmRunsLeft, parseLlmQuota, type LlmQuota } from '../lib/llmQuota';
+import { formatLlmRunsLeft, isLlmMonthlyQuotaError, parseLlmQuota, type LlmQuota } from '../lib/llmQuota';
 import {
   MODEL_SIZE_LABELS,
   allowedModelSizes,
@@ -830,7 +830,7 @@ function ChatInner() {
                 : m,
             ),
           );
-        } else if (chatError instanceof ChatRequestError && chatError.upgradeRequired) {
+        } else if (chatError instanceof ChatRequestError && (chatError.upgradeRequired || isLlmMonthlyQuotaError(chatError))) {
           setUpgradeHref(true);
           setError(chatError.message);
           setQuotaBanner('exhausted');
