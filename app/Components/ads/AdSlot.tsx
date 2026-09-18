@@ -129,6 +129,10 @@ export function AdSlot({ placement, enabled, onLoaded, className = '' }: AdSlotP
   }, [configured, enabled, onLoaded]);
 
   if (!enabled) return null;
+  // Collapse empty / skipped so the dashed placeholder never eats the flex gap.
+  if (status === 'empty' || status === 'skipped') return null;
+  // Unconfigured slots: never paint a tall dashed box in prod.
+  if (!configured && status !== 'loading') return null;
 
   return (
     <aside
@@ -174,11 +178,7 @@ export function AdSlot({ placement, enabled, onLoaded, className = '' }: AdSlotP
           data-ad-format="auto"
           data-full-width-responsive="true"
         />
-      ) : (
-        <p className="text-xs text-[#8A7F74] dark:text-[#8B93A1]">
-          Ad placeholder (set NEXT_PUBLIC_ADSENSE_CLIENT_ID and slot IDs).
-        </p>
-      )}
+      ) : null}
     </aside>
   );
 }

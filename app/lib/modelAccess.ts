@@ -7,10 +7,26 @@ export type ModelAccess = ModelSize;
 export const MODEL_SIZE_ORDER: ModelSize[] = ['small', 'medium', 'large'];
 
 export const MODEL_SIZE_LABELS: Record<ModelSize, string> = {
+  small: 'Small (Fast)',
+  medium: 'Medium (Standard)',
+  large: 'Large (Advanced)',
+};
+
+/** Short labels for compact selects. */
+export const MODEL_SIZE_SHORT_LABELS: Record<ModelSize, string> = {
   small: 'Small',
   medium: 'Medium',
   large: 'Large',
 };
+
+/** All sizes for picker UI (plan lock is enforced in the UI, not by hiding options). */
+export function allModelSizes(): ModelSize[] {
+  return [...MODEL_SIZE_ORDER];
+}
+
+export function modelSizeLocked(size: ModelSize, maxAllowed: ModelSize): boolean {
+  return MODEL_SIZE_ORDER.indexOf(size) > MODEL_SIZE_ORDER.indexOf(maxAllowed);
+}
 
 /** Back-compat aliases for existing imports. */
 export const MODEL_ACCESS_ORDER = MODEL_SIZE_ORDER;

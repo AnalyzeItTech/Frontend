@@ -1,0 +1,84 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect } from 'react';
+
+export type UpgradeReason = 'model' | 'quota' | 'generic';
+
+type UpgradeModalProps = {
+  open: boolean;
+  onClose: () => void;
+  reason?: UpgradeReason;
+  /** Optional locked model size label, e.g. "Medium (Standard)". */
+  lockedModelLabel?: string;
+};
+
+const COPY: Record<UpgradeReason, { title: string; body: string }> = {
+  model: {
+    title: 'Unlock a larger model',
+    body: 'That model size is on Premium. Upgrade for Medium and Large — Fast stays free.',
+  },
+  quota: {
+    title: 'Monthly free LLM runs used',
+    body: 'You have hit this month’s free LLM run ceiling. Upgrade for a higher monthly budget. 0-token tools do not count against the limit.',
+  },
+  generic: {
+    title: 'Upgrade AnalyzeIt',
+    body: 'Premium unlocks larger models, a higher monthly LLM budget, and an ad-free workspace.',
+  },
+};
+
+export function UpgradeModal({ open, onClose, reason = 'generic', lockedModelLabel }: UpgradeModalProps) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const copy = COPY[reason];
+  const body =
+    reason === 'model' && lockedModelLabel
+      ? `${lockedModelLabel} needs Premium. Upgrade to unlock Medium and Large — Small (Fast) stays on Free.`
+      : copy.body;
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="upgrade-modal-title"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface,#FFFCF8)] p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="upgrade-modal-title" className="text-base font-semibold text-[var(--text,#3A342D)]">
+          {copy.title}
+        </h2>
+        <p className="mt-2 text-sm text-[var(--text-secondary,#5C534A)]">{body}</p>
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex min-h-9 items-center rounded-full border border-[var(--border)] px-4 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-2)]"
+          >
+            Not now
+          </button>
+          <Link
+            href="/billing"
+            className="inline-flex min-h-9 items-center rounded-full bg-[var(--coral,#EA8069)] px-4 text-xs font-medium text-white"
+            onClick={onClose}
+          >
+            View plans
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
