@@ -23,6 +23,17 @@ export async function getEntitlements() {
   return res.json() as Promise<Record<string, unknown>>;
 }
 
+/** Model picker allowlist (size tiers; Foundry deployment ids come from B when present). */
+export async function getModels() {
+  const res = await fetch(`${API_V1}/models`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await readError(res, 'Could not load models'));
+  return res.json() as Promise<{
+    model_access?: string;
+    default?: string;
+    models?: Array<Record<string, unknown>>;
+  }>;
+}
+
 export async function getBillingHistory() {
   const res = await fetch(`${API_V1}/billing/history`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await readError(res, 'Could not load billing history'));
