@@ -25,7 +25,7 @@ export const HeroSection: React.FC = () => {
           </h1>
 
           <p className="text-base md:text-lg text-[#3F3830] dark:text-[#E6DCD2] font-normal max-w-xl leading-relaxed">
-            AnalyzeIt is a quiet analytics workspace that monitors your metrics in real-time 3D, writes clear narrative summaries, and lets anyone ask questions in plain words.
+            A quiet analytics workspace — narratives, forecasts, and place-aware exploration without dashboard busywork.
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">

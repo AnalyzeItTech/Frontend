@@ -12,59 +12,87 @@ interface Capability {
 
 const CAPABILITIES: Capability[] = [
   {
-    id: 'reports',
-    category: 'Capability 01 · Reports Engine',
-    headline: 'Answers without the assembly line.',
+    id: 'globe',
+    category: 'Capability 01 · Globe',
+    headline: 'Explore the world, then ask why.',
     body:
-      'Stop spending Monday mornings stitching together spreadsheets and recreating charts. AnalyzeIt monitors your core metrics continuously and writes clear summaries delivered right where you already work.',
-    callout: 'Automated',
-    calloutDesc: 'scheduled executive briefings delivered to your team channels',
+      'Search places, compare hubs, and hand a pin straight into Research. A map-first workspace — not a postage-stamp widget.',
+    callout: 'Map-first',
+    calloutDesc: 'search → pin → “Ask about this place.”',
     bullets: [
-      'Connects directly to your existing data sources and billing streams',
-      'Drafts plain-language narratives explaining what changed and why',
-      'Delivers scheduled briefings via email or shared channels',
+      'Search and browse places with room to see the map',
+      'Compare hubs without burying the globe in chrome',
+      'Send a selected place into Research in one step',
     ],
   },
   {
-    id: 'forecasts',
-    category: 'Capability 02 · Forecast Horizons',
-    headline: 'Look ahead with quiet confidence.',
+    id: 'research',
+    category: 'Capability 02 · Research',
+    headline: 'Ask in plain words. See how the answer was made.',
     body:
-      'See where your trajectory is heading before the quarter wraps up. Probabilistic projections adapt naturally to seasonal cycles, recent trends, and baseline variance without manual tuning.',
-    callout: 'Adaptive',
-    calloutDesc: 'rolling forward-looking horizon with uncertainty bounds',
+      'Chat and deep research with tool-backed answers. Simple calc, weather, FX, and stocks can resolve as From tools · 0 tokens — no fake “AI wrote this.”',
+    callout: 'Provenance',
+    calloutDesc: 'tool chips · Prepared on device when the browser helps compress context',
     bullets: [
-      'Identifies recurring baseline patterns automatically',
-      'Projects likely outcomes with visible uncertainty',
-      'Updates as new data arrives instead of waiting for a rebuild',
+      'Plain-language questions with visible tool provenance',
+      'Zero-token tool paths when a calculator or live feed is enough',
+      'API-orchestrated models — not a local LLM on your laptop',
     ],
   },
   {
-    id: 'monitoring',
-    category: 'Capability 03 · Anomaly Monitoring',
-    headline: 'Notice the shift, not the siren.',
+    id: 'dashboard',
+    category: 'Capability 03 · Dashboard',
+    headline: 'Quiet canvases, not noisy boards.',
     body:
-      'Contextual anomaly detection explains root causes instead of flooding the team with false alarms. Correlated metrics collapse into one story you can act on.',
-    callout: 'Quiet',
-    calloutDesc: 'root-cause briefings instead of noisy threshold pings',
+      'Build living summaries and widgets on warm paper — coral accents, clear empty states, charts that match the brand.',
+    callout: 'Calm studio',
+    calloutDesc: 'empty state → add first widget / templates',
     bullets: [
-      'Watches related metrics together so noise does not multiply',
-      'Separates upstream causes from downstream symptoms',
-      'Sends a concise briefing before the issue becomes a meeting',
+      'Warm paper surfaces instead of cold admin grey',
+      'Clear empty states that invite the first widget',
+      'Charts and KPIs tuned to the coral / cream system',
     ],
   },
   {
-    id: 'exploration',
-    category: 'Capability 04 · Conversational Query',
-    headline: 'Ask follow-ups in everyday words.',
+    id: 'connectors-objects',
+    category: 'Capability 04 · Connectors & Objects',
+    headline: 'Connect data. Shape objects. Stay honest.',
     body:
-      'Explore cohorts, churn, and channel mix without writing SQL. The generated query stays visible so analysts can trust and inspect the answer.',
-    callout: 'Open',
-    calloutDesc: 'plain-language questions with inspectable SQL',
+      'Connectors show real status (connected / coming soon / error). Objects use one clear term and an illustrative schema when empty — no half-broken Connect buttons.',
+    callout: 'Honest status',
+    calloutDesc: 'status chips · Create object above the fold',
     bullets: [
-      'Turns natural-language questions into parameterized queries',
-      'Checks the question against your schema before running',
-      'Shows tables and takeaways together, not a widget maze',
+      'Connected, coming soon, and error states you can trust',
+      'One vocabulary: objects — not mixed “entities”',
+      'Illustrative schema previews when the workspace is empty',
+    ],
+  },
+  {
+    id: 'deep-context',
+    category: 'Capability 05 · Deep context',
+    headline: 'Deep analysis over large corpora — orchestrated, not stuffed.',
+    body:
+      'Free stays focused; Premium compresses; Premium+ runs recursive inspect over an external store (RLM-style) with frequency encoding — not “we paste a billion tokens into one API call.”',
+    callout: 'Deep · orchestrated',
+    calloutDesc: 'budget / mode chips as stream events land',
+    bullets: [
+      'Tiered modes: focused, compressed, and deep recursive inspect',
+      'Client “Prepared on device” hints before the request leaves the browser',
+      'Honest framing — orchestrated context, not a magic single-call window',
+    ],
+  },
+  {
+    id: 'reliability',
+    category: 'Capability 06 · Reliability',
+    headline: 'Built to stay available.',
+    body:
+      'Product APIs and research paths run on hosted infrastructure (including Azure-hosted Model/B) so the workspace stays reachable while you explore.',
+    callout: 'Hosted',
+    calloutDesc: 'reachable research paths while you work',
+    bullets: [
+      'Hosted Model/B paths so exploration stays online',
+      'No over-claimed SLAs — reliability without hype',
+      'Account-gated Chat, Globe, dashboards, and connectors',
     ],
   },
 ];
@@ -88,7 +116,7 @@ export const CapabilitiesSection: React.FC = () => {
         </h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 lg:gap-10">
         {CAPABILITIES.map((cap) => (
           <div
             key={cap.id}

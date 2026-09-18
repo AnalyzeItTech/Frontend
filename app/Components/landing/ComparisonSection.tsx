@@ -8,24 +8,24 @@ interface ComparisonRow {
 
 const COMPARISONS: ComparisonRow[] = [
   {
-    topic: 'Dashboard Maintenance',
-    oldWay: 'Rigid dashboards that break when definitions or underlying schemas evolve.',
-    analyzeIt: 'Living summaries compiled on-demand from fresh data whenever you need them.',
+    topic: 'Place & context',
+    oldWay: 'A tiny map widget buried under filters, or a chat that cannot hand off a location.',
+    analyzeIt: 'Map-first Globe with search, pins, and Ask-about-place straight into Research.',
   },
   {
-    topic: 'Answering Ad-Hoc Questions',
-    oldWay: 'Waiting in a data team ticket queue for routine questions and simple slices.',
-    analyzeIt: 'Direct self-serve answers anyone on the team can reach in seconds.',
+    topic: 'Answers you can trust',
+    oldWay: 'Generic chat that blurs tools, models, and made-up prose.',
+    analyzeIt: 'Provenance chips, From tools · 0 tokens when a live tool suffices, Prepared on device for CSR hints.',
   },
   {
-    topic: 'Alerts & Notifications',
-    oldWay: 'Constant alert pings and threshold triggers that train teams to look away.',
-    analyzeIt: 'Quiet, contextual updates delivered only when something truly shifts.',
+    topic: 'Dashboards & structure',
+    oldWay: 'Cold admin boards and half-broken Connect buttons.',
+    analyzeIt: 'Calm studio canvases plus honest connector status and clear objects.',
   },
   {
-    topic: 'Root-Cause Analysis',
-    oldWay: 'Digging through multiple pivot tables to figure out why numbers changed.',
-    analyzeIt: 'Clear narrative explanations delivered alongside verified source numbers.',
+    topic: 'Large corpora',
+    oldWay: 'Marketing that implies stuffing a billion tokens into one API call.',
+    analyzeIt: 'Tiered deep context — focused, compressed, or RLM-orchestrated inspect — framed honestly.',
   },
 ];
 
