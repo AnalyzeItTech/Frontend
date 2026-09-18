@@ -447,6 +447,8 @@ export interface ChatOptions {
   history?: ChatTurn[];
   /** Default true — attach client_context frequency/history preprocess. */
   includeClientContext?: boolean;
+  /** Plan-capped size tier: small | medium | large (not a Foundry deployment id). */
+  modelAccess?: 'small' | 'medium' | 'large';
   onEvent?: (event: StreamEvent) => void;
 }
 
@@ -469,6 +471,7 @@ export async function streamChat(options: ChatOptions): Promise<{
     layout,
     history = [],
     includeClientContext = true,
+    modelAccess,
     onEvent,
   } = options;
 
@@ -488,6 +491,7 @@ export async function streamChat(options: ChatOptions): Promise<{
       incognito: incognito ?? false,
       layout,
       ...(client_context ? { client_context } : {}),
+      ...(modelAccess ? { model_access: modelAccess } : {}),
     }),
   });
 
