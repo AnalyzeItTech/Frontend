@@ -1,5 +1,6 @@
 import { getAuthHeaders, getStoredUser } from './auth';
 import { ChatRequestError, friendlyHttpMessage, parseApiFailure } from './apiErrors';
+import { buildChatClientContext, type ChatTurn } from './clientPreprocess';
 
 export { ChatRequestError };
 
@@ -442,6 +443,10 @@ export interface ChatOptions {
   projectTitle?: string;
   incognito?: boolean;
   layout?: { widgets: WidgetSpec[] };
+  /** Optional prior turns for CSR compression into client_context. */
+  history?: ChatTurn[];
+  /** Default true — attach client_context frequency/history preprocess. */
+  includeClientContext?: boolean;
   onEvent?: (event: StreamEvent) => void;
 }
 
@@ -454,7 +459,22 @@ export async function streamChat(options: ChatOptions): Promise<{
 }> {
   const storedUser = getStoredUser();
   const effectiveUserId = options.userId || (storedUser ? storedUser.id : 'demo-user');
-  const { message, userId = effectiveUserId, projectId, runId, projectTitle, incognito, layout, onEvent } = options;
+  const {
+    message,
+    userId = effectiveUserId,
+    projectId,
+    runId,
+    projectTitle,
+    incognito,
+    layout,
+    history = [],
+    includeClientContext = true,
+    onEvent,
+  } = options;
+
+  // CSR: cheap frequency + history compression on the client (A may ignore until wired).
+  const client_context =
+    includeClientContext !== false ? buildChatClientContext(message, history) : undefined;
 
   const response = await fetch(`${API_V1}/chat`, {
     method: 'POST',
@@ -467,6 +487,7 @@ export async function streamChat(options: ChatOptions): Promise<{
       project_title: projectTitle,
       incognito: incognito ?? false,
       layout,
+      ...(client_context ? { client_context } : {}),
     }),
   });
 

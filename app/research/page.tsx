@@ -317,10 +317,16 @@ function ChatInner() {
           : value;
 
       try {
+        const history = messages
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m) => ({ role: m.role, content: m.content || '' }));
+
         const response = await streamChat({
           message: outbound,
           projectTitle: mode === 'research' ? 'Research & Discovery' : 'Chat',
           incognito: isIncognito,
+          history,
+          includeClientContext: true,
           onEvent: (event: StreamEvent) => {
             if (abortRef.current) return;
 
@@ -553,7 +559,7 @@ function ChatInner() {
         if (!abortRef.current) armPostRunAd();
       }
     },
-    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming],
+    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming, messages],
   );
 
   const stopStreaming = () => {
@@ -838,6 +844,13 @@ function ChatInner() {
                       Globe
                     </Link>
                   </div>
+                  <span
+                    title="Message frequency hints prepared in your browser before send"
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface,#FFFCF8)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-muted,#81786F)]"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--coral,#EA8069)]" aria-hidden />
+                    Prepared on device
+                  </span>
                   <span className="ml-auto hidden text-[10px] text-[var(--text-muted)] sm:inline">
                     Enter to send · Shift+Enter for newline
                   </span>
