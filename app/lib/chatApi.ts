@@ -448,6 +448,8 @@ export interface ChatOptions {
   /** Default true — attach client_context frequency/history preprocess. */
   includeClientContext?: boolean;
   /** Plan-capped size tier: small | medium | large (not a Foundry deployment id). */
+  modelSize?: 'small' | 'medium' | 'large';
+  /** @deprecated use modelSize */
   modelAccess?: 'small' | 'medium' | 'large';
   onEvent?: (event: StreamEvent) => void;
 }
@@ -471,9 +473,11 @@ export async function streamChat(options: ChatOptions): Promise<{
     layout,
     history = [],
     includeClientContext = true,
+    modelSize,
     modelAccess,
     onEvent,
   } = options;
+  const resolvedModelSize = modelSize || modelAccess;
 
   // CSR: cheap frequency + history compression on the client (A may ignore until wired).
   const client_context =
@@ -491,7 +495,7 @@ export async function streamChat(options: ChatOptions): Promise<{
       incognito: incognito ?? false,
       layout,
       ...(client_context ? { client_context } : {}),
-      ...(modelAccess ? { model_access: modelAccess } : {}),
+      ...(resolvedModelSize ? { model_size: resolvedModelSize } : {}),
     }),
   });
 

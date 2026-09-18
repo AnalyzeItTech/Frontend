@@ -19,14 +19,16 @@ import {
   IconPlayerStop,
 } from '@tabler/icons-react';
 import { getStoredToken, getStoredUser } from '../lib/auth';
-import { getEntitlements } from '../lib/billingApi';
+import { getEntitlements, getModels } from '../lib/billingApi';
 import {
-  MODEL_ACCESS_LABELS,
-  allowedModelAccessList,
-  normalizeModelAccess,
-  resolveInitialModelAccess,
-  writeStoredModelAccess,
-  type ModelAccess,
+  MODEL_SIZE_LABELS,
+  allowedModelSizes,
+  normalizeModelSize,
+  optionsFromAllowlist,
+  resolveInitialModelSize,
+  writeStoredModelSize,
+  type ModelOption,
+  type ModelSize,
 } from '../lib/modelAccess';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 import { AdSlot, AD_LOAD_TIMEOUT_MS } from '../Components/ads/AdSlot';
@@ -148,8 +150,11 @@ function ChatInner() {
   const firstName = user?.name?.split(' ')[0] || 'there';
 
   const [composerMode, setComposerMode] = useState<ComposerMode>('chat');
-  const [modelAccessMax, setModelAccessMax] = useState<ModelAccess>('small');
-  const [selectedModelAccess, setSelectedModelAccess] = useState<ModelAccess>('small');
+  const [modelSizeMax, setModelSizeMax] = useState<ModelSize>('small');
+  const [selectedModelSize, setSelectedModelSize] = useState<ModelSize>('small');
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>(() =>
+    allowedModelSizes('small').map((size) => ({ size, label: MODEL_SIZE_LABELS[size], available: true })),
+  );
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -184,17 +189,26 @@ function ChatInner() {
       return;
     }
     void getEntitlements()
-      .then((snap) => {
+      .then(async (snap) => {
         // Premium/Plus: ads_free true → never fetch AdSense
         setAdsFree(snap.ads_free !== false);
-        const maxAllowed = normalizeModelAccess(snap.model_access);
-        setModelAccessMax(maxAllowed);
-        setSelectedModelAccess(resolveInitialModelAccess(maxAllowed));
+        const maxAllowed = normalizeModelSize(snap.model_access);
+        setModelSizeMax(maxAllowed);
+        setSelectedModelSize(resolveInitialModelSize(maxAllowed));
+        const fromEntitlements = optionsFromAllowlist(snap.available_models, maxAllowed);
+        try {
+          const catalog = await getModels();
+          const fromApi = optionsFromAllowlist(catalog.models, normalizeModelSize(catalog.model_access || maxAllowed));
+          setModelOptions(fromApi.length ? fromApi : fromEntitlements);
+        } catch {
+          setModelOptions(fromEntitlements);
+        }
       })
       .catch(() => {
         setAdsFree(true);
-        setModelAccessMax('small');
-        setSelectedModelAccess(resolveInitialModelAccess('small'));
+        setModelSizeMax('small');
+        setSelectedModelSize(resolveInitialModelSize('small'));
+        setModelOptions(allowedModelSizes('small').map((size) => ({ size, label: MODEL_SIZE_LABELS[size], available: true })));
       });
   }, []);
 
@@ -344,7 +358,7 @@ function ChatInner() {
           incognito: isIncognito,
           history,
           includeClientContext: true,
-          modelAccess: selectedModelAccess,
+          modelSize: selectedModelSize,
           onEvent: (event: StreamEvent) => {
             if (abortRef.current) return;
 
@@ -577,7 +591,7 @@ function ChatInner() {
         if (!abortRef.current) armPostRunAd();
       }
     },
-    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming, messages, selectedModelAccess],
+    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming, messages, selectedModelSize],
   );
 
   const stopStreaming = () => {
@@ -914,27 +928,27 @@ function ChatInner() {
                   </label>
                   <select
                     id="research-model-access"
-                    value={selectedModelAccess}
+                    value={selectedModelSize}
                     disabled={inputLocked}
                     onChange={(e) => {
-                      const next = normalizeModelAccess(e.target.value);
-                      const allowed = allowedModelAccessList(modelAccessMax);
-                      const capped = allowed.includes(next) ? next : modelAccessMax;
-                      setSelectedModelAccess(capped);
-                      writeStoredModelAccess(capped);
+                      const next = normalizeModelSize(e.target.value);
+                      const allowed = allowedModelSizes(modelSizeMax);
+                      const capped = allowed.includes(next) ? next : modelSizeMax;
+                      setSelectedModelSize(capped);
+                      writeStoredModelSize(capped);
                     }}
                     title={
-                      modelAccessMax === 'small'
+                      modelSizeMax === 'small'
                         ? 'Free plan: Small only — upgrade for Medium/Large'
-                        : modelAccessMax === 'medium'
+                        : modelSizeMax === 'medium'
                           ? 'Premium: Small or Medium'
                           : 'Premium+: Small, Medium, or Large'
                     }
                     className="h-10 max-w-[7.5rem] shrink-0 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 text-xs font-medium text-[var(--text-secondary)] outline-none hover:bg-[var(--surface)] disabled:opacity-50"
                   >
-                    {allowedModelAccessList(modelAccessMax).map((id) => (
-                      <option key={id} value={id}>
-                        {MODEL_ACCESS_LABELS[id]}
+                    {modelOptions.map((opt) => (
+                      <option key={opt.size} value={opt.size}>
+                        {opt.label || MODEL_SIZE_LABELS[opt.size]}
                       </option>
                     ))}
                   </select>
