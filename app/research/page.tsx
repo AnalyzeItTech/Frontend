@@ -23,7 +23,9 @@ import { claimAdExtend, getEntitlements, getModels } from '../lib/billingApi';
 import { formatLlmRunsLeft, isLlmMonthlyQuotaError, parseLlmQuota, type LlmQuota } from '../lib/llmQuota';
 import {
   MODEL_SIZE_LABELS,
+  allModelSizes,
   allowedModelSizes,
+  modelSizeLocked,
   normalizeModelSize,
   optionsFromAllowlist,
   resolveInitialModelSize,
@@ -31,6 +33,7 @@ import {
   type ModelOption,
   type ModelSize,
 } from '../lib/modelAccess';
+import { UpgradeModal, type UpgradeReason } from '../Components/billing/UpgradeModal';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 import { AdSlot, AD_LOAD_TIMEOUT_MS } from '../Components/ads/AdSlot';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
@@ -97,16 +100,31 @@ const ZERO_TOKEN_TOOL_LABELS: Record<string, string> = {
   stock_lookup: 'stock',
 };
 
+function contentDeniesWebSearch(content: string | undefined): boolean {
+  if (!content) return false;
+  return /web\s*search[^.]{0,40}(unavailable|failed|couldn.?t|could not|not available|disabled)/i.test(content)
+    || /(unavailable|failed|couldn.?t|could not).{0,40}web\s*search/i.test(content);
+}
+
+function shouldShowZeroTokenChip(msg: ChatMessage): boolean {
+  if (!msg.zeroToken) return false;
+  if (msg.toolError) return false;
+  const tool = msg.zeroToken.toolName.toLowerCase();
+  if ((tool.includes('web_search') || tool.includes('web search')) && contentDeniesWebSearch(msg.content)) {
+    return false;
+  }
+  return true;
+}
+
 function labelZeroTokenTool(toolName: string): string {
   return ZERO_TOKEN_TOOL_LABELS[toolName] || toolName.replace(/_/g, ' ');
 }
 
-function parseZeroTokenTool(route: unknown, hintTools: unknown): string | null {
-  if (Array.isArray(hintTools) && typeof hintTools[0] === 'string' && hintTools[0]) {
-    return hintTools[0];
-  }
+/** Only latch from an explicit zero_token_tool route — never agent-path hint_tools[0]. */
+function parseZeroTokenTool(route: unknown, _hintTools?: unknown): string | null {
   if (typeof route === 'string' && route.startsWith('zero_token_tool:')) {
-    return route.slice('zero_token_tool:'.length) || null;
+    const name = route.slice('zero_token_tool:'.length).trim();
+    return name || null;
   }
   return null;
 }
@@ -252,7 +270,7 @@ function ChatInner() {
   const [modelSizeMax, setModelSizeMax] = useState<ModelSize>('small');
   const [selectedModelSize, setSelectedModelSize] = useState<ModelSize>('small');
   const [modelOptions, setModelOptions] = useState<ModelOption[]>(() =>
-    allowedModelSizes('small').map((size) => ({ size, label: MODEL_SIZE_LABELS[size], available: true })),
+    allModelSizes().map((size) => ({ size, label: MODEL_SIZE_LABELS[size], available: true })),
   );
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -267,6 +285,7 @@ function ChatInner() {
   });
   const [error, setError] = useState<string | null>(null);
   const [upgradeHref, setUpgradeHref] = useState(false);
+  const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; reason: UpgradeReason; lockedModelLabel?: string }>({ open: false, reason: 'generic' });
   const [llmQuota, setLlmQuota] = useState<LlmQuota | null>(null);
   const [quotaBanner, setQuotaBanner] = useState<'near' | 'exhausted' | null>(null);
   const [showAdExtend, setShowAdExtend] = useState(false);
@@ -319,7 +338,7 @@ function ChatInner() {
         setAdsFree(true);
         setModelSizeMax('small');
         setSelectedModelSize(resolveInitialModelSize('small'));
-        setModelOptions(allowedModelSizes('small').map((size) => ({ size, label: MODEL_SIZE_LABELS[size], available: true })));
+        setModelOptions(allModelSizes().map((size) => ({ size, label: MODEL_SIZE_LABELS[size], available: true })));
       });
   }, []);
 
@@ -444,6 +463,11 @@ function ChatInner() {
     async (raw?: string, modeOverride?: ComposerMode) => {
       const value = (raw ?? input).trim();
       if (!value || isStreaming || awaitingAd) return;
+    if (llmQuota?.show && llmQuota.exhausted) {
+      setUpgradeModal({ open: true, reason: 'quota' });
+      setQuotaBanner('exhausted');
+      return;
+    }
 
       if (!getStoredToken()) {
         setError('Sign in to chat with AnalyzeIt.');
@@ -526,14 +550,24 @@ function ChatInner() {
               }
               const path = typeof event.payload?.path === 'string' ? event.payload.path : '';
               const reason = typeof event.payload?.reason === 'string' ? event.payload.reason : '';
-              const fromRoute = parseZeroTokenTool(reason.startsWith('zero_token_tool:') ? reason : path === 'zero_token_tool' ? `zero_token_tool:${hintTools[0] || ''}` : '', hintTools);
+              // Explicit zero_token_tool path only — hint_tools are agent suggestions, not 0-token success.
+              const routeKey = reason.startsWith('zero_token_tool:')
+                ? reason
+                : path === 'zero_token_tool' && hintTools[0]
+                  ? `zero_token_tool:${hintTools[0]}`
+                  : path === 'zero_token_tool'
+                    ? 'zero_token_tool:'
+                    : '';
+              const fromRoute = parseZeroTokenTool(routeKey);
               if (fromRoute) zeroTokenTool = fromRoute;
               const nextMode = event.payload?.response_mode === 'report' ? 'report' : 'chat';
               const ztStatus = zeroTokenTool
                 ? `Looking up via ${labelZeroTokenTool(zeroTokenTool)}…`
                 : nextMode === 'report'
                   ? 'Generating report…'
-                  : 'Answering…';
+                  : hintTools.length
+                    ? 'Gathering sources…'
+                    : 'Answering…';
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantId ? { ...m, status: ztStatus } : m,
@@ -563,10 +597,24 @@ function ChatInner() {
               if (event.event === 'tool_result' && event.payload?.ok === false) {
                 sawToolFailure = true;
                 toolFailureName = name;
+                // Failed tool must never keep a success 0-token latch (esp. web_search on agent path).
+                if (
+                  zeroTokenTool &&
+                  (zeroTokenTool === name ||
+                    name.includes('web_search') ||
+                    zeroTokenTool.includes('web_search'))
+                ) {
+                  zeroTokenTool = null;
+                }
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
-                      ? { ...m, status: `No live result from ${labelZeroTokenTool(name)}` }
+                      ? {
+                          ...m,
+                          status: `No live result from ${labelZeroTokenTool(name)}`,
+                          zeroToken: undefined,
+                          toolError: `No live result from ${labelZeroTokenTool(name)}`,
+                        }
                       : m,
                   ),
                 );
@@ -732,7 +780,7 @@ function ChatInner() {
               }
               if (isZeroTokenFinal(event.payload || {})) {
                 const tool =
-                  parseZeroTokenTool(event.payload?.route, hintTools) ||
+                  parseZeroTokenTool(event.payload?.route) ||
                   zeroTokenTool ||
                   'tool';
                 zeroTokenTool = tool;
@@ -790,10 +838,9 @@ function ChatInner() {
           );
         }
 
-        const endZeroToken = zeroTokenTool;
-        // Only surface tool-fail empty state when we got no answer and no 0-token final
-        // (Model skips zero_token final on tool failure).
-        const failedWithoutZeroToken = sawToolFailure && !endZeroToken && !streamed.trim();
+        // Never keep 0-token success chrome after a tool failure (hint_tools / web_search agent path).
+        const resolvedZeroToken = sawToolFailure ? null : zeroTokenTool;
+        const failedWithoutZeroToken = sawToolFailure && !resolvedZeroToken && !streamed.trim();
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
@@ -807,13 +854,13 @@ function ChatInner() {
                   proposal: proposalMeta || m.proposal,
                   streaming: false,
                   status: undefined,
-                  zeroToken: endZeroToken ? { toolName: endZeroToken } : m.zeroToken,
+                  zeroToken: resolvedZeroToken ? { toolName: resolvedZeroToken } : undefined,
                   toolError: failedWithoutZeroToken
                     ? `No live result from ${labelZeroTokenTool(toolFailureName || 'tool')}. Check the query and try again.`
                     : undefined,
                   neededFullerResearch:
                     mode === 'research' &&
-                    !endZeroToken &&
+                    !resolvedZeroToken &&
                     !failedWithoutZeroToken &&
                     Boolean(streamed.trim()) &&
                     looksLikeZeroTokenQuery(value),
@@ -835,6 +882,7 @@ function ChatInner() {
           setError(chatError.message);
           setQuotaBanner('exhausted');
           void refreshLlmQuota();
+          setUpgradeModal({ open: true, reason: 'quota' });
           setMessages((prev) => prev.filter((m) => m.id !== assistantId && m.id !== userMsg.id));
         } else {
           const msg = chatError instanceof Error ? chatError.message : 'Request failed.';
@@ -976,12 +1024,12 @@ function ChatInner() {
                           <IconSearch size={11} /> Research
                         </span>
                       )}
-                      {!isUser && msg.zeroToken && (
+                      {!isUser && shouldShowZeroTokenChip(msg) && (
                         <span
                           className="ml-1 inline-flex items-center gap-1 rounded-full bg-[#8FA98F]/15 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[#4A7C59] dark:text-[#9EBB9A]"
                           title="Answer came from a live tool with no LLM tokens"
                         >
-                          From tools · 0 tokens · {labelZeroTokenTool(msg.zeroToken.toolName)}
+                          From tools · 0 tokens · {labelZeroTokenTool(msg.zeroToken!.toolName)}
                         </span>
                       )}
                       
@@ -1145,12 +1193,13 @@ function ChatInner() {
                     : `Running low — ${formatLlmRunsLeft(llmQuota)}. Upgrade anytime for more headroom.`}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Link
-                    href="/billing"
+                  <button
+                    type="button"
+                    onClick={() => setUpgradeModal({ open: true, reason: 'quota' })}
                     className="inline-flex min-h-8 items-center rounded-full bg-[var(--coral,#EA8069)] px-3 text-[11px] font-medium text-white"
                   >
                     Upgrade
-                  </Link>
+                  </button>
                   {quotaBanner === 'exhausted' && !adsFree ? (
                     <button
                       type="button"
@@ -1178,8 +1227,8 @@ function ChatInner() {
               </div>
             ) : null}
 
-            {/* Composer */}
-            <div className="shrink-0 border-t border-[var(--border)] bg-[var(--bg)]/90 px-3 py-3 backdrop-blur-md sm:px-6">
+            {/* Composer — stick to bottom of chat column */}
+            <div className="sticky bottom-0 z-20 shrink-0 border-t border-[var(--border)] bg-[var(--bg)]/95 px-3 py-3 backdrop-blur-md sm:px-6">
               <div className="mx-auto max-w-3xl space-y-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <div
@@ -1305,10 +1354,16 @@ function ChatInner() {
                     disabled={inputLocked}
                     onChange={(e) => {
                       const next = normalizeModelSize(e.target.value);
-                      const allowed = allowedModelSizes(modelSizeMax);
-                      const capped = allowed.includes(next) ? next : modelSizeMax;
-                      setSelectedModelSize(capped);
-                      writeStoredModelSize(capped);
+                      if (modelSizeLocked(next, modelSizeMax)) {
+                        setUpgradeModal({
+                          open: true,
+                          reason: 'model',
+                          lockedModelLabel: MODEL_SIZE_LABELS[next],
+                        });
+                        return;
+                      }
+                      setSelectedModelSize(next);
+                      writeStoredModelSize(next);
                     }}
                     title={
                       modelSizeMax === 'small'
@@ -1317,13 +1372,16 @@ function ChatInner() {
                           ? 'Premium: Small or Medium'
                           : 'Premium+: Small, Medium, or Large'
                     }
-                    className="h-10 max-w-[7.5rem] shrink-0 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 text-xs font-medium text-[var(--text-secondary)] outline-none hover:bg-[var(--surface)] disabled:opacity-50"
+                    className="h-10 max-w-[11rem] shrink-0 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 text-xs font-medium text-[var(--text-secondary)] outline-none hover:bg-[var(--surface)] disabled:opacity-50"
                   >
-                    {modelOptions.map((opt) => (
-                      <option key={opt.size} value={opt.size}>
-                        {opt.label || MODEL_SIZE_LABELS[opt.size]}
-                      </option>
-                    ))}
+                    {allModelSizes().map((size) => {
+                      const locked = modelSizeLocked(size, modelSizeMax);
+                      return (
+                        <option key={size} value={size}>
+                          {MODEL_SIZE_LABELS[size]}{locked ? ' · Upgrade' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                   {isStreaming ? (
                     <button
@@ -1445,6 +1503,13 @@ function ChatInner() {
           )}
         </AnimatePresence>
       </div>
-    </AppShell>
+    
+      <UpgradeModal
+        open={upgradeModal.open}
+        reason={upgradeModal.reason}
+        lockedModelLabel={upgradeModal.lockedModelLabel}
+        onClose={() => setUpgradeModal((s) => ({ ...s, open: false }))}
+      />
+</AppShell>
   );
 }
