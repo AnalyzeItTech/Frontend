@@ -20,6 +20,14 @@ import {
 } from '@tabler/icons-react';
 import { getStoredToken, getStoredUser } from '../lib/auth';
 import { getEntitlements } from '../lib/billingApi';
+import {
+  MODEL_ACCESS_LABELS,
+  allowedModelAccessList,
+  normalizeModelAccess,
+  resolveInitialModelAccess,
+  writeStoredModelAccess,
+  type ModelAccess,
+} from '../lib/modelAccess';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 import { AdSlot, AD_LOAD_TIMEOUT_MS } from '../Components/ads/AdSlot';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
@@ -140,6 +148,8 @@ function ChatInner() {
   const firstName = user?.name?.split(' ')[0] || 'there';
 
   const [composerMode, setComposerMode] = useState<ComposerMode>('chat');
+  const [modelAccessMax, setModelAccessMax] = useState<ModelAccess>('small');
+  const [selectedModelAccess, setSelectedModelAccess] = useState<ModelAccess>('small');
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -177,8 +187,15 @@ function ChatInner() {
       .then((snap) => {
         // Premium/Plus: ads_free true → never fetch AdSense
         setAdsFree(snap.ads_free !== false);
+        const maxAllowed = normalizeModelAccess(snap.model_access);
+        setModelAccessMax(maxAllowed);
+        setSelectedModelAccess(resolveInitialModelAccess(maxAllowed));
       })
-      .catch(() => setAdsFree(true));
+      .catch(() => {
+        setAdsFree(true);
+        setModelAccessMax('small');
+        setSelectedModelAccess(resolveInitialModelAccess('small'));
+      });
   }, []);
 
   useEffect(() => {
@@ -327,6 +344,7 @@ function ChatInner() {
           incognito: isIncognito,
           history,
           includeClientContext: true,
+          modelAccess: selectedModelAccess,
           onEvent: (event: StreamEvent) => {
             if (abortRef.current) return;
 
@@ -559,7 +577,7 @@ function ChatInner() {
         if (!abortRef.current) armPostRunAd();
       }
     },
-    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming, messages],
+    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming, messages, selectedModelAccess],
   );
 
   const stopStreaming = () => {
@@ -891,6 +909,35 @@ function ChatInner() {
                     }
                     className="max-h-[140px] min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-[var(--text-muted)] disabled:opacity-60"
                   />
+                  <label className="sr-only" htmlFor="research-model-access">
+                    Model size
+                  </label>
+                  <select
+                    id="research-model-access"
+                    value={selectedModelAccess}
+                    disabled={inputLocked}
+                    onChange={(e) => {
+                      const next = normalizeModelAccess(e.target.value);
+                      const allowed = allowedModelAccessList(modelAccessMax);
+                      const capped = allowed.includes(next) ? next : modelAccessMax;
+                      setSelectedModelAccess(capped);
+                      writeStoredModelAccess(capped);
+                    }}
+                    title={
+                      modelAccessMax === 'small'
+                        ? 'Free plan: Small only — upgrade for Medium/Large'
+                        : modelAccessMax === 'medium'
+                          ? 'Premium: Small or Medium'
+                          : 'Premium+: Small, Medium, or Large'
+                    }
+                    className="h-10 max-w-[7.5rem] shrink-0 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 text-xs font-medium text-[var(--text-secondary)] outline-none hover:bg-[var(--surface)] disabled:opacity-50"
+                  >
+                    {allowedModelAccessList(modelAccessMax).map((id) => (
+                      <option key={id} value={id}>
+                        {MODEL_ACCESS_LABELS[id]}
+                      </option>
+                    ))}
+                  </select>
                   {isStreaming ? (
                     <button
                       type="button"
