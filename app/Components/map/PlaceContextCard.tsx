@@ -28,6 +28,8 @@ interface PlaceContextCardProps {
   error?: string | null;
   onClose?: () => void;
   onSendToChat?: (prompt: string) => void;
+  /** Full-height rail mode (no max-width card chrome). */
+  rail?: boolean;
 }
 
 function weatherLabel(code?: number | null) {
@@ -77,6 +79,7 @@ export function PlaceContextCard({
   error,
   onClose,
   onSendToChat,
+  rail = false,
 }: PlaceContextCardProps) {
   if (!loading && !context && !error) return null;
 
@@ -101,7 +104,7 @@ export function PlaceContextCard({
   };
 
   return (
-    <div className="app-card pointer-events-auto flex max-h-[min(78dvh,640px)] w-full max-w-md flex-col overflow-hidden shadow-xl">
+    <div className={`app-card pointer-events-auto flex w-full flex-col overflow-hidden ${rail ? "h-full max-h-none max-w-none shadow-none border-0 rounded-none" : "max-h-[min(78dvh,640px)] max-w-md shadow-xl"}`}>
       <div className="flex shrink-0 items-start justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
         <div className="min-w-0">
           <h4 className="truncate font-serif text-base font-semibold text-[var(--text-primary)]">
@@ -490,7 +493,7 @@ export function PlaceContextCard({
             onClick={() => onSendToChat(context.chat_prompt!)}
           >
             <IconMessageDots size={14} />
-            Send to chat
+            Ask about this place
           </button>
         </div>
       ) : null}
