@@ -54,6 +54,7 @@ import {
 import { getStoredUser, type UserProfile } from '../lib/auth';
 import { getEntitlements } from '../lib/billingApi';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
+import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
 import {
   uploadDataset,
   describeDataset,
@@ -1337,8 +1338,12 @@ function NewProjectContent() {
                           } p-5 rounded-2xl rounded-tl-xs text-sm leading-relaxed shadow-sm`
                     }`}
                   >
-                    <div className="leading-relaxed whitespace-pre-wrap">
-                      {msg.content || (msg.streaming ? '' : 'No content generated.')}
+                    <div className="leading-relaxed">
+                      {msg.sender === 'user' ? (
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      ) : (
+                        <ChatMarkdown text={msg.content || (msg.streaming ? '' : 'No content generated.')} />
+                      )}
                       {msg.streaming && (
                         <span className="inline-block w-1.5 h-4 ml-0.5 bg-[#E3836C] animate-pulse align-middle" />
                       )}
