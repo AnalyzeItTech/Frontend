@@ -36,7 +36,9 @@ import {
 import { UpgradeModal, type UpgradeReason } from '../Components/billing/UpgradeModal';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 import { AdSlot, AD_LOAD_TIMEOUT_MS } from '../Components/ads/AdSlot';
+import { shouldShowPostRunAd } from '../lib/adCadence';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
+import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
 import {
   applyUIAction,
   ChatRequestError,
@@ -349,6 +351,7 @@ function ChatInner() {
 
   const armPostRunAd = useCallback(() => {
     if (adsFree || postRunAdArmed.current) return;
+    if (!shouldShowPostRunAd()) return;
     postRunAdArmed.current = true;
     setShowPostRunAd(true);
     setAwaitingAd(true);
@@ -918,7 +921,7 @@ function ChatInner() {
 
   return (
     <AppShell active="chat" flush>
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         <SessionStartAd enabled={!adsFree} />
         <div className="flex min-h-0 flex-1">
           {/* Main chat column */}
@@ -968,10 +971,10 @@ function ChatInner() {
               ref={scrollRef}
               onScroll={handleScroll}
               data-lenis-prevent
-              className="chat-scroll flex-1 space-y-4 px-4 py-5 sm:px-6"
+              className="chat-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6"
             >
               {messages.length === 0 && (
-                <div className="mx-auto flex max-h-[420px] max-w-xl flex-col justify-center px-1 pt-6 sm:pt-10">
+                <div className="mx-auto flex min-h-full max-w-xl flex-col justify-center px-1 py-6 sm:py-10">
                   <div className="app-card space-y-5 p-6 sm:p-8">
                     <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-card,14px)] bg-[var(--coral,#EA8069)]/12 text-[var(--coral,#EA8069)]">
                       <IconMessageDots size={22} />
@@ -1086,10 +1089,14 @@ function ChatInner() {
                         </span>
                       )}
 
-                      <div className="whitespace-pre-wrap leading-relaxed">
-                        {msg.toolError
-                          ? msg.toolError
-                          : msg.content || (msg.streaming ? '' : '…')}
+                      <div className="leading-relaxed">
+                        {msg.toolError ? (
+                          <p className="whitespace-pre-wrap">{msg.toolError}</p>
+                        ) : isUser ? (
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                        ) : (
+                          <ChatMarkdown text={msg.content || (msg.streaming ? '' : '…')} />
+                        )}
                         {msg.streaming && (
                           <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse align-middle bg-[#E3836C]" />
                         )}
@@ -1227,8 +1234,8 @@ function ChatInner() {
               </div>
             ) : null}
 
-            {/* Composer — stick to bottom of chat column */}
-            <div className="sticky bottom-0 z-20 shrink-0 border-t border-[var(--border)] bg-[var(--bg)]/95 px-3 py-3 backdrop-blur-md sm:px-6">
+            {/* Composer — pinned to the bottom of the chat column */}
+            <div className="z-20 shrink-0 border-t border-[var(--border)] bg-[var(--bg)] px-3 py-3 sm:px-6">
               <div className="mx-auto max-w-3xl space-y-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <div
