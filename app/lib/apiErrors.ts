@@ -33,10 +33,19 @@ export function parseApiFailure(status: number, body: unknown): ApiFailure {
     const rawMessage = String(rec.message || rec.detail || 'Request failed');
     // Structured `code` means the API authored a user-facing message — keep it
     // (generic 403/409 maps would otherwise hide trial/support copy).
+    const monthlyQuota =
+      code === 'LLM_MONTHLY_QUOTA' || code === 'LLM_QUOTA' || code === 'LLM_RUNS';
+    const message = code
+      ? rawMessage && rawMessage !== 'Request failed'
+        ? rawMessage
+        : monthlyQuota
+          ? 'Monthly LLM run limit reached. Upgrade for a higher ceiling, or wait until next month. 0-token tools do not count.'
+          : rawMessage
+      : friendlyHttpMessage(status, rawMessage);
     return {
       status,
-      message: code ? rawMessage : friendlyHttpMessage(status, rawMessage),
-      upgradeRequired: Boolean(rec.upgrade_required) || status === 429,
+      message,
+      upgradeRequired: Boolean(rec.upgrade_required) || status === 429 || monthlyQuota,
       code,
       tier: typeof rec.tier === 'string' ? rec.tier : undefined,
     };
@@ -60,7 +69,7 @@ export function friendlyHttpMessage(status: number, fallback: string): string {
   if (status === 403) return 'You do not have access to this workspace.';
   if (status === 404) return 'Nothing was found for this request.';
   if (status === 409) return 'This changed in another session. Refresh and try again.';
-  if (status === 429) return 'You have reached today’s limit. Try again later or upgrade.';
+  if (status === 429) return 'You have reached this period’s limit. Try again later or upgrade.';
   if (status >= 500) return 'The service is unavailable right now. Try again in a moment.';
   return fallback;
 }

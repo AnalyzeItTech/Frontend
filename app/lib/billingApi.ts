@@ -278,3 +278,26 @@ export async function createNamedLayout(projectId: string, name: string, layoutJ
   if (!res.ok) throw new Error(await readError(res, 'Could not save layout'));
   return res.json();
 }
+
+/** Optional rewarded/sponsored unlock for one Free LLM run. 404 = not shipped yet. */
+export async function claimAdExtend(): Promise<{ ok: boolean; remaining?: number; message?: string }> {
+  const res = await fetch(`${API_V1}/billing/ad-extend`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: '{}',
+  });
+  if (res.status === 404) {
+    return { ok: false, message: 'Sponsored unlock is not available yet — upgrade for more runs.' };
+  }
+  if (!res.ok) {
+    return { ok: false, message: await readError(res, 'Could not unlock a run') };
+  }
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const remaining =
+    typeof body.llm_runs_remaining === 'number'
+      ? body.llm_runs_remaining
+      : typeof body.remaining === 'number'
+        ? body.remaining
+        : undefined;
+  return { ok: true, remaining, message: typeof body.message === 'string' ? body.message : undefined };
+}
