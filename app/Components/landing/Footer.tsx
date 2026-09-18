@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -18,7 +16,7 @@ export const Footer: React.FC = () => {
               alt="AnalyzeIt"
               width={140}
               height={32}
-              className="h-8 w-auto object-contain"
+              className="h-8 w-auto object-contain dark:bg-[#E9DDD2] dark:rounded-md dark:px-1.5 dark:py-0.5"
             />
           </Link>
           <p className="text-sm text-[#4A4238]/70 dark:text-[#C5B9AE] max-w-xs leading-relaxed">

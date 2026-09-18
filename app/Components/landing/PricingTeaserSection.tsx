@@ -1,8 +1,5 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
-import { motion } from 'motion/react';
 
 interface PricingTier {
   name: string;
@@ -78,13 +75,7 @@ export const PricingTeaserSection: React.FC = () => {
       id="pricing"
       className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto scroll-mt-[calc(var(--nav-h,56px)+24px)]"
     >
-      <motion.div
-        initial={{ opacity: 1, y: 28 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.15 }}
-        transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-        className="text-center max-w-2xl mx-auto space-y-4"
-      >
+      <div className="text-center max-w-2xl mx-auto space-y-4">
         <div className="inline-flex items-center gap-2 text-xs font-medium tracking-widest uppercase text-[#C45A42]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#E3836C]" />
           Plans
@@ -97,16 +88,12 @@ export const PricingTeaserSection: React.FC = () => {
           through PayU in INR; USD amounts below are for reference. Failed renewals keep entitlements
           for 7 days, then Free.
         </p>
-      </motion.div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-        {TIERS.map((tier, idx) => (
-          <motion.div
+        {TIERS.map((tier) => (
+          <div
             key={tier.name}
-            initial={{ opacity: 0, y: 28 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.15 }}
-            transition={{ duration: 0.65, delay: idx * 0.08, ease: [0.16, 1, 0.3, 1] }}
             className={`relative flex flex-col rounded-3xl border p-7 ${
               tier.popular
                 ? 'border-[#E3836C]/40 bg-[#FFF9F3] dark:bg-[#292522] shadow-lg'
@@ -145,7 +132,7 @@ export const PricingTeaserSection: React.FC = () => {
             >
               {tier.cta}
             </Link>
-          </motion.div>
+          </div>
         ))}
       </div>
     </section>

@@ -69,7 +69,7 @@ export function AppShell({
             alt="AnalyzeIt"
             width={120}
             height={28}
-            className="h-6 w-auto object-contain"
+            className="h-6 w-auto object-contain dark:bg-[#E9DDD2] dark:rounded-md dark:px-1.5 dark:py-0.5"
             priority
           />
         </Link>

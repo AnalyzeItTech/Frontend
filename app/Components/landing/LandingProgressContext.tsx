@@ -1,0 +1,12 @@
+'use client';
+
+import React from 'react';
+import type { DrawerDetail } from './InspectDrawer';
+
+export const LandingProgressContext = React.createContext<{
+  scrollProgress: number;
+  setInspectedDetail: (detail: DrawerDetail | null) => void;
+}>({
+  scrollProgress: 0,
+  setInspectedDetail: () => {},
+});

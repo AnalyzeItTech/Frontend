@@ -254,7 +254,7 @@ export const NavbarButton = ({
     secondary:
       "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted",
     dark:
-      "bg-foreground text-background shadow-sm hover:opacity-90",
+      "bg-[#302824] text-[#FFF7F1] shadow-sm hover:bg-[#3A322C]",
     gradient:
       "bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset]",
   };

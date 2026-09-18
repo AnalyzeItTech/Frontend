@@ -901,7 +901,7 @@ export function DashboardCanvas({
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-6 right-6 z-50 bg-[#211E1C] dark:bg-[#F4EDE5] text-[#F4EDE5] dark:text-[#211E1C] px-4 py-3 rounded-2xl shadow-2xl border border-[#3A3430] dark:border-[#504740] flex items-center gap-3 text-xs font-mono"
+            className="fixed bottom-6 right-6 z-50 bg-[#211E1C] text-[#F4EDE5] px-4 py-3 rounded-2xl shadow-2xl border border-[#3A3430] flex items-center gap-3 text-xs font-mono"
           >
             <span>{lastActionToast.message}</span>
             {onUndo && (

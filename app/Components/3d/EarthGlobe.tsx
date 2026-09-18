@@ -479,7 +479,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = isDark ? 1.2 : 1.05;
+    renderer.toneMappingExposure = isDark ? 0.85 : 1.05;
     mount.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -495,11 +495,11 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     controls.autoRotateSpeed = 0.45;
     controlsRef.current = controls;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, isDark ? 1.0 : 1.3);
+    const ambientLight = new THREE.AmbientLight(0xc9b8a8, isDark ? 0.45 : 1.3);
     scene.add(ambientLight);
     ambientLightRef.current = ambientLight;
 
-    const sunLight = new THREE.DirectionalLight(0xfff5ea, isDark ? 2.4 : 2.2);
+    const sunLight = new THREE.DirectionalLight(0xfff5ea, isDark ? 1.4 : 2.2);
     sunLight.position.set(14, 10, 12);
     scene.add(sunLight);
     sunLightRef.current = sunLight;
@@ -858,10 +858,10 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     }
 
     atmosphereMat.uniforms.glowColor.value.set(isDark ? 0xe3836c : 0x8fa98f);
-    if (ambientLight) ambientLight.intensity = isDark ? 1.0 : 1.3;
-    if (sunLight) sunLight.intensity = isDark ? 2.4 : 2.2;
+    if (ambientLight) ambientLight.intensity = isDark ? 0.45 : 1.3;
+    if (sunLight) sunLight.intensity = isDark ? 1.4 : 2.2;
     if (rimLight) rimLight.intensity = isDark ? 0.8 : 0.5;
-    if (renderer) renderer.toneMappingExposure = isDark ? 1.2 : 1.05;
+    if (renderer) renderer.toneMappingExposure = isDark ? 0.85 : 1.05;
   }, [isDark]);
 
   // ─── 4. REACTIVE LAYER TOGGLES ──────────────────────────────────────────

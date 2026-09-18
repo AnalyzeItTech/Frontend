@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DrawerDetail } from './InspectDrawer';
+import { LandingProgressContext } from './LandingProgressContext';
 
 interface SideTelemetry {
   eyebrow: string;
@@ -166,9 +167,12 @@ interface DescentSectionProps {
 }
 
 export const DescentSection: React.FC<DescentSectionProps> = ({
-  scrollProgress = 0,
-  onInspect,
+  scrollProgress: scrollProgressProp,
+  onInspect: onInspectProp,
 }) => {
+  const landing = React.useContext(LandingProgressContext);
+  const scrollProgress = scrollProgressProp ?? landing.scrollProgress;
+  const onInspect = onInspectProp ?? landing.setInspectedDetail;
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {

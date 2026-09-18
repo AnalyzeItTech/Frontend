@@ -1,7 +1,4 @@
-'use client';
-
 import React from 'react';
-import { motion } from 'motion/react';
 
 interface ComparisonRow {
   topic: string;
@@ -40,13 +37,7 @@ export const ComparisonSection: React.FC = () => {
     >
       <div id="why-calm" className="absolute -top-28 h-px w-px overflow-hidden" aria-hidden="true" />
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 1, y: 28 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.15 }}
-        transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-        className="max-w-2xl space-y-4"
-      >
+      <div className="max-w-2xl space-y-4">
         <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#91867E]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#E3836C]" />
           Why Calm Matters
@@ -60,20 +51,13 @@ export const ComparisonSection: React.FC = () => {
         <p className="text-base text-[#4A4238]/70 dark:text-[#C5B9AE]">
           Dashboards were built for displaying widgets, not making decisions. AnalyzeIt replaces screen fatigue with quiet clarity.
         </p>
-      </motion.div>
+      </div>
 
-      {/* Comparison Table / Card Container */}
-      <motion.div
-        initial={{ opacity: 0, y: 32 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.15 }}
-        transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-        className="glass-card rounded-3xl overflow-hidden border border-[#4A4238]/10 dark:border-[#3A3430] divide-y divide-[#4A4238]/8 dark:divide-[#3A3430] shadow-sm"
-      >
+      <div className="glass-card rounded-3xl overflow-hidden border border-[#4A4238]/10 dark:border-[#3A3430] divide-y divide-[#4A4238]/8 dark:divide-[#3A3430] shadow-sm">
         {/* Table Header */}
         <div className="grid grid-cols-1 md:grid-cols-2 bg-[#F3EDE4]/90 dark:bg-[#292522] p-6 md:px-10 text-xs font-mono uppercase tracking-wider text-[#4A4238]/70 dark:text-[#C5B9AE] border-b border-[#4A4238]/08 dark:border-[#3A3430]">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#4A4238]/30 dark:bg-white/30" />
+            <span className="w-2 h-2 rounded-full bg-[#4A4238]/30 dark:bg-[#C5B9AE]/40" />
             The Traditional Way
           </div>
           <div className="hidden md:flex items-center gap-2 text-[#E3836C]">
@@ -109,7 +93,7 @@ export const ComparisonSection: React.FC = () => {
             </div>
           </div>
         ))}
-      </motion.div>
+      </div>
     </section>
   );
 };

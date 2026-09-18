@@ -1328,7 +1328,7 @@ function NewProjectContent() {
                         ? `${
                             msg.incognito
                               ? 'bg-purple-900/60 border border-purple-500/30 text-purple-100'
-                              : 'bg-[#4A4238] dark:bg-[#E9DDD2] text-[#F3EDE4] dark:text-[#302824]'
+                              : 'bg-[#4A4238] text-[#F3EDE4]'
                           } p-4 rounded-2xl rounded-tr-xs text-sm leading-relaxed shadow-sm`
                         : `${
                             isIncognito

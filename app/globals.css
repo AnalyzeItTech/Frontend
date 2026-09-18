@@ -184,6 +184,12 @@ html, body {
   overflow-x: clip;
   font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   transition: background-color 0.3s ease, color 0.3s ease;
+  color-scheme: light;
+}
+
+.dark img.brand-logo,
+.dark img[alt="AnalyzeIt"] {
+  filter: none;
 }
 
 @supports not (overflow-x: clip) {
@@ -262,30 +268,30 @@ html, body {
   color: var(--workspace-ink) !important;
 }
 
-.structured-workspace .bg-\[\#0B0D10\],
-.structured-workspace .bg-\[\#0E1014\],
-.structured-workspace .bg-\[\#0E1014\]\/90 { background-color: var(--workspace-paper) !important; }
-.structured-workspace .bg-\[\#14171B\],
-.structured-workspace .bg-\[\#14171B\]\/40 { background-color: var(--workspace-surface) !important; }
-.structured-workspace .bg-\[\#1C2025\] { background-color: var(--workspace-surface-2) !important; }
-.structured-workspace .border-white\/\[0\.08\],
-.structured-workspace .border-white\/\[0\.06\],
-.structured-workspace .border-white\/\[0\.12\],
-.structured-workspace .border-white\/\[0\.16\] { border-color: var(--workspace-border) !important; }
-.structured-workspace .text-\[\#EDEFF2\],
-.structured-workspace .hover\:text-\[\#EDEFF2\]:hover { color: var(--workspace-ink) !important; }
-.structured-workspace .text-\[\#8B93A1\],
-.structured-workspace .text-\[\#8B93A1\]\/40 { color: var(--workspace-muted) !important; }
-.structured-workspace .bg-\[\#3D6FE0\],
-.structured-workspace .hover\:bg-\[\#3D6FE0\]:hover { background-color: var(--workspace-accent) !important; }
-.structured-workspace .hover\:bg-\[\#4D7FF0\]:hover { background-color: #C96F5A !important; }
-.structured-workspace .text-\[\#3D6FE0\],
-.structured-workspace .text-\[\#5B8CF5\] { color: #B86450 !important; }
-.structured-workspace .bg-\[\#3D6FE0\]\/15 { background-color: rgba(227, 131, 108, 0.14) !important; }
-.structured-workspace .border-\[\#3D6FE0\]\/30 { border-color: rgba(227, 131, 108, 0.3) !important; }
-.structured-workspace .bg-white\/\[0\.03\]:hover,
-.structured-workspace .bg-white\/\[0\.06\]:hover,
-.structured-workspace .bg-white\/\[0\.08\]:hover { background-color: rgba(74, 66, 56, 0.06) !important; }
+:root:not(.dark) .structured-workspace .bg-\[\#0B0D10\],
+:root:not(.dark) .structured-workspace .bg-\[\#0E1014\],
+:root:not(.dark) .structured-workspace .bg-\[\#0E1014\]\/90 { background-color: var(--workspace-paper) !important; }
+:root:not(.dark) .structured-workspace .bg-\[\#14171B\],
+:root:not(.dark) .structured-workspace .bg-\[\#14171B\]\/40 { background-color: var(--workspace-surface) !important; }
+:root:not(.dark) .structured-workspace .bg-\[\#1C2025\] { background-color: var(--workspace-surface-2) !important; }
+:root:not(.dark) .structured-workspace .border-white\/\[0\.08\],
+:root:not(.dark) .structured-workspace .border-white\/\[0\.06\],
+:root:not(.dark) .structured-workspace .border-white\/\[0\.12\],
+:root:not(.dark) .structured-workspace .border-white\/\[0\.16\] { border-color: var(--workspace-border) !important; }
+:root:not(.dark) .structured-workspace .text-\[\#EDEFF2\],
+:root:not(.dark) .structured-workspace .hover\:text-\[\#EDEFF2\]:hover { color: var(--workspace-ink) !important; }
+:root:not(.dark) .structured-workspace .text-\[\#8B93A1\],
+:root:not(.dark) .structured-workspace .text-\[\#8B93A1\]\/40 { color: var(--workspace-muted) !important; }
+:root:not(.dark) .structured-workspace .bg-\[\#3D6FE0\],
+:root:not(.dark) .structured-workspace .hover\:bg-\[\#3D6FE0\]:hover { background-color: var(--workspace-accent) !important; }
+:root:not(.dark) .structured-workspace .hover\:bg-\[\#4D7FF0\]:hover { background-color: #C96F5A !important; }
+:root:not(.dark) .structured-workspace .text-\[\#3D6FE0\],
+:root:not(.dark) .structured-workspace .text-\[\#5B8CF5\] { color: #B86450 !important; }
+:root:not(.dark) .structured-workspace .bg-\[\#3D6FE0\]\/15 { background-color: rgba(227, 131, 108, 0.14) !important; }
+:root:not(.dark) .structured-workspace .border-\[\#3D6FE0\]\/30 { border-color: rgba(227, 131, 108, 0.3) !important; }
+:root:not(.dark) .structured-workspace .bg-white\/\[0\.03\]:hover,
+:root:not(.dark) .structured-workspace .bg-white\/\[0\.06\]:hover,
+:root:not(.dark) .structured-workspace .bg-white\/\[0\.08\]:hover { background-color: rgba(74, 66, 56, 0.06) !important; }
 
 /* 3D Animations & Keyframes */
 @keyframes v3d-rotate3d {
@@ -619,6 +625,9 @@ textarea:focus-visible {
   color: #4A4238;
 }
 
-.dark .legal-prose strong {
-  color: #F4EDE5;
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
 }

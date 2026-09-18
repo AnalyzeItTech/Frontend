@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useState } from 'react';
+import React from 'react';
 
 interface FAQItem {
   question: string;
@@ -36,26 +34,11 @@ const FAQS: FAQItem[] = [
 ];
 
 export const FAQSection: React.FC = () => {
-  const [openSet, setOpenSet] = useState<Set<number>>(new Set([0, 1]));
-
-  const toggle = (idx: number) => {
-    setOpenSet((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) {
-        next.delete(idx);
-      } else {
-        next.add(idx);
-      }
-      return next;
-    });
-  };
-
   return (
     <section
       id="faq"
       className="relative py-24 md:py-36 px-6 md:px-16 max-w-4xl mx-auto space-y-16 pointer-events-auto scroll-mt-[calc(var(--nav-h,56px)+24px)]"
     >
-      {/* Header */}
       <div className="text-center space-y-4">
         <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#91867E]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#9EBB9A]" />
@@ -66,41 +49,26 @@ export const FAQSection: React.FC = () => {
         </h2>
       </div>
 
-      {/* Accordion */}
       <div className="space-y-4">
-        {FAQS.map((faq, idx) => {
-          const isOpen = openSet.has(idx);
-          return (
-            <div
-              key={idx}
-              className="glass-card rounded-2xl overflow-hidden border border-[#4A4238]/10 dark:border-[#3A3430] transition-all duration-200"
-            >
-              <button
-                type="button"
-                onClick={() => toggle(idx)}
-                className="w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-white/20 dark:hover:bg-[#292522]/50 transition-colors"
-                aria-expanded={isOpen}
-              >
-                <span className="font-serif text-xl md:text-2xl text-[#4A4238] dark:text-[#F4EDE5] font-normal">
-                  {faq.question}
-                </span>
-                <span
-                  className={`text-[#E3836C] text-2xl font-light transition-transform duration-300 ${
-                    isOpen ? 'rotate-45' : 'rotate-0'
-                  }`}
-                >
-                  +
-                </span>
-              </button>
-
-              {isOpen && (
-                <div className="px-6 pb-6 pt-1 text-sm md:text-base text-[#4A4238]/75 dark:text-[#C5B9AE] leading-relaxed border-t border-[#4A4238]/6 dark:border-[#3A3430] animate-in fade-in duration-200">
-                  {faq.answer}
-                </div>
-              )}
+        {FAQS.map((faq, idx) => (
+          <details
+            key={faq.question}
+            open={idx < 2}
+            className="glass-card rounded-2xl overflow-hidden border border-[#4A4238]/10 dark:border-[#3A3430] transition-all duration-200 group"
+          >
+            <summary className="w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-white/20 dark:hover:bg-[#292522]/50 transition-colors list-none">
+              <span className="font-serif text-xl md:text-2xl text-[#4A4238] dark:text-[#F4EDE5] font-normal">
+                {faq.question}
+              </span>
+              <span className="text-[#E3836C] text-2xl font-light transition-transform duration-300 group-open:rotate-45">
+                +
+              </span>
+            </summary>
+            <div className="px-6 pb-6 pt-1 text-sm md:text-base text-[#4A4238]/75 dark:text-[#C5B9AE] leading-relaxed border-t border-[#4A4238]/6 dark:border-[#3A3430]">
+              {faq.answer}
             </div>
-          );
-        })}
+          </details>
+        ))}
       </div>
     </section>
   );

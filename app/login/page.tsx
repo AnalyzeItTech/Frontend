@@ -514,7 +514,7 @@ function LoginInner() {
             alt="AnalyzeIt"
             width={130}
             height={30}
-            className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+            className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105 dark:bg-[#E9DDD2] dark:rounded-md dark:px-1.5 dark:py-0.5"
             priority
           />
         </Link>

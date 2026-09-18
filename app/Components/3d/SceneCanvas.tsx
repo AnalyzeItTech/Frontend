@@ -71,21 +71,21 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
         dpr={[1, 1.5]}
       >
         {/* Adaptive Three.js lighting for Light / Dark Mode */}
-        <ambientLight intensity={isDark ? 0.7 : 1.1} color={isDark ? '#FFFFFF' : '#FFFFFF'} />
+        <ambientLight intensity={isDark ? 0.32 : 1.1} color={isDark ? '#C9B8A8' : '#FFFFFF'} />
         <hemisphereLight
-          intensity={isDark ? 0.5 : 0.7}
+          intensity={isDark ? 0.28 : 0.7}
           groundColor={isDark ? '#171514' : '#E8DFD3'}
-          color={isDark ? '#8A7A9E' : '#D5C5E5'}
+          color={isDark ? '#4A3F52' : '#D5C5E5'}
         />
         <directionalLight
           position={[12, 16, 10]}
-          intensity={isDark ? 1.8 : 1.4}
-          color={isDark ? '#FFE5CC' : '#FFF5EB'}
+          intensity={isDark ? 0.95 : 1.4}
+          color={isDark ? '#E8C4A0' : '#FFF5EB'}
         />
         <directionalLight
           position={[-10, -6, -8]}
-          intensity={isDark ? 0.6 : 0.45}
-          color={isDark ? '#5C4A70' : '#C5B8D8'}
+          intensity={isDark ? 0.25 : 0.45}
+          color={isDark ? '#3A2E48' : '#C5B8D8'}
         />
 
         {/* Dynamic Sky Gradient Dome with Dark Mode */}

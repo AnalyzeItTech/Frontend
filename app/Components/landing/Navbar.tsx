@@ -46,7 +46,7 @@ export const Navbar: React.FC = () => {
               alt="AnalyzeIt"
               width={130}
               height={30}
-              className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+              className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105 dark:bg-[#E9DDD2] dark:rounded-md dark:px-1.5 dark:py-0.5"
               priority
             />
           </Link>
@@ -95,7 +95,7 @@ export const Navbar: React.FC = () => {
             <ThemeToggle />
             <Link
               href="/login"
-              className="text-xs text-[#403934]/80 hover:text-[#E3836C] font-medium px-3 py-1.5 transition-colors dark:text-[#F4EDE5]/80"
+              className="text-xs text-[#403934]/80 hover:text-[#E3836C] font-medium px-3 py-1.5 transition-colors"
             >
               Sign in
             </Link>

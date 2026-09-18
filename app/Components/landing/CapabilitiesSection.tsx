@@ -1,7 +1,4 @@
-'use client';
-
 import React from 'react';
-import { motion } from 'motion/react';
 
 interface Capability {
   id: string;
@@ -38,36 +35,36 @@ const CAPABILITIES: Capability[] = [
     calloutDesc: 'rolling forward-looking horizon with uncertainty bounds',
     bullets: [
       'Identifies recurring baseline patterns automatically',
-      'Presents range intervals rather than false certainty',
-      'Lets you test potential adjustments in everyday language',
+      'Projects likely outcomes with visible uncertainty',
+      'Updates as new data arrives instead of waiting for a rebuild',
     ],
   },
   {
     id: 'monitoring',
-    category: 'Capability 03 · Anomaly Graph',
-    headline: 'Signal, not siren sounds.',
+    category: 'Capability 03 · Anomaly Monitoring',
+    headline: 'Notice the shift, not the siren.',
     body:
-      'Most alerting tools drown you in notifications until you mute them. AnalyzeIt focuses on genuine anomalies—surfacing the context behind a shift before you have to dig for it.',
-    callout: 'Correlated',
-    calloutDesc: 'contextual anomaly detection that suppresses noise',
+      'Contextual anomaly detection explains root causes instead of flooding the team with false alarms. Correlated metrics collapse into one story you can act on.',
+    callout: 'Quiet',
+    calloutDesc: 'root-cause briefings instead of noisy threshold pings',
     bullets: [
-      'Establishes normal variance across related metrics',
-      'Groups correlated changes into a single coherent update',
-      'Points to probable upstream factors automatically',
+      'Watches related metrics together so noise does not multiply',
+      'Separates upstream causes from downstream symptoms',
+      'Sends a concise briefing before the issue becomes a meeting',
     ],
   },
   {
     id: 'exploration',
     category: 'Capability 04 · Conversational Query',
-    headline: 'Follow your curiosity at your own pace.',
+    headline: 'Ask follow-ups in everyday words.',
     body:
-      'When an interesting pattern catches your eye, explore it without writing SQL queries or building throwaway views. Just ask follow-up questions in plain words.',
-    callout: 'Transparent',
-    calloutDesc: 'instant conversational answers backed by full data lineage',
+      'Explore cohorts, churn, and channel mix without writing SQL. The generated query stays visible so analysts can trust and inspect the answer.',
+    callout: 'Open',
+    calloutDesc: 'plain-language questions with inspectable SQL',
     bullets: [
-      'Converts everyday questions into accurate analytical queries',
-      'Shows the source data tables alongside the written summary',
-      'Keeps conversation context so you can drill deeper naturally',
+      'Turns natural-language questions into parameterized queries',
+      'Checks the question against your schema before running',
+      'Shows tables and takeaways together, not a widget maze',
     ],
   },
 ];
@@ -76,16 +73,9 @@ export const CapabilitiesSection: React.FC = () => {
   return (
     <section
       id="capabilities"
-      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-20 pointer-events-auto scroll-mt-[calc(var(--nav-h,56px)+24px)]"
+      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto scroll-mt-[calc(var(--nav-h,56px)+24px)]"
     >
-      {/* Section Header */}
-      <motion.div
-        initial={{ opacity: 1, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, amount: 0.15 }}
-        transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
-        className="max-w-2xl space-y-4"
-      >
+      <div className="max-w-2xl space-y-4">
         <div className="inline-flex items-center gap-2 text-xs font-medium tracking-[0.18em] uppercase text-[#C45A42]">
           <span className="w-2 h-2 rounded-full bg-[#E3836C]" />
           Core Capabilities
@@ -96,21 +86,12 @@ export const CapabilitiesSection: React.FC = () => {
             without the noise.
           </em>
         </h2>
-      </motion.div>
+      </div>
 
-      {/* 4 Pillars Grid with Staggered Scroll Reveal */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-10">
-        {CAPABILITIES.map((cap, idx) => (
-          <motion.div
+        {CAPABILITIES.map((cap) => (
+          <div
             key={cap.id}
-            initial={{ opacity: 0, y: 35 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.15 }}
-            transition={{
-              duration: 0.7,
-              delay: idx * 0.12,
-              ease: [0.16, 1, 0.3, 1],
-            }}
             className="glass-card rounded-3xl p-8 md:p-10 space-y-8 flex flex-col justify-between transition-all duration-300 transform hover:-translate-y-1.5 hover:shadow-xl border border-[#4A4238]/10 dark:border-[#3A3430]"
           >
             <div className="space-y-6">
@@ -120,23 +101,19 @@ export const CapabilitiesSection: React.FC = () => {
                 </span>
                 <span className="w-2 h-2 rounded-full bg-[#9EBB9A]" />
               </div>
-
               <h3 className="font-serif text-2xl md:text-3xl text-[#4A4238] dark:text-[#F4EDE5] font-normal leading-snug">
                 {cap.headline}
               </h3>
-
               <p className="text-sm md:text-base text-[#4A4238]/75 dark:text-[#C5B9AE] font-normal leading-relaxed">
                 {cap.body}
               </p>
-
-              {/* 3-Bullet Checklist */}
               <div className="pt-4 space-y-3 border-t border-[#4A4238]/8 dark:border-[#3A3430]">
                 <div className="text-[11px] font-mono uppercase tracking-wider text-[#4A4238]/50 dark:text-[#91867E]">
                   How it works
                 </div>
-                {cap.bullets.map((bullet, bIdx) => (
+                {cap.bullets.map((bullet) => (
                   <div
-                    key={bIdx}
+                    key={bullet}
                     className="flex items-start gap-2.5 text-xs sm:text-sm text-[#4A4238]/85 dark:text-[#C5B9AE]"
                   >
                     <span className="text-[#9EBB9A] text-sm mt-0.5">✓</span>
@@ -145,8 +122,6 @@ export const CapabilitiesSection: React.FC = () => {
                 ))}
               </div>
             </div>
-
-            {/* Stat Callout Badge */}
             <div className="p-4 rounded-2xl bg-[#F3EDE4]/80 dark:bg-[#292522] border border-[#4A4238]/8 dark:border-[#3A3430] flex items-baseline gap-3">
               <span className="font-serif text-2xl md:text-3xl font-medium text-[#E3836C]">
                 {cap.callout}
@@ -155,7 +130,7 @@ export const CapabilitiesSection: React.FC = () => {
                 {cap.calloutDesc}
               </span>
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
     </section>
