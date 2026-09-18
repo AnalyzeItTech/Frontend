@@ -1,52 +1,116 @@
 /** Plan-capped model size tiers (not Foundry deployment names). */
-export type ModelAccess = 'small' | 'medium' | 'large';
+export type ModelSize = 'small' | 'medium' | 'large';
 
-export const MODEL_ACCESS_ORDER: ModelAccess[] = ['small', 'medium', 'large'];
+/** @deprecated use ModelSize */
+export type ModelAccess = ModelSize;
 
-export const MODEL_ACCESS_LABELS: Record<ModelAccess, string> = {
+export const MODEL_SIZE_ORDER: ModelSize[] = ['small', 'medium', 'large'];
+
+export const MODEL_SIZE_LABELS: Record<ModelSize, string> = {
   small: 'Small',
   medium: 'Medium',
   large: 'Large',
 };
 
-const STORAGE_KEY = 'analyzeit.preferred_model_access';
+/** Back-compat aliases for existing imports. */
+export const MODEL_ACCESS_ORDER = MODEL_SIZE_ORDER;
+export const MODEL_ACCESS_LABELS = MODEL_SIZE_LABELS;
 
-export function normalizeModelAccess(value: unknown): ModelAccess {
+const STORAGE_KEY = 'analyzeit.model_size';
+const LEGACY_STORAGE_KEY = 'analyzeit.preferred_model_access';
+
+export type ModelOption = {
+  size: ModelSize;
+  label: string;
+  description?: string;
+  deployment?: string;
+  available?: boolean;
+};
+
+export function normalizeModelSize(value: unknown): ModelSize {
   const v = String(value || '').toLowerCase();
   if (v === 'medium' || v === 'large' || v === 'small') return v;
+  if (v === 'fast') return 'small';
+  if (v === 'standard') return 'medium';
+  if (v === 'advanced') return 'large';
   return 'small';
 }
 
-/** Cap list: free→small only; premium→small+medium; premium+→all. */
-export function allowedModelAccessList(maxAllowed: ModelAccess): ModelAccess[] {
-  const maxRank = MODEL_ACCESS_ORDER.indexOf(maxAllowed);
-  return MODEL_ACCESS_ORDER.slice(0, Math.max(0, maxRank) + 1);
+/** @deprecated use normalizeModelSize */
+export const normalizeModelAccess = normalizeModelSize;
+
+/** Cap list from plan max (free→small, premium→medium, plus→large). */
+export function allowedModelSizes(maxAllowed: ModelSize): ModelSize[] {
+  const maxRank = MODEL_SIZE_ORDER.indexOf(maxAllowed);
+  return MODEL_SIZE_ORDER.slice(0, Math.max(0, maxRank) + 1);
 }
 
-export function readStoredModelAccess(): ModelAccess | null {
+/** @deprecated use allowedModelSizes */
+export const allowedModelAccessList = allowedModelSizes;
+
+export function readStoredModelSize(): ModelSize | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw =
+      window.localStorage.getItem(STORAGE_KEY) ||
+      window.localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return null;
-    return normalizeModelAccess(raw);
+    return normalizeModelSize(raw);
   } catch {
     return null;
   }
 }
 
-export function writeStoredModelAccess(value: ModelAccess): void {
+export function writeStoredModelSize(value: ModelSize): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(STORAGE_KEY, value);
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
   } catch {
     /* ignore quota / private mode */
   }
 }
 
+/** @deprecated */
+export const readStoredModelAccess = readStoredModelSize;
+/** @deprecated */
+export const writeStoredModelAccess = writeStoredModelSize;
+
 /** Prefer stored if still allowed; else plan default (maxAllowed). */
-export function resolveInitialModelAccess(maxAllowed: ModelAccess): ModelAccess {
-  const allowed = allowedModelAccessList(maxAllowed);
-  const stored = readStoredModelAccess();
+export function resolveInitialModelSize(maxAllowed: ModelSize): ModelSize {
+  const allowed = allowedModelSizes(maxAllowed);
+  const stored = readStoredModelSize();
   if (stored && allowed.includes(stored)) return stored;
   return maxAllowed;
+}
+
+/** @deprecated */
+export const resolveInitialModelAccess = resolveInitialModelSize;
+
+export function optionsFromAllowlist(
+  models: unknown,
+  maxAllowed: ModelSize,
+): ModelOption[] {
+  const allowed = allowedModelSizes(maxAllowed);
+  const rows = Array.isArray(models) ? models : [];
+  const parsed: ModelOption[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const rec = row as Record<string, unknown>;
+    const size = normalizeModelSize(rec.size ?? rec.id ?? rec.model_size);
+    if (!allowed.includes(size)) continue;
+    parsed.push({
+      size,
+      label: String(rec.label || MODEL_SIZE_LABELS[size]),
+      description: typeof rec.description === 'string' ? rec.description : undefined,
+      deployment: typeof rec.deployment === 'string' ? rec.deployment : undefined,
+      available: rec.available !== false,
+    });
+  }
+  if (parsed.length > 0) {
+    // de-dupe by size, keep first
+    const seen = new Set<string>();
+    return parsed.filter((p) => (seen.has(p.size) ? false : (seen.add(p.size), true)));
+  }
+  return allowed.map((size) => ({ size, label: MODEL_SIZE_LABELS[size], available: true }));
 }
