@@ -187,6 +187,10 @@ export default function DashboardPage() {
           typeof window !== 'undefined'
             ? new URLSearchParams(window.location.search).get('slug')
             : null;
+        const projectParam =
+          typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('project')
+            : null;
 
         let target: ProjectSummary | null = null;
         if (slugParam) {
@@ -197,6 +201,9 @@ export default function DashboardPage() {
               err instanceof Error ? err.message : 'Could not open this personal dashboard link.',
             );
           }
+        }
+        if (!target && projectParam) {
+          target = projs.find((p) => p.id === projectParam) || null;
         }
         if (!target && projs.length > 0) {
           target = projs[0];
@@ -521,6 +528,7 @@ export default function DashboardPage() {
         <button type="button" onClick={() => setStudioTab('pipeline')} className={studioTab === 'pipeline' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Pipeline</button>
         <button type="button" onClick={() => setStudioTab('templates')} className={studioTab === 'templates' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Templates</button>
         <button type="button" onClick={() => setIsProjectsModalOpen(true)} className="btn-secondary text-xs">Projects</button>
+        <Link href="/profile#projects" className="btn-secondary text-xs">Manage account</Link>
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
