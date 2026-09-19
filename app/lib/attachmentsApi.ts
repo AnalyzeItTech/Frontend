@@ -29,6 +29,9 @@ export interface ChatAttachment {
   project_id?: string;
   run_id?: string | null;
   created_at?: string;
+  extracted_summary?: string;
+  notes?: string[];
+  page_count?: number | null;
 }
 
 export async function uploadChatAttachment(
