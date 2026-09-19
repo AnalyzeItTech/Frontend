@@ -22,6 +22,7 @@ const PLANS = [
       '3 projects · 12 widgets',
       '1× daily tokens · smaller model',
       '7-day artifact retention',
+      '250M context retention tokens',
     ],
   },
   {
@@ -36,6 +37,7 @@ const PLANS = [
       'Everything in Free',
       'Better model + 3× tokens',
       '15 projects · 30 widgets',
+      '500M context retention tokens',
       '30-day artifact retention',
     ],
   },
@@ -49,6 +51,7 @@ const PLANS = [
     features: [
       'Everything in Premium',
       '6× tokens · large model',
+      '1B context retention · account-wide memory',
       '10 concurrent projects · 90-day artifacts',
       'Priority queue when the agent is busy',
     ],
