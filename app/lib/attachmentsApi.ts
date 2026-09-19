@@ -1,4 +1,5 @@
 import { getStoredToken } from './auth';
+import { parseApiFailure } from './apiErrors';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_V1 = `${API_BASE}/v1`;
@@ -48,8 +49,8 @@ export async function uploadChatAttachment(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    const detail = typeof err.detail === 'string' ? err.detail : `Could not attach ${file.name}.`;
-    throw new Error(detail);
+    const failure = parseApiFailure(res.status, err);
+    throw new Error(failure.message || `Could not attach ${file.name}.`);
   }
   return res.json();
 }
@@ -61,7 +62,8 @@ export async function deleteChatAttachment(attachmentId: string): Promise<void> 
   });
   if (!res.ok && res.status !== 404) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(typeof err.detail === 'string' ? err.detail : 'Could not remove attachment.');
+    const failure = parseApiFailure(res.status, err);
+    throw new Error(failure.message || 'Could not remove attachment.');
   }
 }
 
@@ -74,7 +76,9 @@ export async function listProjectAttachments(
     headers: multipartAuthHeaders(),
   });
   if (!res.ok) {
-    throw new Error('Could not list attachments.');
+    const err = await res.json().catch(() => ({}));
+    const failure = parseApiFailure(res.status, err);
+    throw new Error(failure.message || 'Could not list attachments.');
   }
   const data = await res.json();
   return Array.isArray(data?.attachments) ? data.attachments : [];
