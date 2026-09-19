@@ -496,6 +496,10 @@ function ChatInner() {
         const uploaded: ChatAttachment[] = [];
         for (const file of files.slice(0, 5)) {
           const att = await uploadChatAttachment(pid, file, runId);
+          if (att.status === 'failed') {
+            const note = att.notes?.[0] || 'Could not extract text from this file.';
+            setError(`${att.filename}: ${note}`);
+          }
           uploaded.push(att);
         }
         setPendingAttachments((prev) => {
@@ -1506,10 +1510,21 @@ function ChatInner() {
                       {pendingAttachments.map((att) => (
                         <span
                           key={att.attachment_id}
-                          className="inline-flex max-w-[14rem] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1 text-[11px] text-[var(--text-secondary)]"
+                          className={`inline-flex max-w-[14rem] items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] ${
+                            att.status === 'failed'
+                              ? 'border-[#9B4D3B]/40 bg-[#9B4D3B]/10 text-[#9B4D3B]'
+                              : 'border-[var(--border)] bg-[var(--surface-2)] text-[var(--text-secondary)]'
+                          }`}
+                          title={att.notes?.[0] || att.status}
                         >
                           <IconFile size={13} className="shrink-0 text-[#E3836C]" />
                           <span className="truncate">{att.filename}</span>
+                          {att.status === 'parsed' ? (
+                            <span className="text-[9px] uppercase tracking-wide text-[#4A7C59]">ready</span>
+                          ) : null}
+                          {att.status === 'failed' ? (
+                            <span className="text-[9px] uppercase tracking-wide">failed</span>
+                          ) : null}
                           <button
                             type="button"
                             onClick={() => void removePendingAttachment(att.attachment_id)}
