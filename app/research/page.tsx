@@ -451,12 +451,65 @@ function ChatInner() {
 
   const ensureProjectId = useCallback(async (): Promise<string> => {
     if (projectId) return projectId;
-    const created = await createProject(
-      composerMode === 'research' ? 'Research & Discovery' : 'Chat',
-    );
-    setProjectId(created.id);
-    return created.id;
+
+    // Prefer an existing project so Free-tier project_limit (3) does not block attaches.
+    try {
+      const existing = await getProjects();
+      const preferred =
+        existing.find((p) => /chat|research/i.test(p.name || '')) || existing[0];
+      if (preferred?.id) {
+        setProjectId(preferred.id);
+        return preferred.id;
+      }
+    } catch {
+      /* fall through to create */
+    }
+
+    try {
+      const created = await createProject(
+        composerMode === 'research' ? 'Research & Discovery' : 'Chat',
+      );
+      setProjectId(created.id);
+      return created.id;
+    } catch (createErr) {
+      // Race / limit: reuse whatever projects exist now.
+      const again = await getProjects().catch(() => [] as Awaited<ReturnType<typeof getProjects>>);
+      if (again[0]?.id) {
+        setProjectId(again[0].id);
+        return again[0].id;
+      }
+      throw createErr;
+    }
   }, [composerMode, projectId]);
+
+  const attachFiles = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      if (!getStoredToken()) {
+        setError('Sign in to attach files.');
+        return;
+      }
+      setUploadingAttachment(true);
+      setError(null);
+      try {
+        const pid = await ensureProjectId();
+        const uploaded: ChatAttachment[] = [];
+        for (const file of files.slice(0, 5)) {
+          const att = await uploadChatAttachment(pid, file, runId);
+          uploaded.push(att);
+        }
+        setPendingAttachments((prev) => {
+          const seen = new Set(prev.map((a) => a.attachment_id));
+          return [...prev, ...uploaded.filter((a) => !seen.has(a.attachment_id))];
+        });
+      } catch (attachErr: unknown) {
+        setError(attachErr instanceof Error ? attachErr.message : 'Could not attach file.');
+      } finally {
+        setUploadingAttachment(false);
+      }
+    },
+    [ensureProjectId, runId],
+  );
 
   const handleAttachClick = () => {
     if (inputLocked || uploadingAttachment) return;
@@ -467,32 +520,26 @@ function ChatInner() {
     fileInputRef.current?.click();
   };
 
-  const handleFilesSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFilesSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     event.target.value = '';
+    void attachFiles(files);
+  };
+
+  const handleComposerDragOver = (event: React.DragEvent) => {
+    if (![...event.dataTransfer.types].includes('Files')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleComposerDrop = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (inputLocked || uploadingAttachment) return;
+    const files = Array.from(event.dataTransfer.files || []);
     if (!files.length) return;
-    if (!getStoredToken()) {
-      setError('Sign in to attach files.');
-      return;
-    }
-    setUploadingAttachment(true);
-    setError(null);
-    try {
-      const pid = await ensureProjectId();
-      const uploaded: ChatAttachment[] = [];
-      for (const file of files.slice(0, 5)) {
-        const att = await uploadChatAttachment(pid, file, runId);
-        uploaded.push(att);
-      }
-      setPendingAttachments((prev) => {
-        const seen = new Set(prev.map((a) => a.attachment_id));
-        return [...prev, ...uploaded.filter((a) => !seen.has(a.attachment_id))];
-      });
-    } catch (attachErr: unknown) {
-      setError(attachErr instanceof Error ? attachErr.message : 'Could not attach file.');
-    } finally {
-      setUploadingAttachment(false);
-    }
+    void attachFiles(files);
   };
 
   const removePendingAttachment = async (attachmentId: string) => {
@@ -1437,6 +1484,9 @@ function ChatInner() {
                     e.preventDefault();
                     void sendMessage();
                   }}
+                  onDragEnter={handleComposerDragOver}
+                  onDragOver={handleComposerDragOver}
+                  onDrop={handleComposerDrop}
                   className={`app-card flex flex-col gap-2 p-2 ${
                     isIncognito ? 'ring-1 ring-violet-500/30' : ''
                   } ${composerMode === 'research' ? 'ring-1 ring-[#E3836C]/25' : ''}`}
@@ -1504,15 +1554,24 @@ function ChatInner() {
                         void sendMessage();
                       }
                     }}
+                    onPaste={(e) => {
+                      const files = Array.from(e.clipboardData?.files || []);
+                      if (files.length) {
+                        e.preventDefault();
+                        void attachFiles(files);
+                      }
+                    }}
                     disabled={inputLocked}
                     placeholder={
                       awaitingAd
                         ? 'Sponsored unit loading…'
                         : pendingAttachments.length
                           ? 'Ask about the attached file…'
-                          : composerMode === 'research'
-                            ? 'Research a question, place, or trend…'
-                            : 'Message AnalyzeIt…'
+                          : uploadingAttachment
+                            ? 'Uploading file…'
+                            : composerMode === 'research'
+                              ? 'Research a question, place, or trend…'
+                              : 'Message AnalyzeIt… or drop a file here'
                     }
                     className="max-h-[140px] min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-[var(--text-muted)] disabled:opacity-60"
                   />

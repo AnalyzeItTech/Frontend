@@ -741,7 +741,11 @@ export async function createProject(name: string, _userId?: string): Promise<Pro
     headers: getAuthHeaders(),
     body: JSON.stringify({ name }),
   });
-  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not create the project'));
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const failure = parseApiFailure(res.status, body);
+    throw new Error(failure.message || 'Could not create the project');
+  }
   return res.json();
 }
 
