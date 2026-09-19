@@ -61,6 +61,10 @@ import {
   DATASET_ACCEPT_ATTR,
   type Dataset,
 } from '../lib/datasetsApi';
+import {
+  uploadChatAttachment,
+  type ChatAttachment,
+} from '../lib/attachmentsApi';
 import { RequireAuth } from '../Components/app/RequireAuth';
 import { DashboardCanvas, type LayoutSnapshot } from '../Components/dashboard/DashboardCanvas';
 
@@ -98,7 +102,7 @@ function NewProjectContent() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [inputMessage, setInputMessage] = useState('');
   const [isThinking, setIsThinking] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<ChatAttachment[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [uploadingFile, setUploadingFile] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1000,12 +1004,16 @@ function NewProjectContent() {
         projectTitle,
         layout: { widgets: currentLayout.widgets },
         incognito: isIncognito,
+        attachmentIds: attachedFiles.length
+          ? attachedFiles.map((a) => a.attachment_id)
+          : undefined,
         onEvent: handleEvent,
       });
       setRunId(result.runId);
       if (result.projectId) {
         setProjectId(result.projectId);
       }
+      setAttachedFiles([]);
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== assistantId) return m;
@@ -1061,29 +1069,63 @@ function NewProjectContent() {
     try {
       for (const file of files) {
         setUploadingFile(file.name);
-        const dataset = await uploadDataset(projectId, file);
+        // Structured chat attachment (compose chip + context.attachments).
+        const attachment = await uploadChatAttachment(projectId, file, runId);
+        setAttachedFiles((prev) => {
+          if (prev.some((a) => a.attachment_id === attachment.attachment_id)) return prev;
+          return [...prev, attachment];
+        });
 
-        setAttachedFiles((prev) => [...prev, dataset.filename]);
-        setDatasets((prev) => [dataset, ...prev]);
+        // Also ingest tabular files as datasets for the canvas/object tools.
+        const lower = file.name.toLowerCase();
+        const tabular =
+          lower.endsWith('.csv') ||
+          lower.endsWith('.tsv') ||
+          lower.endsWith('.xlsx') ||
+          lower.endsWith('.xlsm') ||
+          lower.endsWith('.json') ||
+          lower.endsWith('.ndjson') ||
+          lower.endsWith('.jsonl');
 
-        const noteLines = dataset.notes.length ? `\n\n${dataset.notes.join('\n')}` : '';
-        const columnSummary = dataset.columns
-          .slice(0, 12)
-          .map((c) => `${c.label} (${c.type})`)
-          .join(', ');
+        if (tabular) {
+          try {
+            const dataset = await uploadDataset(projectId, file);
+            setDatasets((prev) => [dataset, ...prev]);
+            const noteLines = dataset.notes.length ? `\n\n${dataset.notes.join('\n')}` : '';
+            const columnSummary = dataset.columns
+              .slice(0, 12)
+              .map((c) => `${c.label} (${c.type})`)
+              .join(', ');
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `upload-${dataset.id}`,
+                sender: 'assistant',
+                timestamp: new Date().toISOString(),
+                content:
+                  `Attached **${dataset.filename}** for chat and imported as \`${dataset.object_api_name}\` — ` +
+                  `${describeDataset(dataset)}.\n\nColumns: ${columnSummary}` +
+                  `${dataset.columns.length > 12 ? `, +${dataset.columns.length - 12} more` : ''}` +
+                  noteLines +
+                  `\n\nAsk me about it, or to build a dashboard from it.`,
+                streaming: false,
+              },
+            ]);
+            continue;
+          } catch {
+            /* fall through to attachment-only confirmation */
+          }
+        }
 
         setMessages((prev) => [
           ...prev,
           {
-            id: `upload-${dataset.id}`,
+            id: `attach-${attachment.attachment_id}`,
             sender: 'assistant',
             timestamp: new Date().toISOString(),
             content:
-              `Imported **${dataset.filename}** as \`${dataset.object_api_name}\` — ` +
-              `${describeDataset(dataset)}.\n\nColumns: ${columnSummary}` +
-              `${dataset.columns.length > 12 ? `, +${dataset.columns.length - 12} more` : ''}` +
-              noteLines +
-              `\n\nAsk me to build a dashboard from it.`,
+              `Attached **${attachment.filename}** — send a message to analyze it ` +
+              `(or remove it with × before sending).`,
             streaming: false,
           },
         ]);
@@ -1646,13 +1688,25 @@ function NewProjectContent() {
 
             {attachedFiles.length > 0 && (
               <div className="flex flex-wrap gap-2 px-1">
-                {attachedFiles.map((file, i) => (
+                {attachedFiles.map((file) => (
                   <span
-                    key={i}
+                    key={file.attachment_id}
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono border bg-white/80 dark:bg-[#292522] border-[#4A4238]/15 dark:border-[#3A3430] text-[#4A4238] dark:text-[#F4EDE5]"
                   >
                     <IconFileSpreadsheet size={13} className="text-[#E3836C]" />
-                    <span>{file}</span>
+                    <span className="max-w-[10rem] truncate">{file.filename}</span>
+                    <button
+                      type="button"
+                      className="rounded p-0.5 opacity-60 hover:opacity-100"
+                      aria-label={`Remove ${file.filename}`}
+                      onClick={() =>
+                        setAttachedFiles((prev) =>
+                          prev.filter((a) => a.attachment_id !== file.attachment_id),
+                        )
+                      }
+                    >
+                      <IconX size={12} />
+                    </button>
                   </span>
                 ))}
               </div>
