@@ -472,12 +472,12 @@ html, body {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-secondary);
-  padding: 0.5rem 0.2rem;
+  padding: 0.5rem 0.55rem;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
   border-bottom: 2px solid transparent;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.18s ease;
 }
 
 .app-topnav-link:hover {
@@ -486,7 +486,7 @@ html, body {
 
 .app-topnav-link[data-active='true'] {
   color: var(--coral, #EA8069);
-  border-bottom-color: var(--coral, #EA8069);
+  border-bottom-color: transparent;
 }
 
 .page-title {
