@@ -32,6 +32,7 @@ const PLAN_COPY: Record<
     perks: [
       'Better model + 3× daily tokens',
       '15 projects · 30 widgets',
+      '500M context retention tokens',
       'Ad-free · personal dashboard link',
       '30-day artifact retention',
     ],
@@ -43,6 +44,7 @@ const PLAN_COPY: Record<
     perks: [
       'Large model + 6× daily tokens',
       '10 concurrent projects · 90-day artifacts',
+      '1B context retention · account-wide memory',
       'Ad-free · personal dashboard link',
       'Priority queue when the agent is busy',
     ],
