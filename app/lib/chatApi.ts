@@ -451,6 +451,8 @@ export interface ChatOptions {
   modelSize?: 'small' | 'medium' | 'large';
   /** @deprecated use modelSize */
   modelAccess?: 'small' | 'medium' | 'large';
+  /** Structured compose-box file chips (attachment_ids from POST /v1/chat/attachments). */
+  attachmentIds?: string[];
   onEvent?: (event: StreamEvent) => void;
 }
 
@@ -475,6 +477,7 @@ export async function streamChat(options: ChatOptions): Promise<{
     includeClientContext = true,
     modelSize,
     modelAccess,
+    attachmentIds,
     onEvent,
   } = options;
   const resolvedModelSize = modelSize || modelAccess;
@@ -496,6 +499,7 @@ export async function streamChat(options: ChatOptions): Promise<{
       layout,
       ...(client_context ? { client_context } : {}),
       ...(resolvedModelSize ? { model_size: resolvedModelSize } : {}),
+      ...(attachmentIds?.length ? { attachment_ids: attachmentIds } : {}),
     }),
   });
 

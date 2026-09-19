@@ -7,8 +7,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   IconArrowUpRight,
   IconCopy,
+  IconFile,
   IconLayoutDashboard,
   IconMessageDots,
+  IconPlus,
   IconSearch,
   IconSend,
   IconSparkles,
@@ -42,11 +44,18 @@ import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
 import {
   applyUIAction,
   ChatRequestError,
+  createProject,
   getProjects,
   streamChat,
   StreamEvent,
   WidgetSpec,
 } from '../lib/chatApi';
+import {
+  ATTACHMENT_ACCEPT_ATTR,
+  deleteChatAttachment,
+  uploadChatAttachment,
+  type ChatAttachment,
+} from '../lib/attachmentsApi';
 import { SourceChips, type ResearchSource } from '../Components/research/SourceChips';
 import { AppShell } from '../Components/app/AppShell';
 import { useTheme } from '../Components/ui/ThemeProvider';
@@ -78,6 +87,7 @@ interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   mode?: ComposerMode;
+  attachments?: Array<{ attachment_id: string; filename: string }>;
   sources?: ResearchSource[];
   widget?: WidgetSpec;
   proposal?: { action_id: string; project_id?: string };
@@ -296,9 +306,14 @@ function ChatInner() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [dashStatus, setDashStatus] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const abortRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const nearBottomRef = useRef(true);
   const postRunAdArmed = useRef(false);
 
@@ -430,6 +445,63 @@ function ChatInner() {
     setError(null);
     setShowDashboard(false);
     setDashStatus(null);
+    setRunId(null);
+    setPendingAttachments([]);
+  };
+
+  const ensureProjectId = useCallback(async (): Promise<string> => {
+    if (projectId) return projectId;
+    const created = await createProject(
+      composerMode === 'research' ? 'Research & Discovery' : 'Chat',
+    );
+    setProjectId(created.id);
+    return created.id;
+  }, [composerMode, projectId]);
+
+  const handleAttachClick = () => {
+    if (inputLocked || uploadingAttachment) return;
+    if (!getStoredToken()) {
+      setError('Sign in to attach files.');
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFilesSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!files.length) return;
+    if (!getStoredToken()) {
+      setError('Sign in to attach files.');
+      return;
+    }
+    setUploadingAttachment(true);
+    setError(null);
+    try {
+      const pid = await ensureProjectId();
+      const uploaded: ChatAttachment[] = [];
+      for (const file of files.slice(0, 5)) {
+        const att = await uploadChatAttachment(pid, file, runId);
+        uploaded.push(att);
+      }
+      setPendingAttachments((prev) => {
+        const seen = new Set(prev.map((a) => a.attachment_id));
+        return [...prev, ...uploaded.filter((a) => !seen.has(a.attachment_id))];
+      });
+    } catch (attachErr: unknown) {
+      setError(attachErr instanceof Error ? attachErr.message : 'Could not attach file.');
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
+  const removePendingAttachment = async (attachmentId: string) => {
+    setPendingAttachments((prev) => prev.filter((a) => a.attachment_id !== attachmentId));
+    try {
+      await deleteChatAttachment(attachmentId);
+    } catch {
+      /* chip already removed locally */
+    }
   };
 
   const copyMessage = async (id: string, text: string) => {
@@ -465,7 +537,8 @@ function ChatInner() {
   const sendMessage = useCallback(
     async (raw?: string, modeOverride?: ComposerMode) => {
       const value = (raw ?? input).trim();
-      if (!value || isStreaming || awaitingAd) return;
+      const attachmentIds = pendingAttachments.map((a) => a.attachment_id);
+      if ((!value && !attachmentIds.length) || isStreaming || awaitingAd) return;
     if (llmQuota?.show && llmQuota.exhausted) {
       setUpgradeModal({ open: true, reason: 'quota' });
       setQuotaBanner('exhausted');
@@ -477,25 +550,28 @@ function ChatInner() {
         return;
       }
 
-      const mode = modeOverride ?? composerMode;
-      const wantsDashboard = DASHBOARD_INTENT.test(value);
-      if (wantsDashboard) setShowDashboard(true);
-
+      const mode = modeOverride || composerMode;
+      const userId = `user-${Date.now()}`;
+      const assistantId = `asst-${Date.now()}`;
+      const chipMeta = pendingAttachments.map((a) => ({
+        attachment_id: a.attachment_id,
+        filename: a.filename,
+      }));
       const userMsg: ChatMessage = {
-        id: `u-${Date.now()}`,
+        id: userId,
         role: 'user',
-        content: value,
+        content: value || (chipMeta.length ? `Attached: ${chipMeta.map((c) => c.filename).join(', ')}` : ''),
         mode,
+        attachments: chipMeta.length ? chipMeta : undefined,
       };
-      const assistantId = `a-${Date.now()}`;
       const assistantMsg: ChatMessage = {
         id: assistantId,
         role: 'assistant',
         content: '',
-        mode,
-        sources: [],
         streaming: true,
         status: mode === 'research' ? 'Researching…' : 'Thinking…',
+        mode,
+        sources: [],
       };
 
       setMessages((prev) => [...prev, userMsg, assistantMsg]);
@@ -512,6 +588,9 @@ function ChatInner() {
       abortRef.current = false;
       nearBottomRef.current = true;
 
+      const wantsDashboard = DASHBOARD_INTENT.test(value);
+      if (wantsDashboard) setShowDashboard(true);
+
       let widget: WidgetSpec | undefined;
       let proposalMeta: { action_id: string; project_id?: string } | undefined;
       let sources: ResearchSource[] = [];
@@ -523,21 +602,34 @@ function ChatInner() {
 
       const outbound =
         mode === 'research'
-          ? `[Research mode] Prefer web/news/geo tools and cite sources.\n\n${value}`
-          : value;
+          ? `[Research mode] Prefer web/news/geo tools and cite sources.\n\n${value || 'Please review the attached file(s).'}`
+          : value || 'Please review the attached file(s).';
 
+      let chipsSnapshot: ChatAttachment[] = [];
       try {
         const history = messages
           .filter((m) => m.role === 'user' || m.role === 'assistant')
           .map((m) => ({ role: m.role, content: m.content || '' }));
 
+        let scopedProjectId = projectId;
+        if (!scopedProjectId && attachmentIds.length) {
+          scopedProjectId = await ensureProjectId();
+        }
+
+        // Clear chips once the request is about to leave — restore on hard failure.
+        chipsSnapshot = pendingAttachments;
+        setPendingAttachments([]);
+
         const response = await streamChat({
           message: outbound,
+          projectId: scopedProjectId || undefined,
+          runId: runId || undefined,
           projectTitle: mode === 'research' ? 'Research & Discovery' : 'Chat',
           incognito: isIncognito,
           history,
           includeClientContext: true,
           modelSize: selectedModelSize,
+          attachmentIds: attachmentIds.length ? attachmentIds : undefined,
           onEvent: (event: StreamEvent) => {
             if (abortRef.current) return;
 
@@ -830,6 +922,8 @@ function ChatInner() {
         });
 
         streamed = streamed || response.finalText;
+        if (response.runId) setRunId(response.runId);
+        if (response.projectId) setProjectId(response.projectId);
         if (response.sources?.length) {
           sources = mergeSources(
             sources,
@@ -887,9 +981,11 @@ function ChatInner() {
           void refreshLlmQuota();
           setUpgradeModal({ open: true, reason: 'quota' });
           setMessages((prev) => prev.filter((m) => m.id !== assistantId && m.id !== userMsg.id));
+          if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
         } else {
           const msg = chatError instanceof Error ? chatError.message : 'Request failed.';
           setError(msg);
+          if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
@@ -905,7 +1001,7 @@ function ChatInner() {
         void refreshLlmQuota();
       }
     },
-    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming, messages, refreshLlmQuota, selectedModelSize],
+    [armPostRunAd, awaitingAd, composerMode, ensureProjectId, input, isIncognito, isStreaming, messages, pendingAttachments, projectId, refreshLlmQuota, runId, selectedModelSize],
   );
 
   const stopStreaming = () => {
@@ -1088,6 +1184,19 @@ function ChatInner() {
                         <span className="mb-1 inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider opacity-60">
                           <IconSearch size={11} /> Research
                         </span>
+                      )}
+                      {isUser && msg.attachments && msg.attachments.length > 0 && (
+                        <div className="mb-1.5 flex flex-wrap gap-1.5">
+                          {msg.attachments.map((att) => (
+                            <span
+                              key={att.attachment_id}
+                              className="inline-flex max-w-full items-center gap-1 rounded-md bg-black/10 px-2 py-0.5 text-[11px] dark:bg-white/10"
+                            >
+                              <IconFile size={12} className="shrink-0 opacity-70" />
+                              <span className="truncate">{att.filename}</span>
+                            </span>
+                          ))}
+                        </div>
                       )}
 
                       <div className="leading-relaxed">
@@ -1328,10 +1437,57 @@ function ChatInner() {
                     e.preventDefault();
                     void sendMessage();
                   }}
-                  className={`app-card flex items-end gap-2 p-2 ${
+                  className={`app-card flex flex-col gap-2 p-2 ${
                     isIncognito ? 'ring-1 ring-violet-500/30' : ''
                   } ${composerMode === 'research' ? 'ring-1 ring-[#E3836C]/25' : ''}`}
                 >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept={ATTACHMENT_ACCEPT_ATTR}
+                    onChange={(e) => void handleFilesSelected(e)}
+                    className="hidden"
+                    aria-hidden="true"
+                    tabIndex={-1}
+                  />
+                  {pendingAttachments.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 px-1 pt-1">
+                      {pendingAttachments.map((att) => (
+                        <span
+                          key={att.attachment_id}
+                          className="inline-flex max-w-[14rem] items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1 text-[11px] text-[var(--text-secondary)]"
+                        >
+                          <IconFile size={13} className="shrink-0 text-[#E3836C]" />
+                          <span className="truncate">{att.filename}</span>
+                          <button
+                            type="button"
+                            onClick={() => void removePendingAttachment(att.attachment_id)}
+                            className="rounded p-0.5 text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                            aria-label={`Remove ${att.filename}`}
+                            disabled={inputLocked}
+                          >
+                            <IconX size={12} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAttachClick}
+                    disabled={inputLocked || uploadingAttachment}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)] disabled:opacity-40"
+                    aria-label="Attach file"
+                    title="Attach a file (CSV, PDF, XLSX, JSON…)"
+                  >
+                    {uploadingAttachment ? (
+                      <span className="h-4 w-4 animate-pulse rounded-full bg-[#E3836C]/40" />
+                    ) : (
+                      <IconPlus size={18} />
+                    )}
+                  </button>
                   <textarea
                     ref={inputRef}
                     rows={1}
@@ -1352,9 +1508,11 @@ function ChatInner() {
                     placeholder={
                       awaitingAd
                         ? 'Sponsored unit loading…'
-                        : composerMode === 'research'
-                          ? 'Research a question, place, or trend…'
-                          : 'Message AnalyzeIt…'
+                        : pendingAttachments.length
+                          ? 'Ask about the attached file…'
+                          : composerMode === 'research'
+                            ? 'Research a question, place, or trend…'
+                            : 'Message AnalyzeIt…'
                     }
                     className="max-h-[140px] min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-[var(--text-muted)] disabled:opacity-60"
                   />
@@ -1408,13 +1566,19 @@ function ChatInner() {
                   ) : (
                     <button
                       type="submit"
-                      disabled={!input.trim() || awaitingAd || Boolean(llmQuota?.show && llmQuota.exhausted)}
+                      disabled={
+                        (!input.trim() && !pendingAttachments.length) ||
+                        awaitingAd ||
+                        uploadingAttachment ||
+                        Boolean(llmQuota?.show && llmQuota.exhausted)
+                      }
                       aria-label="Send"
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E3836C] text-white disabled:opacity-40"
                     >
                       <IconSend size={16} />
                     </button>
                   )}
+                  </div>
                 </form>
               </div>
             </div>
