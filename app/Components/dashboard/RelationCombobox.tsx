@@ -196,12 +196,12 @@ export function RelationCombobox({
           onClick={() => !disabled && setIsOpen(!isOpen)}
           className={`flex items-center justify-between px-3 py-2 text-xs rounded-xl border transition-all cursor-pointer ${
             isOpen
-              ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-white dark:bg-neutral-800'
+              ? 'border-[var(--coral)] ring-2 ring-[var(--coral)]/20 bg-white dark:bg-neutral-800'
               : 'border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-800 hover:border-neutral-400 dark:hover:border-white/20'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <div className="flex items-center gap-2 min-w-0 pr-2">
-            <span className="p-1 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 shrink-0">
+            <span className="p-1 rounded-md bg-[var(--coral)]/12 text-[var(--coral)] shrink-0">
               <IconLink className="w-3.5 h-3.5" />
             </span>
             <div className="flex flex-col min-w-0">
@@ -235,7 +235,7 @@ export function RelationCombobox({
           onClick={() => !disabled && setIsOpen(!isOpen)}
           className={`flex items-center justify-between px-3 py-2 text-xs rounded-xl border transition-all cursor-pointer ${
             isOpen
-              ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-white dark:bg-neutral-800'
+              ? 'border-[var(--coral)] ring-2 ring-[var(--coral)]/20 bg-white dark:bg-neutral-800'
               : 'border-neutral-300 dark:border-white/10 bg-neutral-50 dark:bg-neutral-800 hover:border-neutral-400 dark:hover:border-white/20'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
@@ -263,7 +263,7 @@ export function RelationCombobox({
               className="w-full bg-transparent text-xs text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none"
             />
             {loading ? (
-              <IconRefresh className="w-3.5 h-3.5 text-indigo-500 animate-spin shrink-0" />
+              <IconRefresh className="w-3.5 h-3.5 text-[var(--coral)] animate-spin shrink-0" />
             ) : searchQuery ? (
               <button
                 type="button"
@@ -279,7 +279,7 @@ export function RelationCombobox({
           <div className="overflow-y-auto flex-1 p-1">
             {loading && results.length === 0 ? (
               <div className="py-6 text-center text-xs text-neutral-400 flex items-center justify-center gap-2">
-                <IconRefresh className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                <IconRefresh className="w-3.5 h-3.5 animate-spin text-[var(--coral)]" />
                 Searching {targetLabel} records...
               </div>
             ) : results.length === 0 ? (
@@ -292,7 +292,7 @@ export function RelationCombobox({
                       setIsOpen(false);
                       onQuickCreate(targetObject);
                     }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-medium text-[11px] hover:bg-indigo-100 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--coral)]/10 text-[var(--coral)] font-medium text-[11px] hover:bg-[var(--coral)]/15 transition-colors cursor-pointer"
                   >
                     <IconPlus className="w-3 h-3" />
                     Create New {targetLabel}
@@ -313,7 +313,7 @@ export function RelationCombobox({
                     onMouseEnter={() => setFocusedIndex(idx)}
                     className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs cursor-pointer transition-colors ${
                       isSelected
-                        ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-900 dark:text-indigo-200 font-medium'
+                        ? 'bg-[var(--coral)]/10 text-[var(--text-primary)] font-medium'
                         : isFocused
                         ? 'bg-neutral-100 dark:bg-white/5 text-neutral-900 dark:text-white'
                         : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100/60 dark:hover:bg-white/5'
@@ -322,7 +322,7 @@ export function RelationCombobox({
                     <div className="flex flex-col min-w-0 pr-2">
                       <div className="flex items-center gap-1.5">
                         <span className="font-medium truncate">{title}</span>
-                        {isSelected && <IconCheck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />}
+                        {isSelected && <IconCheck className="w-3.5 h-3.5 text-[var(--coral)] shrink-0" />}
                       </div>
                       {subtitle && (
                         <span className="text-[11px] text-neutral-400 dark:text-neutral-500 truncate">
@@ -351,7 +351,7 @@ export function RelationCombobox({
                   setIsOpen(false);
                   onQuickCreate(targetObject);
                 }}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-[var(--coral)] hover:bg-[var(--coral)]/10 transition-colors cursor-pointer"
               >
                 <IconPlus className="w-3 h-3" />
                 New {targetLabel}

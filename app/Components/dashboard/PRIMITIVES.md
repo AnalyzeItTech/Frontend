@@ -1,6 +1,8 @@
 # AnalyzeIt Widget Primitive Library Manifest
 
-A closed, strictly typed vocabulary of UI primitives for the AI agent to compose dashboards from. The agent never writes raw HTML or CSS; it selects from these 9 primitives and fills typed data slots.
+A closed, strictly typed vocabulary of UI primitives for the AI agent to compose dashboards from. The agent never writes raw HTML or CSS; it selects from these **23 native types** (+ optional `sandboxed` iframe) and fills typed data slots.
+
+Registry source of truth: `WidgetRenderer.tsx` → `NATIVE_WIDGET_REGISTRY` and `NewWidgets.tsx`.
 
 ---
 
@@ -125,6 +127,37 @@ A closed, strictly typed vocabulary of UI primitives for the AI agent to compose
   - `message`: Diagnostic message
   - `severity`: `'info'` | `'warning'` | `'error'` | `'success'`
   - `dismissible`: Optional boolean
+
+### `progress_ring` / `comparison_pair` / `timeline` / `text_block`
+- See earlier sections in this file (core nine); still first-class natives.
+
+### `donut_chart`
+- **When to use**: Part-to-whole share (plan mix, OpEx mix, category breakdown).
+- **Props**: `title`, `slices: { label, value, color? }[]`, `centerLabel?`, `unit?`
+
+### `radar_chart`
+- **When to use**: Multi-axis health / capability scores.
+- **Props**: `title`, `axes: string[]`, `series: { name, values: number[], color? }[]`, `max?`
+
+### `choropleth_map`
+- **When to use**: Regional intensity as **tiles** (not MapLibre Globe). Label clearly when composing.
+- **Props**: `title`, `regions: { id, label, value }[]`, `colorScale?: 'warm' | 'cool' | 'emerald'`
+
+### `transaction_list`
+- **When to use**: Recent ledger / charge rows from a connector-shaped source.
+- **Props**: `title`, `rows: Record<string, string | number>[]`, `limit?`
+
+### `bubble_grid`
+- **When to use**: Scatter of sized points (cohort size × value).
+- **Props**: `title`, `points: { x, y, r, label?, group? }[]`, `xLabel?`, `yLabel?`
+
+### `multi_series_chart`
+- **When to use**: Parallel time series from multiple sources (e.g. Stripe vs SQL).
+- **Props**: `title`, `series: { name, data: { x, y }[], color? }[]`, `unit?`, `timeframe?`
+
+### `kpi_sparkline`
+- **When to use**: KPI with inline trend — sits in the dashboard **KPI row** with `metric_card`.
+- **Props**: `title`, `value`, `change?`, `positive?`, `sparkline: number[]`, `unit?`
 
 ### `sandboxed`
 - **When to use**: Strictly as a last-resort fallback for custom visualizations when none of the native primitives fit.

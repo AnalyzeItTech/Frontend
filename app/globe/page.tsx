@@ -29,7 +29,7 @@ const PlaceMapLibre = dynamic(
     ssr: false,
     loading: () => (
       <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-2)] font-mono text-xs text-[var(--text-muted)]">
-        <span className="mr-2 h-2.5 w-2.5 animate-ping rounded-full bg-[#E3836C]" />
+        <span className="mr-2 h-2.5 w-2.5 animate-ping rounded-full bg-[#EA8069]" />
         Loading map…
       </div>
     ),
@@ -316,7 +316,7 @@ export default function GlobePage() {
               </button>
             </div>
             <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2">
-              <IconSearch size={15} className="shrink-0 text-[#E3836C]" />
+              <IconSearch size={15} className="shrink-0 text-[#EA8069]" />
               <input
                 type="search"
                 value={query}
@@ -344,7 +344,7 @@ export default function GlobePage() {
                   <IconX size={14} />
                 </button>
               ) : null}
-              {searching ? <IconLoader2 size={14} className="animate-spin text-[#E3836C]" /> : null}
+              {searching ? <IconLoader2 size={14} className="animate-spin text-[#EA8069]" /> : null}
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -415,7 +415,7 @@ export default function GlobePage() {
                     onClick={() => setLayers((prev) => ({ ...prev, [layer.id]: !prev[layer.id] }))}
                     className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium transition-colors ${
                       on
-                        ? 'border-[#E3836C]/50 bg-[#E3836C]/15 text-[#C96551]'
+                        ? 'border-[#EA8069]/50 bg-[#EA8069]/15 text-[#C96551]'
                         : 'border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-2)]'
                     }`}
                   >
@@ -449,7 +449,7 @@ export default function GlobePage() {
                     onClick={() => pickHit(hit)}
                     className="flex w-full items-start gap-2 rounded-xl px-2.5 py-2 text-left text-xs hover:bg-[var(--surface-2)]"
                   >
-                    <IconMapPin size={14} className="mt-0.5 shrink-0 text-[#E3836C]" />
+                    <IconMapPin size={14} className="mt-0.5 shrink-0 text-[#EA8069]" />
                     <span className="min-w-0">
                       <span className="block font-medium text-[var(--text-primary)]">{hit.name}</span>
                       <span className="mt-0.5 block text-[10px] text-[var(--text-muted)]">
@@ -481,7 +481,7 @@ export default function GlobePage() {
                         }
                         className={`min-h-8 whitespace-nowrap rounded-full px-3 text-xs transition-colors ${
                           activeHub === hub.name
-                            ? 'bg-[#E3836C] font-semibold text-white'
+                            ? 'bg-[#EA8069] font-semibold text-white'
                             : 'border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-2)]'
                         }`}
                       >
@@ -533,7 +533,7 @@ export default function GlobePage() {
           tabIndex={0}
           onPointerDown={(e) => startResize('left', e)}
           onDoubleClick={() => setLeftRail(LEFT_DEFAULT)}
-          className="z-10 cursor-col-resize bg-[var(--border)] hover:bg-[#E3836C]"
+          className="z-10 cursor-col-resize bg-[var(--border)] hover:bg-[#EA8069]"
         />
 
         <section className="relative min-w-0 bg-[var(--surface-2)]">
@@ -585,7 +585,7 @@ export default function GlobePage() {
 
           {!mapReady ? (
             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-1 overflow-hidden bg-[var(--surface)]/40">
-              <div className="h-full w-1/3 animate-pulse bg-[#E3836C]/70" />
+              <div className="h-full w-1/3 animate-pulse bg-[#EA8069]/70" />
             </div>
           ) : null}
         </section>
@@ -597,13 +597,13 @@ export default function GlobePage() {
           tabIndex={0}
           onPointerDown={(e) => startResize('right', e)}
           onDoubleClick={() => setRightRail(RIGHT_DEFAULT)}
-          className="z-10 cursor-col-resize bg-[var(--border)] hover:bg-[#E3836C]"
+          className="z-10 cursor-col-resize bg-[var(--border)] hover:bg-[#EA8069]"
         />
 
         <aside className="flex min-w-0 flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--surface)]">
           {!selected && !loading && !error ? (
             <div className="flex flex-1 flex-col items-start justify-center gap-3 p-5">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E3836C]/12 text-[#E3836C]">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EA8069]/12 text-[#EA8069]">
                 <IconMapPin size={22} />
               </div>
               <div>

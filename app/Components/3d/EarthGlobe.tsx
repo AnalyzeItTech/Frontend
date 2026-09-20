@@ -993,7 +993,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
                           className="w-full px-3 py-2 text-left rounded-xl hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-between text-xs font-mono transition-colors cursor-pointer group"
                         >
                           <div className="min-w-0">
-                            <span className="font-serif text-sm text-[#4A4238] dark:text-[#F4EDE5] group-hover:text-[#ED967F] transition-colors block truncate">
+                            <span className="font-serif text-sm text-[#4A4238] dark:text-[#F4EDE5] group-hover:text-[#ED967F] transition-colors block line-clamp-2 break-words">
                               {loc.name}
                             </span>
                             <span className="text-[10px] text-[#4A4238]/50 dark:text-[#91867E]">

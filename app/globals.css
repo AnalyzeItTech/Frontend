@@ -80,6 +80,7 @@
   --text-disabled: #A89F96;
   --coral: #EA8069;
   --coral-dark: #C96551;
+  --coral-hover: #ED967F;
   --brand: #EA8069;
   --brand-hover: #C96551;
   --brand-pressed: #B85745;
@@ -148,6 +149,7 @@
   --text-disabled: #4B5260;
   --coral: #EA8069;
   --coral-dark: #C96551;
+  --coral-hover: #ED967F;
   --brand: #EA8069;
   --brand-hover: #C96551;
   --brand-pressed: #B85745;
@@ -158,7 +160,7 @@
 
   --chart-1: #3D6FE0;
   --chart-2: #3FB68C;
-  --chart-3: #8B5CF6;
+  --chart-3: #79A8DF;
   --chart-4: #06B6D4;
   --chart-5: #D98F3F;
   --chart-6: #EC4899;

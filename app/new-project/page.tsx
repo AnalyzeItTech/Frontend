@@ -1067,8 +1067,10 @@ function NewProjectContent() {
 
     setUploadingFile(files[0].name);
     try {
-      for (const file of files) {
-        setUploadingFile(file.name);
+      const total = files.length;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadingFile(total > 1 ? `${file.name} (${i + 1}/${total})` : file.name);
         // Structured chat attachment (compose chip + context.attachments).
         const attachment = await uploadChatAttachment(projectId, file, runId);
         setAttachedFiles((prev) => {

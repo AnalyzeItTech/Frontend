@@ -101,7 +101,7 @@ export const Navbar: React.FC = () => {
             </Link>
             <Link
               href="/login?tab=register"
-              className="text-xs bg-[#302824] hover:bg-[#E3836C] text-[#FFF7F1] font-medium px-4 py-1.5 rounded-full transition-all duration-200 shadow-xs"
+              className="text-xs bg-[var(--coral,#E3836C)] hover:bg-[#ED967F] text-[#FFF7F1] font-medium px-4 py-1.5 rounded-full transition-all duration-200 shadow-xs"
             >
               Get started
             </Link>

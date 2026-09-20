@@ -288,7 +288,7 @@ export function AppShell({
                           data-active={activeLink}
                           className={`mb-0.5 flex items-center justify-between rounded-xl px-3 py-3 text-sm font-medium transition-colors ${
                             activeLink
-                              ? 'bg-[#E3836C]/15 text-[#E3836C]'
+                              ? 'bg-[#EA8069]/15 text-[#EA8069]'
                               : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]'
                           }`}
                           onClick={() => setMobileOpen(false)}

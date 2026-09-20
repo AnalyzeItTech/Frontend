@@ -138,14 +138,14 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
   > = {
     stripe: {
       name: 'Stripe Connect',
-      icon: <IconBrandStripe className="w-6 h-6 text-indigo-400" />,
-      desc: 'OAuth preview. Tokens vault-encrypted. Live Stripe pulls are not implemented yet.',
+      icon: <IconBrandStripe className="w-6 h-6 text-[var(--coral)]" />,
+      desc: 'OAuth. Tokens vault-encrypted. Live read-only sync of customers, charges, and subscriptions.',
       authMode: 'oauth',
     },
     salesforce: {
       name: 'Salesforce CRM',
-      icon: <IconCloud className="w-6 h-6 text-blue-400" />,
-      desc: 'OAuth preview. Tokens vault-encrypted. Live Salesforce pulls are not implemented yet.',
+      icon: <IconCloud className="w-6 h-6 text-[var(--coral)]" />,
+      desc: 'OAuth. Tokens vault-encrypted. Live read-only sync of Accounts and Contacts via SOQL.',
       authMode: 'oauth',
     },
     github: {
@@ -191,7 +191,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
             <IconPlugConnected className="w-6 h-6 text-emerald-500" />
             Connectors
           </h2>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+          <p className="text-xs text-[var(--text-muted)] dark:text-neutral-400 mt-1">
             OAuth previews + read-only SQL (Postgres/SQLite). Credentials stay vault-encrypted on Backend A.
           </p>
         </div>
@@ -204,7 +204,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
           <button
             onClick={loadData}
             disabled={loading}
-            className="p-2 rounded-xl border border-neutral-200 dark:border-white/10 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+            className="p-2 rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
             title="Refresh connectors"
           >
             <IconRefresh className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -213,15 +213,15 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       </div>
 
       {sqlForm && (
-        <div className="p-5 rounded-2xl border border-emerald-500/30 bg-white dark:bg-neutral-900/80 space-y-3">
-          <h3 className="font-semibold text-sm text-neutral-900 dark:text-white">
+        <div className="app-card p-5 space-y-3 border-[var(--success)]/30">
+          <h3 className="font-semibold text-sm text-[var(--text-primary)]">
             Connect {sqlForm === 'postgres' ? 'PostgreSQL' : 'SQLite'} (read-only)
           </h3>
           {sqlForm === 'sqlite' ? (
-            <label className="block text-xs text-neutral-500">
+            <label className="block text-xs text-[var(--text-muted)]">
               Absolute file path
               <input
-                className="mt-1 w-full rounded-lg border border-neutral-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
                 value={sqlitePath}
                 onChange={(e) => setSqlitePath(e.target.value)}
                 placeholder="/path/to/data.sqlite"
@@ -229,43 +229,43 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
             </label>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <label className="block text-xs text-neutral-500">
+              <label className="block text-xs text-[var(--text-muted)]">
                 Host
                 <input
-                  className="mt-1 w-full rounded-lg border border-neutral-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
                   value={pgHost}
                   onChange={(e) => setPgHost(e.target.value)}
                 />
               </label>
-              <label className="block text-xs text-neutral-500">
+              <label className="block text-xs text-[var(--text-muted)]">
                 Port
                 <input
-                  className="mt-1 w-full rounded-lg border border-neutral-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
                   value={pgPort}
                   onChange={(e) => setPgPort(e.target.value)}
                 />
               </label>
-              <label className="block text-xs text-neutral-500">
+              <label className="block text-xs text-[var(--text-muted)]">
                 Database
                 <input
-                  className="mt-1 w-full rounded-lg border border-neutral-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
                   value={pgDb}
                   onChange={(e) => setPgDb(e.target.value)}
                 />
               </label>
-              <label className="block text-xs text-neutral-500">
+              <label className="block text-xs text-[var(--text-muted)]">
                 User
                 <input
-                  className="mt-1 w-full rounded-lg border border-neutral-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
                   value={pgUser}
                   onChange={(e) => setPgUser(e.target.value)}
                 />
               </label>
-              <label className="block text-xs text-neutral-500 sm:col-span-2">
+              <label className="block text-xs text-[var(--text-muted)] sm:col-span-2">
                 Password
                 <input
                   type="password"
-                  className="mt-1 w-full rounded-lg border border-neutral-200 dark:border-white/10 bg-transparent px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
                   value={pgPassword}
                   onChange={(e) => setPgPassword(e.target.value)}
                 />
@@ -276,7 +276,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
             <button
               type="button"
               onClick={() => setSqlForm(null)}
-              className="px-3 py-2 text-xs rounded-xl text-neutral-500"
+              className="px-3 py-2 text-xs rounded-xl text-[var(--text-muted)]"
             >
               Cancel
             </button>
@@ -298,7 +298,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
           const isConnected = Boolean(activeConn);
           const isSyncing = syncingId === activeConn?.id;
           const isSql = p.authMode === 'connection';
-          const isComingSoon = !isConnected && (p.id === 'stripe' || p.id === 'salesforce');
+          const isComingSoon = !isConnected && p.id === 'salesforce';
           const hasError = connectors.some((c) => c.provider === p.id && c.status === 'error');
 
           return (
@@ -306,17 +306,17 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
               key={p.id}
               className={`flex flex-col justify-between p-6 rounded-2xl border transition-all ${
                 isConnected
-                  ? 'bg-white dark:bg-neutral-900/80 border-emerald-500/30 dark:border-emerald-500/30 shadow-sm'
-                  : 'bg-white dark:bg-neutral-900/50 border-neutral-200 dark:border-white/10 hover:border-neutral-300 dark:hover:border-white/20'
+                  ? 'bg-[var(--surface)] border-[var(--success)]/35 shadow-sm'
+                  : 'bg-[var(--surface)] border-[var(--border)] hover:border-[var(--border-strong)]'
               }`}
             >
               <div>
                 <div className="flex items-start justify-between gap-4 mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800">{p.icon}</div>
+                    <div className="p-3 rounded-xl bg-[var(--surface-2)]">{p.icon}</div>
                     <div>
-                      <h3 className="font-semibold text-neutral-900 dark:text-white text-base">{p.name}</h3>
-                      <span className="text-[11px] font-mono text-neutral-400">
+                      <h3 className="font-semibold text-[var(--text-primary)] text-base">{p.name}</h3>
+                      <span className="text-[11px] font-mono text-[var(--text-muted)]">
                         {isSql ? 'Read-only SQL' : 'OAuth 2.0'}
                       </span>
                     </div>
@@ -335,21 +335,21 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                   )}
                 </div>
 
-                <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed mb-4">{p.desc}</p>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-4">{p.desc}</p>
 
                 {isConnected && activeConn && (
-                  <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-white/5 mb-4 text-xs">
-                    <div className="flex items-center justify-between text-neutral-500">
+                  <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] mb-4 text-xs">
+                    <div className="flex items-center justify-between text-[var(--text-muted)]">
                       <span className="flex items-center gap-1">
                         <IconClock className="w-3.5 h-3.5" /> Last activity:
                       </span>
-                      <span className="font-mono text-neutral-800 dark:text-neutral-200">
+                      <span className="font-mono text-[var(--text-primary)]">
                         {activeConn.last_sync_at
                           ? new Date(activeConn.last_sync_at).toLocaleTimeString()
                           : 'Connected'}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-neutral-500">
+                    <div className="flex items-center justify-between text-[var(--text-muted)]">
                       <span className="flex items-center gap-1">
                         <IconDatabase className="w-3.5 h-3.5" /> Data mode:
                       </span>
@@ -370,7 +370,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                 )}
               </div>
 
-              <div className="flex items-center justify-between gap-3 pt-4 border-t border-neutral-100 dark:border-white/5">
+              <div className="flex items-center justify-between gap-3 pt-4 border-t border-[var(--border)]">
                 {isConnected && activeConn ? (
                   <>
                     <button
@@ -383,14 +383,14 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                     </button>
                     <button
                       onClick={() => handleDisconnect(activeConn.id, p.name)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-neutral-400 hover:text-red-500 text-xs transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--danger)] text-xs transition-colors"
                     >
                       <IconTrash className="w-3.5 h-3.5" />
                       <span>Disconnect</span>
                     </button>
                   </>
                 ) : isComingSoon ? (
-                  <span className="ml-auto text-xs text-[var(--text-muted)]">OAuth preview only — live sync coming soon</span>
+                  <span className="ml-auto text-xs text-[var(--text-muted)]">OAuth preview only — Salesforce live sync coming soon</span>
                 ) : (
                   <button
                     onClick={() =>

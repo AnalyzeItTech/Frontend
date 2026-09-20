@@ -3,20 +3,20 @@
 /**
  * Phase 3 native widgets: donut, radar, choropleth tiles, transaction list,
  * bubble grid, multi-series line, and KPI+sparkline.
- * Styling matches later glass-card natives (terracotta / #E3836C accent).
+ * Styling matches glass-card natives (coral / var(--coral) accent).
  */
 
 import React from 'react';
 import { IconTrash } from '@tabler/icons-react';
 import type { ProvenanceInfo, WidgetSpec } from '../../lib/chatApi';
 
-const PALETTE = ['#E3836C', '#3D6FE0', '#3FB68C', '#D4A017', '#8B5CF6', '#EF6C6C', '#5B8CF5', '#9EBB9A'];
+const PALETTE = ['#EA8069', '#3D6FE0', '#3FB68C', '#D4A017', '#79A8DF', '#EF6C6C', '#5B8CF5', '#9EBB9A'];
 
 function WidgetEmptyState({ title }: { title?: string }) {
   return (
-    <div className="bg-[#14171B] rounded-xl p-6 border border-dashed border-white/[0.12] flex flex-col items-center justify-center text-center h-full min-h-[140px] shadow-sm">
-      <p className="text-sm font-medium text-[#EDEFF2]">{title || 'No data yet'}</p>
-      <p className="mt-1.5 text-[11px] font-mono text-[#8B93A1] max-w-[220px]">
+    <div className="rounded-xl p-6 border border-dashed border-[var(--border)] bg-[var(--surface)] flex flex-col items-center justify-center text-center h-full min-h-[140px] shadow-sm">
+      <p className="text-sm font-medium text-[var(--text-primary)]">{title || 'No data yet'}</p>
+      <p className="mt-1.5 text-[11px] font-mono text-[var(--text-muted)] max-w-[220px]">
         Ask the agent or bind a source — sample charts are not shown.
       </p>
     </div>
@@ -61,7 +61,7 @@ function shell(
   freshness?: string,
 ) {
   return (
-    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[#E3836C]/30 transition-all group relative">
+    <div className="glass-card dark:bg-[#211E1C] rounded-2xl p-5 border border-[#4A4238]/10 dark:border-[#3A3430] flex flex-col justify-between h-full shadow-sm hover:border-[var(--coral)]/30 transition-all group relative">
       <div className="flex items-center justify-between mb-3">
         <div className="min-w-0">
           <span className="text-[11px] font-mono text-[#4A4238]/60 dark:text-[#91867E] uppercase tracking-wider block">
@@ -339,7 +339,7 @@ export function ChoroplethMapWidget({
             onClick={() =>
               onWidgetAction?.(widget.id, 'filter', { dimension: metric, value: r.label })
             }
-            className="rounded-xl p-3 text-left border border-[#4A4238]/10 dark:border-[#3A3430] hover:border-[#E3836C]/40 transition-colors cursor-pointer"
+            className="rounded-xl p-3 text-left border border-[#4A4238]/10 dark:border-[#3A3430] hover:border-[#EA8069]/40 transition-colors cursor-pointer"
             style={{ background: colorAt(r.value / max) }}
           >
             <div className="text-[11px] font-medium text-[#4A4238] dark:text-[#F4EDE5] truncate">

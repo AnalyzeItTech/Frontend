@@ -129,9 +129,9 @@ export const PricingTeaserSection: React.FC = () => {
             <Link
               href={tier.href}
               className={`inline-flex justify-center min-h-11 items-center rounded-full px-5 py-3 text-sm font-medium transition ${
-                tier.popular
-                  ? 'bg-[#E3836C] text-white hover:bg-[#ED967F]'
-                  : 'border border-[#4A4238]/20 dark:border-[#504740] text-[#322C28] dark:text-[#F4EDE5] hover:border-[#E3836C]'
+                tier.name === 'Free'
+                  ? 'border border-[#4A4238]/20 dark:border-[#504740] text-[#322C28] dark:text-[#F4EDE5] hover:border-[var(--coral,#E3836C)] hover:text-[var(--coral,#E3836C)]'
+                  : 'bg-[var(--coral,#E3836C)] text-white hover:bg-[#ED967F]'
               }`}
             >
               {tier.cta}

@@ -506,9 +506,19 @@ export default function DashboardPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isNewProjectOpen, projectToRename, projectToDelete, isUserSettingsOpen, isExportMenuOpen, isProjectsModalOpen]);
 
-  // Separate KPI cards from analytical charts and dense tables
-  const kpiWidgets = currentLayout.widgets.filter((w) => w.type === 'metric_card' || (w.type as any) === 'kpi');
-  const analyticalWidgets = currentLayout.widgets.filter((w) => w.type !== 'metric_card' && (w.type as any) !== 'kpi');
+  // KPI row: metric cards + sparkline KPIs; everything else is analytical
+  const kpiTypes = new Set(['metric_card', 'kpi', 'kpi_sparkline']);
+  const wideAnalytical = new Set([
+    'line_chart',
+    'annotated_chart',
+    'multi_series_chart',
+    'table',
+    'choropleth_map',
+    'transaction_list',
+    'radar_chart',
+  ]);
+  const kpiWidgets = currentLayout.widgets.filter((w) => kpiTypes.has(String(w.type)));
+  const analyticalWidgets = currentLayout.widgets.filter((w) => !kpiTypes.has(String(w.type)));
 
   return (
     <AppShell active="dashboard" flush>
@@ -517,11 +527,11 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-20 cursor-default" onClick={() => setIsExportMenuOpen(false)} />
       )}
 
-      <div className="px-6 pt-4">
+      <div className="px-[var(--gutter)] pt-4">
         <PageTitle title="Dashboard" />
       </div>
 
-      <div className="mx-6 mt-6 mb-2 flex flex-wrap gap-2">
+      <div className="mx-[var(--gutter)] mt-6 mb-2 flex flex-wrap gap-2">
         <button type="button" onClick={() => setStudioTab('canvas')} className={studioTab === 'canvas' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Canvas</button>
         <Link href="/objects" className="btn-secondary text-xs">Objects</Link>
         <Link href="/connectors" className="btn-secondary text-xs">Connectors</Link>
@@ -545,7 +555,7 @@ export default function DashboardPage() {
                 className="app-card text-xs py-1 px-2.5 max-w-[200px] truncate"
               >
                 {serverProjects.map((p) => (
-                  <option key={p.id} value={p.id} className="bg-[#14171B] text-[#EDEFF2]">
+                  <option key={p.id} value={p.id} className="bg-[var(--surface)] text-[var(--text-primary)]">
                     {p.name}
                   </option>
                 ))}
@@ -556,21 +566,21 @@ export default function DashboardPage() {
 
             {/* Live Indicator with motion-safe pulse */}
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-[#4A4238]/12 text-[11px] text-[#6B6155]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#E3836C] motion-safe:animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#EA8069] motion-safe:animate-pulse" />
               <span className="font-mono text-[10px]">v{layoutVersion}</span>
             </div>
 
             {activeProjectId && (
               <div className="hidden md:flex items-center gap-1.5 max-w-[280px]">
-                <IconLink size={12} className="text-[#8B93A1] shrink-0" />
+                <IconLink size={12} className="text-[var(--text-muted)] shrink-0" />
                 <input
                   value={slugDraft}
                   onChange={(e) => setSlugDraft(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                   placeholder="personal-link"
-                  className="w-28 bg-transparent border-b border-white/[0.12] text-[11px] font-mono text-[#EDEFF2] outline-none placeholder:text-[#8B93A1]/50"
+                  className="w-28 bg-transparent border-b border-[var(--border)] text-[11px] font-mono text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]/50"
                   title="Premium personal subdomain: slug.analyzeit.in"
                 />
-                <span className="text-[10px] text-[#8B93A1] shrink-0">.analyzeit.in</span>
+                <span className="text-[10px] text-[var(--text-muted)] shrink-0">.analyzeit.in</span>
                 <button
                   type="button"
                   disabled={slugBusy || !slugDraft.trim()}
@@ -594,7 +604,7 @@ export default function DashboardPage() {
                       setSlugBusy(false);
                     }
                   }}
-                  className="text-[10px] px-1.5 py-0.5 rounded border border-white/[0.12] text-[#8B93A1] hover:text-[#EDEFF2] disabled:opacity-40"
+                  className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-40"
                 >
                   Save
                 </button>
@@ -608,7 +618,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setIsExportMenuOpen((prev) => !prev)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] hover:border-white/[0.16] hover:bg-white/[0.03] text-xs font-medium text-[#8B93A1] hover:text-[#EDEFF2] transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] hover:border-[var(--border)] hover:bg-[var(--surface-2)] text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
               >
                 <IconDownload size={14} className="text-[var(--coral)]" />
                 <span className="hidden sm:inline">Export</span>
@@ -621,10 +631,10 @@ export default function DashboardPage() {
                     initial={{ opacity: 0, y: 6, scale: 0.96 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 4, scale: 0.96 }}
-                    className="absolute right-0 mt-2 w-64 rounded-xl border border-white/[0.12] bg-[#14171B] shadow-2xl p-2 z-50 space-y-1"
+                    className="absolute right-0 mt-2 w-64 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl p-2 z-50 space-y-1"
                   >
-                    <div className="px-3 py-1.5 border-b border-white/[0.08]">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#8B93A1]">
+                    <div className="px-3 py-1.5 border-b border-[var(--border)]">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
                         Document Export Suite
                       </span>
                     </div>
@@ -635,12 +645,12 @@ export default function DashboardPage() {
                         setIsExportMenuOpen(false);
                         exportDashboardToPdf(activeProjectName, currentLayout.widgets);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[var(--text-primary)] hover:bg-[var(--surface-2)] transition-colors cursor-pointer text-left"
                     >
                       <IconFileTypePdf size={16} className="text-[#EF6C6C] shrink-0" />
                       <div>
                         <div className="font-medium">Printable PDF Report</div>
-                        <div className="text-[10px] text-[#8B93A1]">High-DPI editorial layout</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">High-DPI editorial layout</div>
                       </div>
                     </button>
 
@@ -650,12 +660,12 @@ export default function DashboardPage() {
                         setIsExportMenuOpen(false);
                         exportDashboardToPptx(activeProjectName, currentLayout.widgets);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[var(--text-primary)] hover:bg-[var(--surface-2)] transition-colors cursor-pointer text-left"
                     >
                       <IconFileTypePpt size={16} className="text-[#D98F3F] shrink-0" />
                       <div>
                         <div className="font-medium">Slide Deck (PPTX)</div>
-                        <div className="text-[10px] text-[#8B93A1]">Executive presentation</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">Executive presentation</div>
                       </div>
                     </button>
 
@@ -665,12 +675,12 @@ export default function DashboardPage() {
                         setIsExportMenuOpen(false);
                         exportDashboardToXlsx(activeProjectName, currentLayout.widgets);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[var(--text-primary)] hover:bg-[var(--surface-2)] transition-colors cursor-pointer text-left"
                     >
                       <IconFileSpreadsheet size={16} className="text-[#3FB68C] shrink-0" />
                       <div>
                         <div className="font-medium">Spreadsheet (XLSX)</div>
-                        <div className="text-[10px] text-[#8B93A1]">Multi-table workbook</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">Multi-table workbook</div>
                       </div>
                     </button>
 
@@ -680,12 +690,12 @@ export default function DashboardPage() {
                         setIsExportMenuOpen(false);
                         exportDashboardToDocx(activeProjectName, currentLayout.widgets);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[var(--text-primary)] hover:bg-[var(--surface-2)] transition-colors cursor-pointer text-left"
                     >
                       <IconFileTypeDoc size={16} className="text-[var(--coral)] shrink-0" />
                       <div>
                         <div className="font-medium">Narrative Brief (Word)</div>
-                        <div className="text-[10px] text-[#8B93A1]">Editable document</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">Editable document</div>
                       </div>
                     </button>
 
@@ -704,12 +714,12 @@ export default function DashboardPage() {
                         setExportToastMsg('Design spec downloaded (layout + tokens)');
                         setTimeout(() => setExportToastMsg(null), 3000);
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[var(--text-primary)] hover:bg-[var(--surface-2)] transition-colors cursor-pointer text-left"
                     >
                       <IconCode size={16} className="text-[#3D6FE0] shrink-0" />
                       <div>
                         <div className="font-medium">Design spec (JSON)</div>
-                        <div className="text-[10px] text-[#8B93A1]">Layout + tokens — not app source</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">Layout + tokens — not app source</div>
                       </div>
                     </button>
 
@@ -727,16 +737,16 @@ export default function DashboardPage() {
                           setTimeout(() => setExportToastMsg(null), 3000);
                         }
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[#EDEFF2] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[var(--text-primary)] hover:bg-[var(--surface-2)] transition-colors cursor-pointer text-left"
                     >
-                      <IconFileZip size={16} className="text-[#8B5CF6] shrink-0" />
+                      <IconFileZip size={16} className="text-[var(--coral)] shrink-0" />
                       <div>
                         <div className="font-medium">Project Bundle (ZIP)</div>
-                        <div className="text-[10px] text-[#8B93A1]">Schemas, records, layout</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">Schemas, records, layout</div>
                       </div>
                     </button>
 
-                    <div className="pt-1 border-t border-white/[0.08]">
+                    <div className="pt-1 border-t border-[var(--border)]">
                       <button
                         type="button"
                         onClick={async () => {
@@ -750,12 +760,12 @@ export default function DashboardPage() {
                             setTimeout(() => setExportToastMsg(null), 5000);
                           }
                         }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[var(--coral)] hover:bg-white/[0.06] transition-colors cursor-pointer text-left"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-[var(--coral)] hover:bg-[var(--surface-2)] transition-colors cursor-pointer text-left"
                       >
                         <IconShare size={16} className="shrink-0" />
                         <div>
                           <div className="font-medium">Copy Shareable Link</div>
-                          <div className="text-[10px] text-[#8B93A1]">Direct URL to active canvas</div>
+                          <div className="text-[10px] text-[var(--text-muted)]">Direct URL to active canvas</div>
                         </div>
                       </button>
                     </div>
@@ -785,7 +795,7 @@ export default function DashboardPage() {
                   setTimeout(() => setExportToastMsg(null), 5000);
                 }
               }}
-              className="px-3 py-1.5 rounded-lg border border-white/[0.08] hover:border-white/[0.16] hover:bg-white/[0.03] text-xs font-medium text-[#8B93A1] hover:text-[#EDEFF2] flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-[var(--border)] hover:border-[var(--border)] hover:bg-[var(--surface-2)] text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <IconShare size={14} />
               <span className="hidden sm:inline">Share</span>
@@ -807,7 +817,7 @@ export default function DashboardPage() {
             {/* Interactive Studio Link */}
             <Link
               href={activeProjectId ? `/new-project?projectId=${activeProjectId}` : '/new-project'}
-              className="p-1.5 rounded-lg border border-white/[0.08] hover:border-white/[0.16] text-[#8B93A1] hover:text-[#EDEFF2] transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg border border-[var(--border)] hover:border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
               title="Open full analysis studio with terminal & chat"
             >
               <IconArrowUpRight size={16} />
@@ -861,7 +871,7 @@ export default function DashboardPage() {
                         <div
                           key={w.id}
                           className={
-                            w.type === 'line_chart' || w.type === 'annotated_chart' || w.type === 'table'
+                            wideAnalytical.has(String(w.type))
                               ? 'col-span-1 lg:col-span-2'
                               : 'col-span-1'
                           }
@@ -947,22 +957,22 @@ export default function DashboardPage() {
           {/* ─── TAB: STARTER TEMPLATES GALLERY ─── */}
           {studioTab === 'templates' && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
                 <div>
                   <h2 className="text-lg font-medium text-[var(--text-primary)]">Curated Starter Workspaces</h2>
                   <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                    Pre-configured dashboards with verified schemas, telemetry bindings, and analytical views
+                    Sample layouts with illustrative data — swap in live connectors or Chat-built widgets when you are ready
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                  {['All', 'Revenue', 'Marketing', 'Telemetry', 'Finance'].map((cat) => (
+                  {['All', 'Revenue', 'Marketing', 'Telemetry', 'Finance', 'General'].map((cat) => (
                     <button
                       key={cat}
                       type="button"
                       onClick={() => setActiveTemplateCategory(cat)}
                       className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                         activeTemplateCategory === cat
-                          ? 'bg-[#E3836C] text-white shadow-xs'
+                          ? 'bg-[#EA8069] text-white shadow-xs'
                           : 'bg-[var(--surface)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)]'
                       }`}
                     >
@@ -980,23 +990,23 @@ export default function DashboardPage() {
                   return (
                     <div
                       key={template.id}
-                      className="app-card p-5 flex flex-col justify-between space-y-4 transition-all group hover:border-[#E3836C]/30"
+                      className="app-card p-5 flex flex-col justify-between space-y-4 transition-all group hover:border-[#EA8069]/30"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--coral)]/15 text-[var(--coral)] border border-[var(--coral)]/30">
                             {template.badge}
                           </span>
-                          <span className="text-[10px] font-mono text-[#8B93A1]">
+                          <span className="text-[10px] font-mono text-[var(--text-muted)]">
                             {template.widgets.length} widget{template.widgets.length === 1 ? '' : 's'}
                           </span>
                         </div>
 
                         <div>
-                          <h3 className="text-sm font-medium text-[#EDEFF2] group-hover:text-white transition-colors">
+                          <h3 className="text-sm font-medium text-[var(--text-primary)] group-hover:text-[var(--text-primary)] transition-colors">
                             {template.name}
                           </h3>
-                          <p className="text-xs text-[#8B93A1] mt-1 line-clamp-2 leading-relaxed">
+                          <p className="text-xs text-[var(--text-muted)] mt-1 line-clamp-2 leading-relaxed">
                             {template.description}
                           </p>
                         </div>
@@ -1005,7 +1015,7 @@ export default function DashboardPage() {
                           {template.tags.map((tag) => (
                             <span
                               key={tag}
-                              className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-[#8B93A1]"
+                              className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--surface-2)] text-[var(--text-muted)]"
                             >
                               #{tag}
                             </span>
@@ -1017,7 +1027,7 @@ export default function DashboardPage() {
                         type="button"
                         onClick={() => handleUseTemplate(template)}
                         disabled={isApplyingTemplate !== null}
-                        className="w-full py-2 px-3 rounded-lg bg-[#1C2025] hover:bg-[var(--coral)] text-[#EDEFF2] hover:text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/[0.08] disabled:opacity-50"
+                        className="w-full py-2 px-3 rounded-lg bg-[var(--coral)] hover:bg-[var(--coral-dark,#C96551)] text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-transparent disabled:opacity-50"
                       >
                         {isApplying ? (
                           <span className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -1040,7 +1050,7 @@ export default function DashboardPage() {
       <div className="fixed bottom-6 right-6 z-40">
         <Link
           href="/research"
-          className="flex items-center gap-2 rounded-full bg-[#E3836C] px-4 py-2.5 text-xs font-medium text-white shadow-xl transition-all hover:bg-[#ED967F] hover:scale-105"
+          className="flex items-center gap-2 rounded-full bg-[#EA8069] px-4 py-2.5 text-xs font-medium text-white shadow-xl transition-all hover:bg-[var(--coral-hover,#ED967F)] hover:scale-105"
           title="Open Chat to ask questions or research"
         >
           <IconSparkles size={16} />
@@ -1068,7 +1078,7 @@ export default function DashboardPage() {
             exit={{ opacity: 0, y: 20 }}
             role="status"
             aria-live="polite"
-            className={`fixed bottom-6 left-20 z-50 px-4 py-2.5 rounded-xl bg-[#1C2025] border text-[#EDEFF2] text-xs font-medium shadow-2xl flex items-center gap-2 ${/failed|could not|error|expired|unauthorized|conflict/i.test(exportToastMsg) ? 'border-[#EF6C6C]/40' : 'border-white/[0.15]'}`}
+            className={`fixed bottom-6 left-20 z-50 px-4 py-2.5 rounded-xl bg-[var(--surface-2)] border text-[var(--text-primary)] text-xs font-medium shadow-2xl flex items-center gap-2 ${/failed|could not|error|expired|unauthorized|conflict/i.test(exportToastMsg) ? 'border-[#EF6C6C]/40' : 'border-[var(--border)]'}`}
           >
             {/failed|could not|error|expired|unauthorized|conflict/i.test(exportToastMsg) ? <IconX size={16} className="text-[#EF6C6C]" /> : <IconCheck size={16} className="text-[#3FB68C]" />}
             <span>{exportToastMsg}</span>
@@ -1084,21 +1094,21 @@ export default function DashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-xl bg-[#14171B] border border-white/[0.12] rounded-2xl p-6 shadow-2xl flex flex-col max-h-[85vh] space-y-4"
+              className="w-full max-w-xl bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl flex flex-col max-h-[85vh] space-y-4"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+              <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-[var(--coral)]/15 text-[var(--coral)] flex items-center justify-center">
                     <IconFolder size={18} />
                   </div>
                   <div>
-                    <h3 className="text-base font-medium text-[#EDEFF2]">Analysis Workspaces</h3>
-                    <p className="text-xs text-[#8B93A1]">Switch active workspace or manage projects</p>
+                    <h3 className="text-base font-medium text-[var(--text-primary)]">Analysis Workspaces</h3>
+                    <p className="text-xs text-[var(--text-muted)]">Switch active workspace or manage projects</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsProjectsModalOpen(false)}
-                  className="p-1 text-[#8B93A1] hover:text-[#EDEFF2] cursor-pointer"
+                  className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                 >
                   <IconX size={16} />
                 </button>
@@ -1106,18 +1116,18 @@ export default function DashboardPage() {
 
               {/* Search projects */}
               <div className="relative">
-                <IconSearch size={14} className="absolute left-3 top-3 text-[#8B93A1]" />
+                <IconSearch size={14} className="absolute left-3 top-3 text-[var(--text-muted)]" />
                 <input
                   type="text"
                   placeholder="Filter workspaces by name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl text-xs bg-[#1C2025] border border-white/[0.08] text-[#EDEFF2] placeholder-[#8B93A1]/60 focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl text-xs bg-[var(--surface-2)] border border-[var(--border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                 />
               </div>
 
               {/* Project list */}
-              <div className="overflow-y-auto max-h-[50vh] divide-y divide-white/[0.04]">
+              <div className="overflow-y-auto max-h-[50vh] divide-y divide-[var(--border)]">
                 {serverProjects
                   .filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
                   .map((proj) => {
@@ -1126,7 +1136,7 @@ export default function DashboardPage() {
                       <div
                         key={proj.id}
                         className={`py-3 px-3.5 flex items-center justify-between rounded-xl transition-colors cursor-pointer ${
-                          isActive ? 'bg-[#1C2025] border border-[var(--coral)]/30' : 'hover:bg-white/[0.03]'
+                          isActive ? 'bg-[var(--surface-2)] border border-[var(--coral)]/30' : 'hover:bg-[var(--surface-2)]'
                         }`}
                         role="button"
                         tabIndex={0}
@@ -1145,14 +1155,14 @@ export default function DashboardPage() {
                       >
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-[#EDEFF2]">{proj.name}</span>
+                            <span className="text-xs font-medium text-[var(--text-primary)]">{proj.name}</span>
                             {isActive && (
                               <span className="text-[10px] font-mono text-[#3FB68C] px-1.5 py-0.5 rounded bg-[#3FB68C]/15">
                                 Active
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] font-mono text-[#8B93A1]">ID: {proj.id.slice(0, 16)}...</span>
+                          <span className="text-[10px] font-mono text-[var(--text-muted)]">ID: {proj.id.slice(0, 16)}...</span>
                         </div>
                         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                           <button
@@ -1160,14 +1170,14 @@ export default function DashboardPage() {
                               setProjectToRename(proj);
                               setRenameName(proj.name);
                             }}
-                            className="p-1.5 text-[#8B93A1] hover:text-[#EDEFF2] transition-colors"
+                            className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                             title="Rename"
                           >
                             <IconEdit size={14} />
                           </button>
                           <button
                             onClick={() => setProjectToDelete(proj)}
-                            className="p-1.5 text-[#8B93A1] hover:text-[#EF6C6C] transition-colors"
+                            className="p-1.5 text-[var(--text-muted)] hover:text-[#EF6C6C] transition-colors"
                             title="Delete"
                           >
                             <IconTrash size={14} />
@@ -1175,7 +1185,7 @@ export default function DashboardPage() {
                           <button
                             onClick={() => void handleDuplicateProject(proj)}
                             disabled={isDuplicatingProject !== null}
-                            className="p-1.5 text-[#8B93A1] hover:text-[var(--coral)] transition-colors disabled:opacity-40"
+                            className="p-1.5 text-[var(--text-muted)] hover:text-[var(--coral)] transition-colors disabled:opacity-40"
                             title="Duplicate"
                           >
                             {isDuplicatingProject === proj.id ? <IconRefresh size={14} className="animate-spin" /> : <IconCopy size={14} />}
@@ -1186,7 +1196,7 @@ export default function DashboardPage() {
                   })}
                 {!isLoadingProjects && serverProjects.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
                   <div className="px-4 py-8 text-center">
-                    <p className="text-xs text-[#8B93A1]">{searchQuery ? 'No workspaces match this filter.' : 'No workspaces yet.'}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{searchQuery ? 'No workspaces match this filter.' : 'No workspaces yet.'}</p>
                     {!searchQuery && (
                       <button
                         type="button"
@@ -1204,7 +1214,7 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-white/[0.08]">
+              <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">
                 <button
                   type="button"
                   onClick={() => {
@@ -1219,7 +1229,7 @@ export default function DashboardPage() {
                 </button>
                 <button
                   onClick={() => setIsProjectsModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-[#8B93A1] hover:text-[#EDEFF2]"
+                  className="px-3 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 >
                   Close
                 </button>
@@ -1237,19 +1247,19 @@ export default function DashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-[#14171B] border border-white/[0.12] rounded-2xl p-6 shadow-2xl space-y-5"
+              className="w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl space-y-5"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-[var(--coral)]/15 text-[var(--coral)] flex items-center justify-center">
                     <IconFolderPlus size={18} />
                   </div>
-                  <h3 className="text-base font-medium text-[#EDEFF2]">Create New Project</h3>
+                  <h3 className="text-base font-medium text-[var(--text-primary)]">Create New Project</h3>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsNewProjectOpen(false)}
-                  className="p-1 text-[#8B93A1] hover:text-[#EDEFF2] cursor-pointer"
+                  className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                 >
                   <IconX size={16} />
                 </button>
@@ -1257,7 +1267,7 @@ export default function DashboardPage() {
 
               <form onSubmit={handleCreateProject} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-[#8B93A1]">Project Name</label>
+                  <label className="text-xs font-medium text-[var(--text-muted)]">Project Name</label>
                   <input
                     type="text"
                     value={newProjectName}
@@ -1265,18 +1275,18 @@ export default function DashboardPage() {
                     placeholder="e.g. Q4 Revenue & Retention Audit"
                     autoFocus
                     required
-                    className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] placeholder-[#8B93A1]/60 focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
+                    className="w-full px-3 py-2 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                   />
-                  <p className="text-[11px] text-[#8B93A1]">
+                  <p className="text-[11px] text-[var(--text-muted)]">
                     Saved securely in MongoDB with continuous telemetry and layout state.
                   </p>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/[0.08]">
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
                   <button
                     type="button"
                     onClick={() => setIsNewProjectOpen(false)}
-                    className="px-3.5 py-2 text-xs rounded-xl border border-white/[0.08] text-[#8B93A1] hover:text-[#EDEFF2]"
+                    className="px-3.5 py-2 text-xs rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                   >
                     Cancel
                   </button>
@@ -1302,14 +1312,14 @@ export default function DashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-[#14171B] border border-white/[0.12] rounded-2xl p-6 shadow-2xl space-y-4"
+              className="w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl space-y-4"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-medium text-[#EDEFF2]">Rename Workspace</h3>
+                <h3 className="text-base font-medium text-[var(--text-primary)]">Rename Workspace</h3>
                 <button
                   type="button"
                   onClick={() => setProjectToRename(null)}
-                  className="p-1 text-[#8B93A1] hover:text-[#EDEFF2]"
+                  className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 >
                   <IconX size={16} />
                 </button>
@@ -1322,13 +1332,13 @@ export default function DashboardPage() {
                   onChange={(e) => setRenameName(e.target.value)}
                   autoFocus
                   required
-                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                 />
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/[0.08]">
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
                   <button
                     type="button"
                     onClick={() => setProjectToRename(null)}
-                    className="px-3.5 py-2 text-xs rounded-xl border border-white/[0.08] text-[#8B93A1] hover:text-[#EDEFF2]"
+                    className="px-3.5 py-2 text-xs rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                   >
                     Cancel
                   </button>
@@ -1354,17 +1364,17 @@ export default function DashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-[#14171B] border border-white/[0.12] rounded-2xl p-6 shadow-2xl space-y-4"
+              className="w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl space-y-4"
             >
-              <h3 className="text-base font-medium text-[#EDEFF2]">Delete Project</h3>
-              <p className="text-xs text-[#8B93A1]">
-                Are you sure you want to delete <strong className="text-[#EDEFF2]">{projectToDelete.name}</strong>? All layout widgets and custom records will be permanently removed.
+              <h3 className="text-base font-medium text-[var(--text-primary)]">Delete Project</h3>
+              <p className="text-xs text-[var(--text-muted)]">
+                Are you sure you want to delete <strong className="text-[var(--text-primary)]">{projectToDelete.name}</strong>? All layout widgets and custom records will be permanently removed.
               </p>
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/[0.08]">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border)]">
                 <button
                   type="button"
                   onClick={() => setProjectToDelete(null)}
-                  className="px-3.5 py-2 text-xs rounded-xl border border-white/[0.08] text-[#8B93A1] hover:text-[#EDEFF2]"
+                  className="px-3.5 py-2 text-xs rounded-xl border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 >
                   Cancel
                 </button>
@@ -1390,22 +1400,22 @@ export default function DashboardPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg bg-[#14171B] border border-white/[0.12] rounded-2xl p-6 shadow-2xl space-y-5"
+              className="w-full max-w-lg bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl space-y-5"
             >
-              <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+              <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-[var(--coral)]/15 text-[var(--coral)] flex items-center justify-center">
                     <IconUser size={18} />
                   </div>
                   <div>
-                    <h3 className="text-base font-medium text-[#EDEFF2]">Account &amp; Security</h3>
-                    <p className="text-xs text-[#8B93A1]">{user?.email}</p>
+                    <h3 className="text-base font-medium text-[var(--text-primary)]">Account &amp; Security</h3>
+                    <p className="text-xs text-[var(--text-muted)]">{user?.email}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsUserSettingsOpen(false)}
-                  className="p-1 text-[#8B93A1] hover:text-[#EDEFF2]"
+                  className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 >
                   <IconX size={16} />
                 </button>
@@ -1424,18 +1434,18 @@ export default function DashboardPage() {
 
               {/* Edit Display Name */}
               <form onSubmit={handleUpdateProfile} className="space-y-3">
-                <label className="text-xs font-medium text-[#8B93A1]">Display Name</label>
+                <label className="text-xs font-medium text-[var(--text-muted)]">Display Name</label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
+                    className="flex-1 px-3 py-2 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                   />
                   <button
                     type="submit"
                     disabled={isUpdatingProfile}
-                    className="px-3.5 py-2 rounded-xl bg-[#1C2025] hover:bg-white/[0.08] border border-white/[0.12] text-xs text-[#EDEFF2]"
+                    className="px-3.5 py-2 rounded-xl bg-[var(--surface-2)] hover:bg-[var(--surface-2)] border border-[var(--border)] text-xs text-[var(--text-primary)]"
                   >
                     Save
                   </button>
@@ -1443,28 +1453,28 @@ export default function DashboardPage() {
               </form>
 
               {/* Change Password */}
-              <form onSubmit={handleChangePassword} className="space-y-3 pt-3 border-t border-white/[0.08]">
-                <span className="text-xs font-medium text-[#8B93A1]">Change Password</span>
+              <form onSubmit={handleChangePassword} className="space-y-3 pt-3 border-t border-[var(--border)]">
+                <span className="text-xs font-medium text-[var(--text-muted)]">Change Password</span>
                 <input
                   type="password"
                   placeholder="Current password"
                   value={currentPass}
                   onChange={(e) => setCurrentPass(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                 />
                 <input
                   type="password"
                   placeholder="New password (min 8 chars)"
                   value={newPass}
                   onChange={(e) => setNewPass(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                 />
                 <input
                   type="password"
                   placeholder="Confirm new password"
                   value={confirmPass}
                   onChange={(e) => setConfirmPass(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-[#1C2025] border border-white/[0.08] text-xs text-[#EDEFF2] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--coral)]"
                 />
                 <div className="flex items-center justify-between pt-1">
                   <button

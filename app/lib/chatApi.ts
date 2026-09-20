@@ -749,6 +749,65 @@ export async function createProject(name: string, _userId?: string): Promise<Pro
   return res.json();
 }
 
+export interface PromoteStatus {
+  run_id: string;
+  eligible: boolean;
+  dismissed: boolean;
+  already_project?: boolean;
+  project_id?: string | null;
+  message_count?: number;
+  attachment_count?: number;
+  signals?: Record<string, boolean>;
+  reasons?: string[];
+  message?: string | null;
+}
+
+export async function fetchPromoteStatus(runId: string): Promise<PromoteStatus> {
+  const res = await fetch(`${API_V1}/runs/${encodeURIComponent(runId)}/promote-status`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { detail?: string }).detail ||
+        friendlyHttpMessage(res.status, 'Could not check project suggestion'),
+    );
+  }
+  return res.json();
+}
+
+export async function dismissPromoteNudge(runId: string): Promise<PromoteStatus> {
+  const res = await fetch(`${API_V1}/runs/${encodeURIComponent(runId)}/promote-nudge/dismiss`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      (body as { detail?: string }).detail ||
+        friendlyHttpMessage(res.status, 'Could not dismiss suggestion'),
+    );
+  }
+  return res.json();
+}
+
+export async function promoteRunToProject(
+  runId: string,
+  name = 'Untitled Project',
+): Promise<{ project_id: string; name: string; already_promoted?: boolean; migrated?: Record<string, number> }> {
+  const res = await fetch(`${API_V1}/runs/${encodeURIComponent(runId)}/promote`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const failure = parseApiFailure(res.status, body);
+    throw new Error(failure.message || 'Could not create project from this chat');
+  }
+  return res.json();
+}
+
 export async function updateProject(projectId: string, name: string): Promise<ProjectSummary> {
   const res = await fetch(`${API_V1}/projects/${projectId}`, {
     method: 'PATCH',

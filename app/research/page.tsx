@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   IconArrowUpRight,
@@ -44,11 +44,14 @@ import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
 import {
   applyUIAction,
   ChatRequestError,
-  createProject,
+  dismissPromoteNudge,
+  fetchPromoteStatus,
   getProjects,
+  promoteRunToProject,
   streamChat,
   StreamEvent,
-  WidgetSpec,
+  type PromoteStatus,
+  type WidgetSpec,
 } from '../lib/chatApi';
 import {
   ATTACHMENT_ACCEPT_ATTR,
@@ -274,6 +277,7 @@ export default function ChatPage() {
 
 function ChatInner() {
   const params = useSearchParams();
+  const router = useRouter();
   const { isIncognito } = useTheme();
   const user = getStoredUser();
   const firstName = user?.name?.split(' ')[0] || 'there';
@@ -308,6 +312,8 @@ function ChatInner() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  const [promoteNudge, setPromoteNudge] = useState<PromoteStatus | null>(null);
+  const [promoteBusy, setPromoteBusy] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const abortRef = useRef(false);
@@ -446,41 +452,55 @@ function ChatInner() {
     setShowDashboard(false);
     setDashStatus(null);
     setRunId(null);
+    setProjectId(null);
+    setPromoteNudge(null);
     setPendingAttachments([]);
   };
 
-  const ensureProjectId = useCallback(async (): Promise<string> => {
-    if (projectId) return projectId;
-
-    // Prefer an existing project so Free-tier project_limit (3) does not block attaches.
+  const refreshPromoteNudge = useCallback(async (rid: string | null) => {
+    if (!rid || !getStoredToken() || isIncognito || projectId) {
+      setPromoteNudge(null);
+      return;
+    }
     try {
-      const existing = await getProjects();
-      const preferred =
-        existing.find((p) => /chat|research/i.test(p.name || '')) || existing[0];
-      if (preferred?.id) {
-        setProjectId(preferred.id);
-        return preferred.id;
-      }
+      const status = await fetchPromoteStatus(rid);
+      setPromoteNudge(status.eligible ? status : null);
     } catch {
-      /* fall through to create */
+      setPromoteNudge(null);
     }
+  }, [isIncognito, projectId]);
 
+  const handlePromoteToProject = useCallback(async () => {
+    if (!runId || promoteBusy) return;
+    setPromoteBusy(true);
+    setError(null);
     try {
-      const created = await createProject(
-        composerMode === 'research' ? 'Research & Discovery' : 'Chat',
+      const result = await promoteRunToProject(
+        runId,
+        composerMode === 'research' ? 'Research & Discovery' : 'Untitled Project',
       );
-      setProjectId(created.id);
-      return created.id;
-    } catch (createErr) {
-      // Race / limit: reuse whatever projects exist now.
-      const again = await getProjects().catch(() => [] as Awaited<ReturnType<typeof getProjects>>);
-      if (again[0]?.id) {
-        setProjectId(again[0].id);
-        return again[0].id;
-      }
-      throw createErr;
+      setProjectId(result.project_id);
+      setPromoteNudge(null);
+      router.push(`/new-project?projectId=${encodeURIComponent(result.project_id)}`);
+    } catch (promoteErr: unknown) {
+      setError(promoteErr instanceof Error ? promoteErr.message : 'Could not create project.');
+    } finally {
+      setPromoteBusy(false);
     }
-  }, [composerMode, projectId]);
+  }, [composerMode, promoteBusy, router, runId]);
+
+  const handleDismissPromote = useCallback(async () => {
+    if (!runId) {
+      setPromoteNudge(null);
+      return;
+    }
+    try {
+      await dismissPromoteNudge(runId);
+    } catch {
+      /* local dismiss still OK */
+    }
+    setPromoteNudge(null);
+  }, [runId]);
 
   const attachFiles = useCallback(
     async (files: File[]) => {
@@ -492,10 +512,10 @@ function ChatInner() {
       setUploadingAttachment(true);
       setError(null);
       try {
-        const pid = await ensureProjectId();
         const uploaded: ChatAttachment[] = [];
         for (const file of files.slice(0, 5)) {
-          const att = await uploadChatAttachment(pid, file, runId);
+          // Chat attachments use ephemeral scope until the user promotes to a project.
+          const att = await uploadChatAttachment(projectId, file, runId);
           if (att.status === 'failed') {
             const note = att.notes?.[0] || 'Could not extract text from this file.';
             setError(`${att.filename}: ${note}`);
@@ -512,7 +532,7 @@ function ChatInner() {
         setUploadingAttachment(false);
       }
     },
-    [ensureProjectId, runId],
+    [projectId, runId],
   );
 
   const handleAttachClick = () => {
@@ -663,9 +683,6 @@ function ChatInner() {
           .map((m) => ({ role: m.role, content: m.content || '' }));
 
         let scopedProjectId = projectId;
-        if (!scopedProjectId && attachmentIds.length) {
-          scopedProjectId = await ensureProjectId();
-        }
 
         // Clear chips once the request is about to leave — restore on hard failure.
         chipsSnapshot = pendingAttachments;
@@ -975,6 +992,7 @@ function ChatInner() {
         streamed = streamed || response.finalText;
         if (response.runId) setRunId(response.runId);
         if (response.projectId) setProjectId(response.projectId);
+        void refreshPromoteNudge(response.runId || runId);
         if (response.sources?.length) {
           sources = mergeSources(
             sources,
@@ -1052,7 +1070,7 @@ function ChatInner() {
         void refreshLlmQuota();
       }
     },
-    [armPostRunAd, awaitingAd, composerMode, ensureProjectId, input, isIncognito, isStreaming, messages, pendingAttachments, projectId, refreshLlmQuota, runId, selectedModelSize],
+    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming, messages, pendingAttachments, projectId, refreshLlmQuota, refreshPromoteNudge, runId, selectedModelSize],
   );
 
   const stopStreaming = () => {
@@ -1083,7 +1101,7 @@ function ChatInner() {
                   {composerMode === 'research' ? 'Chat · Research on' : 'Chat'}
                 </p>
                 <p className="truncate text-[11px] text-[var(--text-muted)]">
-                  {isIncognito ? 'Incognito session' : 'Conversation stays on this device until you save'}
+                  {isIncognito ? 'Incognito session' : 'Lightweight chat — promote to a project to keep full history'}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1113,6 +1131,33 @@ function ChatInner() {
             </div>
 
             <SessionStartAd enabled={!adsFree} />
+
+            {promoteNudge?.eligible && promoteNudge.message && (
+              <div className="mx-4 mt-3 rounded-[var(--radius-card,14px)] border border-[var(--coral,#EA8069)]/30 bg-[var(--coral,#EA8069)]/8 px-4 py-3 sm:mx-6">
+                <p className="text-sm text-[var(--text,#3A342D)] dark:text-[var(--text-primary)]">
+                  {promoteNudge.message}
+                </p>
+                <div className="mt-2.5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={promoteBusy}
+                    onClick={() => void handlePromoteToProject()}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[var(--coral,#EA8069)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                  >
+                    <IconLayoutDashboard size={14} />
+                    {promoteBusy ? 'Creating…' : 'Create project'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={promoteBusy}
+                    onClick={() => void handleDismissPromote()}
+                    className="rounded-full border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-2)]"
+                  >
+                    Not now
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Messages */}
             <div

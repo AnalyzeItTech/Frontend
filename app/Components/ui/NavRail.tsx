@@ -70,12 +70,12 @@ export const NavRail: React.FC = () => {
                 }`}
               />
 
-              {/* Hover Label Tooltip */}
+              {/* Always-readable section labels (inactive stays muted, never faint) */}
               <span
-                className={`absolute left-8 whitespace-nowrap text-[11px] leading-none font-mono tracking-wider transition-all duration-200 uppercase pointer-events-none rounded-md px-2 py-1 min-h-[11px] ${
+                className={`absolute left-8 whitespace-nowrap text-[11px] leading-none font-mono tracking-wider transition-all duration-200 uppercase pointer-events-none rounded-md px-2 py-1 min-h-[11px] translate-x-0 ${
                   isActive
-                    ? 'text-[var(--text-primary,#322C28)] dark:text-[#F2E8DE] font-medium opacity-100 bg-[var(--surface,#FFFCF8)]/95 dark:bg-[#302B28]/95 border border-[var(--border,#E2D7CA)] dark:border-[#504740] shadow-xs translate-x-0'
-                    : 'text-[var(--text-muted,#81786F)] dark:text-[#C5B9AE] opacity-40 group-hover:opacity-100 bg-[var(--surface,#FFFCF8)]/95 dark:bg-[#302B28]/90 -translate-x-1 group-hover:translate-x-0'
+                    ? 'text-[var(--text-primary,#322C28)] dark:text-[#F2E8DE] font-medium bg-[var(--surface,#FFFCF8)]/95 dark:bg-[#302B28]/95 border border-[var(--border,#E2D7CA)] dark:border-[#504740] shadow-xs'
+                    : 'text-[var(--text-secondary,#5C534A)] dark:text-[#D4C8BC] bg-[var(--surface,#FFFCF8)]/90 dark:bg-[#302B28]/85 border border-[var(--border,#E2D7CA)]/70 dark:border-[#504740]/80 group-hover:text-[var(--text-primary,#322C28)] dark:group-hover:text-[#F2E8DE]'
                 }`}
               >
                 {pt.label}

@@ -160,7 +160,7 @@ export function ProjectsManager({
     <section id="projects" className="app-card scroll-mt-24 space-y-4 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E3836C]/15 text-[#E3836C]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EA8069]/15 text-[#EA8069]">
             <IconFolder size={18} />
           </div>
           <div>

@@ -35,13 +35,13 @@ export interface ChatAttachment {
 }
 
 export async function uploadChatAttachment(
-  projectId: string,
+  projectId: string | null | undefined,
   file: File,
   runId?: string | null,
 ): Promise<ChatAttachment> {
   const body = new FormData();
   body.append('file', file);
-  body.append('project_id', projectId);
+  if (projectId) body.append('project_id', projectId);
   if (runId) body.append('run_id', runId);
 
   const res = await fetch(`${API_V1}/chat/attachments`, {
