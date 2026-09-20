@@ -107,7 +107,10 @@ export function PlaceContextCard({
     <div className={`app-card pointer-events-auto flex w-full flex-col overflow-hidden ${rail ? "h-full max-h-none max-w-none shadow-none border-0 rounded-none" : "max-h-[min(78dvh,640px)] max-w-md shadow-xl"}`}>
       <div className="flex shrink-0 items-start justify-between gap-2 border-b border-[var(--border)] px-4 py-3">
         <div className="min-w-0">
-          <h4 className="truncate font-serif text-base font-semibold text-[var(--text-primary)]">
+          <h4
+            className="line-clamp-2 break-words font-serif text-base font-semibold text-[var(--text-primary)]"
+            title={place?.name || undefined}
+          >
             {loading ? 'Resolving place…' : (
               <>
                 {country?.flag_emoji ? <span className="mr-1">{country.flag_emoji}</span> : null}
@@ -115,7 +118,7 @@ export function PlaceContextCard({
               </>
             )}
           </h4>
-          <p className="truncate text-[10px] font-mono text-[var(--text-muted)]">
+          <p className="break-words text-[10px] font-mono text-[var(--text-muted)]">
             {place?.country || place?.countrycode || '—'}
             {place ? ` · ${place.lat.toFixed(2)}°, ${place.lon.toFixed(2)}°` : ''}
             {clock?.available && clock.local_time ? ` · ${clock.local_time} local` : ''}

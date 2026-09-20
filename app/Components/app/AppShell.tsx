@@ -331,7 +331,7 @@ export function AppShell({
 
         <div
           className={`app-shell-body min-h-0 flex-1 ${
-            flush ? 'flex flex-col overflow-hidden' : 'overflow-y-auto px-5 py-6 sm:px-8'
+            flush ? 'app-shell-body--flush flex flex-col overflow-hidden' : 'overflow-y-auto'
           }`}
         >
           {children}

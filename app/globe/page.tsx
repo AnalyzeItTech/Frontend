@@ -294,7 +294,7 @@ export default function GlobePage() {
       <div
         className="grid w-full min-h-0 flex-1 overflow-hidden bg-[var(--surface-2)]"
         style={{
-          minHeight: 'calc(100dvh - 56px)',
+          minHeight: 'calc(100dvh - var(--nav-h, 56px))',
           gridTemplateColumns: `${leftRail}px 8px minmax(0, 1fr) 8px ${rightRail}px`,
         }}
       >
@@ -615,7 +615,7 @@ export default function GlobePage() {
             </div>
           ) : (
             <>
-              <div className="min-h-0 flex-1 overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-y-auto">
                 <PlaceContextCard
                   context={context}
                   loading={loading}

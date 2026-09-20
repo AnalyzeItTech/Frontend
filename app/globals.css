@@ -439,6 +439,21 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
+.app-shell-body:not(.app-shell-body--flush) {
+  padding: var(--gutter);
+}
+
+@media (max-width: 639px) {
+  .app-shell-body:not(.app-shell-body--flush) {
+    padding: 1.25rem;
+  }
+}
+
+.app-shell-body__inner {
+  max-width: var(--max-app);
+  margin-inline: auto;
+}
+
 .app-shell-body.overflow-hidden {
   overflow: hidden;
 }
