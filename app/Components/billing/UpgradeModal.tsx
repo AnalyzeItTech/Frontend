@@ -55,7 +55,7 @@ export function UpgradeModal({ open, onClose, reason = 'generic', lockedModelLab
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface,#FFFCF8)] p-5 shadow-xl"
+        className="app-card w-full max-w-md p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="upgrade-modal-title" className="text-base font-semibold text-[var(--text,#3A342D)]">
@@ -63,18 +63,10 @@ export function UpgradeModal({ open, onClose, reason = 'generic', lockedModelLab
         </h2>
         <p className="mt-2 text-sm text-[var(--text-secondary,#5C534A)]">{body}</p>
         <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex min-h-9 items-center rounded-full border border-[var(--border)] px-4 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-2)]"
-          >
+          <button type="button" onClick={onClose} className="btn-secondary">
             Not now
           </button>
-          <Link
-            href="/billing"
-            className="inline-flex min-h-9 items-center rounded-full bg-[var(--coral,#EA8069)] px-4 text-xs font-medium text-white"
-            onClick={onClose}
-          >
+          <Link href="/billing" className="btn-primary" onClick={onClose}>
             View plans
           </Link>
         </div>

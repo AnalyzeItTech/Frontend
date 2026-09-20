@@ -225,6 +225,25 @@ export default function BillingPage() {
           .
         </p>
 
+        {me ? (
+          <div className="app-card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <div>
+              <p className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">Current plan</p>
+              <p className="text-sm font-medium text-[var(--text)]">
+                {(me.tier || 'free').replace(/_/g, ' ')}
+                {trialActive ? ' · trial' : ''}
+              </p>
+            </div>
+            {me.tier === 'free' || trialActive ? (
+              <p className="text-xs text-[var(--text-muted)]">Upgrade below when you are ready.</p>
+            ) : (
+              <Link href="/profile" className="btn-ghost text-xs">
+                Manage in profile
+              </Link>
+            )}
+          </div>
+        ) : null}
+
         {trialEligible ? (
           <section className="rounded-xl border border-[var(--border,#D9CFC0)] bg-[var(--surface-muted,#EEE4D6)]/50 px-4 py-3 space-y-2">
             <h2 className="font-serif text-lg text-[var(--text,#322C28)]">Try Premium free for 7 days</h2>
@@ -259,9 +278,15 @@ export default function BillingPage() {
         ) : null}
 
         {quoteError ? (
-          <p role="alert" className="rounded-xl border border-[#C45B4A]/30 bg-[#C45B4A]/10 px-3 py-2 text-sm text-[#9B4D3B]">
-            {quoteError}
-          </p>
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#C45B4A]/30 bg-[#C45B4A]/10 px-3 py-2 text-sm text-[#9B4D3B]"
+          >
+            <span>{quoteError}</span>
+            <button type="button" className="btn-secondary text-xs" onClick={() => loadQuote()}>
+              Retry prices
+            </button>
+          </div>
         ) : null}
         {error ? (
           <p role="alert" className="rounded-xl border border-[#C45B4A]/30 bg-[#C45B4A]/10 px-3 py-2 text-sm text-[#9B4D3B]">
@@ -283,7 +308,7 @@ export default function BillingPage() {
                 </div>
                 <div>
                   <p className="font-serif text-3xl text-[var(--text,#322C28)]">
-                    {ready ? formatMoney(amount, ccy) : '—'}
+                    {ready ? formatMoney(amount, ccy) : quoteError ? 'Unavailable' : '…'}
                   </p>
                   <p className="text-xs text-[var(--text-muted,#6B6155)]">
                     ${meta.usdList} USD reference · charged in {ccy} via PayU

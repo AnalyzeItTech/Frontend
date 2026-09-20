@@ -332,9 +332,11 @@ function ProfileInner() {
             >
               <h2 className="text-sm font-medium">Billing history</h2>
               {history.length === 0 ? (
-                <div className="app-card space-y-2 p-4">
-                  <p className="text-sm text-[var(--text-muted)]">No billing events yet.</p>
-                  <Link href="/billing" className="inline-block text-sm text-[#E3836C] hover:underline">
+                <div className="app-card flex flex-col items-start gap-3 p-5">
+                  <p className="text-sm text-[var(--text-muted)]">
+                    No billing events yet. When you upgrade or renew, receipts show up here.
+                  </p>
+                  <Link href="/billing" className="btn-primary">
                     View plans
                   </Link>
                 </div>
