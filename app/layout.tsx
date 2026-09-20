@@ -4,6 +4,7 @@ import { ThemeProvider } from "./Components/ui/ThemeProvider";
 import { SmoothScrollProvider } from "./Components/ui/SmoothScrollProvider";
 import { SkipToContent } from "./Components/ui/SkipToContent";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "./lib/site";
+import { Analytics } from "@vercel/analytics/next";
 
 /** Public AdSense publisher ID — must appear as a real <script> in <head> for crawler verification. */
 const ADSENSE_CLIENT =
@@ -139,6 +140,7 @@ export default function RootLayout({
             {children}
           </SmoothScrollProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
