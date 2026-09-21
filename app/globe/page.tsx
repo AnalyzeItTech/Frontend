@@ -32,7 +32,15 @@ import {
 
 type Selected = { lat: number; lon: number; name?: string; country?: string };
 type ComparePlace = Selected & { id: string; context?: PlaceContext | null };
-type LayerId = 'catalog' | 'earthquakes' | 'weather' | 'markets' | 'flights';
+type LayerId =
+  | 'catalog'
+  | 'earthquakes'
+  | 'weather'
+  | 'air_quality'
+  | 'markets'
+  | 'flights'
+  | 'iss'
+  | 'elevation';
 
 const RAIL_KEY = 'analyzeit_globe_rails';
 const LEFT_DEFAULT = 280;
@@ -60,12 +68,15 @@ function readRails(): { left: number; right: number } {
   }
 }
 
-const LAYERS: { id: LayerId; label: string; hint: string }[] = [
-  { id: 'catalog', label: 'Sources', hint: 'Research HQ catalog' },
-  { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS worldwide' },
-  { id: 'weather', label: 'Weather', hint: 'At selected place' },
-  { id: 'markets', label: 'Markets', hint: 'At selected place' },
-  { id: 'flights', label: 'Flights', hint: 'Near selected place' },
+const LAYERS: { id: LayerId; label: string; hint: string; color: string }[] = [
+  { id: 'catalog', label: 'Sources', hint: 'Research HQ catalog', color: '#c4a28a' },
+  { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS worldwide', color: '#d97706' },
+  { id: 'weather', label: 'Weather', hint: 'Open-Meteo at hubs', color: '#3b82f6' },
+  { id: 'air_quality', label: 'Air quality', hint: 'AQI at hubs', color: '#10b981' },
+  { id: 'markets', label: 'Markets', hint: 'Equity indices at hubs', color: '#8b5cf6' },
+  { id: 'flights', label: 'Flights', hint: 'OpenSky near hubs', color: '#0ea5e9' },
+  { id: 'iss', label: 'ISS', hint: 'Live ISS position', color: '#f43f5e' },
+  { id: 'elevation', label: 'Elevation', hint: 'Elevation at hubs', color: '#78716c' },
 ];
 /** Live layers: this page is the only caller of geo context/events. Poll on LIVE_LAYER_POLL_MS — never in rAF. */
 
@@ -112,10 +123,13 @@ export default function GlobePage() {
     catalog: true,
     earthquakes: true,
     weather: false,
+    air_quality: false,
     markets: false,
     flights: false,
+    iss: false,
+    elevation: false,
   });
-  const [quakeCount, setQuakeCount] = useState(0);
+  const [layerCounts, setLayerCounts] = useState<Partial<Record<LayerId, number>>>({});
   const [layersLoading, setLayersLoading] = useState(false);
   const [compare, setCompare] = useState<ComparePlace[]>([]);
   const [leftRail, setLeftRail] = useState(LEFT_DEFAULT);
@@ -139,79 +153,157 @@ export default function GlobePage() {
 
   useEffect(() => {
     let cancelled = false;
+    const liveIds = (['earthquakes', 'weather', 'air_quality', 'markets', 'flights', 'iss', 'elevation'] as LayerId[]).filter(
+      (id) => layers[id],
+    );
+
     const buildOverlays = async () => {
       const points: SourcePoint[] = [];
-      if (layers.earthquakes) {
-        setLayersLoading(true);
-        try {
-          const data = await fetchGlobeEvents({ layers: ['earthquakes'], minMagnitude: 4.5, days: 7 });
-          if (cancelled) return;
-          const events = data.layers.earthquakes?.events || [];
-          setQuakeCount(events.length);
+      const counts: Partial<Record<LayerId, number>> = {};
+
+      if (liveIds.length === 0) {
+        if (!cancelled) {
+          setLayerCounts({});
+          setOverlayPoints([]);
+          setLayersLoading(false);
+        }
+        return;
+      }
+
+      setLayersLoading(true);
+      try {
+        const data = await fetchGlobeEvents({
+          layers: liveIds,
+          minMagnitude: 4.5,
+          days: 7,
+        });
+        if (cancelled) return;
+
+        const pushEvents = (
+          layerId: LayerId,
+          events: Array<{
+            id?: string;
+            lat?: number;
+            lon?: number;
+            place?: string;
+            label?: string;
+            mag?: number;
+            type?: string;
+            temperature_c?: number;
+          }>,
+          opts?: { pulseMag?: number; host: string },
+        ) => {
+          let n = 0;
           for (const ev of events) {
             if (ev.lat == null || ev.lon == null) continue;
             const mag = ev.mag != null ? Number(ev.mag) : null;
+            const label =
+              ev.label ||
+              (mag != null
+                ? `M${mag.toFixed(1)} · ${ev.place || layerId}`
+                : ev.place || layerId);
             points.push({
-              id: `quake:${ev.id || `${ev.lat},${ev.lon},${ev.time}`}`,
+              id: `${layerId}:${ev.id || `${ev.lat},${ev.lon}`}`,
               lat: ev.lat,
               lon: ev.lon,
-              label: mag != null ? `M${mag.toFixed(1)} · ${ev.place || 'Earthquake'}` : ev.place || 'Earthquake',
+              label,
               kind: 'event',
-              pulse: mag != null && mag >= 6,
+              host: opts?.host || layerId,
+              pulse: opts?.pulseMag != null && mag != null && mag >= opts.pulseMag,
             });
+            n += 1;
           }
-        } catch {
-          if (!cancelled) setQuakeCount(0);
-        } finally {
-          if (!cancelled) setLayersLoading(false);
-        }
-      } else {
-        setQuakeCount(0);
-      }
+          counts[layerId] = n;
+        };
 
-      if (layers.weather && context?.weather?.available && selected) {
-        const t = context.weather.temperature_c;
-        points.push({
-          id: `weather:${selected.lat.toFixed(3)},${selected.lon.toFixed(3)}`,
-          lat: selected.lat,
-          lon: selected.lon,
-          label: t != null ? `${Math.round(t)}°C · ${selected.name || 'Weather'}` : selected.name || 'Weather',
-          kind: 'event',
-          pulse: false,
-        });
-      }
-      if (layers.markets && context?.market?.available && selected) {
-        const idx = context.market.index_symbol || context.market.index_name || 'Market';
-        points.push({
-          id: `market:${selected.lat.toFixed(3)},${selected.lon.toFixed(3)}`,
-          lat: selected.lat,
-          lon: selected.lon,
-          label: String(idx),
-          kind: 'event',
-          pulse: false,
-        });
-      }
-      if (layers.flights && context?.flights?.available) {
-        for (const ac of context.flights.aircraft || []) {
-          if (ac.lat == null || ac.lon == null) continue;
-          points.push({
-            id: `flight:${ac.callsign || `${ac.lat},${ac.lon}`}`,
-            lat: ac.lat,
-            lon: ac.lon,
-            label: ac.callsign || 'Aircraft',
-            kind: 'event',
-            pulse: false,
+        if (layers.earthquakes) {
+          pushEvents('earthquakes', data.layers.earthquakes?.events || [], {
+            host: 'earthquakes',
+            pulseMag: 6,
           });
         }
+        if (layers.weather) {
+          pushEvents('weather', data.layers.weather?.events || [], { host: 'weather' });
+        }
+        if (layers.air_quality) {
+          pushEvents('air_quality', data.layers.air_quality?.events || [], { host: 'air_quality' });
+        }
+        if (layers.markets) {
+          pushEvents('markets', data.layers.markets?.events || [], { host: 'markets' });
+        }
+        if (layers.flights) {
+          pushEvents('flights', data.layers.flights?.events || [], { host: 'flights' });
+        }
+        if (layers.iss) {
+          pushEvents('iss', data.layers.iss?.events || [], { host: 'iss' });
+        }
+        if (layers.elevation) {
+          pushEvents('elevation', data.layers.elevation?.events || [], { host: 'elevation' });
+        }
+
+        // Also pin selected-place context extras when those layers are on
+        if (layers.weather && context?.weather?.available && selected) {
+          const t = context.weather.temperature_c;
+          points.push({
+            id: `weather:selected:${selected.lat.toFixed(3)},${selected.lon.toFixed(3)}`,
+            lat: selected.lat,
+            lon: selected.lon,
+            label: t != null ? `${Math.round(t)}°C · ${selected.name || 'Here'}` : selected.name || 'Weather',
+            kind: 'event',
+            host: 'weather',
+            pulse: true,
+          });
+        }
+        if (layers.markets && context?.market?.available && selected) {
+          points.push({
+            id: `market:selected:${selected.lat.toFixed(3)},${selected.lon.toFixed(3)}`,
+            lat: selected.lat,
+            lon: selected.lon,
+            label: String(context.market.index_name || context.market.index_symbol || 'Market'),
+            kind: 'event',
+            host: 'markets',
+            pulse: true,
+          });
+        }
+        if (layers.flights && context?.flights?.available) {
+          for (const ac of context.flights.aircraft || []) {
+            if (ac.lat == null || ac.lon == null) continue;
+            points.push({
+              id: `flight:ctx:${ac.callsign || `${ac.lat},${ac.lon}`}`,
+              lat: ac.lat,
+              lon: ac.lon,
+              label: ac.callsign || 'Aircraft',
+              kind: 'event',
+              host: 'flights',
+              pulse: false,
+            });
+          }
+        }
+        if (layers.iss && context?.iss?.available && context.iss.lat != null && context.iss.lon != null) {
+          points.push({
+            id: 'iss:ctx',
+            lat: context.iss.lat,
+            lon: context.iss.lon,
+            label: 'ISS',
+            kind: 'event',
+            host: 'iss',
+            pulse: true,
+          });
+        }
+
+        setLayerCounts(counts);
+        setOverlayPoints(points);
+      } catch {
+        if (!cancelled) {
+          setLayerCounts({});
+          setOverlayPoints([]);
+        }
+      } finally {
+        if (!cancelled) setLayersLoading(false);
       }
-      if (!cancelled) setOverlayPoints(points);
     };
 
     void buildOverlays();
-    if (!layers.earthquakes) return () => {
-      cancelled = true;
-    };
-
     const timer = window.setInterval(() => {
       void buildOverlays();
     }, LIVE_LAYER_POLL_MS);
@@ -220,7 +312,6 @@ export default function GlobePage() {
       window.clearInterval(timer);
     };
   }, [layers, context, selected, setOverlayPoints]);
-
   useEffect(() => {
     return () => {
       setOverlayPoints([]);
@@ -589,12 +680,12 @@ export default function GlobePage() {
                     }`}
                   >
                     {layer.label}
-                    {layer.id === 'earthquakes' && on && quakeCount > 0 ? (
+                    {on && (layerCounts[layer.id] ?? 0) > 0 ? (
                       <span className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[9px] tabular-nums text-[var(--text-muted)]">
-                        {quakeCount}
+                        {layerCounts[layer.id]}
                       </span>
                     ) : null}
-                    {layer.id === 'earthquakes' && on && layersLoading ? (
+                    {on && layersLoading ? (
                       <IconLoader2 size={11} className="animate-spin text-[var(--text-muted)]" />
                     ) : null}
                   </button>
@@ -738,19 +829,11 @@ export default function GlobePage() {
               <ul className="space-y-1 text-[var(--text-secondary)]">
                 {LAYERS.filter((l) => layers[l.id]).map((l) => (
                   <li key={l.id} className="flex items-center gap-2">
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full ${
-                        l.id === 'earthquakes'
-                          ? 'bg-amber-500'
-                          : l.id === 'catalog'
-                            ? 'bg-[#c4a28a]'
-                            : 'bg-[var(--info,#5B8DEF)]'
-                      }`}
-                    />
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
                     {l.label}
                     <span className="text-[var(--text-muted)]">· {l.hint}</span>
-                    {l.id === 'earthquakes' && quakeCount > 0 ? (
-                      <span className="tabular-nums text-[var(--text-muted)]">({quakeCount})</span>
+                    {(layerCounts[l.id] ?? 0) > 0 ? (
+                      <span className="tabular-nums text-[var(--text-muted)]">({layerCounts[l.id]})</span>
                     ) : null}
                   </li>
                 ))}

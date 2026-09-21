@@ -85,16 +85,21 @@ function SourcePin({
         : point.kind === 'hub'
           ? 9
           : point.kind === 'event'
-            ? Math.max(6, Math.min(14, Number(point.label?.match(/M([\d.]+)/)?.[1] || 8)))
+            ? point.host === 'iss'
+              ? 12
+              : point.host === 'earthquakes'
+                ? Math.max(6, Math.min(14, Number(point.label?.match(/M([\d.]+)/)?.[1] || 8)))
+                : 8
             : point.tier === 'trusted'
               ? 7
               : 5.5;
+  const eventClass = point.kind === 'event' && point.host ? `globe-pin--${point.host}` : '';
   return (
     <button
       type="button"
       title={point.host ? `${point.label} · ${point.host}` : point.label}
       aria-label={point.label}
-      className={`globe-pin globe-pin--${point.kind} ${point.pulse ? 'globe-pin--pulse' : ''} ${
+      className={`globe-pin globe-pin--${point.kind} ${eventClass} ${point.pulse ? 'globe-pin--pulse' : ''} ${
         selected ? 'globe-pin--selected' : ''
       }`}
       style={{ width: size, height: size }}

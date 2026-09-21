@@ -389,11 +389,46 @@ export async function fetchPlaceContext(latitude: number, longitude: number): Pr
   return res.json();
 }
 
+export interface GlobeLayerEvents {
+  available?: boolean;
+  layer?: string;
+  count?: number;
+  events?: Array<{
+    id?: string;
+    lat?: number;
+    lon?: number;
+    place?: string;
+    label?: string;
+    mag?: number;
+    type?: string;
+    time?: number;
+    url?: string;
+    temperature_c?: number;
+    callsign?: string | null;
+    elevation_m?: number;
+    us_aqi?: number;
+    european_aqi?: number;
+    index_name?: string;
+    index_symbol?: string;
+    price?: number;
+  }>;
+  source?: string;
+  error?: string;
+  window_days?: number;
+  min_magnitude?: number;
+}
+
 export interface GlobeEventsResponse {
   ok: boolean;
   cached?: boolean;
   layers: {
-    earthquakes?: EarthquakesInfo & { layer?: string; min_magnitude?: number };
+    earthquakes?: GlobeLayerEvents;
+    weather?: GlobeLayerEvents;
+    air_quality?: GlobeLayerEvents;
+    markets?: GlobeLayerEvents;
+    flights?: GlobeLayerEvents;
+    iss?: GlobeLayerEvents;
+    elevation?: GlobeLayerEvents;
   };
 }
 

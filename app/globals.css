@@ -776,6 +776,38 @@ details > summary::-webkit-details-marker {
   border-color: rgba(255, 236, 200, 0.95);
   box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.28), 0 2px 6px rgba(28, 18, 12, 0.3);
 }
+.globe-pin--earthquakes {
+  background: #d97706;
+}
+.globe-pin--weather {
+  background: #3b82f6;
+  border-color: rgba(191, 219, 254, 0.95);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25), 0 2px 6px rgba(28, 18, 12, 0.28);
+}
+.globe-pin--air_quality {
+  background: #10b981;
+  border-color: rgba(167, 243, 208, 0.95);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25), 0 2px 6px rgba(28, 18, 12, 0.28);
+}
+.globe-pin--markets {
+  background: #8b5cf6;
+  border-color: rgba(221, 214, 254, 0.95);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25), 0 2px 6px rgba(28, 18, 12, 0.28);
+}
+.globe-pin--flights {
+  background: #0ea5e9;
+  border-color: rgba(186, 230, 253, 0.95);
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.25), 0 2px 6px rgba(28, 18, 12, 0.28);
+}
+.globe-pin--iss {
+  background: #f43f5e;
+  border-color: rgba(254, 205, 211, 0.95);
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.3), 0 2px 8px rgba(28, 18, 12, 0.35);
+}
+.globe-pin--elevation {
+  background: #78716c;
+  border-color: rgba(231, 229, 228, 0.95);
+}
 .globe-pin--compare {
   width: 9px;
   height: 9px;
