@@ -17,6 +17,7 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
+import { mergeDisplayPoints } from './liveOverlays.mjs';
 import { catalogArchivePoints, fetchRegistryPoints } from './sourceCatalog';
 import { calloutFor, resolveChatIngest } from './resolveSources';
 import type {
@@ -537,15 +538,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       : { top: 0, left: 0, width: 1, height: 1 });
   // Catalog + chat actives + live overlays (earthquakes etc.). LocationIQ/OSM keeps lat/lon honest.
   const displayPoints = useMemo(() => {
-    const out: SourcePoint[] = [];
-    const seen = new Set<string>();
     const catalog = showCatalog || variant === 'mini' ? archivePoints : [];
-    for (const p of [...catalog, ...activePoints, ...overlayPoints]) {
-      if (seen.has(p.id)) continue;
-      seen.add(p.id);
-      out.push(p);
-    }
-    return out;
+    return mergeDisplayPoints(catalog, activePoints, overlayPoints);
   }, [archivePoints, activePoints, overlayPoints, showCatalog, variant]);
 
   useEffect(() => {

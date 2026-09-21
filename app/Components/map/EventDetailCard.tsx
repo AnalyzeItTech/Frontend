@@ -13,6 +13,8 @@ export function EventDetailCard({
   const meta = point.meta || {};
   const isFlight = point.host === 'flights';
   const isSat = point.host === 'iss' || meta.type === 'satellite' || meta.type === 'iss';
+  const isSpaceWeather =
+    point.host === 'space_weather' || meta.type === 'space_weather';
 
   const rows: Array<[string, string]> = [];
   if (isFlight) {
@@ -35,6 +37,21 @@ export function EventDetailCard({
       rows.push(['Velocity', `${Math.round(Number(meta.velocity_kms))} km/h`]);
     }
     if (meta.group) rows.push(['Catalog', String(meta.group)]);
+  } else if (isSpaceWeather) {
+    if (meta.subtype) rows.push(['Kind', String(meta.subtype)]);
+    if (meta.r_scale != null || meta.s_scale != null || meta.g_scale != null) {
+      rows.push([
+        'NOAA scales',
+        `R${meta.r_scale ?? '—'} · S${meta.s_scale ?? '—'} · G${meta.g_scale ?? '—'}`,
+      ]);
+    }
+    if (meta.kp != null) rows.push(['Kp', String(meta.kp)]);
+    if (meta.flare_class) rows.push(['Flare', String(meta.flare_class)]);
+    if (meta.product_id) rows.push(['Product', String(meta.product_id)]);
+    if (meta.alert_kind) rows.push(['Scale class', String(meta.alert_kind)]);
+    if (meta.issued) rows.push(['Issued', String(meta.issued)]);
+    if (meta.message) rows.push(['Message', String(meta.message).slice(0, 280)]);
+    if (meta.place) rows.push(['Marker', String(meta.place)]);
   }
   rows.push(['Coordinates', `${point.lat.toFixed(3)}°, ${point.lon.toFixed(3)}°`]);
 
@@ -43,14 +60,18 @@ export function EventDetailCard({
       <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-            {isFlight ? 'Aircraft' : isSat ? 'Satellite' : 'Event'}
+            {isFlight ? 'Aircraft' : isSat ? 'Satellite' : isSpaceWeather ? 'Space weather' : 'Event'}
           </p>
           <h2 className="truncate font-serif text-lg text-[var(--text-primary)]">{point.label}</h2>
         </div>
         <div className="flex items-center gap-2">
           <span
             className={`flex h-9 w-9 items-center justify-center rounded-xl ${
-              isFlight ? 'bg-[#0ea5e9]/15 text-[#0ea5e9]' : 'bg-[#f43f5e]/15 text-[#f43f5e]'
+              isFlight
+                ? 'bg-[#0ea5e9]/15 text-[#0ea5e9]'
+                : isSpaceWeather
+                  ? 'bg-[#14b8a6]/15 text-[#14b8a6]'
+                  : 'bg-[#f43f5e]/15 text-[#f43f5e]'
             }`}
           >
             {isFlight ? <IconPlane size={18} /> : <IconSatellite size={18} />}

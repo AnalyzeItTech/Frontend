@@ -1,0 +1,170 @@
+/**
+ * Pure helpers for globe live overlays (bug #7 regression surface).
+ *
+ * Live pins must stay independent of place selection/context. Kept as .mjs so
+ * Node's built-in test runner can import without a TS harness.
+ */
+
+/**
+ * Map API events for one layer into SourcePoints. Does not accept place context.
+ * @param {string} layerId
+ * @param {Array<Record<string, any>>} events
+ * @param {{ pulseMag?: number, host?: string }} [opts]
+ * @returns {Array<Record<string, any>>}
+ */
+export function mapLayerEventsToPoints(layerId, events, opts = {}) {
+  const points = [];
+  const host = opts.host || layerId;
+  for (const ev of events || []) {
+    if (ev.lat == null || ev.lon == null) continue;
+    const mag = ev.mag != null ? Number(ev.mag) : null;
+    const label =
+      ev.label ||
+      (mag != null ? `M${mag.toFixed(1)} · ${ev.place || layerId}` : ev.place || layerId);
+    points.push({
+      id: `${layerId}:${ev.id || `${ev.lat},${ev.lon}`}`,
+      lat: ev.lat,
+      lon: ev.lon,
+      label,
+      kind: 'event',
+      host,
+      pulse: opts.pulseMag != null && mag != null && mag >= opts.pulseMag,
+      showLabel:
+        host === 'iss'
+          ? ev.type === 'iss' || Boolean(ev.norad_id === 25544)
+          : host !== 'flights',
+      category: ev.category,
+      trackDeg: ev.track_deg != null ? Number(ev.track_deg) : undefined,
+      meta: {
+        type: ev.type,
+        callsign: ev.callsign,
+        altitude_m: ev.altitude_m,
+        velocity_ms: ev.velocity_ms,
+        track_deg: ev.track_deg,
+        category: ev.category,
+        icao: ev.icao,
+        typecode: ev.typecode,
+        registration: ev.registration,
+        altitude_km: ev.altitude_km,
+        velocity_kms: ev.velocity_kms,
+        norad_id: ev.norad_id,
+        name: ev.name || ev.place,
+        group: ev.group,
+        hub: ev.hub,
+        place: ev.place,
+        subtype: ev.subtype,
+        r_scale: ev.r_scale,
+        s_scale: ev.s_scale,
+        g_scale: ev.g_scale,
+        kp: ev.kp,
+        flare_class: ev.flare_class,
+        product_id: ev.product_id,
+        issued: ev.issued,
+        message: ev.message,
+        alert_kind: ev.alert_kind,
+      },
+    });
+  }
+  return points;
+}
+
+/**
+ * Build overlay pins from enabled layers + API payloads.
+ * Intentionally ignores place context / selected place — selecting a place must
+ * not rebuild or wipe live flight & satellite pins (bug #7).
+ *
+ * @param {Record<string, boolean>} enabledLayers
+ * @param {Record<string, { events?: Array<Record<string, any>>, path?: Array<{ lat?: number, lon?: number }> }>} layerPayloads
+ * @returns {{ points: Array<Record<string, any>>, paths: Array<{ id: string, color?: string, coordinates: Array<[number, number]> }>, counts: Record<string, number> }}
+ */
+export function buildLiveOverlays(enabledLayers, layerPayloads) {
+  const points = [];
+  const counts = {};
+  const paths = [];
+
+  const push = (layerId, events, opts) => {
+    if (!enabledLayers?.[layerId]) return;
+    const mapped = mapLayerEventsToPoints(layerId, events || [], opts);
+    counts[layerId] = mapped.length;
+    points.push(...mapped);
+  };
+
+  push('earthquakes', layerPayloads?.earthquakes?.events, {
+    host: 'earthquakes',
+    pulseMag: 6,
+  });
+  push('disasters', layerPayloads?.disasters?.events, { host: 'disasters' });
+  push('wildfires', layerPayloads?.wildfires?.events, { host: 'wildfires' });
+  push('storms', layerPayloads?.storms?.events, { host: 'storms' });
+  push('volcanoes', layerPayloads?.volcanoes?.events, { host: 'volcanoes' });
+  push('weather', layerPayloads?.weather?.events, { host: 'weather' });
+  push('air_quality', layerPayloads?.air_quality?.events, { host: 'air_quality' });
+  push('markets', layerPayloads?.markets?.events, { host: 'markets' });
+  push('flights', layerPayloads?.flights?.events, { host: 'flights' });
+  push('iss', layerPayloads?.iss?.events, { host: 'iss' });
+  push('space_weather', layerPayloads?.space_weather?.events, { host: 'space_weather' });
+  push('elevation', layerPayloads?.elevation?.events, { host: 'elevation' });
+
+  if (enabledLayers?.iss) {
+    const rawPath = layerPayloads?.iss?.path || [];
+    if (rawPath.length >= 2) {
+      paths.push({
+        id: 'iss-orbit',
+        color: '#f43f5e',
+        coordinates: rawPath
+          .filter((p) => p.lat != null && p.lon != null)
+          .map((p) => [Number(p.lon), Number(p.lat)]),
+      });
+    }
+  }
+
+  return { points, paths, counts };
+}
+
+/**
+ * Catalog ∪ chat actives ∪ live overlays, deduped by id (first wins).
+ * @template {{ id: string }} T
+ * @param {T[]} catalog
+ * @param {T[]} activePoints
+ * @param {T[]} overlayPoints
+ * @returns {T[]}
+ */
+export function mergeDisplayPoints(catalog, activePoints, overlayPoints) {
+  const out = [];
+  const seen = new Set();
+  for (const p of [...(catalog || []), ...(activePoints || []), ...(overlayPoints || [])]) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Overlay event clicks must not reverse-geocode / load place context.
+ * @param {{ event?: unknown } | null | undefined} place
+ * @returns {boolean}
+ */
+export function selectionLoadsPlaceContext(place) {
+  return !place?.event;
+}
+
+/** IDs that must never appear in live overlays (legacy place-context mix-ins). */
+export const FORBIDDEN_OVERLAY_ID_PATTERNS = [
+  /:selected:/,
+  /^weather:selected/,
+  /^market:selected/,
+  /^flight:ctx:/,
+  /^iss:ctx$/,
+  /^flights:ctx:/,
+];
+
+/**
+ * @param {Array<{ id?: string }>} points
+ * @returns {boolean}
+ */
+export function overlaysContainPlaceContextExtras(points) {
+  return (points || []).some((p) =>
+    FORBIDDEN_OVERLAY_ID_PATTERNS.some((re) => re.test(String(p.id || ''))),
+  );
+}

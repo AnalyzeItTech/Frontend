@@ -21,6 +21,10 @@ import { GlobeCanvas } from '../Components/globe/GlobeCanvas';
 import { QueuedFlyToast } from '../Components/globe/QueuedFlyToast';
 import { GLOBE_HUBS } from '../Components/globe/sourceCatalog';
 import { LIVE_LAYER_POLL_MS } from '../Components/globe/globePerf';
+import {
+  buildLiveOverlays,
+  selectionLoadsPlaceContext,
+} from '../Components/globe/liveOverlays.mjs';
 import { useGlobe } from '../Components/globe/useGlobe';
 import type { SourcePoint } from '../Components/globe/types';
 import {
@@ -45,6 +49,7 @@ type LayerId =
   | 'markets'
   | 'flights'
   | 'iss'
+  | 'space_weather'
   | 'elevation';
 
 const RAIL_KEY = 'analyzeit_globe_rails';
@@ -83,6 +88,7 @@ const LAYERS: { id: LayerId; label: string; hint: string; color: string }[] = [
   { id: 'weather', label: 'Weather', hint: 'Open-Meteo at hubs', color: '#3b82f6' },
   { id: 'air_quality', label: 'Air quality', hint: 'AQI at hubs', color: '#10b981' },
   { id: 'iss', label: 'Satellites', hint: 'ISS orbit + stations & bright sats', color: '#f43f5e' },
+  { id: 'space_weather', label: 'Space Weather', hint: 'NOAA SWPC alerts · scales · flares', color: '#14b8a6' },
   { id: 'elevation', label: 'Elevation', hint: 'Meters above sea level at hubs', color: '#78716c' },
   { id: 'markets', label: 'Markets', hint: 'Live equity indices at hubs', color: '#8b5cf6' },
   { id: 'flights', label: 'Flights', hint: 'Live aircraft worldwide (OpenSky/ADS-B)', color: '#0ea5e9' },
@@ -142,6 +148,7 @@ export default function GlobePage() {
     markets: false,
     flights: false,
     iss: false,
+    space_weather: false,
     elevation: false,
   });
   const [layerCounts, setLayerCounts] = useState<Partial<Record<LayerId, number>>>({});
@@ -180,14 +187,12 @@ export default function GlobePage() {
         'markets',
         'flights',
         'iss',
+        'space_weather',
         'elevation',
       ] as LayerId[]
     ).filter((id) => layers[id]);
 
     const buildOverlays = async () => {
-      const points: SourcePoint[] = [];
-      const counts: Partial<Record<LayerId, number>> = {};
-
       if (liveIds.length === 0) {
         if (!cancelled) {
           setLayerCounts({});
@@ -207,136 +212,14 @@ export default function GlobePage() {
         });
         if (cancelled) return;
 
-        const pushEvents = (
-          layerId: LayerId,
-          events: Array<{
-            id?: string;
-            lat?: number;
-            lon?: number;
-            place?: string;
-            label?: string;
-            mag?: number;
-            type?: string;
-            temperature_c?: number;
-            callsign?: string | null;
-            altitude_m?: number | null;
-            velocity_ms?: number | null;
-            track_deg?: number | null;
-            category?: string;
-            icao?: string | null;
-            typecode?: string | null;
-            registration?: string | null;
-            altitude_km?: number | null;
-            velocity_kms?: number | null;
-            norad_id?: number | null;
-            name?: string | null;
-            group?: string | null;
-            hub?: string | null;
-          }>,
-          opts?: { pulseMag?: number; host: string },
-        ) => {
-          let n = 0;
-          for (const ev of events) {
-            if (ev.lat == null || ev.lon == null) continue;
-            const mag = ev.mag != null ? Number(ev.mag) : null;
-            const label =
-              ev.label ||
-              (mag != null
-                ? `M${mag.toFixed(1)} · ${ev.place || layerId}`
-                : ev.place || layerId);
-            const host = opts?.host || layerId;
-            points.push({
-              id: `${layerId}:${ev.id || `${ev.lat},${ev.lon}`}`,
-              lat: ev.lat,
-              lon: ev.lon,
-              label,
-              kind: 'event',
-              host,
-              pulse: opts?.pulseMag != null && mag != null && mag >= opts.pulseMag,
-              showLabel:
-                host === 'iss'
-                  ? ev.type === 'iss' || Boolean(ev.norad_id === 25544)
-                  : host !== 'flights',
-              category: ev.category,
-              trackDeg: ev.track_deg != null ? Number(ev.track_deg) : undefined,
-              meta: {
-                type: ev.type,
-                callsign: ev.callsign,
-                altitude_m: ev.altitude_m,
-                velocity_ms: ev.velocity_ms,
-                track_deg: ev.track_deg,
-                category: ev.category,
-                icao: ev.icao,
-                typecode: ev.typecode,
-                registration: ev.registration,
-                altitude_km: ev.altitude_km,
-                velocity_kms: ev.velocity_kms,
-                norad_id: ev.norad_id,
-                name: ev.name || ev.place,
-                group: ev.group,
-                hub: ev.hub,
-                place: ev.place,
-              },
-            });
-            n += 1;
-          }
-          counts[layerId] = n;
-        };
-
-        const paths: import('../Components/globe/types').OverlayPath[] = [];
-
-        if (layers.earthquakes) {
-          pushEvents('earthquakes', data.layers.earthquakes?.events || [], {
-            host: 'earthquakes',
-            pulseMag: 6,
-          });
-        }
-        if (layers.disasters) {
-          pushEvents('disasters', data.layers.disasters?.events || [], { host: 'disasters' });
-        }
-        if (layers.wildfires) {
-          pushEvents('wildfires', data.layers.wildfires?.events || [], { host: 'wildfires' });
-        }
-        if (layers.storms) {
-          pushEvents('storms', data.layers.storms?.events || [], { host: 'storms' });
-        }
-        if (layers.volcanoes) {
-          pushEvents('volcanoes', data.layers.volcanoes?.events || [], { host: 'volcanoes' });
-        }
-        if (layers.weather) {
-          pushEvents('weather', data.layers.weather?.events || [], { host: 'weather' });
-        }
-        if (layers.air_quality) {
-          pushEvents('air_quality', data.layers.air_quality?.events || [], { host: 'air_quality' });
-        }
-        if (layers.markets) {
-          pushEvents('markets', data.layers.markets?.events || [], { host: 'markets' });
-        }
-        if (layers.flights) {
-          pushEvents('flights', data.layers.flights?.events || [], { host: 'flights' });
-        }
-        if (layers.iss) {
-          pushEvents('iss', data.layers.iss?.events || [], { host: 'iss' });
-          const rawPath = data.layers.iss?.path || [];
-          if (rawPath.length >= 2) {
-            paths.push({
-              id: 'iss-orbit',
-              color: '#f43f5e',
-              coordinates: rawPath
-                .filter((p) => p.lat != null && p.lon != null)
-                .map((p) => [Number(p.lon), Number(p.lat)] as [number, number]),
-            });
-          }
-        }
-        if (layers.elevation) {
-          pushEvents('elevation', data.layers.elevation?.events || [], { host: 'elevation' });
-        }
-
         // Place-context extras intentionally not mixed into globe overlays —
         // selecting a place must not rebuild/wipe live flight & satellite pins.
+        // buildLiveOverlays only reads `layers` + events payloads (no selected/context).
+        const { points, paths, counts } = buildLiveOverlays(layers, data.layers || {});
 
         setLayerCounts(counts);
-        setOverlayPoints(points);
+        // liveOverlays.mjs is untyped ESM for node:test; runtime shape matches SourcePoint.
+        setOverlayPoints(points as SourcePoint[]);
         setOverlayPaths(paths);
       } catch {
         // Keep last good overlays on transient fetch failure
@@ -494,8 +377,8 @@ export default function GlobePage() {
   useEffect(() => {
     setOnMapPlaceSelect((place) => {
       setActiveHub(null);
-      if (place.event) {
-        setSelectedEvent(place.event);
+      if (!selectionLoadsPlaceContext(place)) {
+        setSelectedEvent(place.event!);
         setSelected({ lat: place.lat, lon: place.lon, name: place.name });
         setContext(null);
         setError(null);

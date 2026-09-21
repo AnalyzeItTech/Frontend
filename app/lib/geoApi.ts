@@ -434,6 +434,7 @@ export interface GlobeEventsResponse {
     markets?: GlobeLayerEvents;
     flights?: GlobeLayerEvents;
     iss?: GlobeLayerEvents;
+    space_weather?: GlobeLayerEvents;
     elevation?: GlobeLayerEvents;
   };
 }

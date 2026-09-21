@@ -902,6 +902,11 @@ details > summary::-webkit-details-marker {
   border-color: rgba(254, 202, 202, 0.95);
   box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
 }
+.globe-pin--space_weather {
+  background: #14b8a6;
+  border-color: rgba(153, 246, 228, 0.95);
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.3), 0 2px 6px rgba(28, 18, 12, 0.28);
+}
 .globe-event-marker--pulse .globe-pin {
   animation: globe-pin-pulse 1.8s ease-out infinite;
 }
@@ -940,6 +945,9 @@ details > summary::-webkit-details-marker {
 .globe-event-label--iss {
   border-color: color-mix(in srgb, #f43f5e 55%, var(--border));
   font-weight: 600;
+}
+.globe-event-label--space_weather {
+  border-color: color-mix(in srgb, #14b8a6 50%, var(--border));
 }
 .globe-event-label--elevation {
   border-color: color-mix(in srgb, #78716c 45%, var(--border));
