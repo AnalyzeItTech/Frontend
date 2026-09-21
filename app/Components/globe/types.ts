@@ -1,8 +1,10 @@
 export type GlobeVariant = 'mini' | 'full' | 'parked';
 
-export type SourceKind = 'live' | 'archive' | 'hub' | 'place';
+export type SourceKind = 'live' | 'archive' | 'hub' | 'place' | 'event';
 
 export type SourceTier = 'trusted' | 'candidate';
+
+export type MapProjectionMode = 'globe' | 'mercator';
 
 export interface SourcePoint {
   id: string;

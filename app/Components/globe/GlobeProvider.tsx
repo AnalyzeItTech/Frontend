@@ -22,6 +22,7 @@ import type {
   GlobeCamera,
   GlobeMapHandle,
   GlobeVariant,
+  MapProjectionMode,
   QueuedFly,
   SourcePoint,
 } from './types';
@@ -72,6 +73,13 @@ export interface GlobeContextValue {
   dismissQueuedFly: (id: string) => void;
   setComparePlaces: (places: Array<{ lat: number; lon: number; name?: string }>) => void;
   comparePlaces: Array<{ lat: number; lon: number; name?: string }>;
+  /** Live event overlays (earthquakes, flights, …) from the full Globe page. */
+  overlayPoints: SourcePoint[];
+  setOverlayPoints: (points: SourcePoint[]) => void;
+  showCatalog: boolean;
+  setShowCatalog: (on: boolean) => void;
+  mapProjection: MapProjectionMode;
+  setMapProjection: (mode: MapProjectionMode) => void;
   activeHub: string | null;
   setActiveHub: (name: string | null) => void;
   onMapPlaceSelect?: (place: { lat: number; lon: number }) => void;
@@ -116,6 +124,9 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
   const [comparePlaces, setComparePlaces] = useState<Array<{ lat: number; lon: number; name?: string }>>(
     [],
   );
+  const [overlayPoints, setOverlayPoints] = useState<SourcePoint[]>([]);
+  const [showCatalog, setShowCatalog] = useState(true);
+  const [mapProjection, setMapProjection] = useState<MapProjectionMode>('globe');
   const [activeHub, setActiveHub] = useState<string | null>(null);
   const [portalReady, setPortalReady] = useState(false);
   const [stageRect, setStageRect] = useState<MountRect | null>(null);
@@ -474,17 +485,18 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     (parked
       ? { top: -400, left: -400, width: 8, height: 8 }
       : { top: 0, left: 0, width: 1, height: 1 });
-  // Full catalog on both mounts — LocationIQ/OSM basemap keeps lat/lon honest.
+  // Catalog + chat actives + live overlays (earthquakes etc.). LocationIQ/OSM keeps lat/lon honest.
   const displayPoints = useMemo(() => {
     const out: SourcePoint[] = [];
     const seen = new Set<string>();
-    for (const p of [...archivePoints, ...activePoints]) {
+    const catalog = showCatalog || variant === 'mini' ? archivePoints : [];
+    for (const p of [...catalog, ...activePoints, ...overlayPoints]) {
       if (seen.has(p.id)) continue;
       seen.add(p.id);
       out.push(p);
     }
     return out;
-  }, [archivePoints, activePoints]);
+  }, [archivePoints, activePoints, overlayPoints, showCatalog, variant]);
 
   useEffect(() => {
     if (!mapReady) return;
@@ -516,6 +528,12 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       dismissQueuedFly,
       setComparePlaces,
       comparePlaces,
+      overlayPoints,
+      setOverlayPoints,
+      showCatalog,
+      setShowCatalog,
+      mapProjection,
+      setMapProjection,
       activeHub,
       setActiveHub,
       setOnMapPlaceSelect,
@@ -542,6 +560,9 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       consumeQueuedFly,
       dismissQueuedFly,
       comparePlaces,
+      overlayPoints,
+      showCatalog,
+      mapProjection,
       activeHub,
       setOnMapPlaceSelect,
     ],
@@ -597,6 +618,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
               activeHub={activeHub}
               comparePlaces={comparePlaces}
               sourcePoints={displayPoints}
+              mapProjection={mapProjection}
               hideNavControl
               hideChrome={variant !== 'full'}
               idleDrift={variant === 'mini' && !inFlight && activePoints.length === 0 && onChat && !paused}

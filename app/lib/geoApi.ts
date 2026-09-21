@@ -1,6 +1,7 @@
-import { getAuthHeaders } from './auth';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+/** Browser calls same-origin Next proxies so CORS / wrong API host cannot break Globe. */
+const GEO_CONTEXT_URL = '/api/geo/context';
+const GEO_SEARCH_URL = '/api/geo/search';
+const GEO_EVENTS_URL = '/api/geo/events';
 
 export interface PlaceInfo {
   ok?: boolean;
@@ -120,10 +121,13 @@ export interface AirQualityInfo {
 }
 
 export interface EarthquakeEvent {
+  id?: string;
   mag?: number;
   place?: string;
   time?: number;
   url?: string;
+  lat?: number;
+  lon?: number;
   depth_km?: number | null;
   distance_km?: number | null;
   tsunami?: number;
@@ -334,15 +338,12 @@ async function searchPlacesOpenMeteo(query: string, limit: number): Promise<GeoS
   }).filter((h) => h.name);
 }
 
-/** World geocode: backend first, then Open-Meteo in the browser (cities / countries / landmarks). */
+/** World geocode: same-origin proxy first, then Open-Meteo in the browser. */
 export async function searchPlaces(query: string, limit = 8): Promise<GeoSearchHit[]> {
   const q = query.trim();
   if (q.length < 2) return [];
   try {
-    const res = await fetch(
-      `${API_BASE}/v1/geo/search?q=${encodeURIComponent(q)}&limit=${limit}`,
-      { headers: getAuthHeaders() },
-    );
+    const res = await fetch(`${GEO_SEARCH_URL}?q=${encodeURIComponent(q)}&limit=${limit}`);
     if (res.ok) {
       const data = (await res.json()) as { results?: GeoSearchHit[] };
       if (data.results && data.results.length > 0) return data.results;
@@ -357,12 +358,9 @@ export async function searchPlaces(query: string, limit = 8): Promise<GeoSearchH
 export async function fetchPlaceContext(latitude: number, longitude: number): Promise<PlaceContext> {
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}/v1/geo/context`, {
+    res = await fetch(GEO_CONTEXT_URL, {
       method: 'POST',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ latitude, longitude }),
     });
   } catch (err) {
@@ -380,9 +378,43 @@ export async function fetchPlaceContext(latitude: number, longitude: number): Pr
       typeof detail === 'string'
         ? detail
         : Array.isArray(detail)
-          ? detail.map((d) => (typeof d === 'object' && d && 'msg' in d ? String((d as { msg: unknown }).msg) : String(d))).join('; ')
+          ? detail
+              .map((d) =>
+                typeof d === 'object' && d && 'msg' in d ? String((d as { msg: unknown }).msg) : String(d),
+              )
+              .join('; ')
           : null;
     throw new Error(detailText || `Place context failed (${res.status})`);
+  }
+  return res.json();
+}
+
+export interface GlobeEventsResponse {
+  ok: boolean;
+  cached?: boolean;
+  layers: {
+    earthquakes?: EarthquakesInfo & { layer?: string; min_magnitude?: number };
+  };
+}
+
+/** Worldwide overlays for Globe layers (USGS earthquakes, …). */
+export async function fetchGlobeEvents(opts?: {
+  layers?: string[];
+  minMagnitude?: number;
+  days?: number;
+}): Promise<GlobeEventsResponse> {
+  const params = new URLSearchParams();
+  params.set('layers', (opts?.layers || ['earthquakes']).join(','));
+  if (opts?.minMagnitude != null) params.set('min_magnitude', String(opts.minMagnitude));
+  if (opts?.days != null) params.set('days', String(opts.days));
+  const res = await fetch(`${GEO_EVENTS_URL}?${params.toString()}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const detail =
+      body && typeof body === 'object' && 'detail' in body
+        ? String((body as { detail: unknown }).detail)
+        : null;
+    throw new Error(detail || `Globe events failed (${res.status})`);
   }
   return res.json();
 }

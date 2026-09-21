@@ -7,7 +7,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from '../ui/ThemeProvider';
 import { GLOBE_HUBS } from '../globe/sourceCatalog';
 import { fullPixelRatio, miniPixelRatio } from '../globe/globePerf';
-import type { GlobeCamera, GlobeMapHandle, GlobeVariant, SourcePoint } from '../globe/types';
+import type { GlobeCamera, GlobeMapHandle, GlobeVariant, MapProjectionMode, SourcePoint } from '../globe/types';
 
 export { GLOBE_HUBS };
 
@@ -41,6 +41,8 @@ interface PlaceMapLibreProps {
   paused?: boolean;
   /** Skip canvas realloc while a FLIP resize animation is in flight. */
   freezeResize?: boolean;
+  /** Geographic basemap projection — globe sphere or flat mercator. */
+  mapProjection?: MapProjectionMode;
 }
 
 type MapConfig = {
@@ -76,7 +78,17 @@ function SourcePin({
   selected?: boolean;
 }) {
   const size =
-    point.kind === 'live' ? 12 : point.kind === 'place' ? 11 : point.kind === 'hub' ? 9 : point.tier === 'trusted' ? 7 : 5.5;
+    point.kind === 'live'
+      ? 12
+      : point.kind === 'place'
+        ? 11
+        : point.kind === 'hub'
+          ? 9
+          : point.kind === 'event'
+            ? Math.max(6, Math.min(14, Number(point.label?.match(/M([\d.]+)/)?.[1] || 8)))
+            : point.tier === 'trusted'
+              ? 7
+              : 5.5;
   return (
     <button
       type="button"
@@ -140,6 +152,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     initialCamera,
     paused = false,
     freezeResize = false,
+    mapProjection = 'globe',
   },
   ref,
 ) {
@@ -359,12 +372,13 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         setLight?: (light: Record<string, unknown>) => void;
       };
       try {
-        globeMap.setProjection?.({ type: 'globe' });
+        globeMap.setProjection?.({ type: mapProjection === 'mercator' ? 'mercator' : 'globe' });
       } catch {
         /* older builds */
       }
       try {
-        globeMap.setFog?.(fog);
+        if (mapProjection === 'mercator') globeMap.setFog?.(null);
+        else globeMap.setFog?.(fog);
       } catch {
         /* fog optional */
       }
@@ -379,8 +393,14 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         /* light optional */
       }
     },
-    [fog, mapTheme],
+    [fog, mapTheme, mapProjection],
   );
+
+  useEffect(() => {
+    const map = getMap();
+    if (!map) return;
+    applyAtmosphere(map);
+  }, [applyAtmosphere, getMap, mapProjection]);
 
   const pixelRatio = variant === 'mini' ? miniPixelRatio() : fullPixelRatio();
 
@@ -528,8 +548,12 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         ) : null}
       </Map>
 
-      <div className="globe-atmosphere-rim" />
-      <div className="globe-sphere-shade" />
+      {mapProjection === 'globe' ? (
+        <>
+          <div className="globe-atmosphere-rim" />
+          <div className="globe-sphere-shade" />
+        </>
+      ) : null}
 
       {!usingLocationIq && !hideChrome ? (
         <div className="pointer-events-none absolute left-1/2 top-16 z-10 max-w-sm -translate-x-1/2 rounded-xl border border-amber-500/30 bg-amber-50/95 px-3 py-2 text-center text-[11px] text-amber-900 shadow-lg backdrop-blur dark:border-amber-400/20 dark:bg-amber-950/90 dark:text-amber-100">
@@ -540,7 +564,9 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
 
       {!hideChrome ? (
         <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-lg bg-[var(--surface)]/90 px-2 py-1 text-[10px] font-mono text-[var(--text-muted)] backdrop-blur">
-          {usingLocationIq ? `LocationIQ · ${mapTheme} · MapLibre globe` : 'OpenFreeMap · MapLibre globe'} ·
+          {usingLocationIq
+            ? `LocationIQ · ${mapTheme} · ${mapProjection === 'globe' ? 'MapLibre globe' : 'flat geographic'} ·`
+            : 'OpenFreeMap · MapLibre ·'}{' '}
           click anywhere
         </div>
       ) : null}
