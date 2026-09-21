@@ -1,6 +1,5 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -15,26 +14,16 @@ import {
 } from '@tabler/icons-react';
 import { AppShell } from '../Components/app/AppShell';
 import { PlaceContextCard } from '../Components/map/PlaceContextCard';
-import { GLOBE_HUBS } from '../Components/map/PlaceMapLibre';
+import { GlobeCanvas } from '../Components/globe/GlobeCanvas';
+import { QueuedFlyToast } from '../Components/globe/QueuedFlyToast';
+import { GLOBE_HUBS } from '../Components/globe/sourceCatalog';
+import { useGlobe } from '../Components/globe/useGlobe';
 import {
   fetchPlaceContext,
   searchPlaces,
   type GeoSearchHit,
   type PlaceContext,
 } from '../lib/geoApi';
-
-const PlaceMapLibre = dynamic(
-  () => import('../Components/map/PlaceMapLibre').then((m) => m.PlaceMapLibre),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="absolute inset-0 flex items-center justify-center bg-[var(--surface-2)] font-mono text-xs text-[var(--text-muted)]">
-        <span className="mr-2 h-2.5 w-2.5 animate-ping rounded-full bg-[#EA8069]" />
-        Loading map…
-      </div>
-    ),
-  },
-);
 
 type Selected = { lat: number; lon: number; name?: string; country?: string };
 type ComparePlace = Selected & { id: string; context?: PlaceContext | null };
@@ -71,6 +60,7 @@ const LAYERS: { id: LayerId; label: string }[] = [
   { id: 'markets', label: 'Markets' },
   { id: 'custom', label: 'Custom metrics' },
 ];
+/** When these land, poll on LIVE_LAYER_POLL_MS — never inside the map render loop. */
 
 function placeId(p: { lat: number; lon: number; name?: string }) {
   return `${(p.name || 'p').toLowerCase()}-${p.lat.toFixed(3)}-${p.lon.toFixed(3)}`;
@@ -89,9 +79,17 @@ function kpis(ctx: PlaceContext | null | undefined) {
 
 export default function GlobePage() {
   const router = useRouter();
+  const {
+    flyToLatLon,
+    camera,
+    selectedPoint,
+    mapReady,
+    setOnMapPlaceSelect,
+    setComparePlaces,
+    setActiveHub,
+    activeHub,
+  } = useGlobe();
   const [selected, setSelected] = useState<Selected | null>(null);
-  const [flyTo, setFlyTo] = useState<{ lat: number; lon: number; zoom?: number } | null>(null);
-  const [activeHub, setActiveHub] = useState<string | null>(null);
   const [context, setContext] = useState<PlaceContext | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +102,6 @@ export default function GlobePage() {
     custom: false,
   });
   const [compare, setCompare] = useState<ComparePlace[]>([]);
-  const [mapReady, setMapReady] = useState(false);
   const [leftRail, setLeftRail] = useState(LEFT_DEFAULT);
   const [rightRail, setRightRail] = useState(RIGHT_DEFAULT);
   const [railsReady, setRailsReady] = useState(false);
@@ -165,11 +162,16 @@ export default function GlobePage() {
       lon: number,
       opts?: { name?: string; country?: string; zoom?: number; hub?: string | null },
     ) => {
-      setFlyTo({ lat, lon, zoom: opts?.zoom ?? 5.8 });
-      setActiveHub(opts?.hub ?? null);
+      flyToLatLon(lat, lon, {
+        zoom: opts?.zoom ?? 5.8,
+        name: opts?.name,
+        country: opts?.country,
+        hub: opts?.hub ?? null,
+        user: true,
+      });
       void loadContext(lat, lon, { name: opts?.name, country: opts?.country });
     },
-    [loadContext],
+    [flyToLatLon, loadContext],
   );
 
   const pickHit = useCallback(
@@ -229,6 +231,25 @@ export default function GlobePage() {
       prev.map((p) => (p.id === id ? { ...p, context, name: selected.name || p.name } : p)),
     );
   }, [selected, context]);
+
+  useEffect(() => {
+    setComparePlaces(compare.map((p) => ({ lat: p.lat, lon: p.lon, name: p.name })));
+  }, [compare, setComparePlaces]);
+
+  useEffect(() => {
+    setOnMapPlaceSelect((place) => {
+      setActiveHub(null);
+      void loadContext(place.lat, place.lon);
+    });
+    return () => setOnMapPlaceSelect(null);
+  }, [loadContext, setActiveHub, setOnMapPlaceSelect]);
+
+  const hydratedFromChat = useRef(false);
+  useEffect(() => {
+    if (hydratedFromChat.current || !selectedPoint) return;
+    hydratedFromChat.current = true;
+    void loadContext(selectedPoint.lat, selectedPoint.lon, { name: selectedPoint.label });
+  }, [loadContext, selectedPoint]);
 
   const askAboutPlace = useCallback(() => {
     if (context?.chat_prompt) {
@@ -355,13 +376,13 @@ export default function GlobePage() {
                 aria-label="Zoom in"
                 onClick={() => {
                   if (!selected) {
-                    setFlyTo({ lat: 20, lon: 0, zoom: 3 });
+                    flyToLatLon(20, 0, { zoom: 3, user: true });
                     return;
                   }
-                  setFlyTo({
-                    lat: selected.lat,
-                    lon: selected.lon,
-                    zoom: Math.min((flyTo?.zoom ?? 5.8) + 1, 12),
+                  flyToLatLon(selected.lat, selected.lon, {
+                    zoom: Math.min(camera.zoom + 1, 12),
+                    name: selected.name,
+                    user: true,
                   });
                 }}
               >
@@ -374,13 +395,13 @@ export default function GlobePage() {
                 aria-label="Zoom out"
                 onClick={() => {
                   if (!selected) {
-                    setFlyTo({ lat: 20, lon: 0, zoom: 1.6 });
+                    flyToLatLon(20, 0, { zoom: 1.6, user: true });
                     return;
                   }
-                  setFlyTo({
-                    lat: selected.lat,
-                    lon: selected.lon,
-                    zoom: Math.max((flyTo?.zoom ?? 5.8) - 1, 1.4),
+                  flyToLatLon(selected.lat, selected.lon, {
+                    zoom: Math.max(camera.zoom - 1, 1.4),
+                    name: selected.name,
+                    user: true,
                   });
                 }}
               >
@@ -394,7 +415,11 @@ export default function GlobePage() {
                 disabled={!selected}
                 onClick={() => {
                   if (!selected) return;
-                  setFlyTo({ lat: selected.lat, lon: selected.lon, zoom: 6.5 });
+                  flyToLatLon(selected.lat, selected.lon, {
+                    zoom: 6.5,
+                    name: selected.name,
+                    user: true,
+                  });
                 }}
               >
                 <IconCurrentLocation size={14} />
@@ -537,23 +562,10 @@ export default function GlobePage() {
         />
 
         <section className="relative min-w-0 bg-[var(--surface-2)]">
-          <PlaceMapLibre
-            selected={selected}
-            flyTo={flyTo}
-            activeHub={activeHub}
-            comparePlaces={compare}
-            hideNavControl
-            onHubSelect={(hub) =>
-              goTo(hub.lat, hub.lon, { name: hub.name, zoom: 5.5, hub: hub.name })
-            }
-            onPlaceSelect={(place) => {
-              setActiveHub(null);
-              setFlyTo(null);
-              void loadContext(place.lat, place.lon);
-            }}
-            onMapError={(message) => setError(message)}
-            onMapReady={() => setMapReady(true)}
-          />
+          <div className="absolute inset-0">
+            <GlobeCanvas variant="full" />
+          </div>
+          <QueuedFlyToast />
 
           {!selected && mapReady ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-4">

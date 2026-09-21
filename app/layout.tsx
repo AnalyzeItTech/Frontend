@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "./Components/ui/ThemeProvider";
+import { GlobeProvider } from "./Components/globe/GlobeProvider";
 import { SmoothScrollProvider } from "./Components/ui/SmoothScrollProvider";
 import { SkipToContent } from "./Components/ui/SkipToContent";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "./lib/site";
@@ -135,10 +136,12 @@ export default function RootLayout({
         className="min-h-full flex flex-col bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased overflow-x-hidden transition-colors duration-300"
       >
         <ThemeProvider>
-          <SmoothScrollProvider>
-            <SkipToContent />
-            {children}
-          </SmoothScrollProvider>
+          <GlobeProvider>
+            <SmoothScrollProvider>
+              <SkipToContent />
+              {children}
+            </SmoothScrollProvider>
+          </GlobeProvider>
         </ThemeProvider>
         <Analytics />
       </body>

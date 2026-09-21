@@ -61,6 +61,8 @@ import {
 } from '../lib/attachmentsApi';
 import { SourceChips, type ResearchSource } from '../Components/research/SourceChips';
 import { AppShell } from '../Components/app/AppShell';
+import { ChatMiniGlobe } from '../Components/globe/ChatMiniGlobe';
+import { useGlobe } from '../Components/globe/useGlobe';
 import { useTheme } from '../Components/ui/ThemeProvider';
 
 type ComposerMode = 'chat' | 'research';
@@ -253,7 +255,9 @@ function mergeSources(prev: ResearchSource[], next: ResearchSource[]): ResearchS
   const out = [...prev];
   for (const src of next) {
     if (!src.host && !src.url) continue;
-    if (out.some((item) => (src.host && item.host === src.host) || (src.url && item.url === src.url))) {
+    const idx = out.findIndex((item) => (src.url && item.url === src.url) || (!src.url && src.host && item.host === src.host));
+    if (idx >= 0) {
+      out[idx] = { ...out[idx], ...src };
       continue;
     }
     out.push(src);
@@ -279,6 +283,7 @@ function ChatInner() {
   const params = useSearchParams();
   const router = useRouter();
   const { isIncognito } = useTheme();
+  const { beginChatRun, ingestChatRun } = useGlobe();
   const user = getStoredUser();
   const firstName = user?.name?.split(' ')[0] || 'there';
 
@@ -622,6 +627,8 @@ function ChatInner() {
       }
 
       const mode = modeOverride || composerMode;
+      beginChatRun();
+      if (value) ingestChatRun({ query: value });
       const userId = `user-${Date.now()}`;
       const assistantId = `asst-${Date.now()}`;
       const chipMeta = pendingAttachments.map((a) => ({
@@ -749,6 +756,18 @@ function ChatInner() {
                     ? args.city
                     : '';
               if (event.event === 'tool_call') {
+                if (typeof args?.city === 'string' && args.city.trim()) {
+                  ingestChatRun({ city: args.city });
+                }
+                const toolLat = typeof args?.lat === 'number' ? args.lat : typeof args?.latitude === 'number' ? args.latitude : undefined;
+                const toolLon = typeof args?.lon === 'number' ? args.lon : typeof args?.lng === 'number' ? args.lng : typeof args?.longitude === 'number' ? args.longitude : undefined;
+                if (toolLat != null && toolLon != null) {
+                  ingestChatRun({
+                    lat: toolLat,
+                    lon: toolLon,
+                    name: hint || undefined,
+                  });
+                }
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
@@ -806,7 +825,32 @@ function ChatInner() {
                       ? nested.url
                       : `https://${host}`;
                 const title = typeof event.payload?.title === 'string' ? event.payload.title : '';
-                sources = mergeSources(sources, [{ host, url, title }]);
+                const lat =
+                  typeof event.payload?.lat === 'number'
+                    ? event.payload.lat
+                    : typeof nested?.lat === 'number'
+                      ? nested.lat
+                      : undefined;
+                const lngRaw = event.payload?.lng ?? event.payload?.lon ?? nested?.lng ?? nested?.lon;
+                const lng = typeof lngRaw === 'number' ? lngRaw : undefined;
+                const source_id =
+                  typeof event.payload?.source_id === 'string'
+                    ? event.payload.source_id
+                    : typeof nested?.source_id === 'string'
+                      ? nested.source_id
+                      : undefined;
+                const category =
+                  typeof event.payload?.category === 'string'
+                    ? event.payload.category
+                    : typeof nested?.category === 'string'
+                      ? nested.category
+                      : undefined;
+                sources = mergeSources(sources, [
+                  { host, url, title, lat, lng, source_id, category, verified: true },
+                ]);
+                ingestChatRun({
+                  sources: [{ host, url, title, lat, lng, source_id, category }],
+                });
                 setMessages((prev) =>
                   prev.map((m) => (m.id === assistantId ? { ...m, sources: [...sources] } : m)),
                 );
@@ -1000,9 +1044,17 @@ function ChatInner() {
               host: src.host || (src.url ? new URL(src.url).hostname : ''),
               url: src.url,
               title: src.title,
+              source_id: src.source_id,
+              category: src.category,
+              lat: src.lat,
+              lng: src.lng,
+              contribution: src.contribution,
+              verified: src.verified,
             })),
           );
         }
+
+        if (sources.length) ingestChatRun({ sources });
 
         // Never keep 0-token success chrome after a tool failure (hint_tools / web_search agent path).
         const resolvedZeroToken = sawToolFailure ? null : zeroTokenTool;
@@ -1070,7 +1122,7 @@ function ChatInner() {
         void refreshLlmQuota();
       }
     },
-    [armPostRunAd, awaitingAd, composerMode, input, isIncognito, isStreaming, messages, pendingAttachments, projectId, refreshLlmQuota, refreshPromoteNudge, runId, selectedModelSize],
+    [armPostRunAd, awaitingAd, beginChatRun, composerMode, ingestChatRun, input, isIncognito, isStreaming, messages, pendingAttachments, projectId, refreshLlmQuota, refreshPromoteNudge, runId, selectedModelSize],
   );
 
   const stopStreaming = () => {
@@ -1090,7 +1142,7 @@ function ChatInner() {
         <div className="flex min-h-0 flex-1">
           {/* Main chat column */}
           <div
-            className={`flex min-h-0 min-w-0 flex-col transition-all ${
+            className={`relative flex min-h-0 min-w-0 flex-col transition-all ${
               showDashboard ? 'w-full lg:w-[55%] xl:w-[58%] border-r border-[var(--border)]' : 'w-full'
             }`}
           >
@@ -1701,6 +1753,7 @@ function ChatInner() {
                 </form>
               </div>
             </div>
+            <ChatMiniGlobe />
           </div>
 
           {/* On-demand dashboard side panel */}

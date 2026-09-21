@@ -1,0 +1,60 @@
+export type GlobeVariant = 'mini' | 'full' | 'parked';
+
+export type SourceKind = 'live' | 'archive' | 'hub' | 'place';
+
+export type SourceTier = 'trusted' | 'candidate';
+
+export interface SourcePoint {
+  id: string;
+  lat: number;
+  lon: number;
+  label: string;
+  source_id?: string;
+  host?: string;
+  kind: SourceKind;
+  tier?: SourceTier;
+  pulse?: boolean;
+}
+
+export interface GlobeCamera {
+  lat: number;
+  lng: number;
+  zoom: number;
+}
+
+export interface QueuedFly {
+  id: string;
+  point: SourcePoint;
+}
+
+export interface GlobeMapHandle {
+  flyTo: (opts: { lat: number; lon: number; zoom?: number }) => Promise<void>;
+  resize: () => void;
+  getView: () => GlobeCamera;
+  pause: () => void;
+  resume: () => void;
+}
+
+export interface ChatRunIngest {
+  query?: string;
+  city?: string;
+  lat?: number;
+  lon?: number;
+  name?: string;
+  sources?: Array<{
+    host: string;
+    url?: string;
+    title?: string;
+    lat?: number;
+    lng?: number;
+    lon?: number;
+    source_id?: string;
+    category?: string;
+  }>;
+}
+
+export const DEFAULT_CAMERA: GlobeCamera = {
+  lat: 18,
+  lng: 20,
+  zoom: 1.35,
+};

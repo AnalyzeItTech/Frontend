@@ -461,7 +461,17 @@ export async function streamChat(options: ChatOptions): Promise<{
   projectId?: string;
   finalText: string;
   artifacts: Array<{ filename: string; type: string }>;
-  sources: Array<{ url: string; title?: string; host?: string }>;
+  sources: Array<{
+    url: string;
+    title?: string;
+    host?: string;
+    source_id?: string;
+    category?: string;
+    lat?: number;
+    lng?: number;
+    contribution?: number;
+    verified?: boolean;
+  }>;
 }> {
   const storedUser = getStoredUser();
   const effectiveUserId = options.userId || (storedUser ? storedUser.id : 'demo-user');
@@ -518,7 +528,17 @@ export async function streamChat(options: ChatOptions): Promise<{
   let finalText = '';
   let streamError = '';
   const artifacts: Array<{ filename: string; type: string }> = [];
-  const sources: Array<{ url: string; title?: string; host?: string }> = [];
+  const sources: Array<{
+    url: string;
+    title?: string;
+    host?: string;
+    source_id?: string;
+    category?: string;
+    lat?: number;
+    lng?: number;
+    contribution?: number;
+    verified?: boolean;
+  }> = [];
 
   const parseTextPayload = (raw: unknown): string => {
     if (typeof raw === 'string') return raw;
@@ -567,7 +587,17 @@ export async function streamChat(options: ChatOptions): Promise<{
           finalText = parsed || finalText;
           const arts = (event.payload.artifacts as Array<{ filename: string; type: string }>) || [];
           artifacts.push(...arts);
-          const srcs = (event.payload.sources as Array<{ url: string; title?: string; host?: string }>) || [];
+          const srcs = (event.payload.sources as Array<{
+            url: string;
+            title?: string;
+            host?: string;
+            source_id?: string;
+            category?: string;
+            lat?: number;
+            lng?: number;
+            contribution?: number;
+            verified?: boolean;
+          }>) || [];
           sources.push(...srcs);
         }
         if (event.event === 'error') {

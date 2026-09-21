@@ -31,6 +31,8 @@ export interface EarthGlobeProps {
   externalPlacePanel?: boolean;
   pageMode?: boolean;
   contained?: boolean;
+  /** Hide chrome — used as a compact provenance widget in chat. */
+  minimal?: boolean;
 }
 
 export interface GlobeSourceMarker {
@@ -38,6 +40,8 @@ export interface GlobeSourceMarker {
   lat: number;
   lon: number;
   label: string;
+  color?: string;
+  size?: number;
 }
 
 export interface EarthGlobeHandle {
@@ -75,9 +79,9 @@ export function jitterNear(loc: GlobeLocation, seed: string): { lat: number; lon
  * Generate high-definition texture map using authentic Natural Earth landmass dataset
  * with seamless antimeridian handling and calibrated high contrast
  */
-function createEditorialEarthTextures(isDark: boolean) {
-  const width = 2048;
-  const height = 1024;
+function createEditorialEarthTextures(isDark: boolean, quality: 'mini' | 'full' = 'full') {
+  const width = quality === 'mini' ? 512 : 2048;
+  const height = quality === 'mini' ? 256 : 1024;
 
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -132,18 +136,21 @@ function createEditorialEarthTextures(isDark: boolean) {
     }
   });
 
-  // 3. Cloud Canopy Texture
+  // 3. Cloud Canopy Texture (skip the heavy pass in mini)
+  const cloudW = quality === 'mini' ? 256 : 1024;
+  const cloudH = quality === 'mini' ? 128 : 512;
   const cloudCanvas = document.createElement('canvas');
-  cloudCanvas.width = 1024;
-  cloudCanvas.height = 512;
+  cloudCanvas.width = cloudW;
+  cloudCanvas.height = cloudH;
   const cloudCtx = cloudCanvas.getContext('2d')!;
-  cloudCtx.clearRect(0, 0, 1024, 512);
+  cloudCtx.clearRect(0, 0, cloudW, cloudH);
 
-  for (let i = 0; i < 35; i++) {
-    const cx = Math.random() * 1024;
-    const cy = 70 + Math.random() * 370;
-    const rx = 50 + Math.random() * 110;
-    const ry = 14 + Math.random() * 28;
+  const cloudCount = quality === 'mini' ? 8 : 35;
+  for (let i = 0; i < cloudCount; i++) {
+    const cx = Math.random() * cloudW;
+    const cy = cloudH * 0.14 + Math.random() * cloudH * 0.72;
+    const rx = (quality === 'mini' ? 18 : 50) + Math.random() * (quality === 'mini' ? 28 : 110);
+    const ry = (quality === 'mini' ? 6 : 14) + Math.random() * (quality === 'mini' ? 10 : 28);
     const grad = cloudCtx.createRadialGradient(cx, cy, 0, cx, cy, rx);
     grad.addColorStop(0, isDark ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.4)');
     grad.addColorStop(0.6, isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.12)');
@@ -198,7 +205,7 @@ function createArcCurve(p1: THREE.Vector3, p2: THREE.Vector3, radius: number): T
 }
 
 export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(function EarthGlobe(
-  { isExpanded, onToggleExpand, className = '', sourceMarkers = [], onSendToChat, onPlaceSelect, externalPlacePanel = false, pageMode = false, contained = false },
+  { isExpanded, onToggleExpand, className = '', sourceMarkers = [], onSendToChat, onPlaceSelect, externalPlacePanel = false, pageMode = false, contained = false, minimal = false },
   ref,
 ) {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -250,6 +257,9 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null);
   const rimLightRef = useRef<THREE.DirectionalLight | null>(null);
   const isFlyingRef = useRef(false);
+  const pausedRef = useRef(false);
+  const resumeLoopRef = useRef<() => void>(() => {});
+  const textureQuality = minimal || (contained && !isExpanded) ? 'mini' : 'full';
 
   // Smooth Zoom In / Zoom Out
   const handleZoom = useCallback((delta: number) => {
@@ -406,21 +416,39 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     while (group.children.length) {
       const child = group.children[0];
       group.remove(child);
-      if (child instanceof THREE.Mesh) {
+      if (child instanceof THREE.InstancedMesh) {
+        child.geometry.dispose();
+        const mat = child.material;
+        if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
+        else mat.dispose();
+      } else if (child instanceof THREE.Mesh) {
         child.geometry.dispose();
         const mat = child.material;
         if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
         else mat.dispose();
       }
     }
+    const count = sourceMarkers.length;
+    if (!count) return;
     const earthRadius = 2.6;
-    sourceMarkers.forEach((marker) => {
-      const geo = new THREE.SphereGeometry(0.045, 10, 10);
-      const mat = new THREE.MeshBasicMaterial({ color: 0xe3836c });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.copy(latLonToVector3(marker.lat, marker.lon, earthRadius * 1.02));
-      group.add(mesh);
+    const baseRadius = 0.045;
+    const geo = new THREE.SphereGeometry(baseRadius, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({ vertexColors: true });
+    const mesh = new THREE.InstancedMesh(geo, mat, count);
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+    sourceMarkers.forEach((marker, i) => {
+      const radius = Math.min(0.09, Math.max(0.03, marker.size ?? baseRadius));
+      dummy.position.copy(latLonToVector3(marker.lat, marker.lon, earthRadius * 1.02));
+      dummy.scale.setScalar(radius / baseRadius);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+      color.set(marker.color || '#E3836C');
+      mesh.setColorAt(i, color);
     });
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    group.add(mesh);
   }, [sourceMarkers, isSceneReady]);
 
   // Reset North Orientation
@@ -472,12 +500,12 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: textureQuality === 'full',
       alpha: true,
-      powerPreference: 'high-performance',
+      powerPreference: textureQuality === 'mini' ? 'low-power' : 'high-performance',
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(textureQuality === 'mini' ? Math.min(window.devicePixelRatio || 1, 1) : Math.min(window.devicePixelRatio || 1, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = isDark ? 0.85 : 1.05;
     mount.appendChild(renderer.domElement);
@@ -517,9 +545,10 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     earthGroup.add(sourceGroup);
     sourceGroupRef.current = sourceGroup;
 
-    const { earthTexture, cloudTexture } = createEditorialEarthTextures(isDark);
+    const { earthTexture, cloudTexture } = createEditorialEarthTextures(isDark, textureQuality);
 
-    const earthGeo = new THREE.SphereGeometry(earthRadius, 64, 64);
+    const sphereSeg = textureQuality === 'mini' ? 32 : 64;
+    const earthGeo = new THREE.SphereGeometry(earthRadius, sphereSeg, sphereSeg);
     const earthMat = new THREE.MeshStandardMaterial({
       map: earthTexture,
       roughness: 0.65,
@@ -530,7 +559,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     earthMeshRef.current = earthMesh;
     earthMatRef.current = earthMat;
 
-    const atmosphereGeo = new THREE.SphereGeometry(earthRadius * 1.035, 48, 48);
+    const atmosphereGeo = new THREE.SphereGeometry(earthRadius * 1.035, textureQuality === 'mini' ? 24 : 48, textureQuality === 'mini' ? 24 : 48);
     const atmosphereMat = new THREE.ShaderMaterial({
       vertexShader: `
         varying vec3 vNormal;
@@ -555,10 +584,11 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       transparent: true,
     });
     const atmosphereMesh = new THREE.Mesh(atmosphereGeo, atmosphereMat);
+    atmosphereMesh.visible = textureQuality === 'full';
     scene.add(atmosphereMesh);
     atmosphereMatRef.current = atmosphereMat;
 
-    const cloudGeo = new THREE.SphereGeometry(earthRadius * 1.018, 48, 48);
+    const cloudGeo = new THREE.SphereGeometry(earthRadius * 1.018, textureQuality === 'mini' ? 24 : 48, textureQuality === 'mini' ? 24 : 48);
     const cloudMat = new THREE.MeshStandardMaterial({
       map: cloudTexture,
       transparent: true,
@@ -566,6 +596,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       blending: THREE.AdditiveBlending,
     });
     const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+    cloudMesh.visible = textureQuality === 'full';
     earthGroup.add(cloudMesh);
     cloudMeshRef.current = cloudMesh;
 
@@ -579,21 +610,23 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       opacity: isDark ? 0.08 : 0.09,
     });
 
-    for (let lat = -75; lat <= 75; lat += 15) {
-      const points: THREE.Vector3[] = [];
-      for (let lon = -180; lon <= 180; lon += 5) {
-        points.push(latLonToVector3(lat, lon, earthRadius * 1.002));
+    if (textureQuality === 'full') {
+      for (let lat = -75; lat <= 75; lat += 15) {
+        const points: THREE.Vector3[] = [];
+        for (let lon = -180; lon <= 180; lon += 5) {
+          points.push(latLonToVector3(lat, lon, earthRadius * 1.002));
+        }
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+        gridGroup.add(new THREE.Line(lineGeo, gridMat));
       }
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-      gridGroup.add(new THREE.Line(lineGeo, gridMat));
-    }
-    for (let lon = -180; lon <= 180; lon += 30) {
-      const points: THREE.Vector3[] = [];
-      for (let lat = -85; lat <= 85; lat += 5) {
-        points.push(latLonToVector3(lat, lon, earthRadius * 1.002));
+      for (let lon = -180; lon <= 180; lon += 30) {
+        const points: THREE.Vector3[] = [];
+        for (let lat = -85; lat <= 85; lat += 5) {
+          points.push(latLonToVector3(lat, lon, earthRadius * 1.002));
+        }
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+        gridGroup.add(new THREE.Line(lineGeo, gridMat));
       }
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-      gridGroup.add(new THREE.Line(lineGeo, gridMat));
     }
 
     const telemetryGroup = new THREE.Group();
@@ -641,7 +674,8 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       [4, 5],
       [5, 0],
     ];
-    ARC_PAIRS.forEach(([fromIdx, toIdx], idx) => {
+    if (textureQuality === 'full') {
+      ARC_PAIRS.forEach(([fromIdx, toIdx], idx) => {
       const [lat1, lon1] = ARC_ANCHORS[fromIdx];
       const [lat2, lon2] = ARC_ANCHORS[toIdx];
       const p1 = latLonToVector3(lat1, lon1, earthRadius);
@@ -663,7 +697,8 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
         progress: (idx * 0.12) % 1,
         speed: 0.003 + (idx % 3) * 0.001,
       });
-    });
+      });
+    }
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -714,23 +749,31 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
 
     const handleResize = () => {
       if (!mount) return;
-      const w = mount.clientWidth || window.innerWidth;
-      const h = mount.clientHeight || window.innerHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        const w = mount.clientWidth || window.innerWidth;
+        const h = mount.clientHeight || window.innerHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      }, 80);
     };
+    let resizeTimer: number | undefined;
     window.addEventListener('resize', handleResize);
 
-    let animId: number;
+    let animId = 0;
     let lastHudTime = 0;
     let lastAltKm = 6400;
     let lastHeading = 0;
 
     const animate = (time: number) => {
+      if (pausedRef.current) {
+        animId = 0;
+        return;
+      }
       animId = requestAnimationFrame(animate);
 
-      cloudMesh.rotation.y += 0.0006;
+      if (cloudMesh.visible) cloudMesh.rotation.y += 0.0006;
 
       pulseObjects.forEach((p) => {
         p.progress += p.speed;
@@ -762,11 +805,15 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       renderer.render(scene, camera);
     };
 
+    resumeLoopRef.current = () => {
+      if (!animId) animate(performance.now());
+    };
     animate(0);
     setIsSceneReady(true);
 
     return () => {
       cancelAnimationFrame(animId);
+      window.clearTimeout(resizeTimer);
       window.removeEventListener('resize', handleResize);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
@@ -793,6 +840,28 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       }
     };
   }, []);
+
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount || !isSceneReady) return;
+    const apply = () => {
+      const hidden = document.hidden;
+      const vis = mount.getBoundingClientRect();
+      const off = vis.width < 8 || vis.height < 8 || vis.bottom < 0 || vis.top > window.innerHeight;
+      const next = hidden || off;
+      const was = pausedRef.current;
+      pausedRef.current = next;
+      if (was && !next) resumeLoopRef.current();
+    };
+    const io = new IntersectionObserver(apply, { threshold: 0.02 });
+    io.observe(mount);
+    document.addEventListener('visibilitychange', apply);
+    apply();
+    return () => {
+      io.disconnect();
+      document.removeEventListener('visibilitychange', apply);
+    };
+  }, [isSceneReady]);
 
   // Move selection pin when a place is chosen (search or click)
   useEffect(() => {
@@ -842,7 +911,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     const renderer = rendererRef.current;
     if (!earthMat || !atmosphereMat) return;
 
-    const { earthTexture, cloudTexture } = createEditorialEarthTextures(isDark);
+    const { earthTexture, cloudTexture } = createEditorialEarthTextures(isDark, textureQuality);
     const oldEarthMap = earthMat.map;
     earthMat.map = earthTexture;
     earthMat.needsUpdate = true;
@@ -862,7 +931,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
     if (sunLight) sunLight.intensity = isDark ? 1.4 : 2.2;
     if (rimLight) rimLight.intensity = isDark ? 0.8 : 0.5;
     if (renderer) renderer.toneMappingExposure = isDark ? 0.85 : 1.05;
-  }, [isDark]);
+  }, [isDark, textureQuality]);
 
   // ─── 4. REACTIVE LAYER TOGGLES ──────────────────────────────────────────
   useEffect(() => {
@@ -890,12 +959,12 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       {!isSceneReady && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-xs font-mono text-xs text-[#4A4238]/60 dark:text-[#91867E]">
           <span className="w-3 h-3 rounded-full bg-[#E3836C] animate-ping mr-2" />
-          <span>Initializing 3D Planetary WebGL…</span>
+          <span>{minimal ? 'Loading sources…' : 'Initializing 3D Planetary WebGL…'}</span>
         </div>
       )}
 
       {/* Ambient Mode Trigger Pill */}
-      {!pageMode && !isExpanded && isSceneReady && (
+      {!minimal && !pageMode && !isExpanded && isSceneReady && (
         <div className="absolute bottom-6 right-6 z-10">
           <button
             type="button"
@@ -910,7 +979,7 @@ export const EarthGlobe = React.forwardRef<EarthGlobeHandle, EarthGlobeProps>(fu
       )}
 
       {/* Expanded Mode: Full Google Earth Controls, Search Bar & Layers */}
-      {isExpanded && isSceneReady && (
+      {isExpanded && isSceneReady && !minimal && (
         <div className={`absolute inset-0 pointer-events-none flex flex-col justify-between p-5 sm:p-8 z-50 ${pageMode ? 'pt-3' : 'pt-20 sm:pt-24'}`}>
           
           {/* Top Bar: Close Button + Interactive Search Bar + Fly To Quick Cities */}
