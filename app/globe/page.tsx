@@ -36,6 +36,9 @@ type ComparePlace = Selected & { id: string; context?: PlaceContext | null };
 type LayerId =
   | 'catalog'
   | 'earthquakes'
+  | 'wildfires'
+  | 'storms'
+  | 'volcanoes'
   | 'weather'
   | 'air_quality'
   | 'markets'
@@ -72,12 +75,15 @@ function readRails(): { left: number; right: number } {
 const LAYERS: { id: LayerId; label: string; hint: string; color: string }[] = [
   { id: 'catalog', label: 'Sources', hint: 'Research HQ catalog', color: '#c4a28a' },
   { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS worldwide', color: '#d97706' },
+  { id: 'wildfires', label: 'Wildfires', hint: 'NASA EONET open fires', color: '#ef4444' },
+  { id: 'storms', label: 'Storms', hint: 'NASA EONET severe storms', color: '#6366f1' },
+  { id: 'volcanoes', label: 'Volcanoes', hint: 'NASA EONET volcanoes', color: '#b45309' },
   { id: 'weather', label: 'Weather', hint: 'Open-Meteo at hubs', color: '#3b82f6' },
   { id: 'air_quality', label: 'Air quality', hint: 'AQI at hubs', color: '#10b981' },
   { id: 'iss', label: 'Satellites', hint: 'ISS orbit + stations & bright sats', color: '#f43f5e' },
   { id: 'elevation', label: 'Elevation', hint: 'Meters above sea level at hubs', color: '#78716c' },
   { id: 'markets', label: 'Markets', hint: 'Live equity indices at hubs', color: '#8b5cf6' },
-  { id: 'flights', label: 'Flights', hint: 'Live aircraft (ADS-B)', color: '#0ea5e9' },
+  { id: 'flights', label: 'Flights', hint: 'Live aircraft worldwide (OpenSky/ADS-B)', color: '#0ea5e9' },
 ];
 /** Live layers: this page is the only caller of geo context/events. Poll on LIVE_LAYER_POLL_MS — never in rAF. */
 
@@ -125,6 +131,9 @@ export default function GlobePage() {
   const [layers, setLayers] = useState<Record<LayerId, boolean>>({
     catalog: true,
     earthquakes: true,
+    wildfires: false,
+    storms: false,
+    volcanoes: false,
     weather: false,
     air_quality: false,
     markets: false,
@@ -156,9 +165,20 @@ export default function GlobePage() {
 
   useEffect(() => {
     let cancelled = false;
-    const liveIds = (['earthquakes', 'weather', 'air_quality', 'markets', 'flights', 'iss', 'elevation'] as LayerId[]).filter(
-      (id) => layers[id],
-    );
+    const liveIds = (
+      [
+        'earthquakes',
+        'wildfires',
+        'storms',
+        'volcanoes',
+        'weather',
+        'air_quality',
+        'markets',
+        'flights',
+        'iss',
+        'elevation',
+      ] as LayerId[]
+    ).filter((id) => layers[id]);
 
     const buildOverlays = async () => {
       const points: SourcePoint[] = [];
@@ -229,7 +249,10 @@ export default function GlobePage() {
               kind: 'event',
               host,
               pulse: opts?.pulseMag != null && mag != null && mag >= opts.pulseMag,
-              showLabel: host !== 'flights',
+              showLabel:
+                host === 'iss'
+                  ? ev.type === 'iss' || Boolean(ev.norad_id === 25544)
+                  : host !== 'flights',
               category: ev.category,
               trackDeg: ev.track_deg != null ? Number(ev.track_deg) : undefined,
               meta: {
@@ -263,6 +286,15 @@ export default function GlobePage() {
             host: 'earthquakes',
             pulseMag: 6,
           });
+        }
+        if (layers.wildfires) {
+          pushEvents('wildfires', data.layers.wildfires?.events || [], { host: 'wildfires' });
+        }
+        if (layers.storms) {
+          pushEvents('storms', data.layers.storms?.events || [], { host: 'storms' });
+        }
+        if (layers.volcanoes) {
+          pushEvents('volcanoes', data.layers.volcanoes?.events || [], { host: 'volcanoes' });
         }
         if (layers.weather) {
           pushEvents('weather', data.layers.weather?.events || [], { host: 'weather' });

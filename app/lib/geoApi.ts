@@ -425,6 +425,9 @@ export interface GlobeEventsResponse {
   cached?: boolean;
   layers: {
     earthquakes?: GlobeLayerEvents;
+    wildfires?: GlobeLayerEvents;
+    storms?: GlobeLayerEvents;
+    volcanoes?: GlobeLayerEvents;
     weather?: GlobeLayerEvents;
     air_quality?: GlobeLayerEvents;
     markets?: GlobeLayerEvents;

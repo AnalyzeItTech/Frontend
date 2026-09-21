@@ -849,6 +849,16 @@ details > summary::-webkit-details-marker {
   border-color: rgba(254, 205, 211, 0.95);
   box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.3), 0 2px 8px rgba(28, 18, 12, 0.35);
 }
+.globe-pin--iss.globe-pin--iss-now {
+  width: 12px !important;
+  height: 12px !important;
+}
+.globe-pin--iss.globe-pin--satellite {
+  width: 7px !important;
+  height: 7px !important;
+  background: #fb7185;
+  box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.22);
+}
 .globe-pin--elevation {
   background: #78716c;
   border-color: rgba(231, 229, 228, 0.95);
@@ -867,10 +877,25 @@ details > summary::-webkit-details-marker {
   z-index: 2;
   pointer-events: auto;
 }
-.globe-event-marker .globe-pin {
+.globe-event-marker .globe-pin:not(.globe-pin--flight-icon) {
   width: 10px;
   height: 10px;
   flex-shrink: 0;
+}
+.globe-event-marker .globe-pin--flight-icon {
+  flex-shrink: 0;
+}
+.globe-pin--wildfires {
+  background: #ef4444;
+  border-color: rgba(254, 202, 202, 0.95);
+}
+.globe-pin--storms {
+  background: #6366f1;
+  border-color: rgba(199, 210, 254, 0.95);
+}
+.globe-pin--volcanoes {
+  background: #b45309;
+  border-color: rgba(253, 230, 138, 0.95);
 }
 .globe-event-marker--pulse .globe-pin {
   animation: globe-pin-pulse 1.8s ease-out infinite;

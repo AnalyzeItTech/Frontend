@@ -219,6 +219,8 @@ function EventMarker({
 }) {
   const host = point.host || 'event';
   const isFlight = host === 'flights';
+  const isSat = host === 'iss';
+  const isIssNow = isSat && (point.meta?.type === 'iss' || point.id.includes('iss-now'));
   return (
     <button
       type="button"
@@ -233,7 +235,11 @@ function EventMarker({
           <AircraftIcon category={point.category} trackDeg={point.trackDeg} />
         </span>
       ) : (
-        <span className={`globe-pin globe-pin--event globe-pin--${host}`} />
+        <span
+          className={`globe-pin globe-pin--event globe-pin--${host} ${
+            isSat && !isIssNow ? 'globe-pin--satellite' : ''
+          } ${isIssNow ? 'globe-pin--iss-now' : ''}`}
+        />
       )}
       {point.showLabel !== false && !isFlight ? (
         <span className={`globe-event-label globe-event-label--${host}`}>{point.label}</span>

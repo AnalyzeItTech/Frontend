@@ -9,7 +9,9 @@ import {
   useMemo,
   useRef,
   useState,
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
 } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
@@ -76,9 +78,9 @@ export interface GlobeContextValue {
   comparePlaces: Array<{ lat: number; lon: number; name?: string }>;
   /** Live event overlays (earthquakes, flights, …) from the full Globe page. */
   overlayPoints: SourcePoint[];
-  setOverlayPoints: (points: SourcePoint[]) => void;
+  setOverlayPoints: Dispatch<SetStateAction<SourcePoint[]>>;
   overlayPaths: OverlayPath[];
-  setOverlayPaths: (paths: OverlayPath[]) => void;
+  setOverlayPaths: Dispatch<SetStateAction<OverlayPath[]>>;
   showCatalog: boolean;
   setShowCatalog: (on: boolean) => void;
   mapProjection: MapProjectionMode;
@@ -143,6 +145,35 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
   const [stageRect, setStageRect] = useState<MountRect | null>(null);
   const [engineArmed, setEngineArmed] = useState(false);
   const [docHidden, setDocHidden] = useState(false);
+
+  // Dead-reckon aircraft between live polls so planes appear to travel.
+  useEffect(() => {
+    if (docHidden) return;
+    const id = window.setInterval(() => {
+      setOverlayPoints((prev) => {
+        let changed = false;
+        const next = prev.map((p) => {
+          if (p.host !== 'flights') return p;
+          const vel = p.meta?.velocity_ms != null ? Number(p.meta.velocity_ms) : NaN;
+          const track = p.trackDeg != null ? Number(p.trackDeg) : NaN;
+          if (!Number.isFinite(vel) || vel < 15 || !Number.isFinite(track)) return p;
+          const rad = (track * Math.PI) / 180;
+          const R = 6371000;
+          const dLat = ((vel * Math.cos(rad)) / R) * (180 / Math.PI);
+          const cosLat = Math.cos((p.lat * Math.PI) / 180);
+          const dLon =
+            cosLat > 0.05 ? ((vel * Math.sin(rad)) / (R * cosLat)) * (180 / Math.PI) : 0;
+          changed = true;
+          let lon = p.lon + dLon;
+          if (lon > 180) lon -= 360;
+          if (lon < -180) lon += 360;
+          return { ...p, lat: Math.max(-85, Math.min(85, p.lat + dLat)), lon };
+        });
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [docHidden]);
 
   const mountsRef = useRef<{ mini: HTMLElement | null; full: HTMLElement | null }>({
     mini: null,
