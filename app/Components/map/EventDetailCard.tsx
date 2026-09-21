@@ -3,6 +3,51 @@
 import { IconPlane, IconSatellite, IconX } from '@tabler/icons-react';
 import type { SourcePoint } from '../globe/types';
 
+function fmtAltitude(meta: Record<string, unknown>): string | null {
+  const m = meta.altitude_m != null ? Number(meta.altitude_m) : NaN;
+  if (!Number.isFinite(m)) return null;
+  const ft = Math.round(m / 0.3048);
+  return `${ft.toLocaleString()} ft (${Math.round(m).toLocaleString()} m)`;
+}
+
+function fmtSpeed(meta: Record<string, unknown>): string | null {
+  const ms = meta.velocity_ms != null ? Number(meta.velocity_ms) : NaN;
+  if (!Number.isFinite(ms)) return null;
+  const kt = Math.round(ms / 0.514444);
+  const kmh = Math.round(ms * 3.6);
+  return `${kt} kt (${kmh} km/h)`;
+}
+
+function fmtTrack(meta: Record<string, unknown>): string | null {
+  const deg = meta.track_deg != null ? Number(meta.track_deg) : NaN;
+  if (!Number.isFinite(deg)) return null;
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const idx = Math.round((((deg % 360) + 360) % 360) / 45) % 8;
+  return `${Math.round(deg)}° ${dirs[idx]}`;
+}
+
+function fmtVerticalRate(meta: Record<string, unknown>): string | null {
+  const ms = meta.vertical_rate_ms != null ? Number(meta.vertical_rate_ms) : NaN;
+  if (!Number.isFinite(ms) || Math.abs(ms) < 0.3) return null;
+  const fpm = Math.round(ms / 0.00508);
+  if (fpm > 0) return `+${fpm.toLocaleString()} ft/min`;
+  return `${fpm.toLocaleString()} ft/min`;
+}
+
+function fmtLastSeen(meta: Record<string, unknown>): string | null {
+  const ts = meta.last_seen != null ? Number(meta.last_seen) : NaN;
+  if (!Number.isFinite(ts) || ts <= 0) return null;
+  const ageSec = Math.max(0, Math.round(Date.now() / 1000 - ts));
+  if (ageSec < 5) return 'just now';
+  if (ageSec < 60) return `${ageSec}s ago`;
+  if (ageSec < 3600) return `${Math.round(ageSec / 60)}m ago`;
+  try {
+    return new Date(ts * 1000).toLocaleString();
+  } catch {
+    return `${ageSec}s ago`;
+  }
+}
+
 export function EventDetailCard({
   point,
   onClose,
@@ -20,15 +65,30 @@ export function EventDetailCard({
   if (isFlight) {
     if (meta.callsign) rows.push(['Callsign', String(meta.callsign)]);
     if (meta.registration) rows.push(['Registration', String(meta.registration)]);
-    if (meta.typecode) rows.push(['Type', String(meta.typecode)]);
-    if (meta.category) rows.push(['Category', String(meta.category)]);
-    if (meta.altitude_m != null) rows.push(['Altitude', `${Math.round(Number(meta.altitude_m))} m`]);
-    if (meta.velocity_ms != null) {
-      rows.push(['Speed', `${Math.round(Number(meta.velocity_ms) * 3.6)} km/h`]);
+    if (meta.icao) rows.push(['ICAO24', String(meta.icao)]);
+    if (meta.typecode) rows.push(['Type code', String(meta.typecode)]);
+    if (meta.aircraft_desc) rows.push(['Aircraft', String(meta.aircraft_desc)]);
+    if (meta.category && meta.category !== 'unknown') {
+      rows.push(['Category', String(meta.category)]);
     }
-    if (meta.track_deg != null) rows.push(['Track', `${Math.round(Number(meta.track_deg))}°`]);
-    if (meta.hub) rows.push(['Near', String(meta.hub)]);
-    if (meta.icao) rows.push(['ICAO', String(meta.icao)]);
+    if (meta.on_ground === true) rows.push(['Status', 'On ground']);
+    else if (meta.on_ground === false) rows.push(['Status', 'Airborne']);
+    const alt = fmtAltitude(meta);
+    if (alt) rows.push(['Altitude', alt]);
+    const spd = fmtSpeed(meta);
+    if (spd) rows.push(['Ground speed', spd]);
+    const track = fmtTrack(meta);
+    if (track) rows.push(['Heading', track]);
+    const vrate = fmtVerticalRate(meta);
+    if (vrate) rows.push(['Climb/descent', vrate]);
+    if (meta.squawk) rows.push(['Squawk', String(meta.squawk)]);
+    if (meta.origin_country) {
+      rows.push(['Registered in', String(meta.origin_country)]);
+    }
+    if (meta.hub) rows.push(['Sample region', String(meta.hub)]);
+    const seen = fmtLastSeen(meta);
+    if (seen) rows.push(['Last position', seen]);
+    rows.push(['Route / OD', 'Not on free ADS-B feed']);
   } else if (isSat) {
     if (meta.name || point.label) rows.push(['Name', String(meta.name || point.label)]);
     if (meta.norad_id != null) rows.push(['NORAD', String(meta.norad_id)]);
@@ -100,7 +160,9 @@ export function EventDetailCard({
         ))}
       </dl>
       <p className="border-t border-[var(--border)] px-4 py-2 text-[11px] text-[var(--text-muted)]">
-        Live overlay — not a place lookup. Markers stay on the map while you inspect.
+        {isFlight
+          ? 'Live ADS-B / OpenSky position — origin & destination need a separate schedule API.'
+          : 'Live overlay — not a place lookup. Markers stay on the map while you inspect.'}
       </p>
     </div>
   );

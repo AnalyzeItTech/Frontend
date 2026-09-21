@@ -25,7 +25,22 @@ describe('bug #7 — overlay build ignores place selection/context', () => {
       {
         flights: {
           events: [
-            { id: 'a1', lat: 40.1, lon: -74.2, callsign: 'UAL1', track_deg: 90 },
+            {
+              id: 'a1',
+              lat: 40.1,
+              lon: -74.2,
+              callsign: 'UAL1',
+              track_deg: 90,
+              altitude_m: 10000,
+              velocity_ms: 220,
+              squawk: '1234',
+              origin_country: 'United States',
+              on_ground: false,
+              last_seen: 1700000000,
+              vertical_rate_ms: 1.5,
+              aircraft_desc: 'BOEING 737-800',
+              route_available: false,
+            },
             { id: 'a2', lat: 51.5, lon: -0.1, callsign: 'BAW2', track_deg: 180 },
           ],
         },
@@ -56,6 +71,16 @@ describe('bug #7 — overlay build ignores place selection/context', () => {
     assert.equal(paths.length, 1);
     assert.equal(paths[0].id, 'iss-orbit');
     assert.deepEqual(paths[0].coordinates[0], [20, 10]);
+
+    const flight = points.find((p) => p.id === 'flights:a1');
+    assert.ok(flight);
+    assert.equal(flight.meta.squawk, '1234');
+    assert.equal(flight.meta.origin_country, 'United States');
+    assert.equal(flight.meta.on_ground, false);
+    assert.equal(flight.meta.aircraft_desc, 'BOEING 737-800');
+    assert.equal(flight.meta.route_available, false);
+    assert.equal(flight.meta.vertical_rate_ms, 1.5);
+    assert.equal(flight.trackDeg, 90);
   });
 
   it('never emits legacy place-context overlay id shapes', () => {
