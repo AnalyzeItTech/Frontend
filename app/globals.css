@@ -897,6 +897,11 @@ details > summary::-webkit-details-marker {
   background: #b45309;
   border-color: rgba(253, 230, 138, 0.95);
 }
+.globe-pin--disasters {
+  background: #dc2626;
+  border-color: rgba(254, 202, 202, 0.95);
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+}
 .globe-event-marker--pulse .globe-pin {
   animation: globe-pin-pulse 1.8s ease-out infinite;
 }

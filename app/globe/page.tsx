@@ -39,6 +39,7 @@ type LayerId =
   | 'wildfires'
   | 'storms'
   | 'volcanoes'
+  | 'disasters'
   | 'weather'
   | 'air_quality'
   | 'markets'
@@ -73,8 +74,9 @@ function readRails(): { left: number; right: number } {
 }
 
 const LAYERS: { id: LayerId; label: string; hint: string; color: string }[] = [
-  { id: 'catalog', label: 'Sources', hint: 'Research HQ catalog', color: '#c4a28a' },
+  { id: 'catalog', label: 'Sources', hint: 'Research HQ catalog (~90+)', color: '#c4a28a' },
   { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS worldwide', color: '#d97706' },
+  { id: 'disasters', label: 'Disasters', hint: 'GDACS alerts', color: '#dc2626' },
   { id: 'wildfires', label: 'Wildfires', hint: 'NASA EONET open fires', color: '#ef4444' },
   { id: 'storms', label: 'Storms', hint: 'NASA EONET severe storms', color: '#6366f1' },
   { id: 'volcanoes', label: 'Volcanoes', hint: 'NASA EONET volcanoes', color: '#b45309' },
@@ -131,6 +133,7 @@ export default function GlobePage() {
   const [layers, setLayers] = useState<Record<LayerId, boolean>>({
     catalog: true,
     earthquakes: true,
+    disasters: false,
     wildfires: false,
     storms: false,
     volcanoes: false,
@@ -168,6 +171,7 @@ export default function GlobePage() {
     const liveIds = (
       [
         'earthquakes',
+        'disasters',
         'wildfires',
         'storms',
         'volcanoes',
@@ -286,6 +290,9 @@ export default function GlobePage() {
             host: 'earthquakes',
             pulseMag: 6,
           });
+        }
+        if (layers.disasters) {
+          pushEvents('disasters', data.layers.disasters?.events || [], { host: 'disasters' });
         }
         if (layers.wildfires) {
           pushEvents('wildfires', data.layers.wildfires?.events || [], { host: 'wildfires' });
