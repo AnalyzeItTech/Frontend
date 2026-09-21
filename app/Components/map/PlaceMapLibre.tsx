@@ -15,6 +15,9 @@ import type {
   OverlayPath,
   SourcePoint,
 } from '../globe/types';
+import { ensureMapLibreWorker, isFrontFacing } from './maplibreSetup';
+
+ensureMapLibreWorker();
 
 export { GLOBE_HUBS };
 
@@ -71,6 +74,83 @@ function easeOutBackSoft(t: number) {
   const c1 = 1.18;
   const c3 = c1 + 1;
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+function OrbitSvgOverlay({
+  map,
+  paths,
+  mapProjection,
+}: {
+  map: MapLibreMap | null;
+  paths: OverlayPath[];
+  mapProjection: MapProjectionMode;
+}) {
+  const [pathD, setPathD] = useState('');
+
+  useEffect(() => {
+    if (!map || paths.length === 0) {
+      setPathD('');
+      return;
+    }
+
+    const redraw = () => {
+      const center = map.getCenter();
+      const parts: string[] = [];
+      for (const path of paths) {
+        let penDown = false;
+        let chunk = '';
+        let prevX = 0;
+        for (const [lon, lat] of path.coordinates) {
+          const front =
+            mapProjection !== 'globe' || isFrontFacing(center.lat, center.lng, lat, lon, 0.02);
+          if (!front) {
+            penDown = false;
+            continue;
+          }
+          const pt = map.project([lon, lat]);
+          if (!Number.isFinite(pt.x) || !Number.isFinite(pt.y)) {
+            penDown = false;
+            continue;
+          }
+          // Screen-space antimeridian / wrap jump
+          if (penDown && Math.abs(pt.x - prevX) > map.getContainer().clientWidth * 0.45) {
+            penDown = false;
+          }
+          chunk += penDown ? `L${pt.x.toFixed(1)},${pt.y.toFixed(1)}` : `M${pt.x.toFixed(1)},${pt.y.toFixed(1)}`;
+          prevX = pt.x;
+          penDown = true;
+        }
+        if (chunk) parts.push(chunk);
+      }
+      setPathD(parts.join(''));
+    };
+
+    redraw();
+    map.on('move', redraw);
+    map.on('resize', redraw);
+    return () => {
+      map.off('move', redraw);
+      map.off('resize', redraw);
+    };
+  }, [map, mapProjection, paths]);
+
+  if (!pathD) return null;
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible"
+      aria-hidden
+    >
+      <path
+        d={pathD}
+        fill="none"
+        stroke="#f43f5e"
+        strokeWidth={2.75}
+        strokeOpacity={0.92}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 function flyEase(t: number) {
@@ -198,10 +278,16 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
   const { theme } = useTheme();
   const mapTheme = theme === 'dark' ? 'dark' : 'streets';
   const [config, setConfig] = useState<MapConfig | null>(null);
+  const [mapInstance, setMapInstance] = useState<MapLibreMap | null>(null);
+  const [frontKeys, setFrontKeys] = useState<Set<string> | null>(null);
   const flyGenRef = useRef(0);
   const engineReadyRef = useRef(false);
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
+
+  useEffect(() => {
+    ensureMapLibreWorker();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -440,6 +526,47 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     applyAtmosphere(map);
   }, [applyAtmosphere, getMap, mapProjection]);
 
+  // Cull far-side HTML markers so Sydney isn't clickable while facing Mexico
+  useEffect(() => {
+    const map = mapInstance || getMap();
+    if (!map) return;
+
+    const updateFacing = () => {
+      if (mapProjection !== 'globe') {
+        setFrontKeys(null); // null = all visible (flat map)
+        return;
+      }
+      const c = map.getCenter();
+      const next = new Set<string>();
+      for (const hub of GLOBE_HUBS) {
+        if (isFrontFacing(c.lat, c.lng, hub.lat, hub.lon)) next.add(`hub:${hub.name}`);
+      }
+      for (const p of sourcePoints) {
+        if (isFrontFacing(c.lat, c.lng, p.lat, p.lon)) next.add(p.id);
+      }
+      for (const p of comparePlaces) {
+        if (isFrontFacing(c.lat, c.lng, p.lat, p.lon)) next.add(`cmp:${p.lat},${p.lon}`);
+      }
+      if (selected && isFrontFacing(c.lat, c.lng, selected.lat, selected.lon)) {
+        next.add(`sel:${selected.lat},${selected.lon}`);
+      }
+      setFrontKeys(next);
+    };
+
+    updateFacing();
+    map.on('move', updateFacing);
+    map.on('moveend', updateFacing);
+    return () => {
+      map.off('move', updateFacing);
+      map.off('moveend', updateFacing);
+    };
+  }, [comparePlaces, getMap, mapInstance, mapProjection, selected, sourcePoints]);
+
+  const isFacing = useCallback(
+    (key: string) => frontKeys == null || frontKeys.has(key),
+    [frontKeys],
+  );
+
   const pixelRatio = variant === 'mini' ? miniPixelRatio() : fullPixelRatio();
 
   // Hooks must run before any early return (config loads async).
@@ -530,6 +657,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         onLoad={(evt) => {
           try {
             const map = evt.target as MapLibreMap;
+            setMapInstance(map);
             applyAtmosphere(map);
             try {
               map.setPixelRatio(pixelRatio);
@@ -573,70 +701,103 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         ) : null}
 
         {variant === 'full' || variant === 'mini'
-          ? GLOBE_HUBS.map((hub) => (
-              <Marker
-                key={hub.name}
-                longitude={hub.lon}
-                latitude={hub.lat}
-                anchor="center"
-                onClick={(e) => {
-                  e.originalEvent.stopPropagation();
-                  if (variant === 'mini') return;
-                  onHubSelect?.(hub);
-                }}
-              >
-                <SourcePin
-                  point={{
-                    id: `hub:${hub.name}`,
-                    lat: hub.lat,
-                    lon: hub.lon,
-                    label: hub.name,
-                    kind: 'hub',
+          ? GLOBE_HUBS.map((hub) => {
+              const key = `hub:${hub.name}`;
+              const facing = isFacing(key);
+              return (
+                <Marker
+                  key={hub.name}
+                  longitude={hub.lon}
+                  latitude={hub.lat}
+                  anchor="center"
+                  style={{
+                    pointerEvents: facing ? 'auto' : 'none',
+                    opacity: facing ? 1 : 0,
                   }}
-                  selected={_activeHub === hub.name}
-                />
-              </Marker>
-            ))
+                  onClick={(e) => {
+                    e.originalEvent.stopPropagation();
+                    if (variant === 'mini' || !facing) return;
+                    onHubSelect?.(hub);
+                  }}
+                >
+                  <SourcePin
+                    point={{
+                      id: key,
+                      lat: hub.lat,
+                      lon: hub.lon,
+                      label: hub.name,
+                      kind: 'hub',
+                    }}
+                    selected={_activeHub === hub.name}
+                  />
+                </Marker>
+              );
+            })
           : null}
 
         {sourcePoints
           .filter((p) => p.kind !== 'hub')
-          .map((point) => (
+          .map((point) => {
+            const facing = isFacing(point.id);
+            return (
+              <Marker
+                key={point.id}
+                longitude={point.lon}
+                latitude={point.lat}
+                anchor={point.kind === 'event' ? 'bottom' : 'center'}
+                style={{
+                  pointerEvents: facing ? 'auto' : 'none',
+                  opacity: facing ? 1 : 0,
+                }}
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation();
+                  if (variant === 'mini' || !facing) return;
+                  onPlaceSelect?.({ lat: point.lat, lon: point.lon, name: point.label });
+                }}
+              >
+                <SourcePin
+                  point={point}
+                  selected={selected?.lat === point.lat && selected?.lon === point.lon}
+                />
+              </Marker>
+            );
+          })}
+
+        {comparePlaces.map((p, i) => {
+          const key = `cmp:${p.lat},${p.lon}`;
+          const facing = isFacing(key);
+          return (
             <Marker
-              key={point.id}
-              longitude={point.lon}
-              latitude={point.lat}
-              anchor={point.kind === 'event' ? 'bottom' : 'center'}
-              onClick={(e) => {
-                e.originalEvent.stopPropagation();
-                if (variant === 'mini') return;
-                onPlaceSelect?.({ lat: point.lat, lon: point.lon, name: point.label });
+              key={`cmp-${p.lat}-${p.lon}-${i}`}
+              longitude={p.lon}
+              latitude={p.lat}
+              anchor="center"
+              style={{
+                pointerEvents: 'none',
+                opacity: facing ? 1 : 0,
               }}
             >
-              <SourcePin
-                point={point}
-                selected={selected?.lat === point.lat && selected?.lon === point.lon}
-              />
+              <span className="globe-pin globe-pin--compare" title={p.name} />
             </Marker>
-          ))}
-
-        {comparePlaces.map((p, i) => (
-          <Marker
-            key={`cmp-${p.lat}-${p.lon}-${i}`}
-            longitude={p.lon}
-            latitude={p.lat}
-            anchor="center"
-          >
-            <span className="globe-pin globe-pin--compare" title={p.name} />
-          </Marker>
-        ))}
+          );
+        })}
 
         {selected && !liveIds.has(`place:${selected.lat.toFixed(3)}:${selected.lon.toFixed(3)}`) ? (
-          <Marker longitude={selected.lon} latitude={selected.lat} anchor="bottom">
+          <Marker
+            longitude={selected.lon}
+            latitude={selected.lat}
+            anchor="bottom"
+            style={{
+              pointerEvents: 'none',
+              opacity: isFacing(`sel:${selected.lat},${selected.lon}`) ? 1 : 0,
+            }}
+          >
             <span className="globe-selection-pin" title={selected.name || 'Selected'} />
           </Marker>
         ) : null}
       </Map>
+
+      <OrbitSvgOverlay map={mapInstance} paths={overlayPaths} mapProjection={mapProjection} />
 
       {mapProjection === 'globe' ? (
         <>

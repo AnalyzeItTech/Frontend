@@ -73,10 +73,10 @@ const LAYERS: { id: LayerId; label: string; hint: string; color: string }[] = [
   { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS worldwide', color: '#d97706' },
   { id: 'weather', label: 'Weather', hint: 'Open-Meteo at hubs', color: '#3b82f6' },
   { id: 'air_quality', label: 'Air quality', hint: 'AQI at hubs', color: '#10b981' },
-  { id: 'iss', label: 'ISS', hint: 'Live position + full orbit track', color: '#f43f5e' },
+  { id: 'iss', label: 'ISS', hint: 'Live position + full orbit track (toggle on)', color: '#f43f5e' },
   { id: 'elevation', label: 'Elevation', hint: 'Meters above sea level at hubs', color: '#78716c' },
   { id: 'markets', label: 'Markets', hint: 'Live equity indices at hubs', color: '#8b5cf6' },
-  { id: 'flights', label: 'Flights', hint: 'OpenSky aircraft worldwide', color: '#0ea5e9' },
+  { id: 'flights', label: 'Flights', hint: 'OpenSky near hubs (toggle on)', color: '#0ea5e9' },
 ];
 /** Live layers: this page is the only caller of geo context/events. Poll on LIVE_LAYER_POLL_MS — never in rAF. */
 
