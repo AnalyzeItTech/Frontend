@@ -60,7 +60,8 @@ const LAYERS: { id: LayerId; label: string }[] = [
   { id: 'markets', label: 'Markets' },
   { id: 'custom', label: 'Custom metrics' },
 ];
-/** When these land, poll on LIVE_LAYER_POLL_MS — never inside the map render loop. */
+/** Live layers: this page is the only caller of POST /v1/geo/context (TTL cache on A).
+ *  Chat mini-globe skips live layers entirely. Poll on LIVE_LAYER_POLL_MS — never in rAF. */
 
 function placeId(p: { lat: number; lon: number; name?: string }) {
   return `${(p.name || 'p').toLowerCase()}-${p.lat.toFixed(3)}-${p.lon.toFixed(3)}`;

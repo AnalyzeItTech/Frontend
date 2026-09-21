@@ -15,7 +15,7 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { catalogArchivePoints } from './sourceCatalog';
+import { catalogArchivePoints, fetchRegistryPoints } from './sourceCatalog';
 import { calloutFor, resolveChatIngest } from './resolveSources';
 import type {
   ChatRunIngest,
@@ -80,7 +80,6 @@ export interface GlobeContextValue {
 
 const GlobeContext = createContext<GlobeContextValue | null>(null);
 
-const ARCHIVE_POINTS = catalogArchivePoints();
 const FLIP_MS = 520;
 
 function sleep(ms: number, gen: number, genRef: { current: number }) {
@@ -105,6 +104,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
   const [variant, setVariant] = useState<GlobeVariant>('parked');
   const [camera, setCamera] = useState<GlobeCamera>(DEFAULT_CAMERA);
   const [activePoints, setActivePoints] = useState<SourcePoint[]>([]);
+  const [archivePoints, setArchivePoints] = useState<SourcePoint[]>(() => catalogArchivePoints());
   const [selectedPoint, setSelectedPoint] = useState<SourcePoint | null>(null);
   const [inFlight, setInFlight] = useState(false);
   const [pendingFlyTarget, setPendingFlyTarget] = useState<SourcePoint | null>(null);
@@ -155,6 +155,19 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', onVis);
     };
   }, []);
+
+  useEffect(() => {
+    // Catalog HQ pins from GET /v1/sources (near-static). Live weather/markets
+    // are not loaded here — only the full Globe page hits POST /v1/geo/context.
+    if (!engineArmed) return;
+    let cancelled = false;
+    void fetchRegistryPoints().then((points) => {
+      if (!cancelled && points.length) setArchivePoints(points);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [engineArmed]);
 
   const syncVariantAndRect = useCallback(() => {
     const full = mountsRef.current.full;
@@ -463,7 +476,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       : { top: 0, left: 0, width: 1, height: 1 });
   const displayPoints =
     variant === 'full'
-      ? [...ARCHIVE_POINTS, ...activePoints]
+      ? [...archivePoints, ...activePoints]
       : activePoints.slice(-MINI_PIN_CAP);
 
   useEffect(() => {
@@ -477,7 +490,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       variant,
       camera,
       activePoints,
-      archivePoints: ARCHIVE_POINTS,
+      archivePoints,
       selectedPoint,
       inFlight,
       pendingFlyTarget,
@@ -504,6 +517,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       variant,
       camera,
       activePoints,
+      archivePoints,
       selectedPoint,
       inFlight,
       pendingFlyTarget,

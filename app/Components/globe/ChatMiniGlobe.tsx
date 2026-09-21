@@ -3,6 +3,7 @@
 import { GlobeCanvas } from './GlobeCanvas';
 import { useGlobe } from './useGlobe';
 
+/** Chat-mode globe: source pins only. Never calls POST /v1/geo/context. */
 export function ChatMiniGlobe() {
   const { flyCallout, inFlight, activePoints, mapReady, expandToFull, selectedPoint } = useGlobe();
 

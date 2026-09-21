@@ -353,6 +353,7 @@ export async function searchPlaces(query: string, limit = 8): Promise<GeoSearchH
   return searchPlacesOpenMeteo(q, limit);
 }
 
+/** Full Globe page only. Chat mini-globe must not call this. */
 export async function fetchPlaceContext(latitude: number, longitude: number): Promise<PlaceContext> {
   const res = await fetch(`${API_BASE}/v1/geo/context`, {
     method: 'POST',

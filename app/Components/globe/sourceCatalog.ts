@@ -187,5 +187,51 @@ export function hubPoints(): SourcePoint[] {
     lon: hub.lon,
     label: hub.name,
     kind: 'hub' as const,
+    pulse: false,
   }));
+}
+
+/** Catalog HQ pins from GET /v1/sources (near-static). Not project-scoped usage. */
+export async function fetchRegistryPoints(): Promise<SourcePoint[]> {
+  const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  try {
+    const { getAuthHeaders } = await import('../../lib/auth');
+    const res = await fetch(`${api}/v1/sources`, { headers: getAuthHeaders() });
+    if (!res.ok) return catalogArchivePoints();
+    const data = (await res.json()) as {
+      sources?: Array<{
+        source_id?: string;
+        title?: string;
+        domain?: string;
+        lat?: number;
+        lng?: number;
+        category?: string;
+      }>;
+    };
+    const points: SourcePoint[] = [];
+    const seen = new Set<string>();
+    for (const row of data.sources || []) {
+      const lat = row.lat;
+      const lon = row.lng;
+      if (typeof lat !== 'number' || typeof lon !== 'number') continue;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const host = row.domain || row.source_id || '';
+      points.push({
+        id: `archive:${row.source_id || host}`,
+        lat,
+        lon,
+        label: row.title || host,
+        host,
+        source_id: row.source_id,
+        kind: 'archive',
+        pulse: false,
+      });
+    }
+    return points.length ? points : catalogArchivePoints();
+  } catch {
+    return catalogArchivePoints();
+  }
 }
