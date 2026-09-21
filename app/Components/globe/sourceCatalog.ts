@@ -230,8 +230,20 @@ export async function fetchRegistryPoints(): Promise<SourcePoint[]> {
         pulse: false,
       });
     }
-    return points.length ? points : catalogArchivePoints();
+    return points.length ? mergeArchivePoints(catalogArchivePoints(), points) : catalogArchivePoints();
   } catch {
     return catalogArchivePoints();
   }
+}
+
+function mergeArchivePoints(base: SourcePoint[], extra: SourcePoint[]): SourcePoint[] {
+  const seen = new Set(base.map((p) => `${p.lat.toFixed(3)},${p.lon.toFixed(3)}`));
+  const out = [...base];
+  for (const p of extra) {
+    const key = `${p.lat.toFixed(3)},${p.lon.toFixed(3)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+  }
+  return out;
 }

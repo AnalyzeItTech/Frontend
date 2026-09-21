@@ -1142,12 +1142,13 @@ function ChatInner() {
         <div className="flex min-h-0 flex-1">
           {/* Main chat column */}
           <div
-            className={`relative flex min-h-0 min-w-0 flex-col transition-all ${
+            className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden transition-all ${
               showDashboard ? 'w-full lg:w-[55%] xl:w-[58%] border-r border-[var(--border)]' : 'w-full'
             }`}
           >
+            <ChatMiniGlobe />
             {/* Toolbar */}
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-2.5 sm:px-6">
+            <div className="relative z-10 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)]/70 bg-[var(--bg)]/55 px-4 py-2.5 backdrop-blur-md sm:px-6">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-[var(--text-primary)]">
                   {composerMode === 'research' ? 'Chat · Research on' : 'Chat'}
@@ -1182,6 +1183,7 @@ function ChatInner() {
               </div>
             </div>
 
+            <div className="relative z-10">
             <SessionStartAd enabled={!adsFree} />
 
             {promoteNudge?.eligible && promoteNudge.message && (
@@ -1210,17 +1212,19 @@ function ChatInner() {
                 </div>
               </div>
             )}
+            </div>
 
             {/* Messages */}
             <div
               ref={scrollRef}
               onScroll={handleScroll}
               data-lenis-prevent
-              className="chat-scroll min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6"
+              className="chat-scroll relative z-10 min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6"
             >
+              <div className="w-full max-w-[36rem] space-y-4">
               {messages.length === 0 && (
-                <div className="mx-auto flex min-h-full max-w-xl flex-col justify-center px-1 py-6 sm:py-10">
-                  <div className="app-card space-y-5 p-6 sm:p-8">
+                <div className="flex min-h-[min(28rem,70%)] flex-col justify-center py-6 sm:py-10">
+                  <div className="app-card space-y-5 bg-[var(--surface)]/92 p-6 shadow-lg backdrop-blur-md sm:p-8">
                     <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-card,14px)] bg-[var(--coral,#EA8069)]/12 text-[var(--coral,#EA8069)]">
                       <IconMessageDots size={22} />
                     </div>
@@ -1259,12 +1263,12 @@ function ChatInner() {
                     className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[min(100%,36rem)] space-y-2 ${
+                      className={`max-w-full space-y-2 ${
                         isUser
                           ? isIncognito
-                            ? 'rounded-2xl rounded-tr-md bg-violet-900/60 border border-violet-500/30 px-4 py-3 text-sm text-violet-50'
+                            ? 'rounded-2xl rounded-tr-md bg-violet-900/80 border border-violet-500/30 px-4 py-3 text-sm text-violet-50'
                             : 'rounded-2xl rounded-tr-md bg-[var(--text-primary)] px-4 py-3 text-sm text-[var(--bg)]'
-                          : 'app-card px-4 py-3 text-sm'
+                          : 'app-card bg-[var(--surface)]/92 px-4 py-3 text-sm shadow-sm backdrop-blur-md'
                       }`}
                     >
                       {!isUser && msg.mode === 'research' && (
@@ -1425,11 +1429,12 @@ function ChatInner() {
                   </motion.div>
                 );
               })}
+              </div>
             </div>
 
             {/* Errors */}
             {error && (
-              <p role="alert" className="mx-4 mb-2 rounded-[var(--radius-card,14px)] border border-[var(--border)] bg-[var(--surface,#FFFCF8)] px-3 py-2 text-xs text-[var(--text,#3A342D)] sm:mx-6">
+              <p role="alert" className="relative z-10 mx-4 mb-2 rounded-[var(--radius-card,14px)] border border-[var(--border)] bg-[var(--surface,#FFFCF8)]/95 px-3 py-2 text-xs text-[var(--text,#3A342D)] sm:mx-6">
                 {error}
                 {upgradeHref ? (
                   <Link href="/billing" className="ml-2 inline-flex min-h-8 items-center rounded-full bg-[var(--coral,#EA8069)] px-3 text-[11px] font-medium text-white">
@@ -1498,7 +1503,7 @@ function ChatInner() {
             ) : null}
 
             {/* Composer — pinned to the bottom of the chat column */}
-            <div className="z-20 shrink-0 border-t border-[var(--border)] bg-[var(--bg)] px-3 py-3 sm:px-6">
+            <div className="relative z-10 shrink-0 border-t border-[var(--border)]/70 bg-[var(--bg)]/70 px-3 py-3 backdrop-blur-md sm:px-6">
               <div className="mx-auto max-w-3xl space-y-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <div
@@ -1753,7 +1758,6 @@ function ChatInner() {
                 </form>
               </div>
             </div>
-            <ChatMiniGlobe />
           </div>
 
           {/* On-demand dashboard side panel */}

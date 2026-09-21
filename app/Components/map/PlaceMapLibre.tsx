@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react';
-import Map, { Marker, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
-import type { CircleLayerSpecification, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
+import Map, { Marker, type MapRef } from 'react-map-gl/maplibre';
+import type { Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from '../ui/ThemeProvider';
 import { GLOBE_HUBS } from '../globe/sourceCatalog';
@@ -76,7 +76,7 @@ function SourcePin({
   selected?: boolean;
 }) {
   const size =
-    point.kind === 'live' ? 11 : point.kind === 'place' ? 10 : point.kind === 'hub' ? 8 : point.tier === 'trusted' ? 6 : 4.5;
+    point.kind === 'live' ? 12 : point.kind === 'place' ? 11 : point.kind === 'hub' ? 9 : point.tier === 'trusted' ? 7 : 5.5;
   return (
     <button
       type="button"
@@ -117,71 +117,6 @@ function resumeMapLoop(map: MapLibreMap) {
     /* ignore */
   }
 }
-
-function pinCollection(
-  points: SourcePoint[],
-  variant: GlobeVariant,
-): GeoJSON.FeatureCollection {
-  const features: GeoJSON.Feature[] = [];
-  if (variant === 'full') {
-    for (const hub of GLOBE_HUBS) {
-      features.push({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [hub.lon, hub.lat] },
-        properties: { id: `hub:${hub.name}`, kind: 'hub', label: hub.name, host: '', pulse: false },
-      });
-    }
-  }
-  for (const p of points) {
-    if (p.kind === 'hub') continue;
-    features.push({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-      properties: {
-        id: p.id,
-        kind: p.kind,
-        label: p.label,
-        host: p.host || '',
-        pulse: Boolean(p.pulse),
-        tier: p.tier || '',
-      },
-    });
-  }
-  return { type: 'FeatureCollection', features };
-}
-
-const PIN_LAYER: CircleLayerSpecification = {
-  id: 'globe-source-pins',
-  type: 'circle',
-  source: 'globe-pins',
-  paint: {
-    'circle-radius': [
-      'match',
-      ['get', 'kind'],
-      'live',
-      6,
-      'place',
-      5.5,
-      'hub',
-      4.5,
-      ['match', ['get', 'tier'], 'trusted', 3.5, 2.5],
-    ],
-    'circle-color': [
-      'match',
-      ['get', 'kind'],
-      'live',
-      '#ea8069',
-      'place',
-      '#ea8069',
-      'hub',
-      '#e3836c',
-      '#c4a28a',
-    ],
-    'circle-stroke-width': 1.15,
-    'circle-stroke-color': 'rgba(255,255,255,0.92)',
-    'circle-opacity': 0.95,
-  },
-};
 
 export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(function PlaceMapLibre(
   {
@@ -447,11 +382,6 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     [fog, mapTheme],
   );
 
-  const pinGeo = useMemo(() => pinCollection(sourcePoints, variant), [sourcePoints, variant]);
-  const pulsePins = useMemo(
-    () => sourcePoints.filter((p) => p.pulse && p.kind !== 'hub').slice(0, 4),
-    [sourcePoints],
-  );
   const pixelRatio = variant === 'mini' ? miniPixelRatio() : fullPixelRatio();
 
   if (!config) {
@@ -491,7 +421,6 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         fadeDuration={variant === 'mini' ? 0 : 300}
         maxTileCacheSize={variant === 'mini' ? 48 : 180}
         renderWorldCopies={variant === 'full'}
-        interactiveLayerIds={['globe-source-pins']}
         style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
         cursor={interactive ? 'crosshair' : 'pointer'}
         onLoad={(evt) => {
@@ -533,18 +462,53 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
           onMapError?.(msg);
         }}
       >
-        <Source id="globe-pins" type="geojson" data={pinGeo}>
-          <Layer {...PIN_LAYER} />
-        </Source>
+        {variant === 'full' || variant === 'mini'
+          ? GLOBE_HUBS.map((hub) => (
+              <Marker
+                key={hub.name}
+                longitude={hub.lon}
+                latitude={hub.lat}
+                anchor="center"
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation();
+                  if (variant === 'mini') return;
+                  onHubSelect?.(hub);
+                }}
+              >
+                <SourcePin
+                  point={{
+                    id: `hub:${hub.name}`,
+                    lat: hub.lat,
+                    lon: hub.lon,
+                    label: hub.name,
+                    kind: 'hub',
+                  }}
+                  selected={_activeHub === hub.name}
+                />
+              </Marker>
+            ))
+          : null}
 
-        {pulsePins.map((point) => (
-          <Marker key={`pulse-${point.id}`} longitude={point.lon} latitude={point.lat} anchor="center">
-            <SourcePin
-              point={point}
-              selected={selected?.lat === point.lat && selected?.lon === point.lon}
-            />
-          </Marker>
-        ))}
+        {sourcePoints
+          .filter((p) => p.kind !== 'hub')
+          .map((point) => (
+            <Marker
+              key={point.id}
+              longitude={point.lon}
+              latitude={point.lat}
+              anchor="center"
+              onClick={(e) => {
+                e.originalEvent.stopPropagation();
+                if (variant === 'mini') return;
+                onPlaceSelect?.({ lat: point.lat, lon: point.lon, name: point.label });
+              }}
+            >
+              <SourcePin
+                point={point}
+                selected={selected?.lat === point.lat && selected?.lon === point.lon}
+              />
+            </Marker>
+          ))}
 
         {comparePlaces.map((p, i) => (
           <Marker

@@ -26,10 +26,10 @@ import type {
   SourcePoint,
 } from './types';
 import { DEFAULT_CAMERA } from './types';
-import { isGlobePath, MAX_FLY_QUEUE, MINI_PIN_CAP } from './globePerf';
+import { isGlobePath, MAX_FLY_QUEUE } from './globePerf';
 
-const PlaceMapLibre = dynamic(
-  () => import('../map/PlaceMapLibre').then((m) => m.PlaceMapLibre),
+const CinematicGlobe = dynamic(
+  () => import('./CinematicGlobe').then((m) => m.CinematicGlobe),
   { ssr: false },
 );
 
@@ -271,7 +271,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       if (myGen !== flyGenRef.current) return;
       const zoom =
         opts?.zoom ??
-        (variantRef.current === 'mini' ? (point.kind === 'place' ? 3.4 : 2.8) : 5.6);
+        (variantRef.current === 'mini' ? (point.kind === 'place' ? 2.6 : 2.2) : 5.6);
       if (engine) {
         await engine.flyTo({ lat: point.lat, lon: point.lon, zoom });
       }
@@ -474,10 +474,16 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     (parked
       ? { top: -400, left: -400, width: 8, height: 8 }
       : { top: 0, left: 0, width: 1, height: 1 });
-  const displayPoints =
-    variant === 'full'
-      ? [...archivePoints, ...activePoints]
-      : activePoints.slice(-MINI_PIN_CAP);
+  const displayPoints = useMemo(() => {
+    const out: SourcePoint[] = [];
+    const seen = new Set<string>();
+    for (const p of [...archivePoints, ...activePoints]) {
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      out.push(p);
+    }
+    return variant === 'mini' ? out.slice(0, 96) : out;
+  }, [archivePoints, activePoints, variant]);
 
   useEffect(() => {
     if (!mapReady) return;
@@ -561,7 +567,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
                 left: displayRect.left,
                 width: displayRect.width,
                 height: displayRect.height,
-                borderRadius: variant === 'mini' ? 18 : 0,
+                borderRadius: 0,
               }}
               transition={{ duration: FLIP_MS / 1000, ease: [0.22, 1, 0.36, 1] }}
               style={{
@@ -576,7 +582,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         : null}
       {portalReady && showMap && slotEl
         ? createPortal(
-            <PlaceMapLibre
+            <CinematicGlobe
               variant={variant === 'full' ? 'full' : 'mini'}
               selected={
                 selectedPoint
@@ -590,8 +596,6 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
               activeHub={activeHub}
               comparePlaces={comparePlaces}
               sourcePoints={displayPoints}
-              hideNavControl
-              hideChrome={variant !== 'full'}
               idleDrift={variant === 'mini' && !inFlight && activePoints.length === 0 && onChat && !paused}
               inFlight={inFlight}
               paused={paused}

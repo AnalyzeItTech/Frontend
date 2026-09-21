@@ -562,7 +562,7 @@ export default function GlobePage() {
           className="z-10 cursor-col-resize bg-[var(--border)] hover:bg-[#EA8069]"
         />
 
-        <section className="relative min-w-0 bg-[var(--surface-2)]">
+        <section className="relative min-w-0 bg-[#04080f]">
           <div className="absolute inset-0">
             <GlobeCanvas variant="full" />
           </div>
