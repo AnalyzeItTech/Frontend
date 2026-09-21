@@ -699,11 +699,18 @@ details > summary::-webkit-details-marker {
 }
 
 .globe-map-canvas .maplibregl-marker {
-  z-index: 3;
+  z-index: 5;
 }
 
 .globe-map-canvas .maplibregl-map {
   z-index: 2;
+}
+
+/* ISS orbit must sit above the MapLibre canvas (z=2) or the track is invisible */
+.globe-orbit-svg {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
 }
 
 .globe-atmosphere-rim {

@@ -102,7 +102,7 @@ function OrbitSvgOverlay({
         let prevX = 0;
         for (const [lon, lat] of path.coordinates) {
           const front =
-            mapProjection !== 'globe' || isFrontFacing(center.lat, center.lng, lat, lon, 0.02);
+            mapProjection !== 'globe' || isFrontFacing(center.lat, center.lng, lat, lon, -0.05);
           if (!front) {
             penDown = false;
             continue;
@@ -137,15 +137,24 @@ function OrbitSvgOverlay({
   if (!pathD) return null;
   return (
     <svg
-      className="pointer-events-none absolute inset-0 z-[1] h-full w-full overflow-visible"
+      className="globe-orbit-svg pointer-events-none absolute inset-0 h-full w-full overflow-visible"
       aria-hidden
     >
       <path
         d={pathD}
         fill="none"
         stroke="#f43f5e"
-        strokeWidth={2.75}
-        strokeOpacity={0.92}
+        strokeWidth={3.5}
+        strokeOpacity={0.95}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d={pathD}
+        fill="none"
+        stroke="#fda4af"
+        strokeWidth={1.25}
+        strokeOpacity={0.85}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -201,7 +210,9 @@ function SourcePin({
           : point.kind === 'event'
             ? point.host === 'iss'
               ? 12
-              : 8
+              : point.host === 'flights'
+                ? 9
+                : 8
             : point.tier === 'trusted'
               ? 7
               : 5.5;

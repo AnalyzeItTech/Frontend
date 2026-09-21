@@ -867,7 +867,11 @@ export default function GlobePage() {
                     <span className="text-[var(--text-muted)]">· {l.hint}</span>
                     {(layerCounts[l.id] ?? 0) > 0 ? (
                       <span className="tabular-nums text-[var(--text-muted)]">({layerCounts[l.id]})</span>
-                    ) : null}
+                    ) : layersLoading ? (
+                      <span className="text-[var(--text-muted)]">…</span>
+                    ) : (
+                      <span className="text-[var(--text-muted)]">(0)</span>
+                    )}
                   </li>
                 ))}
               </ul>
