@@ -355,17 +355,34 @@ export async function searchPlaces(query: string, limit = 8): Promise<GeoSearchH
 
 /** Full Globe page only. Chat mini-globe must not call this. */
 export async function fetchPlaceContext(latitude: number, longitude: number): Promise<PlaceContext> {
-  const res = await fetch(`${API_BASE}/v1/geo/context`, {
-    method: 'POST',
-    headers: {
-      ...getAuthHeaders(),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ latitude, longitude }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/v1/geo/context`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ latitude, longitude }),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Network error';
+    throw new Error(
+      msg === 'Load failed' || msg === 'Failed to fetch'
+        ? 'Could not reach place context API. Check network and API URL.'
+        : msg,
+    );
+  }
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `Place context failed (${res.status})`);
+    const body = await res.json().catch(() => null);
+    const detail = body && typeof body === 'object' ? (body as { detail?: unknown }).detail : null;
+    const detailText =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d) => (typeof d === 'object' && d && 'msg' in d ? String((d as { msg: unknown }).msg) : String(d))).join('; ')
+          : null;
+    throw new Error(detailText || `Place context failed (${res.status})`);
   }
   return res.json();
 }

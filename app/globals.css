@@ -179,6 +179,47 @@
   --accent: #EA8069;
 }
 
+/* Incognito: violet-tinted surfaces on top of light or dark base */
+html[data-incognito='true'] {
+  --bg: #F3EEF8;
+  --surface: #FBF0FF;
+  --surface-2: #F7F2FC;
+  --surface-3: #EDE4F6;
+  --border: #DDD0EC;
+  --border-strong: #C9B6DE;
+  --text: #2E2740;
+  --text-primary: #2E2740;
+  --text-secondary: #6B6280;
+  --text-muted: #6B6280;
+  --nav-bg: #EDE4F6;
+  --nav-text: #2E2740;
+  --background: #F3EEF8;
+  --foreground: #2E2740;
+  --card: #FBF0FF;
+  --muted: #6B6280;
+  --brand-soft: rgba(139, 92, 246, 0.14);
+}
+
+html.dark[data-incognito='true'] {
+  --bg: #0C0A12;
+  --surface: #15121C;
+  --surface-2: #1C1826;
+  --surface-3: #241F30;
+  --border: rgba(167, 139, 250, 0.16);
+  --border-strong: rgba(167, 139, 250, 0.28);
+  --text-primary: #EDE8F7;
+  --text-secondary: #A39BB8;
+  --text-muted: #7A738F;
+  --text-disabled: #524C63;
+  --nav-bg: #100E16;
+  --nav-text: #EDE8F7;
+  --background: #0C0A12;
+  --foreground: #EDE8F7;
+  --card: #15121C;
+  --muted: #A39BB8;
+  --brand-soft: rgba(139, 92, 246, 0.22);
+}
+
 html, body {
   background-color: var(--bg);
   color: var(--foreground);
@@ -649,12 +690,12 @@ details > summary::-webkit-details-marker {
   display: none;
 }
 
-/* Shared MapLibre globe — atmosphere, depth, source pins */
+/* Shared MapLibre globe — light atmosphere so LocationIQ/OSM basemap stays readable */
 .globe-map-canvas .maplibregl-canvas {
-  filter: saturate(1.16) contrast(1.07) brightness(0.99);
+  filter: none;
 }
 .dark .globe-map-canvas .maplibregl-canvas {
-  filter: saturate(1.12) contrast(1.08) brightness(1.02);
+  filter: none;
 }
 
 .globe-map-canvas .maplibregl-marker {
@@ -671,20 +712,18 @@ details > summary::-webkit-details-marker {
   inset: 0;
   z-index: 1;
   background: radial-gradient(
-    ellipse 50% 50% at 50% 52%,
+    ellipse 52% 52% at 50% 52%,
     transparent 0%,
-    transparent 64%,
-    rgba(70, 130, 220, 0.12) 78%,
-    rgba(12, 16, 36, 0.22) 100%
+    transparent 72%,
+    color-mix(in srgb, var(--bg) 35%, transparent) 100%
   );
 }
 .dark .globe-atmosphere-rim {
   background: radial-gradient(
-    ellipse 50% 50% at 50% 52%,
+    ellipse 52% 52% at 50% 52%,
     transparent 0%,
-    transparent 62%,
-    rgba(90, 150, 255, 0.12) 78%,
-    rgba(2, 4, 14, 0.32) 100%
+    transparent 70%,
+    color-mix(in srgb, var(--bg) 45%, transparent) 100%
   );
 }
 
@@ -694,8 +733,8 @@ details > summary::-webkit-details-marker {
   inset: 0;
   z-index: 1;
   background: radial-gradient(
-    ellipse 38% 36% at 36% 34%,
-    rgba(255, 248, 238, 0.08) 0%,
+    ellipse 40% 38% at 36% 34%,
+    color-mix(in srgb, var(--surface) 18%, transparent) 0%,
     transparent 58%
   );
 }

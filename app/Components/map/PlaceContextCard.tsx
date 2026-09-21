@@ -154,7 +154,7 @@ export function PlaceContextCard({
         ) : null}
 
         {error ? (
-          <p role="alert" className="rounded-lg border border-[#B86450]/25 bg-[#B86450]/10 px-3 py-2 text-xs text-[#9B4D3B]">
+          <p role="alert" className="rounded-lg border border-[var(--danger)]/25 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--danger)]">
             {error}
           </p>
         ) : null}

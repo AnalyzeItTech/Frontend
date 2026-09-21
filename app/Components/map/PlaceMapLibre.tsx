@@ -386,7 +386,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
 
   if (!config) {
     return (
-      <div className={`absolute inset-0 flex items-center justify-center bg-[var(--surface-2)] ${className}`}>
+      <div className={`absolute inset-0 flex items-center justify-center bg-[var(--bg)] ${className}`}>
         <span className="font-mono text-xs text-[var(--text-muted)]">Preparing map…</span>
       </div>
     );

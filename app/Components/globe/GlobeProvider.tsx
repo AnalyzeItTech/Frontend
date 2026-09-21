@@ -28,8 +28,8 @@ import type {
 import { DEFAULT_CAMERA } from './types';
 import { isGlobePath, MAX_FLY_QUEUE } from './globePerf';
 
-const CinematicGlobe = dynamic(
-  () => import('./CinematicGlobe').then((m) => m.CinematicGlobe),
+const PlaceMapLibre = dynamic(
+  () => import('../map/PlaceMapLibre').then((m) => m.PlaceMapLibre),
   { ssr: false },
 );
 
@@ -474,6 +474,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     (parked
       ? { top: -400, left: -400, width: 8, height: 8 }
       : { top: 0, left: 0, width: 1, height: 1 });
+  // Full catalog on both mounts — LocationIQ/OSM basemap keeps lat/lon honest.
   const displayPoints = useMemo(() => {
     const out: SourcePoint[] = [];
     const seen = new Set<string>();
@@ -482,8 +483,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       seen.add(p.id);
       out.push(p);
     }
-    return variant === 'mini' ? out.slice(0, 96) : out;
-  }, [archivePoints, activePoints, variant]);
+    return out;
+  }, [archivePoints, activePoints]);
 
   useEffect(() => {
     if (!mapReady) return;
@@ -582,7 +583,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         : null}
       {portalReady && showMap && slotEl
         ? createPortal(
-            <CinematicGlobe
+            <PlaceMapLibre
               variant={variant === 'full' ? 'full' : 'mini'}
               selected={
                 selectedPoint
@@ -596,6 +597,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
               activeHub={activeHub}
               comparePlaces={comparePlaces}
               sourcePoints={displayPoints}
+              hideNavControl
+              hideChrome={variant !== 'full'}
               idleDrift={variant === 'mini' && !inFlight && activePoints.length === 0 && onChat && !paused}
               inFlight={inFlight}
               paused={paused}

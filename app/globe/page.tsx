@@ -314,7 +314,7 @@ export default function GlobePage() {
   return (
     <AppShell active="globe" flush>
       <div
-        className="grid w-full min-h-0 flex-1 overflow-hidden bg-[var(--surface-2)]"
+        className="grid w-full min-h-0 flex-1 overflow-hidden bg-[var(--bg)]"
         style={{
           minHeight: 'calc(100dvh - var(--nav-h, 56px))',
           gridTemplateColumns: `${leftRail}px 8px minmax(0, 1fr) 8px ${rightRail}px`,
@@ -562,7 +562,7 @@ export default function GlobePage() {
           className="z-10 cursor-col-resize bg-[var(--border)] hover:bg-[#EA8069]"
         />
 
-        <section className="relative min-w-0 bg-[#04080f]">
+        <section className="relative min-w-0 bg-[var(--bg)]">
           <div className="absolute inset-0">
             <GlobeCanvas variant="full" />
           </div>
