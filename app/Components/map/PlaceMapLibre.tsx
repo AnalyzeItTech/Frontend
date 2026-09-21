@@ -442,18 +442,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
 
   const pixelRatio = variant === 'mini' ? miniPixelRatio() : fullPixelRatio();
 
-  if (!config) {
-    return (
-      <div className={`absolute inset-0 flex items-center justify-center bg-[var(--bg)] ${className}`}>
-        <span className="font-mono text-xs text-[var(--text-muted)]">Preparing map…</span>
-      </div>
-    );
-  }
-
-  const usingLocationIq = config.provider === 'locationiq';
-  const interactive = variant !== 'mini';
-  const liveIds = new Set(sourcePoints.filter((p) => p.kind === 'live' || p.kind === 'place').map((p) => p.id));
-
+  // Hooks must run before any early return (config loads async).
   const pathGeoJson = useMemo((): GeoJSON.FeatureCollection => {
     const features: GeoJSON.Feature[] = [];
     for (const path of overlayPaths) {
@@ -498,6 +487,18 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     }),
     [],
   );
+
+  if (!config) {
+    return (
+      <div className={`absolute inset-0 flex items-center justify-center bg-[var(--bg)] ${className}`}>
+        <span className="font-mono text-xs text-[var(--text-muted)]">Preparing map…</span>
+      </div>
+    );
+  }
+
+  const usingLocationIq = config.provider === 'locationiq';
+  const interactive = variant !== 'mini';
+  const liveIds = new Set(sourcePoints.filter((p) => p.kind === 'live' || p.kind === 'place').map((p) => p.id));
 
   return (
     <div className={`globe-map-canvas absolute inset-0 h-full w-full ${className}`}>
