@@ -85,8 +85,15 @@ export interface GlobeContextValue {
   setMapProjection: (mode: MapProjectionMode) => void;
   activeHub: string | null;
   setActiveHub: (name: string | null) => void;
-  onMapPlaceSelect?: (place: { lat: number; lon: number }) => void;
-  setOnMapPlaceSelect: (fn: ((place: { lat: number; lon: number }) => void) | null) => void;
+  onMapPlaceSelect?: (place: {
+    lat: number;
+    lon: number;
+    name?: string;
+    event?: SourcePoint;
+  }) => void;
+  setOnMapPlaceSelect: (
+    fn: ((place: { lat: number; lon: number; name?: string; event?: SourcePoint }) => void) | null,
+  ) => void;
 }
 
 const GlobeContext = createContext<GlobeContextValue | null>(null);
@@ -432,18 +439,26 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const handleMapPlaceSelect = useCallback((place: { lat: number; lon: number; name?: string }) => {
-    setActiveHub(null);
-    const point: SourcePoint = {
-      id: `place:${place.lat.toFixed(3)}:${place.lon.toFixed(3)}`,
-      lat: place.lat,
-      lon: place.lon,
-      label: place.name || `${place.lat.toFixed(2)}°, ${place.lon.toFixed(2)}°`,
-      kind: 'place',
-    };
-    setSelectedPoint(point);
-    onMapPlaceSelectRef.current?.(place);
-  }, []);
+  const handleMapPlaceSelect = useCallback(
+    (place: { lat: number; lon: number; name?: string; event?: SourcePoint }) => {
+      setActiveHub(null);
+      if (place.event) {
+        setSelectedPoint(place.event);
+        onMapPlaceSelectRef.current?.(place);
+        return;
+      }
+      const point: SourcePoint = {
+        id: `place:${place.lat.toFixed(3)}:${place.lon.toFixed(3)}`,
+        lat: place.lat,
+        lon: place.lon,
+        label: place.name || `${place.lat.toFixed(2)}°, ${place.lon.toFixed(2)}°`,
+        kind: 'place',
+      };
+      setSelectedPoint(point);
+      onMapPlaceSelectRef.current?.(place);
+    },
+    [],
+  );
 
   const handleHubSelect = useCallback(
     (hub: { name: string; lat: number; lon: number }) => {

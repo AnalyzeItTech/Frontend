@@ -16,6 +16,7 @@ import {
 } from '@tabler/icons-react';
 import { AppShell } from '../Components/app/AppShell';
 import { PlaceContextCard } from '../Components/map/PlaceContextCard';
+import { EventDetailCard } from '../Components/map/EventDetailCard';
 import { GlobeCanvas } from '../Components/globe/GlobeCanvas';
 import { QueuedFlyToast } from '../Components/globe/QueuedFlyToast';
 import { GLOBE_HUBS } from '../Components/globe/sourceCatalog';
@@ -73,10 +74,10 @@ const LAYERS: { id: LayerId; label: string; hint: string; color: string }[] = [
   { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS worldwide', color: '#d97706' },
   { id: 'weather', label: 'Weather', hint: 'Open-Meteo at hubs', color: '#3b82f6' },
   { id: 'air_quality', label: 'Air quality', hint: 'AQI at hubs', color: '#10b981' },
-  { id: 'iss', label: 'ISS', hint: 'Live position + full orbit track (toggle on)', color: '#f43f5e' },
+  { id: 'iss', label: 'Satellites', hint: 'ISS orbit + stations & bright sats', color: '#f43f5e' },
   { id: 'elevation', label: 'Elevation', hint: 'Meters above sea level at hubs', color: '#78716c' },
   { id: 'markets', label: 'Markets', hint: 'Live equity indices at hubs', color: '#8b5cf6' },
-  { id: 'flights', label: 'Flights', hint: 'OpenSky near hubs (toggle on)', color: '#0ea5e9' },
+  { id: 'flights', label: 'Flights', hint: 'Live aircraft (ADS-B)', color: '#0ea5e9' },
 ];
 /** Live layers: this page is the only caller of geo context/events. Poll on LIVE_LAYER_POLL_MS — never in rAF. */
 
@@ -113,6 +114,7 @@ export default function GlobePage() {
     setMapProjection,
   } = useGlobe();
   const [selected, setSelected] = useState<Selected | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<SourcePoint | null>(null);
   const [context, setContext] = useState<PlaceContext | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -192,6 +194,20 @@ export default function GlobePage() {
             mag?: number;
             type?: string;
             temperature_c?: number;
+            callsign?: string | null;
+            altitude_m?: number | null;
+            velocity_ms?: number | null;
+            track_deg?: number | null;
+            category?: string;
+            icao?: string | null;
+            typecode?: string | null;
+            registration?: string | null;
+            altitude_km?: number | null;
+            velocity_kms?: number | null;
+            norad_id?: number | null;
+            name?: string | null;
+            group?: string | null;
+            hub?: string | null;
           }>,
           opts?: { pulseMag?: number; host: string },
         ) => {
@@ -204,15 +220,36 @@ export default function GlobePage() {
               (mag != null
                 ? `M${mag.toFixed(1)} · ${ev.place || layerId}`
                 : ev.place || layerId);
+            const host = opts?.host || layerId;
             points.push({
               id: `${layerId}:${ev.id || `${ev.lat},${ev.lon}`}`,
               lat: ev.lat,
               lon: ev.lon,
               label,
               kind: 'event',
-              host: opts?.host || layerId,
+              host,
               pulse: opts?.pulseMag != null && mag != null && mag >= opts.pulseMag,
-              showLabel: true,
+              showLabel: host !== 'flights',
+              category: ev.category,
+              trackDeg: ev.track_deg != null ? Number(ev.track_deg) : undefined,
+              meta: {
+                type: ev.type,
+                callsign: ev.callsign,
+                altitude_m: ev.altitude_m,
+                velocity_ms: ev.velocity_ms,
+                track_deg: ev.track_deg,
+                category: ev.category,
+                icao: ev.icao,
+                typecode: ev.typecode,
+                registration: ev.registration,
+                altitude_km: ev.altitude_km,
+                velocity_kms: ev.velocity_kms,
+                norad_id: ev.norad_id,
+                name: ev.name || ev.place,
+                group: ev.group,
+                hub: ev.hub,
+                place: ev.place,
+              },
             });
             n += 1;
           }
@@ -256,79 +293,15 @@ export default function GlobePage() {
           pushEvents('elevation', data.layers.elevation?.events || [], { host: 'elevation' });
         }
 
-        // Also pin selected-place context extras when those layers are on
-        if (layers.weather && context?.weather?.available && selected) {
-          const t = context.weather.temperature_c;
-          points.push({
-            id: `weather:selected:${selected.lat.toFixed(3)},${selected.lon.toFixed(3)}`,
-            lat: selected.lat,
-            lon: selected.lon,
-            label: t != null ? `${Math.round(t)}°C · ${selected.name || 'Here'}` : selected.name || 'Weather',
-            kind: 'event',
-            host: 'weather',
-            pulse: true,
-            showLabel: true,
-          });
-        }
-        if (layers.markets && context?.market?.available && selected) {
-          const name = context.market.index_name || context.market.index_symbol || 'Market';
-          const price = context.market.index_value?.price;
-          const pct = context.market.index_value?.change_pct;
-          const label =
-            price != null && pct != null
-              ? `${name} · ${Math.round(Number(price))} (${Number(pct) >= 0 ? '+' : ''}${Number(pct).toFixed(1)}%)`
-              : price != null
-                ? `${name} · ${Math.round(Number(price))}`
-                : String(name);
-          points.push({
-            id: `market:selected:${selected.lat.toFixed(3)},${selected.lon.toFixed(3)}`,
-            lat: selected.lat,
-            lon: selected.lon,
-            label,
-            kind: 'event',
-            host: 'markets',
-            pulse: true,
-            showLabel: true,
-          });
-        }
-        if (layers.flights && context?.flights?.available) {
-          for (const ac of context.flights.aircraft || []) {
-            if (ac.lat == null || ac.lon == null) continue;
-            const alt = ac.altitude_m != null ? ` · ${Math.round(Number(ac.altitude_m))} m` : '';
-            points.push({
-              id: `flight:ctx:${ac.callsign || `${ac.lat},${ac.lon}`}`,
-              lat: ac.lat,
-              lon: ac.lon,
-              label: `${ac.callsign || 'Aircraft'}${alt}`,
-              kind: 'event',
-              host: 'flights',
-              pulse: false,
-              showLabel: true,
-            });
-          }
-        }
-        if (layers.iss && context?.iss?.available && context.iss.lat != null && context.iss.lon != null) {
-          points.push({
-            id: 'iss:ctx',
-            lat: context.iss.lat,
-            lon: context.iss.lon,
-            label: 'ISS',
-            kind: 'event',
-            host: 'iss',
-            pulse: true,
-            showLabel: true,
-          });
-        }
+        // Place-context extras intentionally not mixed into globe overlays —
+        // selecting a place must not rebuild/wipe live flight & satellite pins.
 
         setLayerCounts(counts);
         setOverlayPoints(points);
         setOverlayPaths(paths);
       } catch {
-        if (!cancelled) {
-          setLayerCounts({});
-          setOverlayPoints([]);
-          setOverlayPaths([]);
-        }
+        // Keep last good overlays on transient fetch failure
+        if (!cancelled) setLayersLoading(false);
       } finally {
         if (!cancelled) setLayersLoading(false);
       }
@@ -342,7 +315,7 @@ export default function GlobePage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [layers, context, selected, setOverlayPoints, setOverlayPaths]);
+  }, [layers, setOverlayPoints, setOverlayPaths]);
 
   useEffect(() => {
     return () => {
@@ -371,6 +344,7 @@ export default function GlobePage() {
   const loadContext = useCallback(
     async (lat: number, lon: number, meta?: { name?: string; country?: string }) => {
       const gen = ++fetchGen.current;
+      setSelectedEvent(null);
       setSelected({ lat, lon, name: meta?.name, country: meta?.country });
       setLoading(true);
       setError(null);
@@ -481,7 +455,16 @@ export default function GlobePage() {
   useEffect(() => {
     setOnMapPlaceSelect((place) => {
       setActiveHub(null);
-      void loadContext(place.lat, place.lon);
+      if (place.event) {
+        setSelectedEvent(place.event);
+        setSelected({ lat: place.lat, lon: place.lon, name: place.name });
+        setContext(null);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+      setSelectedEvent(null);
+      void loadContext(place.lat, place.lon, { name: place.name });
     });
     return () => setOnMapPlaceSelect(null);
   }, [loadContext, setActiveHub, setOnMapPlaceSelect]);
@@ -896,7 +879,7 @@ export default function GlobePage() {
         />
 
         <aside className="flex min-w-0 flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--surface)]">
-          {!selected && !loading && !error ? (
+          {!selected && !selectedEvent && !loading && !error ? (
             <div className="flex flex-1 flex-col items-start justify-center gap-3 p-5">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EA8069]/12 text-[#EA8069]">
                 <IconMapPin size={22} />
@@ -904,9 +887,19 @@ export default function GlobePage() {
               <div>
                 <h2 className="font-serif text-lg text-[var(--text-primary)]">No place selected</h2>
                 <p className="mt-1 text-sm leading-relaxed text-[var(--text-muted)]">
-                  Pick a search result, hub, or map point. Detail and Ask-about-place land here.
+                  Pick a search result, hub, map point, flight, or satellite. Details land here.
                 </p>
               </div>
+            </div>
+          ) : selectedEvent ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <EventDetailCard
+                point={selectedEvent}
+                onClose={() => {
+                  setSelectedEvent(null);
+                  setSelected(null);
+                }}
+              />
             </div>
           ) : (
             <>
@@ -920,6 +913,7 @@ export default function GlobePage() {
                     setContext(null);
                     setError(null);
                     setSelected(null);
+                    setSelectedEvent(null);
                     setActiveHub(null);
                   }}
                   onSendToChat={(prompt) => sendToResearch(prompt, selected ? [selected] : undefined)}

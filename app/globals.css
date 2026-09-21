@@ -806,6 +806,44 @@ details > summary::-webkit-details-marker {
   border-color: rgba(186, 230, 253, 0.95);
   box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.25), 0 2px 6px rgba(28, 18, 12, 0.28);
 }
+.globe-pin--flight-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: #0284c7;
+  color: #f0f9ff;
+  box-shadow: 0 2px 6px rgba(2, 80, 120, 0.35);
+}
+.globe-pin--flight-icon.globe-pin--heavy {
+  background: #0369a1;
+  width: 24px;
+  height: 24px;
+}
+.globe-pin--flight-icon.globe-pin--heli {
+  background: #0d9488;
+  border-radius: 9999px;
+}
+.globe-pin--flight-icon.globe-pin--jet {
+  background: #7c3aed;
+}
+.globe-pin--flight-icon.globe-pin--light,
+.globe-pin--flight-icon.globe-pin--uav {
+  background: #38bdf8;
+  width: 18px;
+  height: 18px;
+}
+.globe-ac-icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.globe-event-marker--flight .globe-event-label {
+  margin-top: 2px;
+}
 .globe-pin--iss {
   background: #f43f5e;
   border-color: rgba(254, 205, 211, 0.95);

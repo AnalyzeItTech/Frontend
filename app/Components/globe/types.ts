@@ -18,6 +18,12 @@ export interface SourcePoint {
   pulse?: boolean;
   /** Show a text chip beside the pin (live event layers). */
   showLabel?: boolean;
+  /** Extra fields for flight / satellite detail cards. */
+  meta?: Record<string, string | number | boolean | null | undefined>;
+  /** Aircraft category for icon: airliner | heavy | jet | heli | light | uav | unknown */
+  category?: string;
+  /** Heading degrees for rotating flight icons */
+  trackDeg?: number;
 }
 
 /** GeoJSON-ready path overlay (e.g. ISS ground track). coords are [lon, lat]. */
