@@ -16,6 +16,15 @@ export interface SourcePoint {
   kind: SourceKind;
   tier?: SourceTier;
   pulse?: boolean;
+  /** Show a text chip beside the pin (live event layers). */
+  showLabel?: boolean;
+}
+
+/** GeoJSON-ready path overlay (e.g. ISS ground track). coords are [lon, lat]. */
+export interface OverlayPath {
+  id: string;
+  coordinates: Array<[number, number]>;
+  color?: string;
 }
 
 export interface GlobeCamera {

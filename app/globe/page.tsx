@@ -73,10 +73,10 @@ const LAYERS: { id: LayerId; label: string; hint: string; color: string }[] = [
   { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS worldwide', color: '#d97706' },
   { id: 'weather', label: 'Weather', hint: 'Open-Meteo at hubs', color: '#3b82f6' },
   { id: 'air_quality', label: 'Air quality', hint: 'AQI at hubs', color: '#10b981' },
-  { id: 'markets', label: 'Markets', hint: 'Equity indices at hubs', color: '#8b5cf6' },
-  { id: 'flights', label: 'Flights', hint: 'OpenSky near hubs', color: '#0ea5e9' },
-  { id: 'iss', label: 'ISS', hint: 'Live ISS position', color: '#f43f5e' },
-  { id: 'elevation', label: 'Elevation', hint: 'Elevation at hubs', color: '#78716c' },
+  { id: 'iss', label: 'ISS', hint: 'Live position + full orbit track', color: '#f43f5e' },
+  { id: 'elevation', label: 'Elevation', hint: 'Meters above sea level at hubs', color: '#78716c' },
+  { id: 'markets', label: 'Markets', hint: 'Live equity indices at hubs', color: '#8b5cf6' },
+  { id: 'flights', label: 'Flights', hint: 'OpenSky aircraft worldwide', color: '#0ea5e9' },
 ];
 /** Live layers: this page is the only caller of geo context/events. Poll on LIVE_LAYER_POLL_MS — never in rAF. */
 
@@ -107,6 +107,7 @@ export default function GlobePage() {
     setActiveHub,
     activeHub,
     setOverlayPoints,
+    setOverlayPaths,
     setShowCatalog,
     mapProjection,
     setMapProjection,
@@ -165,6 +166,7 @@ export default function GlobePage() {
         if (!cancelled) {
           setLayerCounts({});
           setOverlayPoints([]);
+          setOverlayPaths([]);
           setLayersLoading(false);
         }
         return;
@@ -210,11 +212,14 @@ export default function GlobePage() {
               kind: 'event',
               host: opts?.host || layerId,
               pulse: opts?.pulseMag != null && mag != null && mag >= opts.pulseMag,
+              showLabel: true,
             });
             n += 1;
           }
           counts[layerId] = n;
         };
+
+        const paths: import('../Components/globe/types').OverlayPath[] = [];
 
         if (layers.earthquakes) {
           pushEvents('earthquakes', data.layers.earthquakes?.events || [], {
@@ -236,6 +241,16 @@ export default function GlobePage() {
         }
         if (layers.iss) {
           pushEvents('iss', data.layers.iss?.events || [], { host: 'iss' });
+          const rawPath = data.layers.iss?.path || [];
+          if (rawPath.length >= 2) {
+            paths.push({
+              id: 'iss-orbit',
+              color: '#f43f5e',
+              coordinates: rawPath
+                .filter((p) => p.lat != null && p.lon != null)
+                .map((p) => [Number(p.lon), Number(p.lat)] as [number, number]),
+            });
+          }
         }
         if (layers.elevation) {
           pushEvents('elevation', data.layers.elevation?.events || [], { host: 'elevation' });
@@ -252,30 +267,43 @@ export default function GlobePage() {
             kind: 'event',
             host: 'weather',
             pulse: true,
+            showLabel: true,
           });
         }
         if (layers.markets && context?.market?.available && selected) {
+          const name = context.market.index_name || context.market.index_symbol || 'Market';
+          const price = context.market.index_value?.price;
+          const pct = context.market.index_value?.change_pct;
+          const label =
+            price != null && pct != null
+              ? `${name} · ${Math.round(Number(price))} (${Number(pct) >= 0 ? '+' : ''}${Number(pct).toFixed(1)}%)`
+              : price != null
+                ? `${name} · ${Math.round(Number(price))}`
+                : String(name);
           points.push({
             id: `market:selected:${selected.lat.toFixed(3)},${selected.lon.toFixed(3)}`,
             lat: selected.lat,
             lon: selected.lon,
-            label: String(context.market.index_name || context.market.index_symbol || 'Market'),
+            label,
             kind: 'event',
             host: 'markets',
             pulse: true,
+            showLabel: true,
           });
         }
         if (layers.flights && context?.flights?.available) {
           for (const ac of context.flights.aircraft || []) {
             if (ac.lat == null || ac.lon == null) continue;
+            const alt = ac.altitude_m != null ? ` · ${Math.round(Number(ac.altitude_m))} m` : '';
             points.push({
               id: `flight:ctx:${ac.callsign || `${ac.lat},${ac.lon}`}`,
               lat: ac.lat,
               lon: ac.lon,
-              label: ac.callsign || 'Aircraft',
+              label: `${ac.callsign || 'Aircraft'}${alt}`,
               kind: 'event',
               host: 'flights',
               pulse: false,
+              showLabel: true,
             });
           }
         }
@@ -288,15 +316,18 @@ export default function GlobePage() {
             kind: 'event',
             host: 'iss',
             pulse: true,
+            showLabel: true,
           });
         }
 
         setLayerCounts(counts);
         setOverlayPoints(points);
+        setOverlayPaths(paths);
       } catch {
         if (!cancelled) {
           setLayerCounts({});
           setOverlayPoints([]);
+          setOverlayPaths([]);
         }
       } finally {
         if (!cancelled) setLayersLoading(false);
@@ -311,13 +342,15 @@ export default function GlobePage() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [layers, context, selected, setOverlayPoints]);
+  }, [layers, context, selected, setOverlayPoints, setOverlayPaths]);
+
   useEffect(() => {
     return () => {
       setOverlayPoints([]);
+      setOverlayPaths([]);
       setShowCatalog(true);
     };
-  }, [setOverlayPoints, setShowCatalog]);
+  }, [setOverlayPoints, setOverlayPaths, setShowCatalog]);
 
   const sendToResearch = useCallback(
     (prompt: string, places?: Selected[]) => {

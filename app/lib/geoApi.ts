@@ -411,7 +411,9 @@ export interface GlobeLayerEvents {
     index_name?: string;
     index_symbol?: string;
     price?: number;
+    change_pct?: number;
   }>;
+  path?: Array<{ lat: number; lon: number; timestamp?: number }>;
   source?: string;
   error?: string;
   window_days?: number;

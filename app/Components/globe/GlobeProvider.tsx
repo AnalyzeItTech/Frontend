@@ -23,6 +23,7 @@ import type {
   GlobeMapHandle,
   GlobeVariant,
   MapProjectionMode,
+  OverlayPath,
   QueuedFly,
   SourcePoint,
 } from './types';
@@ -76,6 +77,8 @@ export interface GlobeContextValue {
   /** Live event overlays (earthquakes, flights, …) from the full Globe page. */
   overlayPoints: SourcePoint[];
   setOverlayPoints: (points: SourcePoint[]) => void;
+  overlayPaths: OverlayPath[];
+  setOverlayPaths: (paths: OverlayPath[]) => void;
   showCatalog: boolean;
   setShowCatalog: (on: boolean) => void;
   mapProjection: MapProjectionMode;
@@ -125,6 +128,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     [],
   );
   const [overlayPoints, setOverlayPoints] = useState<SourcePoint[]>([]);
+  const [overlayPaths, setOverlayPaths] = useState<OverlayPath[]>([]);
   const [showCatalog, setShowCatalog] = useState(true);
   const [mapProjection, setMapProjection] = useState<MapProjectionMode>('globe');
   const [activeHub, setActiveHub] = useState<string | null>(null);
@@ -530,6 +534,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       comparePlaces,
       overlayPoints,
       setOverlayPoints,
+      overlayPaths,
+      setOverlayPaths,
       showCatalog,
       setShowCatalog,
       mapProjection,
@@ -561,6 +567,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       dismissQueuedFly,
       comparePlaces,
       overlayPoints,
+      overlayPaths,
       showCatalog,
       mapProjection,
       activeHub,
@@ -618,6 +625,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
               activeHub={activeHub}
               comparePlaces={comparePlaces}
               sourcePoints={displayPoints}
+              overlayPaths={overlayPaths}
               mapProjection={mapProjection}
               hideNavControl
               hideChrome={variant !== 'full'}

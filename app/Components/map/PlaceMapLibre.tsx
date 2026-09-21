@@ -1,13 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react';
-import Map, { Marker, type MapRef } from 'react-map-gl/maplibre';
-import type { Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
+import Map, { Marker, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
+import type { LineLayerSpecification, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from '../ui/ThemeProvider';
 import { GLOBE_HUBS } from '../globe/sourceCatalog';
 import { fullPixelRatio, miniPixelRatio } from '../globe/globePerf';
-import type { GlobeCamera, GlobeMapHandle, GlobeVariant, MapProjectionMode, SourcePoint } from '../globe/types';
+import type {
+  GlobeCamera,
+  GlobeMapHandle,
+  GlobeVariant,
+  MapProjectionMode,
+  OverlayPath,
+  SourcePoint,
+} from '../globe/types';
 
 export { GLOBE_HUBS };
 
@@ -26,6 +33,7 @@ interface PlaceMapLibreProps {
   flyTo?: { lat: number; lon: number; zoom?: number } | null;
   comparePlaces?: Array<{ lat: number; lon: number; name?: string }>;
   sourcePoints?: SourcePoint[];
+  overlayPaths?: OverlayPath[];
   hideNavControl?: boolean;
   hideChrome?: boolean;
   className?: string;
@@ -70,6 +78,29 @@ function flyEase(t: number) {
   return 0.97 + easeOutBackSoft((t - 0.82) / 0.18) * 0.03;
 }
 
+function EventMarker({
+  point,
+  selected,
+}: {
+  point: SourcePoint;
+  selected?: boolean;
+}) {
+  const host = point.host || 'event';
+  return (
+    <button
+      type="button"
+      title={point.label}
+      aria-label={point.label}
+      className={`globe-event-marker ${point.pulse ? 'globe-event-marker--pulse' : ''} ${
+        selected ? 'globe-event-marker--selected' : ''
+      }`}
+    >
+      <span className={`globe-pin globe-pin--event globe-pin--${host}`} />
+      <span className={`globe-event-label globe-event-label--${host}`}>{point.label}</span>
+    </button>
+  );
+}
+
 function SourcePin({
   point,
   selected,
@@ -77,6 +108,9 @@ function SourcePin({
   point: SourcePoint;
   selected?: boolean;
 }) {
+  if (point.kind === 'event' && point.showLabel !== false) {
+    return <EventMarker point={point} selected={selected} />;
+  }
   const size =
     point.kind === 'live'
       ? 12
@@ -87,9 +121,7 @@ function SourcePin({
           : point.kind === 'event'
             ? point.host === 'iss'
               ? 12
-              : point.host === 'earthquakes'
-                ? Math.max(6, Math.min(14, Number(point.label?.match(/M([\d.]+)/)?.[1] || 8)))
-                : 8
+              : 8
             : point.tier === 'trusted'
               ? 7
               : 5.5;
@@ -144,6 +176,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     flyTo,
     comparePlaces = [],
     sourcePoints = [],
+    overlayPaths = [],
     hideNavControl: _hideNavControl = false,
     hideChrome = false,
     className = '',
@@ -421,6 +454,51 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
   const interactive = variant !== 'mini';
   const liveIds = new Set(sourcePoints.filter((p) => p.kind === 'live' || p.kind === 'place').map((p) => p.id));
 
+  const pathGeoJson = useMemo((): GeoJSON.FeatureCollection => {
+    const features: GeoJSON.Feature[] = [];
+    for (const path of overlayPaths) {
+      if (!path.coordinates.length) continue;
+      // Split on antimeridian jumps so the ISS track doesn't smear across the map
+      let ring: Array<[number, number]> = [];
+      const flush = () => {
+        if (ring.length < 2) {
+          ring = [];
+          return;
+        }
+        features.push({
+          type: 'Feature',
+          properties: { id: path.id, color: path.color || '#f43f5e' },
+          geometry: { type: 'LineString', coordinates: ring },
+        });
+        ring = [];
+      };
+      for (const coord of path.coordinates) {
+        if (ring.length && Math.abs(coord[0] - ring[ring.length - 1][0]) > 180) flush();
+        ring.push(coord);
+      }
+      flush();
+    }
+    return { type: 'FeatureCollection', features };
+  }, [overlayPaths]);
+
+  const pathLineLayer = useMemo(
+    (): LineLayerSpecification => ({
+      id: 'globe-overlay-paths',
+      type: 'line',
+      source: 'globe-overlay-paths',
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+      },
+      paint: {
+        'line-color': ['coalesce', ['get', 'color'], '#f43f5e'],
+        'line-width': 3.25,
+        'line-opacity': 0.9,
+      },
+    }),
+    [],
+  );
+
   return (
     <div className={`globe-map-canvas absolute inset-0 h-full w-full ${className}`}>
       <Map
@@ -487,6 +565,12 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
           onMapError?.(msg);
         }}
       >
+        {overlayPaths.length > 0 ? (
+          <Source id="globe-overlay-paths" type="geojson" data={pathGeoJson}>
+            <Layer {...pathLineLayer} />
+          </Source>
+        ) : null}
+
         {variant === 'full' || variant === 'mini'
           ? GLOBE_HUBS.map((hub) => (
               <Marker
@@ -521,7 +605,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
               key={point.id}
               longitude={point.lon}
               latitude={point.lat}
-              anchor="center"
+              anchor={point.kind === 'event' ? 'bottom' : 'center'}
               onClick={(e) => {
                 e.originalEvent.stopPropagation();
                 if (variant === 'mini') return;
