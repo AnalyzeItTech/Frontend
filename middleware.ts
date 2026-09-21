@@ -34,6 +34,15 @@ function extractSubdomain(hostHeader: string | null): string | null {
 
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  const host = (request.headers.get('host') || '').split(':')[0].toLowerCase();
+
+  // Keep auth cookies + sessions on one host (apex ↔ www was bouncing signed-in users).
+  if (host === 'analyzeit.in') {
+    const url = request.nextUrl.clone();
+    url.hostname = 'www.analyzeit.in';
+    return NextResponse.redirect(url, 308);
+  }
+
   const subdomain = extractSubdomain(request.headers.get('host'));
 
   // Personal dashboard bookmark: rewrite slug.analyzeit.in → /dashboard?slug=

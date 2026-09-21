@@ -46,11 +46,26 @@ const TOKEN_KEY = 'analyzeit_token';
 const USER_KEY = 'analyzeit_user';
 export const AUTH_COOKIE = 'analyzeit_auth';
 
+/** Host-only cookies break across analyzeit.in ↔ www.analyzeit.in after login. */
+function authCookieSuffix(maxAge: number): string {
+  const parts = [`Path=/`, `SameSite=Lax`, `Max-Age=${maxAge}`];
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase();
+    if (host === 'analyzeit.in' || host.endsWith('.analyzeit.in')) {
+      parts.push('Domain=.analyzeit.in');
+    }
+    if (window.location.protocol === 'https:') {
+      parts.push('Secure');
+    }
+  }
+  return parts.join('; ');
+}
+
 function writeAuthCookie(present: boolean) {
   if (typeof document === 'undefined') return;
   document.cookie = present
-    ? `${AUTH_COOKIE}=1; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}`
-    : `${AUTH_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0`;
+    ? `${AUTH_COOKIE}=1; ${authCookieSuffix(60 * 60 * 24 * 30)}`
+    : `${AUTH_COOKIE}=; ${authCookieSuffix(0)}`;
 }
 
 /** Keep middleware cookie in sync for sessions that already exist in localStorage. */

@@ -491,7 +491,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         'line-join': 'round',
       },
       paint: {
-        'line-color': ['coalesce', ['get', 'color'], '#f43f5e'],
+        'line-color': '#f43f5e',
         'line-width': 3.25,
         'line-opacity': 0.9,
       },

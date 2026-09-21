@@ -472,7 +472,6 @@ const SuccessState: React.FC<{ isNew: boolean }> = ({ isNew }) => {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 function LoginInner() {
-  const router = useRouter();
   const [tab, setTab] = useState<Tab>('login');
   const [success, setSuccess] = useState(false);
   const [isNewAccount, setIsNewAccount] = useState(false);
@@ -481,12 +480,15 @@ function LoginInner() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('tab') === 'register') setTab('register');
+    // Already signed in: show continue UI (SuccessState redirects). Never leave
+    // checking=true forever if router.replace stalls (Safari apex↔www).
     if (getStoredToken()) {
-      router.replace(safeNextPath(params.get('next')));
+      setSuccess(true);
+      setChecking(false);
       return;
     }
     setChecking(false);
-  }, [router]);
+  }, []);
 
   const handleSuccess = (meta?: { is_new?: boolean }) => {
     setIsNewAccount(typeof meta?.is_new === 'boolean' ? meta.is_new : tab === 'register');
