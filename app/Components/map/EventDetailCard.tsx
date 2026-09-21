@@ -71,7 +71,7 @@ export function EventDetailCard({
     if (meta.category && meta.category !== 'unknown') {
       rows.push(['Category', String(meta.category)]);
     }
-    if (meta.on_ground === true) rows.push(['Status', 'On ground']);
+    if (meta.on_ground === true) rows.push(['Status', 'On ground / taxi']);
     else if (meta.on_ground === false) rows.push(['Status', 'Airborne']);
     const alt = fmtAltitude(meta);
     if (alt) rows.push(['Altitude', alt]);
@@ -88,7 +88,10 @@ export function EventDetailCard({
     if (meta.hub) rows.push(['Sample region', String(meta.hub)]);
     const seen = fmtLastSeen(meta);
     if (seen) rows.push(['Last position', seen]);
-    rows.push(['Route / OD', 'Not on free ADS-B feed']);
+    rows.push([
+      'Route / OD',
+      'Not on free ADS-B — position + speed only (no airline itinerary)',
+    ]);
   } else if (isSat) {
     if (meta.name || point.label) rows.push(['Name', String(meta.name || point.label)]);
     if (meta.norad_id != null) rows.push(['NORAD', String(meta.norad_id)]);
