@@ -37,7 +37,7 @@ import {
 } from '../lib/modelAccess';
 import { UpgradeModal, type UpgradeReason } from '../Components/billing/UpgradeModal';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
-import { AdSlot, AD_LOAD_TIMEOUT_MS } from '../Components/ads/AdSlot';
+import { AdSlot, AD_LOAD_TIMEOUT_MS, isAdPlacementConfigured } from '../Components/ads/AdSlot';
 import { shouldShowPostRunAd } from '../lib/adCadence';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
 import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
@@ -381,6 +381,7 @@ function ChatInner() {
 
   const armPostRunAd = useCallback(() => {
     if (adsFree || postRunAdArmed.current) return;
+    if (!isAdPlacementConfigured('post-run')) return;
     if (!shouldShowPostRunAd()) return;
     postRunAdArmed.current = true;
     setShowPostRunAd(true);
