@@ -21,7 +21,7 @@ import {
   IconPlayerStop,
 } from '@tabler/icons-react';
 import { getStoredToken, getStoredUser } from '../lib/auth';
-import { claimAdExtend, getEntitlements, getModels } from '../lib/billingApi';
+import { claimAdExtend, getEntitlements, getModels, startAdExtendChallenge } from '../lib/billingApi';
 import { formatLlmRunsLeft, isLlmMonthlyQuotaError, parseLlmQuota, type LlmQuota } from '../lib/llmQuota';
 import {
   MODEL_SIZE_LABELS,
@@ -312,6 +312,7 @@ function ChatInner() {
   const [showAdExtend, setShowAdExtend] = useState(false);
   const [adExtendBusy, setAdExtendBusy] = useState(false);
   const [adExtendNote, setAdExtendNote] = useState<string | null>(null);
+  const adExtendChallengeRef = useRef<string | null>(null);
   const [showDashboard, setShowDashboard] = useState(false);
   const [dashStatus, setDashStatus] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -408,12 +409,18 @@ function ChatInner() {
 
   const onAdExtendLoaded = useCallback(async () => {
     if (adExtendBusy) return;
+    const challengeId = adExtendChallengeRef.current;
+    if (!challengeId) {
+      setAdExtendNote('Sponsored unlock not ready — try Watch again.');
+      return;
+    }
     setAdExtendBusy(true);
     try {
-      const result = await claimAdExtend();
+      const result = await claimAdExtend(challengeId);
       if (result.ok) {
         setAdExtendNote(result.message || 'One more run unlocked. Thanks for watching.');
         setShowAdExtend(false);
+        adExtendChallengeRef.current = null;
         setQuotaBanner(null);
         setError(null);
         setUpgradeHref(false);
@@ -425,6 +432,35 @@ function ChatInner() {
       setAdExtendBusy(false);
     }
   }, [adExtendBusy, refreshLlmQuota]);
+
+  const startSponsoredUnlock = useCallback(async () => {
+    setAdExtendNote(null);
+    setAdExtendBusy(true);
+    adExtendChallengeRef.current = null;
+    try {
+      const challenge = await startAdExtendChallenge();
+      if (!challenge.ok) {
+        setAdExtendNote(challenge.message || 'Sponsored unlock unavailable — upgrade for more runs.');
+        setShowAdExtend(false);
+        return;
+      }
+      if (challenge.alreadyClaimed || challenge.needed === false) {
+        setAdExtendNote(challenge.message || 'Already claimed today.');
+        setShowAdExtend(false);
+        if (challenge.alreadyClaimed) await refreshLlmQuota();
+        return;
+      }
+      if (!challenge.challengeId) {
+        setAdExtendNote('Could not start sponsored unlock.');
+        setShowAdExtend(false);
+        return;
+      }
+      adExtendChallengeRef.current = challenge.challengeId;
+      setShowAdExtend(true);
+    } finally {
+      setAdExtendBusy(false);
+    }
+  }, [refreshLlmQuota]);
 
 
   // Parent-level escape hatch: never trap the composer if AdSlot fails to mount/fire.
@@ -1489,10 +1525,10 @@ function ChatInner() {
                     <button
                       type="button"
                       onClick={() => {
-                        setShowAdExtend(true);
-                        setAdExtendNote(null);
+                        void startSponsoredUnlock();
                       }}
-                      className="inline-flex min-h-8 items-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 text-[11px] font-medium text-[var(--text-secondary)]"
+                      disabled={adExtendBusy}
+                      className="inline-flex min-h-8 items-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 text-[11px] font-medium text-[var(--text-secondary)] disabled:opacity-50"
                     >
                       Watch sponsored unit
                     </button>
@@ -1504,11 +1540,18 @@ function ChatInner() {
                       placement="video"
                       enabled
                       onLoaded={() => void onAdExtendLoaded()}
-                      onDismiss={() => setShowAdExtend(false)}
+                      onDismiss={() => {
+                        setShowAdExtend(false);
+                        adExtendChallengeRef.current = null;
+                      }}
                     />
                     {adExtendBusy ? (
                       <p className="mt-1 text-[11px] text-[var(--text-muted)]">Unlocking…</p>
-                    ) : null}
+                    ) : (
+                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                        Watch the full unit (~15s). Skip does not unlock a run.
+                      </p>
+                    )}
                   </div>
                 ) : null}
                 {adExtendNote ? (

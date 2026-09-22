@@ -152,6 +152,8 @@ export function AdSlot({ placement, enabled, onLoaded, onDismiss, className = ''
   const skip = () => {
     loadedRef.current = true;
     setStatus('skipped');
+    // Video skip must not unlock a Free run (parent uses onDismiss).
+    // Banner skip may complete a post-run gate without granting capacity.
     if (isVideo) onDismiss?.();
     else onLoaded?.();
   };
