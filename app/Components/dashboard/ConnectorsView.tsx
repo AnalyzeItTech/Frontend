@@ -139,7 +139,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
     stripe: {
       name: 'Stripe Connect',
       icon: <IconBrandStripe className="w-6 h-6 text-[var(--coral)]" />,
-      desc: 'OAuth. Tokens vault-encrypted. Live read-only sync of customers, charges, and subscriptions.',
+      desc: 'OAuth Connect. When configured, tokens are vault-encrypted for read-only customers, charges, and subscriptions.',
       authMode: 'oauth',
     },
     salesforce: {
@@ -298,7 +298,18 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
           const isConnected = Boolean(activeConn);
           const isSyncing = syncingId === activeConn?.id;
           const isSql = p.authMode === 'connection';
-          const isComingSoon = !isConnected && p.id === 'salesforce';
+          const availMeta = available.find((a) => a.id === p.id) as
+            | { coming_soon?: boolean; coming_soon_reason?: string }
+            | undefined;
+          const isComingSoon =
+            !isConnected && (p.id === 'salesforce' || Boolean(availMeta?.coming_soon));
+          const comingSoonHint =
+            availMeta?.coming_soon_reason ||
+            (p.id === 'salesforce'
+              ? 'OAuth preview only — Salesforce live sync coming soon'
+              : p.id === 'stripe'
+                ? 'Stripe Connect OAuth is not configured — coming soon'
+                : 'Coming soon');
           const hasError = connectors.some((c) => c.provider === p.id && c.status === 'error');
 
           return (
@@ -390,7 +401,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                     </button>
                   </>
                 ) : isComingSoon ? (
-                  <span className="ml-auto text-xs text-[var(--text-muted)]">OAuth preview only — Salesforce live sync coming soon</span>
+                  <span className="ml-auto text-xs text-[var(--text-muted)]">{comingSoonHint}</span>
                 ) : (
                   <button
                     onClick={() =>

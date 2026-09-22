@@ -69,8 +69,18 @@ export function ProjectsManager({
 
   const atLimit =
     typeof projectLimit === 'number' && projectLimit > 0 && projects.length >= projectLimit;
+  const overLimit =
+    typeof projectLimit === 'number' && projectLimit > 0 && projects.length > projectLimit;
 
   const openCreate = () => {
+    if (atLimit) {
+      setError(
+        overLimit
+          ? `You have ${projects.length} projects but your plan allows ${projectLimit}. Delete or archive extras below, or upgrade on Billing — New and Duplicate stay disabled until you are at or under the limit.`
+          : `Plan limit reached (${projectLimit} projects). Delete one below or upgrade on Billing to create more.`,
+      );
+      return;
+    }
     setDraftName('');
     setConfirm({ kind: 'create' });
     setNote(null);
@@ -174,6 +184,24 @@ export function ProjectsManager({
                 </>
               ) : null}
             </p>
+            {overLimit ? (
+              <p className="mt-1.5 text-xs text-[#9B4D3B]">
+                Over your plan limit — New and Duplicate are disabled. Delete projects below until you
+                are at {projectLimit}, or{' '}
+                <Link href="/billing" className="underline underline-offset-2 hover:text-[var(--coral,#EA8069)]">
+                  upgrade
+                </Link>
+                .
+              </p>
+            ) : atLimit ? (
+              <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+                At your plan limit. Delete a project to free a slot, or{' '}
+                <Link href="/billing" className="underline underline-offset-2 hover:text-[var(--coral,#EA8069)]">
+                  upgrade
+                </Link>
+                .
+              </p>
+            ) : null}
           </div>
         </div>
         <button
@@ -181,7 +209,13 @@ export function ProjectsManager({
           onClick={openCreate}
           disabled={atLimit}
           className="btn-primary inline-flex items-center gap-1.5 text-xs disabled:opacity-40"
-          title={atLimit ? 'Project limit reached' : 'New workspace'}
+          title={
+            overLimit
+              ? `Over limit (${projects.length}/${projectLimit}) — delete projects or upgrade`
+              : atLimit
+                ? 'Project limit reached'
+                : 'New workspace'
+          }
         >
           <IconPlus size={14} />
           New
