@@ -9,7 +9,7 @@ const FAQS: FAQItem[] = [
   {
     question: 'What data sources can I connect?',
     answer:
-      'AnalyzeIt currently supports Stripe and Salesforce connectors (preview / seed sync), plus agent tools for markets, weather, web search, and project data. Broader warehouse connectors and real file uploads are on the roadmap.',
+      'GitHub and Stripe Connect are available when OAuth is configured (GitHub is live for most accounts). Chat attachments upload into a turn for spreadsheet and document analysis. Salesforce remains Coming soon. Agent tools also cover markets, weather, web search, and project objects. Warehouse connectors are still on the roadmap.',
   },
   {
     question: 'Do I need technical or SQL knowledge to use AnalyzeIt?',
@@ -24,7 +24,7 @@ const FAQS: FAQItem[] = [
   {
     question: 'How is my data protected?',
     answer:
-      'Credentials are encrypted at rest when a vault key is configured. Network traffic uses HTTPS in production. Private business data is not used to train public language models. Treat connector sync as preview until live provider pulls ship.',
+      'Credentials are encrypted at rest when a vault key is configured. Network traffic uses HTTPS in production. Private business data is not used to train public language models.',
   },
   {
     question: 'Can my whole team collaborate in one workspace?',

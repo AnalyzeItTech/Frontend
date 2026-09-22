@@ -1,8 +1,12 @@
-import React from 'react';
-import Link from 'next/link';
+'use client';
 
-interface PricingTier {
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { getBillingQuote, type BillingQuote } from '../../lib/billingApi';
+
+type TierCard = {
   name: string;
+  planId?: 'premium' | 'premium_plus';
   price: string;
   period: string;
   currencyNote: string;
@@ -11,32 +15,32 @@ interface PricingTier {
   features: string[];
   cta: string;
   href: string;
-}
+};
 
-const TIERS: PricingTier[] = [
-  {
-    name: 'Free',
-    price: '₹0',
-    period: '/mo',
-    currencyNote: 'INR · billed as ₹0',
-    tagline: 'Personal research after you create an account.',
-    features: [
-      'Requires an AnalyzeIt account',
-      'Core Chat + research loop',
-      '3 projects · 12 widgets',
-      '1× daily tokens · smaller model',
-      'Sponsored units after research runs',
-      '7-day artifact retention',
-      '250M context retention tokens',
-    ],
-    cta: 'Create a free account',
-    href: '/login?tab=register',
-  },
+const FREE_TIER: TierCard = {
+  name: 'Free',
+  price: '₹0',
+  period: '/mo',
+  currencyNote: 'INR · billed as ₹0',
+  tagline: 'Personal research after you create an account.',
+  features: [
+    'Requires an AnalyzeIt account',
+    'Core Chat + research loop',
+    '3 projects · 12 widgets',
+    '1× daily tokens · smaller model',
+    'Sponsored units after research runs',
+    '7-day artifact retention',
+    '250M context retention tokens',
+  ],
+  cta: 'Create a free account',
+  href: '/login?tab=register',
+};
+
+const PAID_BASE: Omit<TierCard, 'price' | 'currencyNote'>[] = [
   {
     name: 'Premium',
-    price: '₹4,775.69',
+    planId: 'premium',
     period: '/mo',
-    currencyNote: 'INR via PayU · $50 USD reference',
     tagline: 'Better model and 3× token budget for deeper analysis.',
     popular: true,
     features: [
@@ -54,9 +58,8 @@ const TIERS: PricingTier[] = [
   },
   {
     name: 'Premium Plus',
-    price: '₹9,551.38',
+    planId: 'premium_plus',
     period: '/mo',
-    currencyNote: 'INR via PayU · $100 USD reference',
     tagline: '6× tokens, longer retention, more concurrent projects.',
     features: [
       'Everything in Premium',
@@ -73,7 +76,64 @@ const TIERS: PricingTier[] = [
   },
 ];
 
+function displayAmount(row: BillingQuote['plans']['premium'] | undefined, fallbackUsd: number): string {
+  if (!row || row.amount == null || !Number.isFinite(Number(row.amount))) {
+    return `$${fallbackUsd}`;
+  }
+  if (typeof row.amount_display === 'string' && row.amount_display.trim()) {
+    return row.amount_display.trim();
+  }
+  const ccy = row.currency || 'INR';
+  const n = Number(row.amount);
+  if (ccy === 'INR') {
+    return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  return `${ccy} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function currencyNote(row: BillingQuote['plans']['premium'] | undefined, fallbackUsd: number): string {
+  if (!row || row.amount == null || !Number.isFinite(Number(row.amount))) {
+    return `USD reference · live INR on Billing after sign-in (≈$${fallbackUsd})`;
+  }
+  const usd =
+    row.amount_usd != null && Number.isFinite(row.amount_usd)
+      ? ` · $${row.amount_usd} USD reference`
+      : ` · $${fallbackUsd} USD reference`;
+  return `${row.currency || 'INR'} via PayU${usd}`;
+}
+
 export const PricingTeaserSection: React.FC = () => {
+  const [quote, setQuote] = useState<BillingQuote | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        // PayU India checkout — keep marketing aligned with Billing INR quotes.
+        const q = await getBillingQuote('IN');
+        if (!cancelled) setQuote(q);
+      } catch {
+        if (!cancelled) setQuote(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const tiers: TierCard[] = [
+    FREE_TIER,
+    ...PAID_BASE.map((base) => {
+      const fallbackUsd = base.planId === 'premium_plus' ? 100 : 50;
+      const row = base.planId ? quote?.plans?.[base.planId] : undefined;
+      return {
+        ...base,
+        price: displayAmount(row, fallbackUsd),
+        currencyNote: currencyNote(row, fallbackUsd),
+      };
+    }),
+  ];
+
   return (
     <section
       id="pricing"
@@ -89,13 +149,13 @@ export const PricingTeaserSection: React.FC = () => {
         </h2>
         <p className="text-base text-[#3F3830] dark:text-[#E6DCD2]">
           Chat, dashboards, globe, and connectors require an account. Paid plans are billed monthly
-          through PayU in INR; USD amounts below are for reference. Failed renewals keep entitlements
-          for 7 days, then Free.
+          through PayU in INR; amounts below match live Billing quotes. Failed renewals keep
+          entitlements for 7 days, then Free.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-        {TIERS.map((tier) => (
+        {tiers.map((tier) => (
           <div
             key={tier.name}
             className={`relative flex flex-col rounded-3xl border p-7 ${
@@ -121,7 +181,9 @@ export const PricingTeaserSection: React.FC = () => {
             <ul className="space-y-2.5 mb-8 flex-1">
               {tier.features.map((feature) => (
                 <li key={feature} className="text-sm text-[#3F3830] dark:text-[#C5B9AE] flex gap-2">
-                  <span className="text-[#C45A42]" aria-hidden="true">·</span>
+                  <span className="text-[#C45A42]" aria-hidden="true">
+                    ·
+                  </span>
                   {feature}
                 </li>
               ))}

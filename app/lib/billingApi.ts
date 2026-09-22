@@ -69,8 +69,9 @@ export function detectBillingCountry(): string {
 }
 
 export async function getBillingQuote(country: string): Promise<BillingQuote> {
+  const headers = getStoredToken() ? getAuthHeaders() : undefined;
   const res = await fetch(`${API_V1}/billing/quote?country=${encodeURIComponent(country)}`, {
-    headers: getAuthHeaders(),
+    ...(headers ? { headers } : {}),
   });
   if (!res.ok) throw new Error(await readError(res, 'Could not load prices'));
   const data = (await res.json()) as BillingQuote;
