@@ -279,12 +279,45 @@ export async function createNamedLayout(projectId: string, name: string, layoutJ
   return res.json();
 }
 
-/** Optional rewarded/sponsored unlock for one Free LLM run. 404 = not shipped yet. */
-export async function claimAdExtend(): Promise<{ ok: boolean; remaining?: number; message?: string }> {
-  const res = await fetch(`${API_V1}/billing/ad-extend`, {
+/** Optional rewarded/sponsored unlock for one Free LLM run. */
+
+export async function startAdExtendChallenge(): Promise<{
+  ok: boolean;
+  needed?: boolean;
+  alreadyClaimed?: boolean;
+  challengeId?: string;
+  minWatchSeconds?: number;
+  remaining?: number;
+  message?: string;
+}> {
+  const res = await fetch(`${API_V1}/billing/ad-extend/challenge`, {
     method: 'POST',
     headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
     body: '{}',
+  });
+  if (res.status === 404) {
+    return { ok: false, message: 'Sponsored unlock is not available yet — upgrade for more runs.' };
+  }
+  if (!res.ok) {
+    return { ok: false, message: await readError(res, 'Could not start sponsored unlock') };
+  }
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  return {
+    ok: true,
+    needed: body.needed !== false,
+    alreadyClaimed: Boolean(body.already_claimed),
+    challengeId: typeof body.challenge_id === 'string' ? body.challenge_id : undefined,
+    minWatchSeconds: typeof body.min_watch_seconds === 'number' ? body.min_watch_seconds : 15,
+    remaining: typeof body.llm_runs_remaining === 'number' ? body.llm_runs_remaining : undefined,
+    message: typeof body.message === 'string' ? body.message : undefined,
+  };
+}
+
+export async function claimAdExtend(challengeId: string): Promise<{ ok: boolean; remaining?: number; message?: string }> {
+  const res = await fetch(`${API_V1}/billing/ad-extend`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challenge_id: challengeId }),
   });
   if (res.status === 404) {
     return { ok: false, message: 'Sponsored unlock is not available yet — upgrade for more runs.' };
