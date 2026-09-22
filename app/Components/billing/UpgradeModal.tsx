@@ -20,7 +20,7 @@ const COPY: Record<UpgradeReason, { title: string; body: string }> = {
   },
   quota: {
     title: 'Monthly free LLM runs used',
-    body: 'You have hit this month’s free LLM run ceiling. Upgrade for a higher monthly budget. 0-token tools do not count against the limit.',
+    body: 'You have hit this month’s free LLM run ceiling. Weather and calculator still work when they match. Upgrade for full Chat and a higher monthly budget.',
   },
   generic: {
     title: 'Upgrade AnalyzeIt',
