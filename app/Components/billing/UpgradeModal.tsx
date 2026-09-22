@@ -31,6 +31,9 @@ const COPY: Record<UpgradeReason, { title: string; body: string }> = {
 export function UpgradeModal({ open, onClose, reason = 'generic', lockedModelLabel }: UpgradeModalProps) {
   useEffect(() => {
     if (!open) return;
+    // Close native <select> dropdowns that sit under the overlay.
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };

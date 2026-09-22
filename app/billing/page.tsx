@@ -70,6 +70,7 @@ export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [quote, setQuote] = useState<BillingQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(true);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [reviewPlan, setReviewPlan] = useState<PlanId | null>(null);
   const [checkoutPhone, setCheckoutPhone] = useState('');
@@ -81,6 +82,7 @@ export default function BillingPage() {
       router.replace('/login?next=/billing');
       return;
     }
+    setQuoteLoading(true);
     void getBillingQuote(CHECKOUT_COUNTRY)
       .then((q) => {
         setQuote(q);
@@ -89,7 +91,8 @@ export default function BillingPage() {
       .catch((err) => {
         setQuote(null);
         setQuoteError(err instanceof Error ? err.message : 'Could not load prices');
-      });
+      })
+      .finally(() => setQuoteLoading(false));
   };
 
   const loadMe = () => {
@@ -307,6 +310,18 @@ export default function BillingPage() {
             const amount = plan === 'premium' ? premiumAmt : plusAmt;
             const ccy = plan === 'premium' ? premiumCcy : plusCcy;
             const ready = amount != null;
+            const priceLabel = ready
+              ? formatMoney(amount, ccy)
+              : quoteLoading
+                ? '…'
+                : quoteError
+                  ? 'Unavailable'
+                  : '…';
+            const ctaLabel = ready
+              ? `Review ${meta.name}`
+              : quoteLoading
+                ? 'Loading price…'
+                : 'Price unavailable';
             return (
               <section key={plan} className="app-card flex flex-col space-y-3 p-5">
                 <div>
@@ -314,9 +329,7 @@ export default function BillingPage() {
                   <p className="text-xs text-[var(--text-muted,#6B6155)]">{meta.cadence}</p>
                 </div>
                 <div>
-                  <p className="font-serif text-3xl text-[var(--text,#322C28)]">
-                    {ready ? formatMoney(amount, ccy) : quoteError ? 'Unavailable' : '…'}
-                  </p>
+                  <p className="font-serif text-3xl text-[var(--text,#322C28)]">{priceLabel}</p>
                   <p className="text-xs text-[var(--text-muted,#6B6155)]">
                     ${meta.usdList} USD reference · charged in {ccy} via PayU
                   </p>
@@ -333,11 +346,11 @@ export default function BillingPage() {
                 </ul>
                 <button
                   type="button"
-                  disabled={busy || !ready}
+                  disabled={busy || !ready || quoteLoading}
                   onClick={() => openReview(plan)}
                   className="btn-primary disabled:opacity-50"
                 >
-                  {ready ? `Review ${meta.name}` : 'Price unavailable'}
+                  {ctaLabel}
                 </button>
               </section>
             );

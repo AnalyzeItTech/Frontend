@@ -241,7 +241,8 @@ function EventMarker({
           } ${isIssNow ? 'globe-pin--iss-now' : ''}`}
         />
       )}
-      {point.showLabel !== false && !isFlight ? (
+      {/* Labels only when selected — dense layers otherwise unreadably overlap. */}
+      {(selected || point.showLabel === true) && !isFlight ? (
         <span className={`globe-event-label globe-event-label--${host}`}>{point.label}</span>
       ) : null}
       {isFlight && selected ? (
