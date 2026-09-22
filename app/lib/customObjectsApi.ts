@@ -77,13 +77,16 @@ export interface Connector {
   id: string;
   project_id: string;
   provider: string;
-  status: 'connected' | 'error' | 'disconnected';
+  name?: string;
+  status: 'connected' | 'error' | 'disconnected' | 'healthy';
   sync_frequency?: string;
   last_sync_at?: string;
   error_message?: string;
-  data_mode?: 'preview' | 'seed_demo' | string;
+  data_mode?: 'preview' | 'seed_demo' | 'live_readonly' | string;
   live_pull_available?: boolean;
   seed_demo_sync_allowed?: boolean;
+  auth_mode?: 'oauth' | 'connection' | 'catalog' | string;
+  connection_meta?: Record<string, string | number>;
   objects_discovered?: Array<{
     api_name: string;
     label: string;
@@ -343,9 +346,14 @@ export async function authorizeConnector(
   return res.json();
 }
 
-export async function connectSqlConnector(
+function connectorError(err: { detail?: unknown }, fallback: string): string {
+  if (typeof err.detail === 'string') return err.detail;
+  return fallback;
+}
+
+export async function connectProvider(
   projectId: string,
-  provider: 'postgres' | 'sqlite',
+  provider: string,
   connection: Record<string, unknown>,
   name?: string
 ): Promise<Connector> {
@@ -356,7 +364,43 @@ export async function connectSqlConnector(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(typeof err.detail === 'string' ? err.detail : 'Failed to connect SQL database');
+    throw new Error(connectorError(err, 'Failed to connect'));
+  }
+  return res.json();
+}
+
+export async function connectSqlConnector(
+  projectId: string,
+  provider: 'postgres' | 'sqlite',
+  connection: Record<string, unknown>,
+  name?: string
+): Promise<Connector> {
+  return connectProvider(projectId, provider, connection, name);
+}
+
+export async function fetchConnector(connectorId: string): Promise<Connector> {
+  const res = await fetch(`${API_V1}/connectors/${connectorId}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(connectorError(err, 'Failed to load connector'));
+  }
+  return res.json();
+}
+
+export async function updateConnector(
+  connectorId: string,
+  patch: Record<string, unknown>
+): Promise<Connector> {
+  const res = await fetch(`${API_V1}/connectors/${connectorId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(connectorError(err, 'Failed to update connector'));
   }
   return res.json();
 }

@@ -58,11 +58,11 @@ const CAPABILITIES: Capability[] = [
     category: 'Capability 04 · Connectors & Objects',
     headline: 'Connect data. Shape objects. Stay honest.',
     body:
-      'Connectors show real status (connected / coming soon / error). Objects use one clear term and an illustrative schema when empty — no half-broken Connect buttons.',
+      'Connectors show real status (connected / ready / error). Import SQL, Stripe, Salesforce, GitHub, or public datasets from Kaggle, Hugging Face, and OpenML. Objects use one clear term and an illustrative schema when empty.',
     callout: 'Honest status',
     calloutDesc: 'status chips · Create object above the fold',
     bullets: [
-      'Connected, coming soon, and error states you can trust',
+      'Connected, ready, and error states you can trust',
       'One vocabulary: objects — not mixed “entities”',
       'Illustrative schema previews when the workspace is empty',
     ],

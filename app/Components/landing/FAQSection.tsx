@@ -9,7 +9,7 @@ const FAQS: FAQItem[] = [
   {
     question: 'What data sources can I connect?',
     answer:
-      'GitHub and Stripe Connect are available when OAuth is configured (GitHub is live for most accounts). Chat attachments upload into a turn for spreadsheet and document analysis. Salesforce remains Coming soon. Agent tools also cover markets, weather, web search, and project objects. Warehouse connectors are still on the roadmap.',
+      'GitHub, Stripe, Salesforce, Postgres, SQLite, and online datasets from Kaggle, Hugging Face, and OpenML. Stripe accepts OAuth or a restricted API key; Salesforce accepts OAuth or an access token. Chat attachments upload into a turn for spreadsheet and document analysis. Agent tools also cover markets, weather, web search, and project objects.',
   },
   {
     question: 'Do I need technical or SQL knowledge to use AnalyzeIt?',
