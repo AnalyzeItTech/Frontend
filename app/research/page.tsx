@@ -390,6 +390,13 @@ function ChatInner() {
   const onPostRunAdLoaded = useCallback(() => {
     setAwaitingAd(false);
     postRunAdArmed.current = false;
+    setShowPostRunAd(false);
+  }, []);
+
+  const dismissPostRunAd = useCallback(() => {
+    setAwaitingAd(false);
+    postRunAdArmed.current = false;
+    setShowPostRunAd(false);
   }, []);
 
   const refreshLlmQuota = useCallback(async () => {
@@ -1546,7 +1553,12 @@ function ChatInner() {
 
             {showPostRunAd && !adsFree && (
               <div className="mx-4 mb-3 sm:mx-6">
-                <AdSlot placement="post-run" enabled onLoaded={onPostRunAdLoaded} />
+                <AdSlot
+                  placement="post-run"
+                  enabled
+                  onLoaded={onPostRunAdLoaded}
+                  onDismiss={dismissPostRunAd}
+                />
               </div>
             )}
 
