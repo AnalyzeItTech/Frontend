@@ -398,6 +398,9 @@ export function PlaceContextCard({
               <div className="rounded-xl bg-[var(--surface-2)] p-2.5">
                 <div className="mb-1 flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
                   <IconPlane size={12} className="text-[#EA8069]" /> Flights
+                  <span className="normal-case tracking-normal text-[var(--text-muted)]">
+                    (sampled ADS-B · no routes)
+                  </span>
                 </div>
                 {flights?.available && flights.aircraft.length > 0 ? (
                   <ul className="space-y-1 text-[10px] text-[var(--text-secondary)]">

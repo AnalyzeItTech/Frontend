@@ -746,6 +746,20 @@ function ChatInner() {
               return;
             }
 
+            if (event.event === 'thinking') {
+              const text = typeof event.payload?.text === 'string' ? event.payload.text : '';
+              if (text) {
+                const short =
+                  text.length > 80 ? `${text.slice(0, 77)}…` : text;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId ? { ...m, status: short } : m,
+                  ),
+                );
+              }
+              return;
+            }
+
             if (event.event === 'tool_call' || event.event === 'tool_result' || event.event === 'context_fetch') {
               const name = typeof event.payload?.tool === 'string' ? event.payload.tool : event.event;
               const args = event.payload?.args as Record<string, unknown> | undefined;
@@ -1221,7 +1235,8 @@ function ChatInner() {
               data-lenis-prevent
               className="chat-scroll relative z-10 min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6"
             >
-              <div className="w-full max-w-[36rem] space-y-4">
+              {/* Right of the globe: leave the left / center for earth, pin chat to the trailing edge */}
+              <div className="ml-auto w-full max-w-[36rem] space-y-4">
               {messages.length === 0 && (
                 <div className="flex min-h-[min(28rem,70%)] flex-col justify-center py-6 sm:py-10">
                   <div className="app-card space-y-5 bg-[var(--surface)]/92 p-6 shadow-lg backdrop-blur-md sm:p-8">
@@ -1263,12 +1278,12 @@ function ChatInner() {
                     className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-full space-y-2 ${
+                      className={`max-w-[min(100%,28rem)] space-y-2 ${
                         isUser
                           ? isIncognito
-                            ? 'rounded-2xl rounded-tr-md bg-violet-900/80 border border-violet-500/30 px-4 py-3 text-sm text-violet-50'
-                            : 'rounded-2xl rounded-tr-md bg-[var(--text-primary)] px-4 py-3 text-sm text-[var(--bg)]'
-                          : 'app-card bg-[var(--surface)]/92 px-4 py-3 text-sm shadow-sm backdrop-blur-md'
+                            ? 'rounded-2xl rounded-tr-md border border-violet-400/40 bg-violet-50/95 px-4 py-3 text-sm text-violet-950 shadow-sm backdrop-blur-md dark:border-violet-400/30 dark:bg-violet-950/70 dark:text-violet-50'
+                            : 'rounded-2xl rounded-tr-md border border-[var(--border)] bg-[var(--surface)]/95 px-4 py-3 text-sm text-[var(--text-primary)] shadow-sm backdrop-blur-md'
+                          : 'app-card max-w-full bg-[var(--surface)]/92 px-4 py-3 text-sm shadow-sm backdrop-blur-md'
                       }`}
                     >
                       {!isUser && msg.mode === 'research' && (
@@ -1342,7 +1357,7 @@ function ChatInner() {
                           {msg.attachments.map((att) => (
                             <span
                               key={att.attachment_id}
-                              className="inline-flex max-w-full items-center gap-1 rounded-md bg-black/10 px-2 py-0.5 text-[11px] dark:bg-white/10"
+                              className="inline-flex max-w-full items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)]"
                             >
                               <IconFile size={12} className="shrink-0 opacity-70" />
                               <span className="truncate">{att.filename}</span>

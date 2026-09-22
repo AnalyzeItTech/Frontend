@@ -78,20 +78,20 @@ function readRails(): { left: number; right: number } {
   }
 }
 
-const LAYERS: { id: LayerId; label: string; hint: string; color: string }[] = [
-  { id: 'catalog', label: 'Sources', hint: 'Research HQ catalog (~90+)', color: '#c4a28a' },
-  { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS worldwide', color: '#d97706' },
-  { id: 'disasters', label: 'Disasters', hint: 'GDACS alerts', color: '#dc2626' },
-  { id: 'wildfires', label: 'Wildfires', hint: 'NASA EONET open fires', color: '#ef4444' },
-  { id: 'storms', label: 'Storms', hint: 'NASA EONET severe storms', color: '#6366f1' },
-  { id: 'volcanoes', label: 'Volcanoes', hint: 'NASA EONET volcanoes', color: '#b45309' },
-  { id: 'weather', label: 'Weather', hint: 'Open-Meteo at hubs', color: '#3b82f6' },
-  { id: 'air_quality', label: 'Air quality', hint: 'AQI at hubs', color: '#10b981' },
-  { id: 'iss', label: 'Satellites', hint: 'ISS orbit + stations & bright sats', color: '#f43f5e' },
-  { id: 'space_weather', label: 'Space Weather', hint: 'NOAA SWPC alerts · scales · flares', color: '#14b8a6' },
-  { id: 'elevation', label: 'Elevation', hint: 'Meters above sea level at hubs', color: '#78716c' },
-  { id: 'markets', label: 'Markets', hint: 'Live equity indices at hubs', color: '#8b5cf6' },
-  { id: 'flights', label: 'Flights', hint: 'Live aircraft worldwide (OpenSky/ADS-B)', color: '#0ea5e9' },
+const LAYERS: { id: LayerId; label: string; hint: string; color: string; coverage: 'complete' | 'sample' | 'limited' }[] = [
+  { id: 'catalog', label: 'Sources', hint: 'Research HQ catalog (~90+)', color: '#c4a28a', coverage: 'complete' },
+  { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS worldwide', color: '#d97706', coverage: 'complete' },
+  { id: 'disasters', label: 'Disasters', hint: 'GDACS alerts worldwide', color: '#dc2626', coverage: 'complete' },
+  { id: 'wildfires', label: 'Wildfires', hint: 'NASA EONET open fires', color: '#ef4444', coverage: 'complete' },
+  { id: 'storms', label: 'Storms', hint: 'NASA EONET severe storms', color: '#6366f1', coverage: 'complete' },
+  { id: 'volcanoes', label: 'Volcanoes', hint: 'NASA EONET volcanoes', color: '#b45309', coverage: 'complete' },
+  { id: 'weather', label: 'Weather', hint: 'Open-Meteo at hubs — sampled, not a global grid', color: '#3b82f6', coverage: 'sample' },
+  { id: 'air_quality', label: 'Air quality', hint: 'AQI at hubs — sampled', color: '#10b981', coverage: 'sample' },
+  { id: 'iss', label: 'Satellites', hint: 'ISS + selected Celestrak sats — not a full catalog', color: '#f43f5e', coverage: 'limited' },
+  { id: 'space_weather', label: 'Space Weather', hint: 'NOAA SWPC alerts · scales · flares', color: '#14b8a6', coverage: 'complete' },
+  { id: 'elevation', label: 'Elevation', hint: 'Meters above sea level at hubs — sampled', color: '#78716c', coverage: 'sample' },
+  { id: 'markets', label: 'Markets', hint: 'Live equity indices at hubs — sampled', color: '#8b5cf6', coverage: 'sample' },
+  { id: 'flights', label: 'Flights', hint: 'Geographic sample · OpenSky/ADS-B · no origin/destination', color: '#0ea5e9', coverage: 'sample' },
 ];
 /** Live layers: this page is the only caller of geo context/events. Poll on LIVE_LAYER_POLL_MS — never in rAF. */
 
@@ -618,6 +618,15 @@ export default function GlobePage() {
                     }`}
                   >
                     {layer.label}
+                    {layer.coverage === 'sample' ? (
+                      <span className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                        sample
+                      </span>
+                    ) : layer.coverage === 'limited' ? (
+                      <span className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                        limited
+                      </span>
+                    ) : null}
                     {on && (layerCounts[layer.id] ?? 0) > 0 ? (
                       <span className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[9px] tabular-nums text-[var(--text-muted)]">
                         {layerCounts[layer.id]}
@@ -630,6 +639,12 @@ export default function GlobePage() {
                 );
               })}
             </div>
+            {layers.flights ? (
+              <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
+                Flights are a geographic sample from free ADS-B / OpenSky — not a worldwide dump,
+                and not airline routes (no origin or destination on this feed).
+              </p>
+            ) : null}
             {layerFilter.trim() && visibleLayers.length === 0 ? (
               <p className="text-[11px] text-[var(--text-muted)]">No layers match that filter.</p>
             ) : null}
@@ -769,6 +784,11 @@ export default function GlobePage() {
                   <li key={l.id} className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
                     {l.label}
+                    {l.coverage === 'sample' ? (
+                      <span className="text-[var(--text-muted)]">· sample</span>
+                    ) : l.coverage === 'limited' ? (
+                      <span className="text-[var(--text-muted)]">· limited</span>
+                    ) : null}
                     <span className="text-[var(--text-muted)]">· {l.hint}</span>
                     {(layerCounts[l.id] ?? 0) > 0 ? (
                       <span className="tabular-nums text-[var(--text-muted)]">({layerCounts[l.id]})</span>

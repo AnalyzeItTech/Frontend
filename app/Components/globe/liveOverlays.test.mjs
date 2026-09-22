@@ -156,4 +156,14 @@ describe('bug #7 — source invariants in globe/page.tsx', () => {
     assert.ok(!pageSource.includes('flight:ctx'));
     assert.ok(!pageSource.includes('iss:ctx'));
   });
+
+  it('labels flights as a geographic sample, not a worldwide dump', () => {
+    assert.match(pageSource, /Geographic sample · OpenSky\/ADS-B · no origin\/destination/);
+    assert.match(pageSource, /not a worldwide dump/);
+    assert.doesNotMatch(
+      pageSource,
+      /Live aircraft worldwide \(OpenSky\/ADS-B\)/,
+    );
+    assert.match(pageSource, /id: 'flights'[\s\S]*coverage: 'sample'/);
+  });
 });
