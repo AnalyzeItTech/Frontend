@@ -37,7 +37,8 @@ export default function SecurityPage() {
           When you connect an external system, grant the minimum access the connector needs —
           preferably a read-only role. AnalyzeIt is designed to display and analyze data, not to
           change source systems. Connector credentials are encrypted at rest when a vault key is
-          configured. Treat current provider sync as preview until live pulls are fully rolled out.
+          configured. GitHub, Stripe, Salesforce, SQL, and catalog datasets (Kaggle, Hugging Face,
+          OpenML) sync as live read-only pulls.
         </p>
       </LegalSection>
 

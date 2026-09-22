@@ -13,6 +13,9 @@ import {
   IconShieldLock,
   IconClock,
   IconDatabase,
+  IconChartBar,
+  IconSparkles,
+  IconTable,
 } from '@tabler/icons-react';
 import {
   fetchAvailableConnectors,
@@ -20,7 +23,8 @@ import {
   authorizeConnector,
   syncConnector,
   revokeConnector,
-  connectSqlConnector,
+  connectProvider,
+  updateConnector,
   type Connector,
 } from '../../lib/customObjectsApi';
 
@@ -28,19 +32,48 @@ interface ConnectorsViewProps {
   projectId: string;
 }
 
+type FormKind =
+  | 'postgres'
+  | 'sqlite'
+  | 'stripe'
+  | 'salesforce'
+  | 'kaggle'
+  | 'huggingface'
+  | 'openml'
+  | null;
+
+type AuthMode = 'oauth' | 'connection' | 'catalog';
+
 export function ConnectorsView({ projectId }: ConnectorsViewProps) {
   const [available, setAvailable] = useState<any[]>([]);
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [sqlForm, setSqlForm] = useState<'postgres' | 'sqlite' | null>(null);
+  const [form, setForm] = useState<FormKind>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [sqlBusy, setSqlBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [pgHost, setPgHost] = useState('localhost');
   const [pgPort, setPgPort] = useState('5432');
   const [pgDb, setPgDb] = useState('');
   const [pgUser, setPgUser] = useState('');
   const [pgPassword, setPgPassword] = useState('');
   const [sqlitePath, setSqlitePath] = useState('');
+  const [stripeKey, setStripeKey] = useState('');
+  const [sfInstance, setSfInstance] = useState('');
+  const [sfToken, setSfToken] = useState('');
+  const [sfUsername, setSfUsername] = useState('');
+  const [sfPassword, setSfPassword] = useState('');
+  const [sfSecToken, setSfSecToken] = useState('');
+  const [sfClientId, setSfClientId] = useState('');
+  const [sfClientSecret, setSfClientSecret] = useState('');
+  const [sfAdvanced, setSfAdvanced] = useState(false);
+  const [catalogRef, setCatalogRef] = useState('');
+  const [kaggleUser, setKaggleUser] = useState('');
+  const [kaggleKey, setKaggleKey] = useState('');
+  const [hfConfig, setHfConfig] = useState('');
+  const [hfSplit, setHfSplit] = useState('');
+  const [displayName, setDisplayName] = useState('');
 
   const loadData = async () => {
     if (!projectId) return;
@@ -75,26 +108,66 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
     }
   };
 
-  const handleConnectSql = async () => {
-    if (!sqlForm) return;
-    setSqlBusy(true);
-    try {
-      if (sqlForm === 'sqlite') {
-        await connectSqlConnector(projectId, 'sqlite', { path: sqlitePath });
-      } else {
-        await connectSqlConnector(projectId, 'postgres', {
-          host: pgHost,
-          port: Number(pgPort) || 5432,
-          database: pgDb,
-          user: pgUser,
-          password: pgPassword,
-        });
+  const connectionPayload = (): Record<string, unknown> | null => {
+    if (form === 'sqlite') return { path: sqlitePath };
+    if (form === 'postgres') {
+      return {
+        host: pgHost,
+        port: Number(pgPort) || 5432,
+        database: pgDb,
+        user: pgUser,
+        password: pgPassword,
+      };
+    }
+    if (form === 'stripe') return { api_key: stripeKey };
+    if (form === 'salesforce') {
+      if (sfAdvanced) {
+        return {
+          username: sfUsername,
+          password: sfPassword,
+          security_token: sfSecToken,
+          client_id: sfClientId,
+          client_secret: sfClientSecret,
+          login_host: sfInstance || 'https://login.salesforce.com',
+        };
       }
-      setSqlForm(null);
+      return { instance_url: sfInstance, access_token: sfToken };
+    }
+    if (form === 'kaggle') {
+      return { dataset: catalogRef, username: kaggleUser, api_key: kaggleKey };
+    }
+    if (form === 'huggingface') {
+      return { dataset: catalogRef, config: hfConfig || undefined, split: hfSplit || undefined };
+    }
+    if (form === 'openml') return { dataset: catalogRef };
+    return null;
+  };
+
+  const handleConnectForm = async () => {
+    if (!form) return;
+    setSqlBusy(true);
+    setFormError(null);
+    try {
+      const connection = connectionPayload();
+      if (!connection) return;
+      if (editingId) {
+        const patch: Record<string, unknown> = { connection };
+        if (displayName.trim()) patch.name = displayName.trim();
+        await updateConnector(editingId, patch);
+      } else {
+        await connectProvider(projectId, form, connection, displayName.trim() || undefined);
+      }
+      setForm(null);
+      setEditingId(null);
       setPgPassword('');
+      setStripeKey('');
+      setSfToken('');
+      setSfPassword('');
+      setSfClientSecret('');
+      setKaggleKey('');
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to connect database');
+      setFormError(err.message || 'Failed to connect');
     } finally {
       setSqlBusy(false);
     }
@@ -134,18 +207,18 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
 
   const PROVIDER_METAS: Record<
     string,
-    { name: string; icon: React.ReactNode; desc: string; authMode: 'oauth' | 'connection' }
+    { name: string; icon: React.ReactNode; desc: string; authMode: AuthMode }
   > = {
     stripe: {
       name: 'Stripe Connect',
       icon: <IconBrandStripe className="w-6 h-6 text-[var(--coral)]" />,
-      desc: 'OAuth Connect. When configured, tokens are vault-encrypted for read-only customers, charges, and subscriptions.',
+      desc: 'OAuth Connect or a restricted secret key. Tokens stay vault-encrypted for read-only customers, charges, and subscriptions.',
       authMode: 'oauth',
     },
     salesforce: {
       name: 'Salesforce CRM',
       icon: <IconCloud className="w-6 h-6 text-[var(--coral)]" />,
-      desc: 'OAuth. Tokens vault-encrypted. Live read-only sync of Accounts and Contacts via SOQL.',
+      desc: 'OAuth or access token. Live read-only sync of Accounts and Contacts via SOQL.',
       authMode: 'oauth',
     },
     github: {
@@ -166,12 +239,30 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       desc: 'Read-only SELECT against a local SQLite file. Path is vault-encrypted.',
       authMode: 'connection',
     },
+    kaggle: {
+      name: 'Kaggle Datasets',
+      icon: <IconChartBar className="w-6 h-6 text-sky-500" />,
+      desc: 'Import a public Kaggle dataset (owner/slug). Username + API key are vault-encrypted for download.',
+      authMode: 'catalog',
+    },
+    huggingface: {
+      name: 'Hugging Face Datasets',
+      icon: <IconSparkles className="w-6 h-6 text-yellow-500" />,
+      desc: 'Import a public Hugging Face dataset by id or URL. Rows sync through the datasets-server API.',
+      authMode: 'catalog',
+    },
+    openml: {
+      name: 'OpenML',
+      icon: <IconTable className="w-6 h-6 text-indigo-500" />,
+      desc: 'Import a public OpenML dataset by numeric id or openml.org URL.',
+      authMode: 'catalog',
+    },
   };
 
   const providerIds =
     available.length > 0
       ? available.map((a) => a.id as string)
-      : ['stripe', 'salesforce', 'github', 'postgres', 'sqlite'];
+      : ['stripe', 'salesforce', 'github', 'postgres', 'sqlite', 'kaggle', 'huggingface', 'openml'];
 
   const allProviders = providerIds.map((id) => ({
     id,
@@ -179,9 +270,33 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       name: id,
       icon: <IconDatabase className="w-6 h-6" />,
       desc: '',
-      authMode: (available.find((a) => a.id === id)?.auth_mode as 'oauth' | 'connection') || 'oauth',
+      authMode: (available.find((a) => a.id === id)?.auth_mode as AuthMode) || 'oauth',
     }),
   }));
+
+  const openForm = (kind: FormKind, connector?: Connector) => {
+    setForm(kind);
+    setFormError(null);
+    setEditingId(connector?.id || null);
+    setDisplayName(connector?.name || '');
+  };
+
+  const formTitle =
+    form === 'postgres'
+      ? 'PostgreSQL'
+      : form === 'sqlite'
+        ? 'SQLite'
+        : form === 'stripe'
+          ? 'Stripe'
+          : form === 'salesforce'
+            ? 'Salesforce'
+            : form === 'kaggle'
+              ? 'Kaggle'
+              : form === 'huggingface'
+                ? 'Hugging Face'
+                : form === 'openml'
+                  ? 'OpenML'
+                  : '';
 
   return (
     <div className="flex flex-col gap-6 w-full">
@@ -192,7 +307,8 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
             Connectors
           </h2>
           <p className="text-xs text-[var(--text-muted)] dark:text-neutral-400 mt-1">
-            OAuth previews + read-only SQL (Postgres/SQLite). Credentials stay vault-encrypted on Backend A.
+            OAuth, API keys, SQL, and online datasets (Kaggle, Hugging Face, OpenML). Credentials stay
+            vault-encrypted on Backend A.
           </p>
         </div>
 
@@ -212,12 +328,21 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
         </div>
       </div>
 
-      {sqlForm && (
+      {form && (
         <div className="app-card p-5 space-y-3 border-[var(--success)]/30">
           <h3 className="font-semibold text-sm text-[var(--text-primary)]">
-            Connect {sqlForm === 'postgres' ? 'PostgreSQL' : 'SQLite'} (read-only)
+            {editingId ? 'Update' : 'Connect'} {formTitle}
           </h3>
-          {sqlForm === 'sqlite' ? (
+          <label className="block text-xs text-[var(--text-muted)]">
+            Display name (optional)
+            <input
+              className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder={formTitle}
+            />
+          </label>
+          {form === 'sqlite' && (
             <label className="block text-xs text-[var(--text-muted)]">
               Absolute file path
               <input
@@ -227,7 +352,8 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                 placeholder="/path/to/data.sqlite"
               />
             </label>
-          ) : (
+          )}
+          {form === 'postgres' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="block text-xs text-[var(--text-muted)]">
                 Host
@@ -272,10 +398,179 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
               </label>
             </div>
           )}
+          {form === 'stripe' && (
+            <label className="block text-xs text-[var(--text-muted)]">
+              Restricted or secret key (rk_… or sk_…)
+              <input
+                type="password"
+                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                value={stripeKey}
+                onChange={(e) => setStripeKey(e.target.value)}
+                placeholder="rk_live_… preferred (read-only)"
+              />
+            </label>
+          )}
+          {form === 'salesforce' && (
+            <div className="space-y-3">
+              <button
+                type="button"
+                className="text-[11px] text-[var(--coral)]"
+                onClick={() => setSfAdvanced((v) => !v)}
+              >
+                {sfAdvanced ? 'Use access token instead' : 'Use username / password instead'}
+              </button>
+              {sfAdvanced ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    Username
+                    <input
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={sfUsername}
+                      onChange={(e) => setSfUsername(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    Password
+                    <input
+                      type="password"
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={sfPassword}
+                      onChange={(e) => setSfPassword(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    Security token
+                    <input
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={sfSecToken}
+                      onChange={(e) => setSfSecToken(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    Login host
+                    <input
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={sfInstance}
+                      onChange={(e) => setSfInstance(e.target.value)}
+                      placeholder="https://login.salesforce.com"
+                    />
+                  </label>
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    Connected App client id
+                    <input
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={sfClientId}
+                      onChange={(e) => setSfClientId(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    Connected App client secret
+                    <input
+                      type="password"
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={sfClientSecret}
+                      onChange={(e) => setSfClientSecret(e.target.value)}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    Instance URL
+                    <input
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={sfInstance}
+                      onChange={(e) => setSfInstance(e.target.value)}
+                      placeholder="https://yourorg.my.salesforce.com"
+                    />
+                  </label>
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    Access token
+                    <input
+                      type="password"
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={sfToken}
+                      onChange={(e) => setSfToken(e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
+          {(form === 'kaggle' || form === 'huggingface' || form === 'openml') && (
+            <div className="space-y-3">
+              <label className="block text-xs text-[var(--text-muted)]">
+                {form === 'kaggle'
+                  ? 'Dataset URL or owner/slug'
+                  : form === 'huggingface'
+                    ? 'Dataset URL or id (owner/name)'
+                    : 'OpenML URL or numeric id'}
+                <input
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                  value={catalogRef}
+                  onChange={(e) => setCatalogRef(e.target.value)}
+                  placeholder={
+                    form === 'kaggle'
+                      ? 'https://www.kaggle.com/datasets/owner/slug'
+                      : form === 'huggingface'
+                        ? 'https://huggingface.co/datasets/imdb'
+                        : 'https://www.openml.org/d/61'
+                  }
+                />
+              </label>
+              {form === 'kaggle' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    Kaggle username
+                    <input
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={kaggleUser}
+                      onChange={(e) => setKaggleUser(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    API key
+                    <input
+                      type="password"
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={kaggleKey}
+                      onChange={(e) => setKaggleKey(e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
+              {form === 'huggingface' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    Config (optional)
+                    <input
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={hfConfig}
+                      onChange={(e) => setHfConfig(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-xs text-[var(--text-muted)]">
+                    Split (optional)
+                    <input
+                      className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                      value={hfSplit}
+                      onChange={(e) => setHfSplit(e.target.value)}
+                      placeholder="train"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
+          {formError && <p className="text-xs text-[var(--danger)]">{formError}</p>}
           <div className="flex gap-2 justify-end pt-1">
             <button
               type="button"
-              onClick={() => setSqlForm(null)}
+              onClick={() => {
+                setForm(null);
+                setEditingId(null);
+                setFormError(null);
+              }}
               className="px-3 py-2 text-xs rounded-xl text-[var(--text-muted)]"
             >
               Cancel
@@ -283,10 +578,10 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
             <button
               type="button"
               disabled={sqlBusy}
-              onClick={handleConnectSql}
+              onClick={handleConnectForm}
               className="px-4 py-2 text-xs rounded-xl bg-[var(--coral)] text-white font-semibold disabled:opacity-50"
             >
-              {sqlBusy ? 'Testing…' : 'Save & test'}
+              {sqlBusy ? 'Working…' : editingId ? 'Save' : 'Save & import'}
             </button>
           </div>
         </div>
@@ -294,23 +589,28 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {allProviders.map((p) => {
-          const activeConn = connectors.find((c) => c.provider === p.id && c.status === 'connected');
+          const activeConn = connectors.find((c) => c.provider === p.id && (c.status === 'connected' || c.status === 'healthy'));
           const isConnected = Boolean(activeConn);
           const isSyncing = syncingId === activeConn?.id;
-          const isSql = p.authMode === 'connection';
           const availMeta = available.find((a) => a.id === p.id) as
-            | { coming_soon?: boolean; coming_soon_reason?: string }
+            | {
+                coming_soon?: boolean;
+                coming_soon_reason?: string;
+                oauth_configured?: boolean;
+                supports_connection?: boolean;
+                auth_mode?: string;
+              }
             | undefined;
-          const isComingSoon =
-            !isConnected && (p.id === 'salesforce' || Boolean(availMeta?.coming_soon));
-          const comingSoonHint =
-            availMeta?.coming_soon_reason ||
-            (p.id === 'salesforce'
-              ? 'OAuth preview only — Salesforce live sync coming soon'
-              : p.id === 'stripe'
-                ? 'Stripe Connect OAuth is not configured — coming soon'
-                : 'Coming soon');
+          const isComingSoon = !isConnected && Boolean(availMeta?.coming_soon);
+          const comingSoonHint = availMeta?.coming_soon_reason || 'Coming soon';
           const hasError = connectors.some((c) => c.provider === p.id && c.status === 'error');
+          const oauthReady = Boolean(availMeta?.oauth_configured) || p.id === 'github';
+          const canConnectForm =
+            p.authMode === 'connection' ||
+            p.authMode === 'catalog' ||
+            Boolean(availMeta?.supports_connection) ||
+            p.id === 'stripe' ||
+            p.id === 'salesforce';
 
           return (
             <div
@@ -328,7 +628,11 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                     <div>
                       <h3 className="font-semibold text-[var(--text-primary)] text-base">{p.name}</h3>
                       <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                        {isSql ? 'Read-only SQL' : 'OAuth 2.0'}
+                        {p.authMode === 'catalog'
+                          ? 'Online dataset'
+                          : p.authMode === 'connection'
+                            ? 'Read-only SQL'
+                            : 'OAuth 2.0'}
                       </span>
                     </div>
                   </div>
@@ -338,11 +642,17 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                       <IconCheck className="w-3.5 h-3.5" /> Connected
                     </span>
                   ) : hasError ? (
-                    <span className="px-2.5 py-1 rounded-full bg-[var(--danger)]/10 text-[var(--danger)] text-xs font-medium border border-[var(--danger)]/25">Error</span>
+                    <span className="px-2.5 py-1 rounded-full bg-[var(--danger)]/10 text-[var(--danger)] text-xs font-medium border border-[var(--danger)]/25">
+                      Error
+                    </span>
                   ) : isComingSoon ? (
-                    <span className="px-2.5 py-1 rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-medium border border-[var(--border)]">Coming soon</span>
+                    <span className="px-2.5 py-1 rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-medium border border-[var(--border)]">
+                      Coming soon
+                    </span>
                   ) : (
-                    <span className="px-2.5 py-1 rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-medium border border-[var(--border)]">Ready to connect</span>
+                    <span className="px-2.5 py-1 rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-medium border border-[var(--border)]">
+                      Ready to connect
+                    </span>
                   )}
                 </div>
 
@@ -372,9 +682,14 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                             : 'Preview'}
                       </span>
                     </div>
-                    {isSql && (
+                    {p.authMode === 'connection' && (
                       <p className="text-[10px] text-neutral-400 font-mono mt-1">
                         id={activeConn.id} — bind widgets with query_type=sql_query
+                      </p>
+                    )}
+                    {p.authMode === 'catalog' && activeConn.connection_meta?.dataset && (
+                      <p className="text-[10px] text-neutral-400 font-mono mt-1">
+                        dataset={String(activeConn.connection_meta.dataset)}
                       </p>
                     )}
                   </div>
@@ -390,28 +705,65 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                       className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
                     >
                       <IconRefresh className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                      <span>{isSyncing ? 'Checking…' : isSql ? 'Test connection' : 'Sync'}</span>
+                      <span>
+                        {isSyncing
+                          ? 'Working…'
+                          : p.authMode === 'connection'
+                            ? 'Test connection'
+                            : 'Sync'}
+                      </span>
                     </button>
-                    <button
-                      onClick={() => handleDisconnect(activeConn.id, p.name)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--danger)] text-xs transition-colors"
-                    >
-                      <IconTrash className="w-3.5 h-3.5" />
-                      <span>Disconnect</span>
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {canConnectForm && (
+                        <button
+                          onClick={() => openForm(p.id as FormKind, activeConn)}
+                          className="px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs"
+                        >
+                          Edit
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDisconnect(activeConn.id, p.name)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--danger)] text-xs transition-colors"
+                      >
+                        <IconTrash className="w-3.5 h-3.5" />
+                        <span>Disconnect</span>
+                      </button>
+                    </div>
                   </>
                 ) : isComingSoon ? (
                   <span className="ml-auto text-xs text-[var(--text-muted)]">{comingSoonHint}</span>
                 ) : (
-                  <button
-                    onClick={() =>
-                      isSql ? setSqlForm(p.id as 'postgres' | 'sqlite') : handleConnectOAuth(p.id)
-                    }
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-semibold transition-colors shadow-sm ml-auto"
-                  >
-                    <span>Connect {p.name}</span>
-                    <IconArrowUpRight className="w-4 h-4" />
-                  </button>
+                  <div className="flex flex-wrap gap-2 ml-auto">
+                    {oauthReady && p.authMode !== 'catalog' && p.authMode !== 'connection' && (
+                      <button
+                        onClick={() => handleConnectOAuth(p.id)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-semibold transition-colors shadow-sm"
+                      >
+                        <span>Connect {p.name}</span>
+                        <IconArrowUpRight className="w-4 h-4" />
+                      </button>
+                    )}
+                    {canConnectForm && (
+                      <button
+                        onClick={() => openForm(p.id as FormKind)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-colors shadow-sm ${
+                          oauthReady && p.authMode !== 'catalog' && p.authMode !== 'connection'
+                            ? 'border border-[var(--border)] text-[var(--text-primary)] bg-[var(--surface)]'
+                            : 'bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white'
+                        }`}
+                      >
+                        <span>
+                          {p.id === 'stripe'
+                            ? 'Use API key'
+                            : p.id === 'salesforce'
+                              ? 'Use token'
+                              : `Connect ${p.name}`}
+                        </span>
+                        <IconArrowUpRight className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

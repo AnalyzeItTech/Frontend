@@ -13,7 +13,7 @@ const STEPS: Step[] = [
     title: 'Connect',
     tagline: 'Bring sources in honestly.',
     description:
-      'Create an account, attach connectors when they are ready, and shape objects with clear status — connected, coming soon, or error. No half-broken Connect buttons.',
+      'Create an account, attach connectors (OAuth, API keys, SQL, or public datasets), and shape objects with clear status — connected, ready, or error.',
   },
   {
     step: '02',
