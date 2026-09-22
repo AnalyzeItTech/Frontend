@@ -43,6 +43,7 @@ import { SessionStartAd } from '../Components/ads/SessionStartAd';
 import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
 import {
   applyUIAction,
+  cancelRun,
   ChatRequestError,
   dismissPromoteNudge,
   fetchPromoteStatus,
@@ -323,6 +324,8 @@ function ChatInner() {
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const abortRef = useRef(false);
+  const streamAbortRef = useRef<AbortController | null>(null);
+  const activeRunIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -651,11 +654,8 @@ function ChatInner() {
       const value = (raw ?? input).trim();
       const attachmentIds = pendingAttachments.map((a) => a.attachment_id);
       if ((!value && !attachmentIds.length) || isStreaming || awaitingAd) return;
-    if (llmQuota?.show && llmQuota.exhausted) {
-      setUpgradeModal({ open: true, reason: 'quota' });
-      setQuotaBanner('exhausted');
-      return;
-    }
+      // Exhausted Free LLM quota still allows 0-token tools (weather/calc). Server
+      // gates real LLM spend; do not hard-block the composer here.
 
       if (!getStoredToken()) {
         setError('Sign in to chat with AnalyzeIt.');
@@ -700,6 +700,19 @@ function ChatInner() {
       setAwaitingAd(false);
       postRunAdArmed.current = false;
       abortRef.current = false;
+      const controller = new AbortController();
+      streamAbortRef.current = controller;
+      let timedOut = false;
+      const STREAM_TIMEOUT_MS = 120_000;
+      const timeoutId = window.setTimeout(() => {
+        if (!controller.signal.aborted) {
+          timedOut = true;
+          abortRef.current = true;
+          controller.abort();
+          const rid = activeRunIdRef.current;
+          if (rid) void cancelRun(rid).catch(() => undefined);
+        }
+      }, STREAM_TIMEOUT_MS);
       nearBottomRef.current = true;
 
       const wantsDashboard = DASHBOARD_INTENT.test(value);
@@ -741,8 +754,19 @@ function ChatInner() {
           includeClientContext: true,
           modelSize: selectedModelSize,
           attachmentIds: attachmentIds.length ? attachmentIds : undefined,
+          signal: controller.signal,
           onEvent: (event: StreamEvent) => {
             if (abortRef.current) return;
+
+            if (event.event === 'run_id' || event.event === 'run_started') {
+              const rid =
+                (typeof event.payload?.run_id === 'string' && event.payload.run_id) ||
+                (typeof event.run_id === 'string' ? event.run_id : '');
+              if (rid) {
+                activeRunIdRef.current = rid;
+                setRunId(rid);
+              }
+            }
 
             if (event.event === 'run_completed') {
               armPostRunAd();
@@ -1137,14 +1161,30 @@ function ChatInner() {
           ),
         );
       } catch (chatError: unknown) {
-        if (abortRef.current) {
+        const aborted =
+          abortRef.current ||
+          (chatError instanceof DOMException && chatError.name === 'AbortError') ||
+          (chatError instanceof Error && chatError.name === 'AbortError');
+        if (aborted) {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, content: m.content || 'Stopped.', streaming: false, status: undefined }
+                ? {
+                    ...m,
+                    content:
+                      m.content ||
+                      (timedOut
+                        ? 'Timed out waiting for the agent. Try again — cold starts can take a minute.'
+                        : 'Stopped.'),
+                    streaming: false,
+                    status: undefined,
+                  }
                 : m,
             ),
           );
+          if (timedOut) {
+            setError('Research timed out. The agent may be cold-starting — try once more.');
+          }
         } else if (chatError instanceof ChatRequestError && (chatError.upgradeRequired || isLlmMonthlyQuotaError(chatError))) {
           setUpgradeHref(true);
           setError(chatError.message);
@@ -1166,7 +1206,10 @@ function ChatInner() {
           );
         }
       } finally {
+        window.clearTimeout(timeoutId);
+        streamAbortRef.current = null;
         setIsStreaming(false);
+        setAwaitingAd(false);
         // Stream end without run_completed still arms the post-run slot for free users
         if (!abortRef.current) armPostRunAd();
         void refreshLlmQuota();
@@ -1177,6 +1220,9 @@ function ChatInner() {
 
   const stopStreaming = () => {
     abortRef.current = true;
+    streamAbortRef.current?.abort();
+    const rid = activeRunIdRef.current || runId;
+    if (rid) void cancelRun(rid).catch(() => undefined);
     setIsStreaming(false);
     setAwaitingAd(false);
     postRunAdArmed.current = false;
@@ -1510,7 +1556,7 @@ function ChatInner() {
                   {quotaBanner === 'exhausted'
                     ? llmQuota.unit === 'tokens'
                       ? 'You have used today’s free token budget. Upgrade for more headroom, or watch a short sponsored unit for one more try.'
-                      : 'You have used this month’s free LLM runs. Upgrade for a calmer monthly budget, or watch a short sponsored unit for one more run.'
+                      : 'You have used this month’s free LLM runs. Weather and calculator still work when they match — upgrade for full Chat, or watch a sponsored unit for one more LLM run.'
                     : `Running low — ${formatLlmRunsLeft(llmQuota)}. Upgrade anytime for more headroom.`}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1803,8 +1849,7 @@ function ChatInner() {
                       disabled={
                         (!input.trim() && !pendingAttachments.length) ||
                         awaitingAd ||
-                        uploadingAttachment ||
-                        Boolean(llmQuota?.show && llmQuota.exhausted)
+                        uploadingAttachment
                       }
                       aria-label="Send"
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E3836C] text-white disabled:opacity-40"

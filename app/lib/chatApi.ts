@@ -453,6 +453,8 @@ export interface ChatOptions {
   modelAccess?: 'small' | 'medium' | 'large';
   /** Structured compose-box file chips (attachment_ids from POST /v1/chat/attachments). */
   attachmentIds?: string[];
+  /** Abort in-flight NDJSON stream (Stop). */
+  signal?: AbortSignal;
   onEvent?: (event: StreamEvent) => void;
 }
 
@@ -474,7 +476,15 @@ export async function streamChat(options: ChatOptions): Promise<{
   }>;
 }> {
   const storedUser = getStoredUser();
-  const effectiveUserId = options.userId || (storedUser ? storedUser.id : 'demo-user');
+  const effectiveUserId = options.userId || (storedUser ? storedUser.id : undefined);
+  if (!effectiveUserId) {
+    throw new ChatRequestError({
+      status: 401,
+      message: 'Sign in to chat with AnalyzeIt.',
+      code: 'AUTH_REQUIRED',
+      upgradeRequired: false,
+    });
+  }
   const {
     message,
     userId = effectiveUserId,
@@ -488,6 +498,7 @@ export async function streamChat(options: ChatOptions): Promise<{
     modelSize,
     modelAccess,
     attachmentIds,
+    signal,
     onEvent,
   } = options;
   const resolvedModelSize = modelSize || modelAccess;
@@ -499,6 +510,7 @@ export async function streamChat(options: ChatOptions): Promise<{
   const response = await fetch(`${API_V1}/chat`, {
     method: 'POST',
     headers: getAuthHeaders(),
+    signal,
     body: JSON.stringify({
       message,
       user_id: userId,
@@ -637,9 +649,22 @@ export function getArtifactUrl(artifactId: string): string {
 }
 
 export async function getRun(runId: string) {
-  const response = await fetch(`${API_V1}/runs/${runId}`);
+  const response = await fetch(`${API_V1}/runs/${runId}`, {
+    headers: getAuthHeaders(),
+  });
   if (!response.ok) throw new Error(`Failed to fetch run: ${response.status}`);
   return response.json();
+}
+
+/** Ask A to abort the active stream and mark the run cancelled. */
+export async function cancelRun(runId: string): Promise<void> {
+  const response = await fetch(`${API_V1}/runs/${encodeURIComponent(runId)}/cancel`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Failed to cancel run: ${response.status}`);
+  }
 }
 
 export async function getProjectLayout(projectId: string): Promise<ProjectLayoutData> {
