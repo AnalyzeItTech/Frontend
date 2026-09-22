@@ -89,11 +89,16 @@ export async function getBillingQuote(country: string): Promise<BillingQuote> {
 export async function startCheckout(
   plan: 'premium' | 'premium_plus',
   country?: string,
+  phone?: string,
 ): Promise<CheckoutSession> {
   const res = await fetch(`${API_V1}/billing/checkout`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ plan, country: country || detectBillingCountry() }),
+    body: JSON.stringify({
+      plan,
+      country: country || detectBillingCountry(),
+      ...(phone ? { phone } : {}),
+    }),
   });
   if (!res.ok) throw new Error(await readError(res, 'Checkout failed'));
   const session = (await res.json()) as CheckoutSession;

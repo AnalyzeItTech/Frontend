@@ -72,6 +72,7 @@ export default function BillingPage() {
   const [quote, setQuote] = useState<BillingQuote | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [reviewPlan, setReviewPlan] = useState<PlanId | null>(null);
+  const [checkoutPhone, setCheckoutPhone] = useState('');
   const [me, setMe] = useState<UserProfile | null>(null);
   const [trialNotice, setTrialNotice] = useState<string | null>(null);
 
@@ -178,10 +179,16 @@ export default function BillingPage() {
       return;
     }
 
+    const phoneDigits = checkoutPhone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) {
+      setError('Enter a valid phone number (10+ digits) for PayU checkout.');
+      return;
+    }
+
     setBusy(true);
     setError(null);
     try {
-      const session: CheckoutSession = await startCheckout(reviewPlan, CHECKOUT_COUNTRY);
+      const session: CheckoutSession = await startCheckout(reviewPlan, CHECKOUT_COUNTRY, phoneDigits);
       if (!isValidMoney(session.amount)) {
         throw new Error('Server returned an invalid checkout amount. PayU was not opened.');
       }
@@ -384,6 +391,21 @@ export default function BillingPage() {
                 <dd className="text-[var(--text,#322C28)]">{review.meta.cadence}</dd>
               </div>
             </dl>
+            <label className="block space-y-1.5 text-sm">
+              <span className="text-[var(--text-muted,#6B6155)]">
+                Phone for PayU <span className="text-[#9B4D3B]">*</span>
+              </span>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                required
+                value={checkoutPhone}
+                onChange={(e) => setCheckoutPhone(e.target.value)}
+                placeholder="10+ digit mobile number"
+                className="w-full rounded-xl border border-[var(--border,#D9CFC0)] bg-[var(--surface,#FFFCF8)] px-3 py-2 text-[var(--text,#322C28)] outline-none focus:border-[#C45A42]"
+              />
+            </label>
             <ul className="space-y-1 rounded-xl bg-[var(--surface-muted,#EEE4D6)]/60 px-3 py-2 text-xs text-[var(--text-muted,#6B6155)]">
               {review.meta.perks.map((perk) => (
                 <li key={perk}>· {perk}</li>

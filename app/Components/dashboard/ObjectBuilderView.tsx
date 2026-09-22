@@ -311,21 +311,34 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
 
   const handleSchemaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectId || !schemaLabel || !schemaApiName) return;
+    if (!projectId) return;
+    const label = schemaLabel.trim();
+    const apiName = schemaApiName.trim();
+    if (!label || !apiName) {
+      alert('Entity label and API name are required.');
+      return;
+    }
+    const badField = schemaFields.find(
+      (f) => !String(f.label || '').trim() || !String(f.api_name || '').trim(),
+    );
+    if (badField) {
+      alert('Every field needs a label and API name before you can save the schema.');
+      return;
+    }
 
     try {
       if (isEditingExistingSchema && selectedSchema) {
         const updated = await updateObjectSchema(projectId, selectedSchema.id, {
-          label: schemaLabel,
-          label_plural: schemaLabelPlural || `${schemaLabel}s`,
+          label,
+          label_plural: schemaLabelPlural || `${label}s`,
           fields: schemaFields,
         });
         setSelectedSchema(updated);
       } else {
         const created = await createObjectSchema(projectId, {
-          api_name: schemaApiName,
-          label: schemaLabel,
-          label_plural: schemaLabelPlural || `${schemaLabel}s`,
+          api_name: apiName,
+          label,
+          label_plural: schemaLabelPlural || `${label}s`,
           fields: schemaFields,
         });
         setSelectedSchema(created);
@@ -356,6 +369,17 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
   const handleCreateRecordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectId || !selectedSchema || isCreatingRecord) return;
+    const missing = (selectedSchema.fields || [])
+      .filter((f) => f.required)
+      .filter((f) => {
+        const v = recordFormData[f.api_name];
+        return v == null || String(v).trim() === '';
+      })
+      .map((f) => f.label || f.api_name);
+    if (missing.length) {
+      alert(`Fill required fields: ${missing.join(', ')}`);
+      return;
+    }
     setIsCreatingRecord(true);
     try {
       const cleanData = coerceFormData(selectedSchema, recordFormData);

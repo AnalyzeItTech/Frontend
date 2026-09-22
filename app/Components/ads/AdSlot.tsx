@@ -20,7 +20,7 @@ type AdSlotProps = {
   className?: string;
 };
 
-const CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || 'ca-pub-5383317547226180';
+const CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || '';
 const SLOT_BY_PLACEMENT: Record<AdPlacement, string> = {
   'post-run': process.env.NEXT_PUBLIC_ADSENSE_SLOT_POST_RUN || process.env.NEXT_PUBLIC_ADSENSE_SLOT_SESSION || '',
   'session-start': process.env.NEXT_PUBLIC_ADSENSE_SLOT_SESSION || process.env.NEXT_PUBLIC_ADSENSE_SLOT_POST_RUN || '',
