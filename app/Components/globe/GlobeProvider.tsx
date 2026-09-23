@@ -23,6 +23,7 @@ import { calloutFor, resolveChatIngest } from './resolveSources';
 import type {
   ChatRunIngest,
   GlobeCamera,
+  GlobeDataView,
   GlobeMapHandle,
   GlobeVariant,
   MapProjectionMode,
@@ -86,6 +87,8 @@ export interface GlobeContextValue {
   setShowCatalog: (on: boolean) => void;
   mapProjection: MapProjectionMode;
   setMapProjection: (mode: MapProjectionMode) => void;
+  dataView: GlobeDataView;
+  setDataView: (view: GlobeDataView) => void;
   activeHub: string | null;
   setActiveHub: (name: string | null) => void;
   onMapPlaceSelect?: (place: {
@@ -141,6 +144,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
   const [overlayPaths, setOverlayPaths] = useState<OverlayPath[]>([]);
   const [showCatalog, setShowCatalog] = useState(true);
   const [mapProjection, setMapProjection] = useState<MapProjectionMode>('globe');
+  const [dataView, setDataView] = useState<GlobeDataView>('pins');
   const [activeHub, setActiveHub] = useState<string | null>(null);
   const [portalReady, setPortalReady] = useState(false);
   const [stageRect, setStageRect] = useState<MountRect | null>(null);
@@ -580,6 +584,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       setShowCatalog,
       mapProjection,
       setMapProjection,
+      dataView,
+      setDataView,
       activeHub,
       setActiveHub,
       setOnMapPlaceSelect,
@@ -610,6 +616,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       overlayPaths,
       showCatalog,
       mapProjection,
+      dataView,
       activeHub,
       setOnMapPlaceSelect,
     ],
@@ -667,6 +674,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
               sourcePoints={displayPoints}
               overlayPaths={overlayPaths}
               mapProjection={mapProjection}
+              dataView={variant === 'full' ? dataView : 'pins'}
               hideNavControl
               hideChrome={variant !== 'full'}
               idleDrift={variant === 'mini' && !inFlight && activePoints.length === 0 && onChat && !paused}

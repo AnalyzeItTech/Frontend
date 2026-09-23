@@ -99,6 +99,54 @@ function placeId(p: { lat: number; lon: number; name?: string }) {
   return `${(p.name || 'p').toLowerCase()}-${p.lat.toFixed(3)}-${p.lon.toFixed(3)}`;
 }
 
+function barScore(p: SourcePoint): number {
+  const m = p.meta || {};
+  const mag = Number(m.mag);
+  if (Number.isFinite(mag)) return mag;
+  const aqi = Number(m.aqi);
+  if (Number.isFinite(aqi)) return aqi;
+  const temp = Number(m.temperature_c);
+  if (Number.isFinite(temp)) return Math.abs(temp);
+  const ch = Number(m.change_pct);
+  if (Number.isFinite(ch)) return Math.abs(ch);
+  const el = Number(m.elevation_m);
+  if (Number.isFinite(el)) return Math.abs(el);
+  return 1;
+}
+
+function RankedBars({ points }: { points: SourcePoint[] }) {
+  const rows = points
+    .filter((p) => p.kind === 'event')
+    .map((p) => ({ id: p.id, label: p.label, score: barScore(p) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+  if (!rows.length) return null;
+  const max = rows[0].score || 1;
+  return (
+    <div className="space-y-1.5 pt-1">
+      <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+        Strongest on the map
+      </p>
+      {rows.map((row) => (
+        <div key={row.id} className="grid grid-cols-[1fr_auto] items-center gap-2">
+          <div className="min-w-0">
+            <div className="truncate text-[10px] text-[var(--text-secondary)]">{row.label}</div>
+            <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-[var(--surface-2)]">
+              <div
+                className="h-full rounded-full bg-[#EA8069]"
+                style={{ width: `${Math.max(8, (row.score / max) * 100)}%` }}
+              />
+            </div>
+          </div>
+          <span className="font-mono text-[10px] tabular-nums text-[var(--text-muted)]">
+            {Number.isInteger(row.score) ? row.score : row.score.toFixed(1)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function kpis(ctx: PlaceContext | null | undefined) {
   const temp = ctx?.weather?.temperature_c;
   const aqi = ctx?.air_quality?.us_aqi ?? ctx?.air_quality?.european_aqi;
@@ -116,12 +164,15 @@ export default function GlobePage() {
     flyToLatLon,
     camera,
     selectedPoint,
+    dataView,
+    setDataView,
     mapReady,
     setOnMapPlaceSelect,
     setComparePlaces,
     setActiveHub,
     activeHub,
     setOverlayPoints,
+    overlayPoints,
     setOverlayPaths,
     setShowCatalog,
     mapProjection,
@@ -589,6 +640,30 @@ export default function GlobePage() {
               </button>
             </div>
 
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  ['pins', 'Pins'],
+                  ['heat', 'Heat'],
+                  ['density', 'Density'],
+                  ['bars', 'Bars'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setDataView(id)}
+                  className={`inline-flex min-h-8 items-center rounded-full border px-2.5 text-[11px] font-medium ${
+                    dataView === id
+                      ? 'border-[#EA8069]/50 bg-[#EA8069]/15 text-[#C96551]'
+                      : 'border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-2)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             <label className="relative block">
               <IconSearch
                 size={14}
@@ -648,6 +723,7 @@ export default function GlobePage() {
             {layerFilter.trim() && visibleLayers.length === 0 ? (
               <p className="text-[11px] text-[var(--text-muted)]">No layers match that filter.</p>
             ) : null}
+            <RankedBars points={overlayPoints} />
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3">

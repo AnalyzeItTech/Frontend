@@ -67,6 +67,8 @@ import {
 } from '../lib/attachmentsApi';
 import { RequireAuth } from '../Components/app/RequireAuth';
 import { DashboardCanvas, type LayoutSnapshot } from '../Components/dashboard/DashboardCanvas';
+import { ChatMiniGlobe } from '../Components/globe/ChatMiniGlobe';
+import { useGlobe } from '../Components/globe/useGlobe';
 
 interface Message {
   id: string;
@@ -92,6 +94,7 @@ interface Message {
 
 function NewProjectContent() {
   const { theme, isIncognito, setIncognito } = useTheme();
+  const { beginChatRun, ingestChatRun } = useGlobe();
   const isDark = theme === 'dark';
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -837,6 +840,8 @@ function NewProjectContent() {
       streaming: true,
     };
 
+    beginChatRun();
+    if (text.trim()) ingestChatRun({ query: text });
     setMessages((prev) => [...prev, userMsg, assistantPlaceholder]);
     setTimeout(() => scrollToBottom('smooth'), 50);
     setInputMessage('');
@@ -861,9 +866,32 @@ function NewProjectContent() {
       }
       if (event.event === 'tool_call') {
         const tool = event.payload.tool as string;
+        const args = event.payload.args as Record<string, unknown> | undefined;
+        const city = typeof args?.city === 'string' ? args.city : '';
+        if (city.trim()) ingestChatRun({ city });
+        const toolLat = typeof args?.lat === 'number' ? args.lat : typeof args?.latitude === 'number' ? args.latitude : undefined;
+        const toolLon = typeof args?.lon === 'number' ? args.lon : typeof args?.lng === 'number' ? args.lng : typeof args?.longitude === 'number' ? args.longitude : undefined;
+        if (toolLat != null && toolLon != null) {
+          ingestChatRun({ lat: toolLat, lon: toolLon, name: city || tool });
+        }
         toolLog.push(`Calling ${tool}…`);
         setActiveTools((prev) => [...prev, tool]);
         setStreamStatus(`Running ${tool}…`);
+      }
+      if (event.event === 'tool_progress') {
+        const nested = event.payload?.progress as Record<string, unknown> | undefined;
+        const step = (typeof event.payload?.step === 'string' ? event.payload.step : nested?.step) || '';
+        if (step === 'source_found') {
+          const detail = typeof event.payload?.detail === 'string' ? event.payload.detail : '';
+          const host = detail.split('/').pop() || detail || 'source';
+          const url = typeof event.payload?.url === 'string' ? event.payload.url : typeof nested?.url === 'string' ? nested.url : `https://${host}`;
+          const title = typeof event.payload?.title === 'string' ? event.payload.title : '';
+          const lat = typeof event.payload?.lat === 'number' ? event.payload.lat : typeof nested?.lat === 'number' ? nested.lat : undefined;
+          const lngRaw = event.payload?.lng ?? event.payload?.lon ?? nested?.lng ?? nested?.lon;
+          const lng = typeof lngRaw === 'number' ? lngRaw : undefined;
+          const source_id = typeof event.payload?.source_id === 'string' ? event.payload.source_id : typeof nested?.source_id === 'string' ? nested.source_id : undefined;
+          ingestChatRun({ sources: [{ host, url, title, lat, lng, source_id }] });
+        }
       }
       if (event.event === 'tool_result') {
         const tool = event.payload.tool as string;
@@ -1332,20 +1360,21 @@ function NewProjectContent() {
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* LEFT / CHAT PANEL */}
         <div
-          className={`flex min-h-0 flex-col transition-all ${
+          className={`relative flex min-h-0 flex-col overflow-hidden transition-all ${
             activeView === 'split'
               ? 'w-full lg:w-[46%] xl:w-[44%] border-r border-[#4A4238]/10 dark:border-[#3A3430]'
               : activeView === 'chat'
-              ? 'w-full max-w-4xl mx-auto'
+              ? 'w-full'
               : 'hidden'
           }`}
         >
+          <ChatMiniGlobe />
           {/* Scrollable Messages Container */}
           <div
             ref={chatContainerRef}
             onScroll={handleChatScroll}
             data-lenis-prevent
-            className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5"
+            className="relative z-10 flex-1 overflow-y-auto p-4 sm:p-6 space-y-5"
           >
             {messages.map((msg) => {
               const inlineProposal = msg.proposalActionId ? proposals.get(msg.proposalActionId) : undefined;
@@ -1355,7 +1384,7 @@ function NewProjectContent() {
                   key={msg.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`relative z-10 flex w-full gap-3 ${msg.sender === 'user' ? 'justify-end pl-[12%]' : 'justify-start pr-[12%]'}`}
                 >
                   {msg.sender === 'assistant' && (
                     <div

@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react';
 import Map, { Marker, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
-import type { LineLayerSpecification, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
+import type { CircleLayerSpecification, HeatmapLayerSpecification, LineLayerSpecification, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from '../ui/ThemeProvider';
 import { GLOBE_HUBS } from '../globe/sourceCatalog';
 import { fullPixelRatio, miniPixelRatio } from '../globe/globePerf';
 import type {
   GlobeCamera,
+  GlobeDataView,
   GlobeMapHandle,
   GlobeVariant,
   MapProjectionMode,
@@ -56,6 +57,8 @@ interface PlaceMapLibreProps {
   freezeResize?: boolean;
   /** Geographic basemap projection — globe sphere or flat mercator. */
   mapProjection?: MapProjectionMode;
+  /** pins | heat | density | bars — same points, different drawing. */
+  dataView?: GlobeDataView;
 }
 
 type MapConfig = {
@@ -313,6 +316,22 @@ function resumeMapLoop(map: MapLibreMap) {
   }
 }
 
+/** 0–1 strength so heat, density, and bars share one scale. */
+function pointMetric(p: SourcePoint): number {
+  const m = p.meta || {};
+  const mag = Number(m.mag);
+  if (Number.isFinite(mag)) return Math.min(Math.max(mag, 0) / 8, 1);
+  const aqi = Number(m.aqi);
+  if (Number.isFinite(aqi)) return Math.min(Math.max(aqi, 0) / 200, 1);
+  const temp = Number(m.temperature_c);
+  if (Number.isFinite(temp)) return Math.min(Math.abs(temp) / 45, 1);
+  const ch = Number(m.change_pct);
+  if (Number.isFinite(ch)) return Math.min(Math.abs(ch) / 5, 1);
+  const el = Number(m.elevation_m);
+  if (Number.isFinite(el)) return Math.min(Math.abs(el) / 4500, 1);
+  return 0.4;
+}
+
 export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(function PlaceMapLibre(
   {
     onPlaceSelect,
@@ -337,6 +356,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     paused = false,
     freezeResize = false,
     mapProjection = 'globe',
+    dataView = 'pins',
   },
   ref,
 ) {
@@ -663,6 +683,74 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     return { type: 'FeatureCollection', features };
   }, [overlayPaths]);
 
+  const metricGeoJson = useMemo((): GeoJSON.FeatureCollection => {
+    const features: GeoJSON.Feature[] = [];
+    for (const p of sourcePoints) {
+      if (p.kind !== 'event') continue;
+      features.push({
+        type: 'Feature',
+        properties: { id: p.id, w: pointMetric(p), label: p.label },
+        geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+      });
+    }
+    return { type: 'FeatureCollection', features };
+  }, [sourcePoints]);
+
+  const heatLayer = useMemo(
+    (): HeatmapLayerSpecification => ({
+      id: 'globe-metric-heat',
+      type: 'heatmap',
+      source: 'globe-metric',
+      paint: {
+        'heatmap-weight': ['interpolate', ['linear'], ['get', 'w'], 0, 0.05, 1, 1],
+        'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 0.7, 6, 1.4],
+        'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 18, 4, 36, 8, 56],
+        'heatmap-opacity': 0.78,
+        'heatmap-color': [
+          'interpolate',
+          ['linear'],
+          ['heatmap-density'],
+          0,
+          'rgba(0,0,0,0)',
+          0.2,
+          '#7dd3fc',
+          0.45,
+          '#34d399',
+          0.7,
+          '#fbbf24',
+          1,
+          '#ef4444',
+        ],
+      },
+    }),
+    [],
+  );
+
+  const densityLayer = useMemo(
+    (): CircleLayerSpecification => ({
+      id: 'globe-metric-density',
+      type: 'circle',
+      source: 'globe-metric',
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['get', 'w'], 0, 10, 1, 42],
+        'circle-color': '#EA8069',
+        'circle-opacity': 0.28,
+        'circle-blur': 0.75,
+        'circle-stroke-width': 0,
+      },
+    }),
+    [],
+  );
+
+  const barPoints = useMemo(() => {
+    if (dataView !== 'bars') return [];
+    return sourcePoints
+      .filter((p) => p.kind === 'event')
+      .map((p) => ({ point: p, w: pointMetric(p) }))
+      .sort((a, b) => b.w - a.w)
+      .slice(0, 80);
+  }, [dataView, sourcePoints]);
+
   const pathLineLayer = useMemo(
     (): LineLayerSpecification => ({
       id: 'globe-overlay-paths',
@@ -766,6 +854,12 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
           </Source>
         ) : null}
 
+        {dataView === 'heat' || dataView === 'density' ? (
+          <Source id="globe-metric" type="geojson" data={metricGeoJson}>
+            {dataView === 'heat' ? <Layer {...heatLayer} /> : <Layer {...densityLayer} />}
+          </Source>
+        ) : null}
+
         {variant === 'full' || variant === 'mini'
           ? GLOBE_HUBS.map((hub) => {
               const key = `hub:${hub.name}`;
@@ -801,8 +895,39 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
             })
           : null}
 
+        {dataView === 'bars'
+          ? barPoints.map(({ point, w }) => {
+              const facing = isFacing(point.id);
+              const px = 10 + Math.round(w * 52);
+              return (
+                <Marker
+                  key={`bar-${point.id}`}
+                  longitude={point.lon}
+                  latitude={point.lat}
+                  anchor="bottom"
+                  style={{ pointerEvents: facing ? 'auto' : 'none', opacity: facing ? 1 : 0 }}
+                  onClick={(e) => {
+                    e.originalEvent.stopPropagation();
+                    if (variant === 'mini' || !facing) return;
+                    onPlaceSelect?.({ lat: point.lat, lon: point.lon, name: point.label, event: point });
+                  }}
+                >
+                  <span className="flex flex-col items-center" title={point.label}>
+                    <span className="mb-0.5 max-w-[7rem] truncate text-[9px] font-mono text-[var(--text-primary)]">
+                      {point.label}
+                    </span>
+                    <span
+                      className="w-2.5 rounded-t-sm bg-[#EA8069] shadow-sm"
+                      style={{ height: px }}
+                    />
+                  </span>
+                </Marker>
+              );
+            })
+          : null}
+
         {sourcePoints
-          .filter((p) => p.kind !== 'hub')
+          .filter((p) => p.kind !== 'hub' && (dataView === 'pins' || p.kind !== 'event'))
           .map((point) => {
             const facing = isFacing(point.id);
             return (
@@ -891,8 +1016,8 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
       {!hideChrome ? (
         <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-lg bg-[var(--surface)]/90 px-2 py-1 text-[10px] font-mono text-[var(--text-muted)] backdrop-blur">
           {usingLocationIq
-            ? `LocationIQ · ${mapTheme} · ${mapProjection === 'globe' ? 'MapLibre globe' : 'flat geographic'} ·`
-            : 'OpenFreeMap · MapLibre ·'}{' '}
+            ? `LocationIQ · ${mapTheme} · ${mapProjection === 'globe' ? 'MapLibre globe' : 'flat geographic'} · ${dataView}`
+            : `OpenFreeMap · MapLibre · ${dataView}`}{' '}
           click anywhere
         </div>
       ) : null}
