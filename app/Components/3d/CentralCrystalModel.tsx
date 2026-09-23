@@ -71,13 +71,13 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
         <mesh>
           <icosahedronGeometry args={[2.0, 0]} />
           <meshPhysicalMaterial
-            color="#4A1C14"
-            emissive="#2A0E09"
+            color="#8A3E2E"
+            emissive="#4E2219"
             emissiveIntensity={0.4}
-            roughness={0.25}
-            metalness={0.15}
+            roughness={0.24}
+            metalness={0.12}
             transparent
-            opacity={0.8}
+            opacity={0.72}
             side={THREE.BackSide}
             flatShading
           />
@@ -99,13 +99,13 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
         <mesh>
           <icosahedronGeometry args={[2.0, 0]} />
           <meshPhysicalMaterial
-            color="#7A2E20"
-            emissive="#3D140D"
+            color="#BF6A53"
+            emissive="#6E2F22"
             emissiveIntensity={0.3}
-            roughness={0.12}
-            metalness={0.25}
+            roughness={0.13}
+            metalness={0.15}
             transparent
-            opacity={0.88}
+            opacity={0.84}
             side={THREE.FrontSide}
             clearcoat={1}
             clearcoatRoughness={0.08}
@@ -116,10 +116,10 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
         <mesh scale={[1.002, 1.002, 1.002]}>
           <icosahedronGeometry args={[2.0, 0]} />
           <meshBasicMaterial
-            color="#E3836C"
+            color="#F1C0AD"
             wireframe
             transparent
-            opacity={0.4}
+            opacity={0.42}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
