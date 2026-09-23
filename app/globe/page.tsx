@@ -256,24 +256,31 @@ export default function GlobePage() {
 
       setLayersLoading(true);
       try {
-        const data = await fetchGlobeEvents({
-          layers: liveIds,
-          minMagnitude: 4.5,
-          days: 7,
-        });
+        // One request per layer. A slow flights sweep must not blank earthquakes.
+        const payloads = await Promise.all(
+          liveIds.map(async (id) => {
+            try {
+              const data = await fetchGlobeEvents({
+                layers: [id],
+                minMagnitude: 4.5,
+                days: 7,
+              });
+              return data.layers || {};
+            } catch {
+              return {};
+            }
+          }),
+        );
         if (cancelled) return;
+        const merged: Record<string, { events?: Array<Record<string, unknown>>; path?: Array<{ lat?: number; lon?: number }> }> = {};
+        for (const part of payloads) Object.assign(merged, part);
 
-        // Place-context extras intentionally not mixed into globe overlays —
-        // selecting a place must not rebuild/wipe live flight & satellite pins.
-        // buildLiveOverlays only reads `layers` + events payloads (no selected/context).
-        const { points, paths, counts } = buildLiveOverlays(layers, data.layers || {});
+        const { points, paths, counts } = buildLiveOverlays(layers, merged);
 
         setLayerCounts(counts);
-        // liveOverlays.mjs is untyped ESM for node:test; runtime shape matches SourcePoint.
         setOverlayPoints(points as SourcePoint[]);
         setOverlayPaths(paths);
       } catch {
-        // Keep last good overlays on transient fetch failure
         if (!cancelled) setLayersLoading(false);
       } finally {
         if (!cancelled) setLayersLoading(false);
@@ -716,8 +723,8 @@ export default function GlobePage() {
             </div>
             {layers.flights ? (
               <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
-                Flights are a geographic sample from free ADS-B / OpenSky — not a worldwide dump,
-                and not airline routes (no origin or destination on this feed).
+                Every aircraft returned by OpenSky and public ADS-B is drawn. That is a free feed,
+                not Flightradar24. No origin, destination, or airline itinerary on this data.
               </p>
             ) : null}
             {layerFilter.trim() && visibleLayers.length === 0 ? (
