@@ -47,7 +47,6 @@ type LayerId =
   | 'weather'
   | 'air_quality'
   | 'markets'
-  | 'flights'
   | 'iss'
   | 'space_weather'
   | 'elevation';
@@ -91,7 +90,6 @@ const LAYERS: { id: LayerId; label: string; hint: string; color: string; coverag
   { id: 'space_weather', label: 'Space Weather', hint: 'NOAA SWPC alerts · scales · flares', color: '#14b8a6', coverage: 'complete' },
   { id: 'elevation', label: 'Elevation', hint: 'Meters above sea level at hubs — sampled', color: '#78716c', coverage: 'sample' },
   { id: 'markets', label: 'Markets', hint: 'Live equity indices at hubs — sampled', color: '#8b5cf6', coverage: 'sample' },
-  { id: 'flights', label: 'Flights', hint: 'Geographic sample · OpenSky/ADS-B · no origin/destination', color: '#0ea5e9', coverage: 'sample' },
 ];
 /** Live layers: this page is the only caller of geo context/events. Poll on LIVE_LAYER_POLL_MS — never in rAF. */
 
@@ -197,7 +195,6 @@ export default function GlobePage() {
     weather: false,
     air_quality: false,
     markets: false,
-    flights: false,
     iss: false,
     space_weather: false,
     elevation: false,
@@ -236,7 +233,6 @@ export default function GlobePage() {
         'weather',
         'air_quality',
         'markets',
-        'flights',
         'iss',
         'space_weather',
         'elevation',
@@ -721,12 +717,6 @@ export default function GlobePage() {
                 );
               })}
             </div>
-            {layers.flights ? (
-              <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
-                Every aircraft returned by OpenSky and public ADS-B is drawn. That is a free feed,
-                not Flightradar24. No origin, destination, or airline itinerary on this data.
-              </p>
-            ) : null}
             {layerFilter.trim() && visibleLayers.length === 0 ? (
               <p className="text-[11px] text-[var(--text-muted)]">No layers match that filter.</p>
             ) : null}
