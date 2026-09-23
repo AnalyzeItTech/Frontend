@@ -115,6 +115,49 @@ export function EventDetailCard({
     if (meta.issued) rows.push(['Issued', String(meta.issued)]);
     if (meta.message) rows.push(['Message', String(meta.message).slice(0, 280)]);
     if (meta.place) rows.push(['Marker', String(meta.place)]);
+  } else {
+    if (meta.place && String(meta.place) !== point.label) rows.push(['Place', String(meta.place)]);
+    if (meta.mag != null && Number.isFinite(Number(meta.mag))) {
+      rows.push(['Magnitude', `M${Number(meta.mag).toFixed(1)}`]);
+    }
+    if (meta.depth_km != null && Number.isFinite(Number(meta.depth_km))) {
+      rows.push(['Depth', `${Math.round(Number(meta.depth_km))} km`]);
+    }
+    if (meta.tsunami === 1 || meta.tsunami === true) rows.push(['Tsunami', 'Flagged by USGS']);
+    if (meta.temperature_c != null && Number.isFinite(Number(meta.temperature_c))) {
+      rows.push(['Temperature', `${Math.round(Number(meta.temperature_c))}°C`]);
+    }
+    if (meta.humidity_pct != null && Number.isFinite(Number(meta.humidity_pct))) {
+      rows.push(['Humidity', `${Math.round(Number(meta.humidity_pct))}%`]);
+    }
+    if (meta.aqi != null && Number.isFinite(Number(meta.aqi))) {
+      rows.push(['Air quality', `AQI ${Math.round(Number(meta.aqi))}`]);
+    }
+    if (meta.index_name) rows.push(['Index', String(meta.index_name)]);
+    if (meta.price != null && Number.isFinite(Number(meta.price))) {
+      const ccy = meta.currency ? `${meta.currency} ` : '';
+      const ch =
+        meta.change_pct != null && Number.isFinite(Number(meta.change_pct))
+          ? ` (${Number(meta.change_pct) >= 0 ? '+' : ''}${Number(meta.change_pct).toFixed(1)}%)`
+          : '';
+      rows.push(['Last', `${ccy}${Number(meta.price).toLocaleString(undefined, { maximumFractionDigits: 2 })}${ch}`]);
+    }
+    if (meta.elevation_m != null && Number.isFinite(Number(meta.elevation_m))) {
+      rows.push(['Elevation', `${Math.round(Number(meta.elevation_m)).toLocaleString()} m`]);
+    }
+    if (meta.category) rows.push(['Category', String(meta.category)]);
+    if (meta.date) rows.push(['Observed', String(meta.date).replace('T', ' ').slice(0, 16)]);
+    if (meta.time != null && Number.isFinite(Number(meta.time))) {
+      const ms = Number(meta.time) > 1e12 ? Number(meta.time) : Number(meta.time) * 1000;
+      try {
+        rows.push(['When', new Date(ms).toLocaleString()]);
+      } catch {
+        /* ignore bad timestamps */
+      }
+    }
+    if (typeof meta.url === 'string' && meta.url.startsWith('http')) {
+      rows.push(['Source', meta.url.replace(/^https?:\/\//, '').slice(0, 48)]);
+    }
   }
   rows.push(['Coordinates', `${point.lat.toFixed(3)}°, ${point.lon.toFixed(3)}°`]);
 

@@ -6,6 +6,9 @@ export type SourceTier = 'trusted' | 'candidate';
 
 export type MapProjectionMode = 'globe' | 'mercator';
 
+/** How live points are drawn. All modes use the same overlay payload. */
+export type GlobeDataView = 'pins' | 'heat' | 'density' | 'bars';
+
 export interface SourcePoint {
   id: string;
   lat: number;

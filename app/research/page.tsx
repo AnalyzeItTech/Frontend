@@ -1324,8 +1324,8 @@ function ChatInner() {
               data-lenis-prevent
               className="chat-scroll relative z-10 min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6"
             >
-              {/* Right of the globe: leave the left / center for earth, pin chat to the trailing edge */}
-              <div className="ml-auto w-full max-w-[36rem] space-y-4">
+              {/* User stays on the trailing edge; the reply sits on the opposite side of the globe. */}
+              <div className="flex w-full flex-col gap-4">
               {messages.length === 0 && (
                 <div className="flex min-h-[min(28rem,70%)] flex-col justify-center py-6 sm:py-10">
                   <div className="app-card space-y-5 bg-[var(--surface)]/92 p-6 shadow-lg backdrop-blur-md sm:p-8">
@@ -1364,7 +1364,7 @@ function ChatInner() {
                     key={msg.id}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                    className={`flex w-full ${isUser ? 'justify-end pl-[18%]' : 'justify-start pr-[18%]'}`}
                   >
                     <div
                       className={`max-w-[min(100%,28rem)] space-y-2 ${

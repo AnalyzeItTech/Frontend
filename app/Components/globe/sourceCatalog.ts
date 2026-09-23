@@ -4,13 +4,25 @@ import type { SourcePoint, SourceTier } from './types';
 export const GLOBE_HUBS = [
   { name: 'San Francisco', lat: 37.7749, lon: -122.4194 },
   { name: 'New York', lat: 40.7128, lon: -74.006 },
+  { name: 'Mexico City', lat: 19.4326, lon: -99.1332 },
+  { name: 'Toronto', lat: 43.6532, lon: -79.3832 },
   { name: 'London', lat: 51.5074, lon: -0.1278 },
+  { name: 'Paris', lat: 48.8566, lon: 2.3522 },
   { name: 'Frankfurt', lat: 50.1109, lon: 8.6821 },
-  { name: 'Tokyo', lat: 35.6762, lon: 139.6503 },
-  { name: 'Singapore', lat: 1.3521, lon: 103.8198 },
+  { name: 'Cairo', lat: 30.0444, lon: 31.2357 },
+  { name: 'Lagos', lat: 6.5244, lon: 3.3792 },
+  { name: 'Nairobi', lat: -1.2921, lon: 36.8219 },
+  { name: 'Johannesburg', lat: -26.2041, lon: 28.0473 },
+  { name: 'Dubai', lat: 25.2048, lon: 55.2708 },
   { name: 'Mumbai', lat: 19.076, lon: 72.8777 },
+  { name: 'Delhi', lat: 28.6139, lon: 77.209 },
+  { name: 'Singapore', lat: 1.3521, lon: 103.8198 },
+  { name: 'Jakarta', lat: -6.2088, lon: 106.8456 },
+  { name: 'Tokyo', lat: 35.6762, lon: 139.6503 },
+  { name: 'Seoul', lat: 37.5665, lon: 126.978 },
   { name: 'Sydney', lat: -33.8688, lon: 151.2093 },
   { name: 'São Paulo', lat: -23.5505, lon: -46.6333 },
+  { name: 'Buenos Aires', lat: -34.6037, lon: -58.3816 },
 ] as const;
 
 export interface CatalogEntry {
