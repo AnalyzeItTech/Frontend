@@ -1,15 +1,12 @@
 'use client';
 
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, MutableRefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useTheme } from '../ui/ThemeProvider';
-
 const vertexShader = `
   varying vec3 vWorldPosition;
-  varying vec2 vUv;
   void main() {
-    vUv = uv;
     vec4 worldPosition = modelMatrix * vec4(position, 1.0);
     vWorldPosition = worldPosition.xyz;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -22,40 +19,42 @@ const fragmentShader = `
   uniform vec3 uBottomColor;
   uniform float uScroll;
   varying vec3 vWorldPosition;
-  varying vec2 vUv;
 
   void main() {
     float factor = clamp((vWorldPosition.y + 20.0) / 60.0, 0.0, 1.0);
-    
-    vec3 horizonShift = mix(uHorizonColor, uHorizonColor * 1.1, uScroll * 0.3);
-    vec3 topShift = mix(uTopColor, uTopColor * 1.15, uScroll * 0.35);
-    
-    vec3 color;
-    if (factor < 0.4) {
-      color = mix(uBottomColor, horizonShift, factor / 0.4);
-    } else {
-      color = mix(horizonShift, topShift, (factor - 0.4) / 0.6);
-    }
+    vec3 warmPull = vec3(1.1, 0.97, 0.9);
+    vec3 horizonShift = mix(uHorizonColor, uHorizonColor * warmPull, uScroll * 0.6);
+    vec3 topShift = mix(uTopColor, uTopColor * vec3(1.14, 1.02, 1.1), uScroll * 0.5);
+    vec3 bottomShift = mix(uBottomColor, uBottomColor * vec3(1.06, 0.98, 0.94), uScroll * 0.4);
+    vec3 color = factor < 0.4
+      ? mix(bottomShift, horizonShift, factor / 0.4)
+      : mix(horizonShift, topShift, (factor - 0.4) / 0.6);
+
+    float horizonGlow = exp(-pow((factor - 0.42) * 7.0, 2.0)) * (0.08 + uScroll * 0.06);
+    color += vec3(1.0, 0.72, 0.55) * horizonGlow;
 
     gl_FragColor = vec4(color, 1.0);
   }
 `;
 
 interface SkyDomeProps {
-  scrollProgress?: number;
+  scrollProgressRef: MutableRefObject<number>;
 }
 
-export const SkyDome: React.FC<SkyDomeProps> = ({ scrollProgress = 0 }) => {
+export const SkyDome: React.FC<SkyDomeProps> = ({ scrollProgressRef }) => {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const uniforms = useMemo(() => ({
-    uTopColor: { value: new THREE.Color(isDark ? '#211B19' : '#B8A9C9') },
-    uHorizonColor: { value: new THREE.Color(isDark ? '#29211E' : '#E8C4A0') },
-    uBottomColor: { value: new THREE.Color(isDark ? '#171514' : '#F3EDE4') },
-    uScroll: { value: 0 },
-  }), [isDark]);
+  const uniforms = useMemo(
+    () => ({
+      uTopColor: { value: new THREE.Color(isDark ? '#211B19' : '#B8A9C9') },
+      uHorizonColor: { value: new THREE.Color(isDark ? '#29211E' : '#E8C4A0') },
+      uBottomColor: { value: new THREE.Color(isDark ? '#171514' : '#F3EDE4') },
+      uScroll: { value: 0 },
+    }),
+    [isDark]
+  );
 
   useEffect(() => {
     if (materialRef.current) {
@@ -69,14 +68,14 @@ export const SkyDome: React.FC<SkyDomeProps> = ({ scrollProgress = 0 }) => {
     if (materialRef.current) {
       materialRef.current.uniforms.uScroll.value = THREE.MathUtils.lerp(
         materialRef.current.uniforms.uScroll.value,
-        scrollProgress,
-        0.05
+        scrollProgressRef.current,
+        0.06
       );
     }
   });
 
   return (
-    <mesh position={[0, 0, 0]} scale={[80, 80, 80]}>
+    <mesh scale={[60, 60, 60]}>
       <sphereGeometry args={[1, 32, 32]} />
       <shaderMaterial
         ref={materialRef}

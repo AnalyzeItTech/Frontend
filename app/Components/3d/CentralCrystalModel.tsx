@@ -1,191 +1,60 @@
 'use client';
 
-import React, { useRef, useMemo, useState } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
+import React, { useRef, useState, MutableRefObject } from 'react';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { DrawerDetail } from '../landing/InspectDrawer';
 
 interface CentralCrystalModelProps {
-  scrollProgress: number;
-  onSelectHotspot?: (detail: DrawerDetail) => void;
+  scrollProgressRef: MutableRefObject<number>;
 }
 
-const MILESTONE_DETAILS: {
-  range: [number, number];
-  label: string;
-  detail: DrawerDetail;
-}[] = [
-  {
-    range: [0.12, 0.30],
-    label: '01 // REPORTS ENGINE',
-    detail: {
-      category: 'REPORTS ENGINE',
-      title: 'Automated Executive Narratives',
-      subtitle: 'Living summaries delivered to Slack, Notion & Email',
-      narrative:
-        'Monitors ongoing business metrics and generates human-readable executive summaries with cited data points delivered directly to team communication channels.',
-      metrics: [
-        { label: 'Format', value: 'Narrative Digest' },
-        { label: 'Delivery', value: 'Slack & Email' },
-      ],
-      steps: [
-        'Syncs data warehouses and billing streams in read-only mode',
-        'Calculates multi-dimensional period-over-period deltas',
-        'Synthesizes natural language briefings with verified data citations',
-      ],
-    },
-  },
-  {
-    range: [0.36, 0.54],
-    label: '02 // PROBABILISTIC FORECASTS',
-    detail: {
-      category: 'FORECAST HORIZONS',
-      title: 'Probabilistic Trajectory Models',
-      subtitle: 'Forward-looking confidence ranges without statistical complexity',
-      narrative:
-        'Continuously adapts projection envelopes to seasonal variance, trend momentum, and holiday baselines without requiring custom model scripting.',
-      metrics: [
-        { label: 'Horizon', value: '30-Day Rolling' },
-        { label: 'Confidence', value: 'Adaptive Range' },
-      ],
-      steps: [
-        'Analyzes multi-year baseline seasonality and variance cycles',
-        'Calculates dynamic upper and lower projection boundaries',
-        'Supports natural language parameter simulation in real time',
-      ],
-    },
-  },
-  {
-    range: [0.60, 0.78],
-    label: '03 // ANOMALY MONITORING',
-    detail: {
-      category: 'ANOMALY GRAPH',
-      title: 'Contextual Anomaly Suppression',
-      subtitle: 'Root-cause attribution that eliminates alarm fatigue',
-      narrative:
-        'Cross-correlates simultaneous metric deviations across the entire schema, identifying the upstream origin before flooding teams with duplicate alerts.',
-      metrics: [
-        { label: 'Detection', value: 'Multi-Metric Graph' },
-        { label: 'Attribution', value: 'Root Cause Pinpoint' },
-      ],
-      steps: [
-        'Learns normal variance across multi-table metric graphs',
-        'Isolates root cause disruptions from downstream cascading noise',
-        'Delivers contextual action summaries before metric impacts widen',
-      ],
-    },
-  },
-  {
-    range: [0.84, 0.99],
-    label: '04 // CONVERSATIONAL QUERY',
-    detail: {
-      category: 'EXPLORATION',
-      title: 'Conversational Data Lineage',
-      subtitle: 'Instant ad-hoc exploration in natural language',
-      narrative:
-        'Empowers any teammate to ask follow-up questions, slice dimensions, and drill down into anomalies with fully verified query execution.',
-      metrics: [
-        { label: 'Interface', value: 'Natural Language' },
-        { label: 'Transparency', value: 'Direct Verified SQL' },
-      ],
-      steps: [
-        'Converts natural phrasing into optimized database queries',
-        'Validates semantic query schemas against warehouse metadata',
-        'Outputs conversational summaries with accompanying raw data tables',
-      ],
-    },
-  },
-];
-
+/** Crystal stays mostly still — camera orbits instead. Soft float + ring drift only. */
 export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
-  scrollProgress,
-  onSelectHotspot,
+  scrollProgressRef,
 }) => {
-  const crystalRef = useRef<THREE.Group>(null);
+  const rootRef = useRef<THREE.Group>(null);
   const coreRef = useRef<THREE.Mesh>(null);
   const ring1Ref = useRef<THREE.Mesh>(null);
   const ring2Ref = useRef<THREE.Mesh>(null);
-  const shardsRef = useRef<THREE.Group>(null);
 
   const [hovered, setHovered] = useState(false);
-  const { pointer } = useThree();
 
-  // 4 Small Data Shards drifting in orbit
-  const shards = useMemo(() => {
-    return [
-      { radius: 3.2, y: 0.4, speed: 0.35, scale: 0.18, phase: 0 },
-      { radius: 3.8, y: -0.6, speed: 0.28, scale: 0.14, phase: 1.8 },
-      { radius: 3.4, y: 0.8, speed: 0.32, scale: 0.16, phase: 3.6 },
-      { radius: 4.1, y: -0.2, speed: 0.22, scale: 0.12, phase: 5.1 },
-    ];
-  }, []);
-
-  // Find active milestone detail for 3D hotspot button
-  const activeMilestone = useMemo(() => {
-    return MILESTONE_DETAILS.find(
-      (m) => scrollProgress >= m.range[0] && scrollProgress <= m.range[1]
-    );
-  }, [scrollProgress]);
-
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     const time = clock.getElapsedTime();
+    const p = THREE.MathUtils.clamp(scrollProgressRef.current, 0, 1);
+    const glowBoost = 1 + p * 0.65;
+    const orbitExpand = 1 + Math.sin(p * Math.PI) * 0.12;
+    const dt = Math.min(delta, 0.05);
 
-    if (crystalRef.current) {
-      // 1. Slow, meditative self-rotation
-      crystalRef.current.rotation.y = time * 0.04;
-      crystalRef.current.rotation.x = Math.sin(time * 0.15) * 0.03;
-
-      // 2. Gentle organic vertical breath
-      crystalRef.current.position.y = 0.2 + Math.sin(time * 0.4) * 0.08;
-
-      // 3. Interactive magnetic tilt responding to mouse
-      const targetTiltX = pointer.y * 0.08;
-      const targetTiltZ = -pointer.x * 0.08;
-      crystalRef.current.rotation.x = THREE.MathUtils.lerp(
-        crystalRef.current.rotation.x,
-        targetTiltX,
-        0.04
-      );
-      crystalRef.current.rotation.z = THREE.MathUtils.lerp(
-        crystalRef.current.rotation.z,
-        targetTiltZ,
-        0.04
-      );
+    if (rootRef.current) {
+      // Quiet breath only — no spinning (camera does that)
+      rootRef.current.position.y = 0.15 + Math.sin(time * 0.4) * 0.06;
+      const targetScale = THREE.MathUtils.lerp(1, 1.05, p * 0.5) * (hovered ? 1.025 : 1);
+      const s = THREE.MathUtils.damp(rootRef.current.scale.x, targetScale, 4, dt);
+      rootRef.current.scale.setScalar(s);
     }
 
-    // 4. Warm Core Breathing Pulse
     if (coreRef.current) {
-      const pulse = Math.sin(time * 1.8) * 0.5 + 0.5;
-      coreRef.current.rotation.y = time * 0.35;
-      coreRef.current.rotation.z = time * 0.2;
+      const pulse = Math.sin(time * 1.5) * 0.5 + 0.5;
+      // Very slow counter-glow so facets catch light as the camera moves
+      coreRef.current.rotation.y = time * 0.08;
       const mat = coreRef.current.material as THREE.MeshStandardMaterial;
       if (mat) {
-        mat.emissiveIntensity = 1.6 + pulse * 0.8 + (hovered ? 0.5 : 0);
+        mat.emissiveIntensity =
+          (1.5 + pulse * 0.65 + (hovered ? 0.4 : 0)) * glowBoost;
       }
     }
 
-    // 5. Quiet Armillary Rings rotation
     if (ring1Ref.current) {
-      ring1Ref.current.rotation.z = time * 0.06;
+      ring1Ref.current.rotation.x = Math.PI / 3.2;
+      ring1Ref.current.rotation.z += dt * 0.12;
+      ring1Ref.current.scale.setScalar(orbitExpand);
     }
     if (ring2Ref.current) {
-      ring2Ref.current.rotation.z = -time * 0.045;
-    }
-
-    // 6. Keplerian Orbiting Data Shards
-    if (shardsRef.current) {
-      shards.forEach((s, idx) => {
-        const child = shardsRef.current?.children[idx];
-        if (child) {
-          const angle = time * s.speed + s.phase;
-          child.position.x = Math.cos(angle) * s.radius;
-          child.position.z = Math.sin(angle) * s.radius;
-          child.position.y = s.y + Math.sin(time * 0.6 + s.phase) * 0.1;
-          child.rotation.y = time * 0.4;
-          child.rotation.x = time * 0.2;
-        }
-      });
+      ring2Ref.current.rotation.x = Math.PI / 2.6;
+      ring2Ref.current.rotation.y = 0.6;
+      ring2Ref.current.rotation.z -= dt * 0.09;
+      ring2Ref.current.scale.setScalar(orbitExpand * 0.98);
     }
   });
 
@@ -198,26 +67,23 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
       }}
       onPointerOut={() => setHovered(false)}
     >
-      {/* Central Rotating Faceted Quartz Crystal Form */}
-      <group ref={crystalRef}>
-        {/* Pass 1: Rear Facets (Rich warm dark coral amber base) */}
+      <group ref={rootRef}>
         <mesh>
           <icosahedronGeometry args={[2.0, 0]} />
           <meshPhysicalMaterial
-            color="#D97863"
-            emissive="#824A3D"
-            emissiveIntensity={0.35}
-            roughness={0.22}
-            metalness={0.08}
-            transparent={true}
-            opacity={0.65}
+            color="#4A1C14"
+            emissive="#2A0E09"
+            emissiveIntensity={0.4}
+            roughness={0.25}
+            metalness={0.15}
+            transparent
+            opacity={0.8}
             side={THREE.BackSide}
-            flatShading={true}
+            flatShading
           />
         </mesh>
 
-        {/* Pass 2: Luminescent Inner Core (Glowing deep coral heart) */}
-        <mesh ref={coreRef} position={[0, 0, 0]}>
+        <mesh ref={coreRef}>
           <octahedronGeometry args={[0.72, 0]} />
           <meshStandardMaterial
             color="#824A3D"
@@ -228,112 +94,56 @@ export const CentralCrystalModel: React.FC<CentralCrystalModelProps> = ({
           />
         </mesh>
 
-        {/* Warm Internal Point Light (Illuminating facets from within) */}
-        <pointLight
-          color="#FFA878"
-          intensity={4.5}
-          distance={9}
-          position={[0, 0, 0]}
-        />
+        <pointLight color="#FFA878" intensity={3.5} distance={8} position={[0, 0, 0]} />
 
-        {/* Pass 3: Front Facets (Vibrant warm light-coral quartz with specular polish) */}
-        <mesh castShadow receiveShadow>
+        <mesh>
           <icosahedronGeometry args={[2.0, 0]} />
           <meshPhysicalMaterial
-            color="#EBA58F"
-            emissive="#D97863"
-            emissiveIntensity={0.25}
+            color="#7A2E20"
+            emissive="#3D140D"
+            emissiveIntensity={0.3}
             roughness={0.12}
-            metalness={0.06}
-            transparent={true}
-            opacity={0.78}
+            metalness={0.25}
+            transparent
+            opacity={0.88}
             side={THREE.FrontSide}
-            clearcoat={0.9}
+            clearcoat={1}
             clearcoatRoughness={0.08}
-            flatShading={true}
+            flatShading
           />
         </mesh>
 
-        {/* Pass 4: Shimmering Warm Gold Wireframe Facet Outlines / Highlight */}
         <mesh scale={[1.002, 1.002, 1.002]}>
           <icosahedronGeometry args={[2.0, 0]} />
           <meshBasicMaterial
-            color="#F1C0AD"
-            wireframe={true}
-            transparent={true}
-            opacity={0.55}
+            color="#E3836C"
+            wireframe
+            transparent
+            opacity={0.4}
             blending={THREE.AdditiveBlending}
           />
         </mesh>
       </group>
 
-      {/* Armillary Ring 1: Warm Terracotta Orbit */}
-      <mesh
-        ref={ring1Ref}
-        rotation={[Math.PI / 3.2, 0, 0]}
-      >
-        <torusGeometry args={[2.85, 0.014, 16, 96]} />
+      <mesh ref={ring1Ref} rotation={[Math.PI / 3.2, 0, 0]}>
+        <torusGeometry args={[2.85, 0.014, 12, 64]} />
         <meshBasicMaterial
           color="#EBA58F"
-          transparent={true}
-          opacity={hovered ? 0.55 : 0.35}
+          transparent
+          opacity={hovered ? 0.5 : 0.32}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
 
-      {/* Armillary Ring 2: Rose Lavender Inclined Orbit */}
-      <mesh
-        ref={ring2Ref}
-        rotation={[Math.PI / 2.6, 0.6, 0]}
-      >
-        <torusGeometry args={[3.6, 0.012, 16, 96]} />
+      <mesh ref={ring2Ref} rotation={[Math.PI / 2.6, 0.6, 0]}>
+        <torusGeometry args={[3.6, 0.012, 12, 64]} />
         <meshBasicMaterial
           color="#EBA58F"
-          transparent={true}
-          opacity={hovered ? 0.5 : 0.35}
+          transparent
+          opacity={hovered ? 0.45 : 0.3}
           blending={THREE.AdditiveBlending}
         />
       </mesh>
-
-      {/* Drifting Warm Data Shards */}
-      <group ref={shardsRef}>
-        {shards.map((s, idx) => (
-          <mesh key={idx} scale={[s.scale, s.scale * 1.2, s.scale]}>
-            <octahedronGeometry args={[1, 0]} />
-            <meshPhysicalMaterial
-              color="#F29E74"
-              emissive="#E3836C"
-              emissiveIntensity={0.3}
-              roughness={0.15}
-              metalness={0.08}
-              transparent={true}
-              opacity={0.85}
-              flatShading={true}
-            />
-          </mesh>
-        ))}
-      </group>
-
-      {/* Scroll-Gated 3D Interactive Hotspot Button at Active Facet */}
-      {activeMilestone && (
-        <Html position={[0, 2.3, 0]} distanceFactor={14} center>
-          <button
-            type="button"
-            onClick={() =>
-              onSelectHotspot && onSelectHotspot(activeMilestone.detail)
-            }
-            className="group cursor-pointer flex items-center gap-2 px-4 py-2 rounded-full bg-[#F3EDE4]/95 dark:bg-[#211E1C]/95 backdrop-blur-md border border-[#4A4238]/15 dark:border-[#3A3430] hover:border-[#E3836C] shadow-md hover:scale-105 transition-all duration-300 pointer-events-auto whitespace-nowrap animate-in fade-in zoom-in-90"
-          >
-            <span className="w-2 h-2 rounded-full bg-[#E3836C] animate-ping" />
-            <span className="text-[11px] font-mono uppercase tracking-wider text-[#4A4238] dark:text-[#F4EDE5] font-medium group-hover:text-[#E3836C]">
-              {activeMilestone.label}
-            </span>
-            <span className="text-xs text-[#E3836C] group-hover:translate-x-0.5 transition-transform">
-              →
-            </span>
-          </button>
-        </Html>
-      )}
     </group>
   );
 };

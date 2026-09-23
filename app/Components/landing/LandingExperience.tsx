@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import Lenis from 'lenis';
 import { Navbar } from './Navbar';
 import { InspectDrawer, DrawerDetail } from './InspectDrawer';
-import { NavRail } from '../ui/NavRail';
 import { LandingProgressContext } from './LandingProgressContext';
+import { LoadingScreen } from '../ui/LoadingScreen';
 
 const SceneCanvas = dynamic(
   () => import('../3d/SceneCanvas').then((mod) => mod.SceneCanvas),
@@ -14,77 +13,85 @@ const SceneCanvas = dynamic(
 );
 
 export function LandingExperience({ children }: { children: React.ReactNode }) {
-  const [scrollProgress, setScrollProgress] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showSkip, setShowSkip] = useState(true);
   const [isCanvasVisible, setIsCanvasVisible] = useState(true);
   const [inspectedDetail, setInspectedDetail] = useState<DrawerDetail | null>(null);
-  const lenisRef = useRef<Lenis | null>(null);
+  const scrollProgressRef = useRef(0);
+
+  const handleLoadComplete = useCallback(() => {
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
-    const ua = navigator.userAgent || '';
-    const isBot = /bot|crawler|spider|google|bing|adsense|adsbot|slurp|duckduck/i.test(ua);
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const isMobile = window.innerWidth < 768;
-    let animId = 0;
-    let lenis: Lenis | null = null;
+    if (isLoading) return;
 
-    if (!reduce && !isBot) {
-      lenis = new Lenis({
-        duration: isMobile ? 1.0 : 1.2,
-        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-        smoothWheel: true,
-        touchMultiplier: 1.6,
-      });
-      lenisRef.current = lenis;
-      function raf(time: number) {
-        lenis?.raf(time);
-        animId = requestAnimationFrame(raf);
-      }
-      animId = requestAnimationFrame(raf);
-    }
+    let ticking = false;
+    let lastSkip = true;
+    let lastVisible = true;
 
-    const onScroll = () => {
+    const compute = () => {
       const scrollY = window.scrollY;
-      const totalScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const totalScroll = Math.max(
+        document.documentElement.scrollHeight - window.innerHeight,
+        1
+      );
       const descentEl = document.getElementById('descent');
       const capabilitiesEl = document.getElementById('capabilities');
 
       if (descentEl) {
-        const descentTop = descentEl.offsetTop;
-        const descentHeight = descentEl.offsetHeight - window.innerHeight;
+        const rect = descentEl.getBoundingClientRect();
+        const travel = Math.max(descentEl.offsetHeight - window.innerHeight, 1);
+        scrollProgressRef.current = Math.min(Math.max(-rect.top / travel, 0), 1);
+      } else {
+        scrollProgressRef.current = 0;
+      }
 
-        if (scrollY < descentTop) {
-          setScrollProgress(0);
-        } else if (scrollY >= descentTop && scrollY <= descentTop + descentHeight) {
-          const progress = (scrollY - descentTop) / (descentHeight || 1);
-          setScrollProgress(Math.min(Math.max(progress, 0), 1));
-        } else {
-          setScrollProgress(1);
-        }
+      const nextSkip = scrollProgressRef.current < 0.98;
+      if (nextSkip !== lastSkip) {
+        lastSkip = nextSkip;
+        setShowSkip(nextSkip);
       }
 
       const isPastDescent = capabilitiesEl
-        ? capabilitiesEl.getBoundingClientRect().top < 0
+        ? capabilitiesEl.getBoundingClientRect().top < window.innerHeight * 0.15
         : false;
       const isAtClosing = scrollY > totalScroll - window.innerHeight * 1.5;
-      setIsCanvasVisible(!isPastDescent || isAtClosing);
+      const nextVisible = !isPastDescent || isAtClosing;
+      if (nextVisible !== lastVisible) {
+        lastVisible = nextVisible;
+        setIsCanvasVisible(nextVisible);
+      }
     };
 
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        compute();
+        ticking = false;
+      });
+    };
+
+    compute();
     window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [isLoading]);
 
-    return () => {
-      if (animId) cancelAnimationFrame(animId);
-      window.removeEventListener('scroll', onScroll);
-      lenis?.destroy();
-    };
-  }, []);
+  const contextValue = useMemo(
+    () => ({ setInspectedDetail }),
+    []
+  );
 
   return (
     <div
       id="main-content"
       className="relative min-h-screen bg-transparent text-ink selection:bg-coral/30 selection:text-ink overflow-x-hidden"
+      style={{ ['--nav-h' as string]: '96px' }}
     >
-      {scrollProgress < 1 && (
+      {isLoading && <LoadingScreen onComplete={handleLoadComplete} />}
+
+      {!isLoading && showSkip && (
         <a
           href="#capabilities"
           className="fixed bottom-5 right-5 z-30 min-h-11 px-4 rounded-full bg-[#322C28] text-[#FFF7F1] text-sm font-medium shadow-lg pointer-events-auto inline-flex items-center xl:right-8"
@@ -98,18 +105,22 @@ export function LandingExperience({ children }: { children: React.ReactNode }) {
         </a>
       )}
 
-      <NavRail />
       <InspectDrawer detail={inspectedDetail} onClose={() => setInspectedDetail(null)} />
       <SceneCanvas
-        scrollProgress={scrollProgress}
-        isLoaded
+        scrollProgressRef={scrollProgressRef}
+        isLoaded={!isLoading}
         isCanvasVisible={isCanvasVisible}
-        onSelectHotspot={(detail) => setInspectedDetail(detail)}
       />
-      <Navbar />
+      {!isLoading && <Navbar />}
 
-      <LandingProgressContext.Provider value={{ scrollProgress, setInspectedDetail }}>
-        {children}
+      <LandingProgressContext.Provider value={contextValue}>
+        <div
+          className={`transition-opacity duration-500 ${
+            isLoading ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
+        >
+          {children}
+        </div>
       </LandingProgressContext.Provider>
     </div>
   );

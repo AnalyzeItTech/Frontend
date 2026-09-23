@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import Lenis from 'lenis';
 
-/** Smooth scroll only on marketing landing — app shells manage their own overflow. */
+/** Single Lenis instance for marketing landing only — app shells manage their own overflow. */
 export const SmoothScrollProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const pathname = usePathname();
   const lenisRef = useRef<Lenis | null>(null);
@@ -21,10 +21,12 @@ export const SmoothScrollProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const isMobile = window.innerWidth < 768;
     const lenis = new Lenis({
-      duration: isMobile ? 1.0 : 1.25,
+      duration: isMobile ? 0.75 : 0.85,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       smoothWheel: true,
-      touchMultiplier: 1.5,
+      touchMultiplier: 1.2,
+      wheelMultiplier: 1,
+      syncTouch: false,
     });
 
     lenisRef.current = lenis;
