@@ -114,7 +114,7 @@ function barScore(p: SourcePoint): number {
 
 function RankedBars({ points }: { points: SourcePoint[] }) {
   const rows = points
-    .filter((p) => p.kind === 'event')
+    .filter((p) => p.kind !== 'hub')
     .map((p) => ({ id: p.id, label: p.label, score: barScore(p) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 8);
@@ -171,6 +171,7 @@ export default function GlobePage() {
     activeHub,
     setOverlayPoints,
     overlayPoints,
+    archivePoints,
     setOverlayPaths,
     setShowCatalog,
     mapProjection,
@@ -643,7 +644,10 @@ export default function GlobePage() {
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                Draw
+              </span>
               {(
                 [
                   ['pins', 'Pins'],
@@ -720,7 +724,7 @@ export default function GlobePage() {
             {layerFilter.trim() && visibleLayers.length === 0 ? (
               <p className="text-[11px] text-[var(--text-muted)]">No layers match that filter.</p>
             ) : null}
-            <RankedBars points={overlayPoints} />
+            <RankedBars points={layers.catalog ? [...archivePoints, ...overlayPoints] : overlayPoints} />
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
