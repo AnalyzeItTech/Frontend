@@ -790,7 +790,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
   const metricGeoJson = useMemo((): GeoJSON.FeatureCollection => {
     const features: GeoJSON.Feature[] = [];
     for (const p of sourcePoints) {
-      if (p.kind !== 'event') continue;
+      if (p.kind === 'hub') continue;
       features.push({
         type: 'Feature',
         properties: { id: p.id, w: pointMetric(p), label: p.label },
@@ -849,7 +849,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
   const barPoints = useMemo(() => {
     if (dataView !== 'bars') return [];
     return sourcePoints
-      .filter((p) => p.kind === 'event')
+      .filter((p) => p.kind !== 'hub')
       .map((p) => ({ point: p, w: pointMetric(p) }))
       .sort((a, b) => b.w - a.w)
       .slice(0, 80);
