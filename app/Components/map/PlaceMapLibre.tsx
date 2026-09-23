@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react';
 import Map, { Marker, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
-import type { CircleLayerSpecification, HeatmapLayerSpecification, LineLayerSpecification, Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
+import type { CircleLayerSpecification, HeatmapLayerSpecification, LineLayerSpecification, Map as MapLibreMap, StyleSpecification, SymbolLayerSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from '../ui/ThemeProvider';
 import { GLOBE_HUBS } from '../globe/sourceCatalog';
@@ -316,6 +316,52 @@ function resumeMapLoop(map: MapLibreMap) {
   }
 }
 
+const LAYER_COLOR: Record<string, string> = {
+  earthquakes: '#d97706',
+  disasters: '#dc2626',
+  wildfires: '#ef4444',
+  storms: '#6366f1',
+  volcanoes: '#b45309',
+  weather: '#3b82f6',
+  air_quality: '#10b981',
+  markets: '#8b5cf6',
+  iss: '#f43f5e',
+  space_weather: '#14b8a6',
+  elevation: '#78716c',
+  flights: '#0284c7',
+};
+
+function ensurePlaneIcon(map: MapLibreMap) {
+  if (map.hasImage('globe-plane')) return;
+  const size = 32;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, size, size);
+  ctx.translate(size / 2, size / 2);
+  ctx.fillStyle = '#0284c7';
+  ctx.strokeStyle = '#f0f9ff';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, -12);
+  ctx.lineTo(4, -2);
+  ctx.lineTo(12, 2);
+  ctx.lineTo(4, 4);
+  ctx.lineTo(2, 12);
+  ctx.lineTo(0, 6);
+  ctx.lineTo(-2, 12);
+  ctx.lineTo(-4, 4);
+  ctx.lineTo(-12, 2);
+  ctx.lineTo(-4, -2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  const image = ctx.getImageData(0, 0, size, size);
+  map.addImage('globe-plane', image, { pixelRatio: 2 });
+}
+
 /** 0–1 strength so heat, density, and bars share one scale. */
 function pointMetric(p: SourcePoint): number {
   const m = p.meta || {};
@@ -422,17 +468,19 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
           if (hub) onHubSelect?.(hub);
           return;
         }
+        const hit = sourcePoints.find((p) => p.id === props.id);
         onPlaceSelect?.({
-          lat: event.lngLat.lat,
-          lon: event.lngLat.lng,
-          name: typeof props.label === 'string' ? props.label : undefined,
+          lat: hit?.lat ?? event.lngLat.lat,
+          lon: hit?.lon ?? event.lngLat.lng,
+          name: hit?.label || (typeof props.label === 'string' ? props.label : undefined),
+          event: hit?.kind === 'event' ? hit : undefined,
         });
         return;
       }
       if (variant === 'mini') return;
       onPlaceSelect?.({ lat: event.lngLat.lat, lon: event.lngLat.lng });
     },
-    [onHubSelect, onPlaceSelect, variant],
+    [onHubSelect, onPlaceSelect, sourcePoints, variant],
   );
 
   const runFlyTo = useCallback(
@@ -683,6 +731,62 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     return { type: 'FeatureCollection', features };
   }, [overlayPaths]);
 
+  const liveEventGeoJson = useMemo((): GeoJSON.FeatureCollection => {
+    const features: GeoJSON.Feature[] = [];
+    for (const p of sourcePoints) {
+      if (p.kind !== 'event') continue;
+      const host = p.host || 'event';
+      features.push({
+        type: 'Feature',
+        properties: {
+          id: p.id,
+          kind: 'event',
+          host,
+          label: p.label,
+          color: LAYER_COLOR[host] || '#EA8069',
+          track: Number.isFinite(Number(p.trackDeg)) ? Number(p.trackDeg) : 0,
+        },
+        geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+      });
+    }
+    return { type: 'FeatureCollection', features };
+  }, [sourcePoints]);
+
+  const liveEventLayer = useMemo(
+    (): CircleLayerSpecification => ({
+      id: 'globe-live-events',
+      type: 'circle',
+      source: 'globe-live-events',
+      filter: ['!=', ['get', 'host'], 'flights'],
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 0, 3.5, 3, 5, 6, 7],
+        'circle-color': ['get', 'color'],
+        'circle-stroke-width': 1,
+        'circle-stroke-color': '#ffffff',
+        'circle-opacity': 0.92,
+      },
+    }),
+    [],
+  );
+
+  const liveFlightLayer = useMemo(
+    (): SymbolLayerSpecification => ({
+      id: 'globe-live-flights',
+      type: 'symbol',
+      source: 'globe-live-events',
+      filter: ['==', ['get', 'host'], 'flights'],
+      layout: {
+        'icon-image': 'globe-plane',
+        'icon-size': 0.72,
+        'icon-rotate': ['get', 'track'],
+        'icon-rotation-alignment': 'map',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+      },
+    }),
+    [],
+  );
+
   const metricGeoJson = useMemo((): GeoJSON.FeatureCollection => {
     const features: GeoJSON.Feature[] = [];
     for (const p of sourcePoints) {
@@ -795,6 +899,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         }}
         attributionControl={hideChrome ? false : { compact: true }}
         interactive={interactive}
+        interactiveLayerIds={variant === 'full' ? ['globe-live-events', 'globe-live-flights'] : undefined}
         dragPan={interactive}
         dragRotate={interactive}
         scrollZoom={interactive}
@@ -820,6 +925,11 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
             }
             if (!freezeResize) map.resize();
             if (pausedRef.current) pauseMapLoop(map);
+            try {
+              ensurePlaneIcon(map);
+            } catch {
+              /* icon optional */
+            }
             onMapReady?.();
             if (!engineReadyRef.current) {
               engineReadyRef.current = true;
@@ -851,6 +961,13 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         {overlayPaths.length > 0 ? (
           <Source id="globe-overlay-paths" type="geojson" data={pathGeoJson}>
             <Layer {...pathLineLayer} />
+          </Source>
+        ) : null}
+
+        {variant === 'full' && dataView === 'pins' && liveEventGeoJson.features.length > 0 ? (
+          <Source id="globe-live-events" type="geojson" data={liveEventGeoJson}>
+            <Layer {...liveEventLayer} />
+            <Layer {...liveFlightLayer} />
           </Source>
         ) : null}
 
@@ -927,7 +1044,12 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
           : null}
 
         {sourcePoints
-          .filter((p) => p.kind !== 'hub' && (dataView === 'pins' || p.kind !== 'event'))
+          .filter(
+            (p) =>
+              p.kind !== 'hub' &&
+              (dataView === 'pins' || p.kind !== 'event') &&
+              !(variant === 'full' && dataView === 'pins' && p.kind === 'event'),
+          )
           .map((point) => {
             const facing = isFacing(point.id);
             return (
