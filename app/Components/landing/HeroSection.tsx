@@ -5,7 +5,7 @@ export const HeroSection: React.FC = () => {
   return (
     <section
       id="hero"
-      className="relative min-h-[88vh] flex flex-col justify-between pt-36 sm:pt-40 pb-20 px-6 md:px-16 max-w-7xl mx-auto pointer-events-none scroll-mt-[calc(var(--nav-h,56px)+24px)]"
+      className="relative min-h-[88vh] flex flex-col justify-between pt-[calc(var(--nav-h,96px)+48px)] pb-20 px-6 md:px-16 max-w-7xl mx-auto pointer-events-none scroll-mt-[calc(var(--nav-h,96px)+16px)]"
     >
       <div className="flex items-center justify-between pointer-events-auto">
         <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#F3EDE4]/95 dark:bg-[#211E1C]/95 backdrop-blur-md border border-[#4A4238]/15 dark:border-[#3A3430] text-xs font-medium tracking-widest uppercase text-[#322C28] dark:text-[#F4EDE5] shadow-xs">
@@ -14,8 +14,11 @@ export const HeroSection: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 pointer-events-auto mt-auto pb-10">
-        <div className="max-w-2xl space-y-6 rounded-3xl bg-[#F3EDE4]/90 dark:bg-[#171514]/88 backdrop-blur-md border border-[#4A4238]/10 dark:border-[#3A3430] p-6 sm:p-8 shadow-sm">
+      <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-12 pointer-events-auto mt-auto pb-10">
+        <div
+          id="hero-card"
+          className="max-w-2xl space-y-6 rounded-3xl bg-[#F3EDE4]/90 dark:bg-[#171514]/88 backdrop-blur-md border border-[#4A4238]/10 dark:border-[#3A3430] p-6 sm:p-8 shadow-sm"
+        >
           <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight text-[#322C28] dark:text-[#F4EDE5] font-normal leading-[1.08]">
             <span className="block font-sans text-sm sm:text-base tracking-[0.28em] uppercase font-medium text-[#C45A42] dark:text-[#EBA58F] mb-4">
               AnalyzeIt

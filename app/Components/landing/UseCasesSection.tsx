@@ -37,7 +37,7 @@ export const UseCasesSection: React.FC = () => {
   return (
     <section
       id="use-cases"
-      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto scroll-mt-[calc(var(--nav-h,56px)+24px)]"
+      className="relative py-24 md:py-36 px-6 md:px-16 max-w-7xl mx-auto space-y-16 pointer-events-auto scroll-mt-[calc(var(--nav-h,96px)+16px)]"
     >
       {/* Header */}
       <div className="max-w-2xl space-y-4">
