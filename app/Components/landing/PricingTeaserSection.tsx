@@ -99,7 +99,7 @@ function currencyNote(row: BillingQuote['plans']['premium'] | undefined, fallbac
     row.amount_usd != null && Number.isFinite(row.amount_usd)
       ? ` · $${row.amount_usd} USD reference`
       : ` · $${fallbackUsd} USD reference`;
-  return `${row.currency || 'INR'} via PayU${usd}`;
+  return `${row.currency || 'INR'} via Razorpay${usd}`;
 }
 
 export const PricingTeaserSection: React.FC = () => {
@@ -109,7 +109,7 @@ export const PricingTeaserSection: React.FC = () => {
     let cancelled = false;
     void (async () => {
       try {
-        // PayU India checkout — keep marketing aligned with Billing INR quotes.
+        // Razorpay India checkout — keep marketing aligned with Billing INR quotes.
         const q = await getBillingQuote('IN');
         if (!cancelled) setQuote(q);
       } catch {
@@ -149,7 +149,7 @@ export const PricingTeaserSection: React.FC = () => {
         </h2>
         <p className="text-base text-[#3F3830] dark:text-[#E6DCD2]">
           Chat, dashboards, globe, and connectors require an account. Paid plans are billed monthly
-          through PayU in INR; amounts below match live Billing quotes. Failed renewals keep
+          through Razorpay in INR; amounts below match live Billing quotes. Failed renewals keep
           entitlements for 7 days, then Free.
         </p>
       </div>

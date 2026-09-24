@@ -14,7 +14,7 @@ function BillingReturnInner() {
   const verified = params.get('verified');
   const txn = params.get('txn');
   const reason = params.get('reason');
-  const [note, setNote] = useState('Checking payment with PayU…');
+  const [note, setNote] = useState('Checking payment with Razorpay…');
   const [paid, setPaid] = useState(false);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ function BillingReturnInner() {
         setPaid(false);
         setNote(
           reason === 'verify'
-            ? 'We could not confirm this payment with PayU yet. If you were charged, contact support with your transaction id.'
+            ? 'We could not confirm this payment with Razorpay yet. If you were charged, contact support with your transaction id.'
             : 'Payment did not complete. You can try again from billing.',
         );
         return;
@@ -39,7 +39,7 @@ function BillingReturnInner() {
           if (status.paid) {
             setPaid(true);
             await fetchMe();
-            setNote('Payment verified with PayU. Your plan is active on your profile.');
+            setNote('Payment verified with Razorpay. Your plan is active on your profile.');
             return;
           }
         } catch {
@@ -52,7 +52,7 @@ function BillingReturnInner() {
       const tier = (me?.tier || '').toLowerCase();
       if (verified === '1' && tier && tier !== 'free') {
         setPaid(true);
-        setNote('Payment verified with PayU. Your plan is active on your profile.');
+        setNote('Payment verified with Razorpay. Your plan is active on your profile.');
       } else if (verified === '1') {
         setPaid(false);
         setNote(

@@ -61,7 +61,7 @@ export default function ContactPage() {
       </LegalSection>
       <LegalSection title="Hours">
         <p>
-          We read email on business days. For payment issues, include your account email and PayU
+          We read email on business days. For payment issues, include your account email and Razorpay
           transaction id.
         </p>
       </LegalSection>

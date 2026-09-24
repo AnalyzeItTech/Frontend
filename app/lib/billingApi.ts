@@ -45,14 +45,31 @@ export async function getBillingHistory() {
 export type CheckoutSession = {
   txnid: string;
   plan: string;
-  sandbox?: boolean;
   amount: number;
+  amount_paise?: number;
   amount_usd?: number;
   currency?: string;
   country?: string | null;
-  payu_url?: string;
-  payu_fields?: Record<string, string> | null;
+  order_id: string;
+  key_id?: string;
 };
+
+type RazorpaySuccess = {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayCheckout = {
+  open: () => void;
+  on: (event: string, handler: (response: { error?: { description?: string } }) => void) => void;
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => RazorpayCheckout;
+  }
+}
 
 export type BillingQuote = {
   country?: string | null;
@@ -107,14 +124,67 @@ export async function startCheckout(
   return session;
 }
 
-export async function completeSandboxCheckout(txnid: string, plan: string) {
-  const res = await fetch(`${API_V1}/billing/sandbox-complete`, {
+export async function verifyRazorpayPayment(payload: RazorpaySuccess) {
+  const res = await fetch(`${API_V1}/billing/verify-payment`, {
     method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ txnid, plan }),
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(await readError(res, 'Could not complete payment'));
-  return res.json();
+  if (!res.ok) throw new Error(await readError(res, 'Payment could not be verified'));
+  return res.json() as Promise<{ success: boolean }>;
+}
+
+function loadRazorpayScript(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.reject(new Error('Razorpay runs in the browser'));
+  if (window.Razorpay) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error('Could not load Razorpay checkout')));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Could not load Razorpay checkout'));
+    document.body.appendChild(script);
+  });
+}
+
+export async function openRazorpayCheckout(session: CheckoutSession): Promise<'paid' | 'cancelled'> {
+  await loadRazorpayScript();
+  const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || session.key_id;
+  if (!key) throw new Error('Razorpay is not configured');
+  if (!session.order_id) throw new Error('Missing Razorpay order');
+  if (!window.Razorpay) throw new Error('Razorpay checkout failed to load');
+  const Razorpay = window.Razorpay;
+  return new Promise((resolve, reject) => {
+    const checkout = new Razorpay({
+      key,
+      order_id: session.order_id,
+      amount: session.amount_paise,
+      currency: session.currency || 'INR',
+      name: 'AnalyzeIt',
+      description: session.plan,
+      handler: async (response: RazorpaySuccess) => {
+        try {
+          await verifyRazorpayPayment(response);
+          resolve('paid');
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error('Payment could not be verified'));
+        }
+      },
+      modal: {
+        ondismiss: () => resolve('cancelled'),
+      },
+    });
+    checkout.on('payment.failed', (response) => {
+      reject(new Error(response?.error?.description || 'Payment failed'));
+    });
+    checkout.open();
+  });
 }
 
 export async function cancelSubscription() {
@@ -151,19 +221,6 @@ export async function getCheckoutStatus(txnid: string) {
   return res.json() as Promise<{ txnid: string; plan?: string; status?: string; paid: boolean }>;
 }
 
-const PAYU_REQUIRED = [
-  'key',
-  'txnid',
-  'amount',
-  'productinfo',
-  'firstname',
-  'email',
-  'surl',
-  'furl',
-  'hash',
-] as const;
-
-
 export function coerceMoney(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) return value;
   if (typeof value === 'string') {
@@ -186,87 +243,6 @@ export function formatMoney(amount: unknown, currency: string, fallback = '—')
   } catch {
     return `${n.toFixed(2)} ${code}`;
   }
-}
-
-/** Coerce PayU hosted fields and refuse submit if amount/txnid would become NaN/blank. */
-export function normalizePayuFields(fields: Record<string, unknown>): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [name, raw] of Object.entries(fields)) {
-    if (raw === null || raw === undefined) continue;
-    out[name] = String(raw).trim();
-  }
-
-  // Amount must match the hashed PayU string exactly. Do not re-format via
-  // Number/toFixed (4775.69 can become 4775.68 and PayU shows Total Payable NaN).
-  const amountRaw = String(out.amount ?? '').trim();
-  if (!/^[0-9]+(\.[0-9]{1,2})?$/.test(amountRaw) || Number(amountRaw) <= 0) {
-    throw new Error(
-      `PayU amount is invalid (${JSON.stringify(fields.amount)}). Refusing to open checkout.`,
-    );
-  }
-  out.amount = amountRaw;
-  delete out.currency;
-
-  if (!out.txnid || out.txnid.length > 25) {
-    throw new Error(
-      `PayU txnid is missing or longer than 25 chars (${JSON.stringify(out.txnid)}). Refusing checkout.`,
-    );
-  }
-
-  for (const key of PAYU_REQUIRED) {
-    if (!out[key]) {
-      throw new Error(`PayU checkout missing required field: ${key}`);
-    }
-  }
-
-  return out;
-}
-
-export function submitPayuForm(payuUrl: string, fields: Record<string, string>) {
-  if (!payuUrl) {
-    throw new Error('PayU checkout URL is missing');
-  }
-  const safe = normalizePayuFields(fields);
-  // PayU hosted checkout is INR-only; a `currency` field yields Total Payable NaN.
-  delete safe.currency;
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = payuUrl;
-  form.acceptCharset = 'UTF-8';
-  form.enctype = 'application/x-www-form-urlencoded';
-  form.style.display = 'none';
-  const payuOrder = [
-    'key',
-    'txnid',
-    'amount',
-    'productinfo',
-    'firstname',
-    'email',
-    'phone',
-    'surl',
-    'furl',
-    'hash',
-    'service_provider',
-  ];
-  const posted = new Set<string>();
-  const append = (name: string, value: string) => {
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = name;
-    input.value = value;
-    form.appendChild(input);
-    posted.add(name);
-  };
-  for (const name of payuOrder) {
-    if (safe[name]) append(name, safe[name]);
-  }
-  Object.entries(safe).forEach(([name, value]) => {
-    if (posted.has(name)) return;
-    if (name === 'currency' || name.startsWith('udf')) return;
-    append(name, value);
-  });
-  document.body.appendChild(form);
-  form.submit();
 }
 
 export async function listNamedLayouts(projectId: string) {

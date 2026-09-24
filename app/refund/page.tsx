@@ -11,7 +11,7 @@ export default function RefundPage() {
   return (
     <LegalLayout title="Refund & Cancellation Policy" updated="September 11, 2026">
       <p>
-        Paid AnalyzeIt plans are billed monthly through PayU in INR. This policy is part of the{' '}
+        Paid AnalyzeIt plans are billed monthly through Razorpay in INR. This policy is part of the{' '}
         <a href="/terms" className="text-[#E3836C] hover:underline">
           Terms of Service
         </a>
@@ -32,7 +32,7 @@ export default function RefundPage() {
           <a href={`mailto:${EMAIL.support}`} className="text-[#E3836C] hover:underline">
             {EMAIL.support}
           </a>{' '}
-          with your account email and PayU transaction id. Partial months after you have used paid
+          with your account email and Razorpay transaction id. Partial months after you have used paid
           features beyond a Free plan are not refunded, except where a charge failed, duplicated, or
           was taken in error.
         </p>

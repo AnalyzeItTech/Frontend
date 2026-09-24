@@ -5,7 +5,7 @@ import { GSTIN } from '../lib/legalEntity';
 
 export const metadata: Metadata = {
   title: 'Products & pricing — AnalyzeIt',
-  description: 'AnalyzeIt plans billed monthly in INR via PayU. USD amounts are for reference.',
+  description: 'AnalyzeIt plans billed monthly in INR via Razorpay. USD amounts are for reference.',
 };
 
 const PLANS = [
@@ -29,7 +29,7 @@ const PLANS = [
     name: 'Premium',
     inr: '₹4,775.69',
     usd: '$50 USD reference',
-    cadence: 'Billed monthly in INR via PayU',
+    cadence: 'Billed monthly in INR via Razorpay',
     href: '/login?next=/billing',
     cta: 'Sign in to upgrade',
     popular: true,
@@ -45,7 +45,7 @@ const PLANS = [
     name: 'Premium Plus',
     inr: '₹9,551.38',
     usd: '$100 USD reference',
-    cadence: 'Billed monthly in INR via PayU',
+    cadence: 'Billed monthly in INR via Razorpay',
     href: '/login?next=/billing',
     cta: 'Sign in to go Plus',
     features: [
@@ -63,7 +63,7 @@ export default function ProductsPage() {
     <LegalLayout title="Products" updated="September 11, 2026">
       <p>
         AnalyzeIt is a digital analytics workspace. Paid plans are charged in{' '}
-        <strong>INR via PayU</strong>. USD figures are for reference only. Live checkout amounts
+        <strong>INR via Razorpay</strong>. USD figures are for reference only. Live checkout amounts
         may vary slightly with FX at the time of payment.
       </p>
       {GSTIN ? <p className="text-xs">GSTIN: {GSTIN}</p> : null}

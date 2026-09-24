@@ -31,7 +31,7 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Billing data:</strong> plan selection, transaction identifiers, and payment
-            status processed by PayU. We do not store full card numbers.
+            status processed by Razorpay. We do not store full card numbers.
           </li>
           <li>
             <strong>Usage data:</strong> token and feature usage for plan limits, plus technical
@@ -59,7 +59,7 @@ export default function PrivacyPage() {
         <ul className="list-disc pl-5 space-y-2">
           <li>Infrastructure and database hosts that store your workspace.</li>
           <li>Model, search, maps, and connector providers required to fulfill a request you make.</li>
-          <li>PayU, to process payments you initiate.</li>
+          <li>Razorpay, to process payments you initiate.</li>
           <li>Authorities if required by law, or to protect {LEGAL_NAME}, our users, or the public.</li>
         </ul>
       </LegalSection>

@@ -7,14 +7,13 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { fetchMe, getStoredToken, type UserProfile } from '../lib/auth';
 import {
-  completeSandboxCheckout,
   coerceMoney,
   formatMoney,
   getBillingQuote,
   isValidMoney,
+  openRazorpayCheckout,
   startCheckout,
   startTrial,
-  submitPayuForm,
   type BillingQuote,
   type CheckoutSession,
 } from '../lib/billingApi';
@@ -51,7 +50,7 @@ const PLAN_COPY: Record<
   },
 };
 
-/** PayU India charges INR; USD is reference only (matches marketing /#pricing). */
+/** Razorpay charges INR; USD is reference only (matches marketing /#pricing). */
 const CHECKOUT_COUNTRY = 'IN';
 
 function planAmount(quote: BillingQuote | null, plan: PlanId): number | null {
@@ -73,7 +72,6 @@ export default function BillingPage() {
   const [quoteLoading, setQuoteLoading] = useState(true);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [reviewPlan, setReviewPlan] = useState<PlanId | null>(null);
-  const [checkoutPhone, setCheckoutPhone] = useState('');
   const [me, setMe] = useState<UserProfile | null>(null);
   const [trialNotice, setTrialNotice] = useState<string | null>(null);
 
@@ -140,7 +138,7 @@ export default function BillingPage() {
     }
     const amount = planAmount(quote, plan);
     if (amount == null) {
-      setError('Price is unavailable right now. Refresh and try again — we will not open PayU with an invalid amount.');
+      setError('Price is unavailable right now. Refresh and try again.');
       return;
     }
     setReviewPlan(plan);
@@ -169,7 +167,7 @@ export default function BillingPage() {
     }
   };
 
-  const confirmPayu = async () => {
+  const confirmRazorpay = async () => {
     if (!reviewPlan) return;
     if (!getStoredToken()) {
       router.replace('/login?next=/billing');
@@ -177,39 +175,25 @@ export default function BillingPage() {
     }
     const amount = planAmount(quote, reviewPlan);
     if (amount == null) {
-      setError('Price is unavailable. Checkout blocked to avoid a PayU NaN total.');
+      setError('Price is unavailable. Checkout was not opened.');
       setReviewPlan(null);
-      return;
-    }
-
-    const phoneDigits = checkoutPhone.replace(/\D/g, '');
-    if (phoneDigits.length < 10) {
-      setError('Enter a valid phone number (10+ digits) for PayU checkout.');
       return;
     }
 
     setBusy(true);
     setError(null);
     try {
-      const session: CheckoutSession = await startCheckout(reviewPlan, CHECKOUT_COUNTRY, phoneDigits);
-      if (!isValidMoney(session.amount)) {
-        throw new Error('Server returned an invalid checkout amount. PayU was not opened.');
+      const session: CheckoutSession = await startCheckout(reviewPlan, CHECKOUT_COUNTRY);
+      if (!isValidMoney(session.amount) || !session.order_id) {
+        throw new Error('Server returned an invalid checkout. Razorpay was not opened.');
       }
-      if (session.payu_fields && session.payu_url) {
-        const fields = { ...session.payu_fields };
-        if (!fields.amount && session.amount != null) {
-          fields.amount = String(session.amount);
-        }
-        submitPayuForm(session.payu_url, fields);
+      const outcome = await openRazorpayCheckout(session);
+      if (outcome === 'cancelled') {
+        setError('Payment cancelled.');
         return;
       }
-      if (session.sandbox) {
-        await completeSandboxCheckout(session.txnid, session.plan);
-        await fetchMe();
-        router.push('/profile?upgraded=1');
-        return;
-      }
-      setError('PayU is not configured on the server, so checkout cannot continue.');
+      await fetchMe();
+      router.push('/profile?upgraded=1');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upgrade failed');
     } finally {
@@ -227,7 +211,7 @@ export default function BillingPage() {
       <div className="mx-auto max-w-2xl space-y-6">
         <PageTitle title="Billing" />
         <p className="text-sm text-[var(--text-muted,#6B6155)]">
-          Paid plans are charged in <strong className="font-medium text-[var(--text,#3A342D)]">INR via PayU</strong>.
+          Paid plans are charged in <strong className="font-medium text-[var(--text,#3A342D)]">INR via Razorpay</strong>.
           USD amounts are for reference only — same story as{' '}
           <Link href="/#pricing" className="underline underline-offset-2 hover:text-[#C45A42]">
             marketing pricing
@@ -331,7 +315,7 @@ export default function BillingPage() {
                 <div>
                   <p className="font-serif text-3xl text-[var(--text,#322C28)]">{priceLabel}</p>
                   <p className="text-xs text-[var(--text-muted,#6B6155)]">
-                    ${meta.usdList} USD reference · charged in {ccy} via PayU
+                    ${meta.usdList} USD reference · charged in {ccy} via Razorpay
                   </p>
                 </div>
                 <ul className="flex-1 space-y-1.5 text-sm text-[var(--text-muted,#6B6155)]">
@@ -362,7 +346,7 @@ export default function BillingPage() {
           <Link href="/#pricing" className="underline underline-offset-2 hover:text-[#C45A42]">
             pricing section
           </Link>
-          . You will confirm the charge in-app before PayU opens.
+          . You will confirm the charge in-app before Razorpay opens.
         </p>
       </div>
 
@@ -379,7 +363,7 @@ export default function BillingPage() {
                 Review purchase
               </h2>
               <p className="text-sm text-[var(--text-muted,#6B6155)]">
-                Confirm details before opening PayU. Nothing is charged until you finish on PayU.
+                Confirm details before opening Razorpay. Nothing is charged until you finish in the Razorpay window.
               </p>
             </div>
             <dl className="space-y-2 text-sm">
@@ -404,21 +388,6 @@ export default function BillingPage() {
                 <dd className="text-[var(--text,#322C28)]">{review.meta.cadence}</dd>
               </div>
             </dl>
-            <label className="block space-y-1.5 text-sm">
-              <span className="text-[var(--text-muted,#6B6155)]">
-                Phone for PayU <span className="text-[#9B4D3B]">*</span>
-              </span>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                required
-                value={checkoutPhone}
-                onChange={(e) => setCheckoutPhone(e.target.value)}
-                placeholder="10+ digit mobile number"
-                className="w-full rounded-xl border border-[var(--border,#D9CFC0)] bg-[var(--surface,#FFFCF8)] px-3 py-2 text-[var(--text,#322C28)] outline-none focus:border-[#C45A42]"
-              />
-            </label>
             <ul className="space-y-1 rounded-xl bg-[var(--surface-muted,#EEE4D6)]/60 px-3 py-2 text-xs text-[var(--text-muted,#6B6155)]">
               {review.meta.perks.map((perk) => (
                 <li key={perk}>· {perk}</li>
@@ -437,9 +406,9 @@ export default function BillingPage() {
                 type="button"
                 disabled={busy || review.amount == null}
                 className="btn-primary disabled:opacity-50"
-                onClick={() => void confirmPayu()}
+                onClick={() => void confirmRazorpay()}
               >
-                {busy ? 'Opening PayU…' : 'Confirm and continue to PayU'}
+                {busy ? 'Opening Razorpay…' : 'Pay with Razorpay'}
               </button>
             </div>
           </div>

@@ -55,7 +55,7 @@ export default function TermsPage() {
           <a href="/products" className="text-[#E3836C] hover:underline">
             Products
           </a>
-          . Paid upgrades are processed by PayU. Charges are in Indian Rupees (INR); USD amounts on
+          . Paid upgrades are processed by Razorpay. Charges are in Indian Rupees (INR); USD amounts on
           the site are for reference only. Taxes may apply. See the{' '}
           <a href="/refund" className="text-[#E3836C] hover:underline">
             Refund &amp; Cancellation Policy

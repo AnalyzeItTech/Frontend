@@ -42,7 +42,7 @@ export default function DpaPage() {
         <ul className="list-disc pl-5 space-y-2">
           <li>Cloud hosting and database providers</li>
           <li>Language-model, search, and mapping providers used to fulfill your requests</li>
-          <li>PayU for payment processing</li>
+          <li>Razorpay for payment processing</li>
         </ul>
         <p>
           We remain responsible for subprocessors we engage. A current list is available on request
