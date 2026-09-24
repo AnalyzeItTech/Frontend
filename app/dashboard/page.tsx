@@ -537,6 +537,7 @@ export default function DashboardPage() {
         <Link href="/connectors" className="btn-secondary text-xs">Connectors</Link>
         <button type="button" onClick={() => setStudioTab('pipeline')} className={studioTab === 'pipeline' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Pipeline</button>
         <button type="button" onClick={() => setStudioTab('templates')} className={studioTab === 'templates' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Templates</button>
+        <Link href="/embeddings" className="btn-secondary text-xs">Embeddings</Link>
         <button type="button" onClick={() => setIsProjectsModalOpen(true)} className="btn-secondary text-xs">Projects</button>
         <Link href="/profile#projects" className="btn-secondary text-xs">Manage account</Link>
       </div>

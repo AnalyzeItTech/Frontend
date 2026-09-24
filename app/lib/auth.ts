@@ -3,6 +3,24 @@ const API_V1 = `${API_BASE}/v1`;
 
 export const AUTH_REQUEST_TIMEOUT_MS = 15000;
 
+/** Backend unreachable, suspended, or returned a non-JSON page (e.g. Render 503 HTML). */
+export class ApiUnavailableError extends Error {
+  constructor(message = 'We are seeing a large number of people right now because of high demand. Please try again in a little while.') {
+    super(message);
+    this.name = 'ApiUnavailableError';
+  }
+}
+
+function throwIfApiUnavailable(res: Response): void {
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    throw new ApiUnavailableError();
+  }
+  const contentType = res.headers.get('content-type') || '';
+  if (res.ok && !contentType.includes('application/json')) {
+    throw new ApiUnavailableError();
+  }
+}
+
 async function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit = {},
@@ -135,6 +153,7 @@ export async function login(email: string, password: string): Promise<AuthResult
     body: JSON.stringify({ email, password }),
   });
 
+  throwIfApiUnavailable(res);
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ detail: 'Sign in failed' }));
     throw new Error(typeof errorData.detail === 'string' ? errorData.detail : 'Sign in failed');
@@ -152,6 +171,7 @@ export async function register(name: string, email: string, password: string): P
     body: JSON.stringify({ name, email, password }),
   });
 
+  throwIfApiUnavailable(res);
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ detail: 'Registration failed' }));
     throw new Error(typeof errorData.detail === 'string' ? errorData.detail : 'Registration failed');
@@ -238,6 +258,7 @@ export async function fetchMe(): Promise<UserProfile | null> {
     const res = await fetchWithTimeout(`${API_V1}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
+    throwIfApiUnavailable(res);
     if (!res.ok) {
       if (res.status === 401) {
         clearAuthSession();
@@ -249,8 +270,9 @@ export async function fetchMe(): Promise<UserProfile | null> {
       localStorage.setItem(USER_KEY, JSON.stringify(user));
     }
     return user;
-  } catch {
-    return null;
+  } catch (err) {
+    if (err instanceof ApiUnavailableError) throw err;
+    throw new ApiUnavailableError();
   }
 }
 

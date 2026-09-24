@@ -16,7 +16,7 @@ import {
   IconCheck,
   IconAlertCircle,
 } from '@tabler/icons-react';
-import { confirmAuthSession, getStoredToken, login, register, safeNextPath } from '../lib/auth';
+import { ApiUnavailableError, clearAuthSession, confirmAuthSession, fetchMe, getStoredToken, login, register, safeNextPath } from '../lib/auth';
 import { GoogleSignInButton } from '../Components/auth/GoogleSignInButton';
 import { GitHubSignInButton } from '../Components/auth/GitHubSignInButton';
 
@@ -476,18 +476,42 @@ function LoginInner() {
   const [success, setSuccess] = useState(false);
   const [isNewAccount, setIsNewAccount] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [sessionError, setSessionError] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     const params = new URLSearchParams(window.location.search);
     if (params.get('tab') === 'register') setTab('register');
-    // Already signed in: show continue UI (SuccessState redirects). Never leave
-    // checking=true forever if router.replace stalls (Safari apex↔www).
-    if (getStoredToken()) {
-      setSuccess(true);
-      setChecking(false);
-      return;
+
+    async function restore() {
+      if (!getStoredToken()) {
+        if (!cancelled) setChecking(false);
+        return;
+      }
+      try {
+        const me = await fetchMe();
+        if (cancelled) return;
+        if (me) {
+          setSuccess(true);
+        } else {
+          clearAuthSession();
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setSessionError(
+          err instanceof ApiUnavailableError
+            ? err.message
+            : 'We are seeing a large number of people right now because of high demand. Please try again in a little while.',
+        );
+      } finally {
+        if (!cancelled) setChecking(false);
+      }
     }
-    setChecking(false);
+
+    void restore();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleSuccess = (meta?: { is_new?: boolean }) => {
@@ -534,6 +558,11 @@ function LoginInner() {
       {/* Centered card */}
       <div className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
+          {sessionError ? (
+            <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-700 dark:border-[#D97870]/30 dark:bg-[#382522] dark:text-[#D97870]">
+              {sessionError}
+            </div>
+          ) : null}
           {/* Heading */}
           <div className="mb-8 text-center">
             <AnimatePresence mode="wait">
