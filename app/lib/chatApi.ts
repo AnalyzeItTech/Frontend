@@ -618,7 +618,8 @@ export async function streamChat(options: ChatOptions): Promise<{
         const wall = detectContextWall(event.payload);
         if (wall?.softFail) {
           contextSoftFail = true;
-        } else if (wall && !wall.softFail) {
+        } else if (wall?.pipeline && !wall.softFail) {
+          // Real pipeline hard wall only — truncation nudge must not throw.
           hardContext = {
             message: wall.message || streamErrorMessage(event.payload),
             code: wall.code,

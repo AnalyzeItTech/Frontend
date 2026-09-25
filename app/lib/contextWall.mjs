@@ -8,11 +8,13 @@
  *   error_code          (final.error_code)
  *
  * Codes (exact, do not alias):
- *   CLIENT_CONTEXT_TRUNCATED
- *   PIPELINE_INSUFFICIENT_DATA
+ *   CLIENT_CONTEXT_TRUNCATED   — Backend A soft-trim nudge. May openUpgrade;
+ *                                never softFail (pipeline can still proceed).
+ *   PIPELINE_INSUFFICIENT_DATA — real Model/pipeline wall → softFail when
+ *                                recoverable is not explicitly false.
  *
- * upgrade_required=true when Free hit the wall.
- * recoverable=true is a soft-fail (retry + upgrade), not a hard error.
+ * INPUT_TOO_LARGE is a separate Backend HTTP 413 (message over ~1.5M), not a
+ * Free 20k context softFail. Quota codes stay on the quota modal path.
  *
  * Describes the Free ceiling. Does not raise it or truncate on the client.
  */
@@ -139,9 +141,10 @@ export function detectContextWall(payload) {
   const openUpgrade = contextCode || raw.upgradeRequired;
   if (!openUpgrade) return null;
 
-  // recoverable=true is the soft-fail. These codes ship as soft-fails unless
-  // recoverable is explicitly false.
-  const softFail = raw.recoverable || (contextCode && !raw.recoverableExplicitFalse);
+  // Truncation nudge ≠ pipeline softFail. Only PIPELINE_INSUFFICIENT_DATA
+  // (recoverable omitted or true) marks the run as softFail / Free context wall.
+  // CLIENT_CONTEXT_TRUNCATED may still openUpgrade as a soft nudge.
+  const softFail = pipeline && (raw.recoverable || !raw.recoverableExplicitFalse);
 
   /** @type {ContextWallSignal['code']} */
   const code = truncated

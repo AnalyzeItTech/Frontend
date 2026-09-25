@@ -57,7 +57,8 @@ describe('context wall signals', () => {
     assert.equal(signal.code, CLIENT_CONTEXT_TRUNCATED);
     assert.equal(signal.truncated, true);
     assert.equal(signal.openUpgrade, true);
-    assert.equal(signal.softFail, true);
+    // Truncation is a nudge — must not softFail / block the pipeline.
+    assert.equal(signal.softFail, false);
   });
 
   it('accepts top-level code, the TOKEN_BUDGET / LLM_MONTHLY_QUOTA field', () => {
@@ -70,17 +71,40 @@ describe('context wall signals', () => {
     assert.ok(signal);
     assert.equal(signal.truncated, true);
     assert.equal(signal.openUpgrade, true);
-    assert.equal(signal.softFail, true);
+    assert.equal(signal.softFail, false);
   });
 
   it('opens upgrade when upgrade_required is true without inventing a code', () => {
     const signal = detectContextWall({ upgrade_required: true, recoverable: true });
     assert.ok(signal);
     assert.equal(signal.openUpgrade, true);
-    assert.equal(signal.softFail, true);
+    // No pipeline code → nudge only, not a softFail wall.
+    assert.equal(signal.softFail, false);
     assert.equal(signal.code, undefined);
     assert.equal(signal.truncated, false);
     assert.equal(signal.pipeline, false);
+  });
+
+
+  it('truncation nudge never softFails; only PIPELINE_INSUFFICIENT_DATA does', () => {
+    const nudge = detectContextWall({
+      code: CLIENT_CONTEXT_TRUNCATED,
+      upgrade_required: true,
+      recoverable: true,
+    });
+    const wall = detectContextWall({
+      code: PIPELINE_INSUFFICIENT_DATA,
+      upgrade_required: true,
+      recoverable: true,
+    });
+    const both = mergeContextWall(nudge, wall);
+    assert.equal(nudge?.softFail, false);
+    assert.equal(nudge?.openUpgrade, true);
+    assert.equal(wall?.softFail, true);
+    assert.equal(wall?.openUpgrade, true);
+    assert.equal(both?.truncated, true);
+    assert.equal(both?.pipeline, true);
+    assert.equal(both?.softFail, true);
   });
 
   it('keeps TOKEN_BUDGET and LLM_MONTHLY_QUOTA on the quota path', () => {
