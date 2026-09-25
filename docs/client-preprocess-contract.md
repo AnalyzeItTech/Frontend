@@ -38,6 +38,8 @@ Devansh’s CSR/SSR load split: do cheap, deterministic shaping on the browser s
 }
 ```
 
+`history.recent` is **prior turns only**. The live outbound text is `message` (plus `message_freq`); do not also append it into `history.recent` or a large Research paste alone can exceed Free `max_client_context_chars` (20_000).
+
 ## What Backend A must NOT redo
 - Re-tokenize / re-count frequencies already present in `client_context.message_freq` / `older_freq` for metering previews (may recompute server-side only for trust/billing audits).
 - Re-dedupe/cap dataset rows that FE already normalized with the same rules (document limits in API if A enforces a lower cap).
