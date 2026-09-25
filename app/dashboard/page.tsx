@@ -8,12 +8,9 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   IconPlus,
-  IconLayoutGrid,
   IconSearch,
-  IconSparkles,
   IconCheck,
   IconX,
-  IconLayoutDashboard,
   IconEdit,
   IconTrash,
   IconCopy,
@@ -28,14 +25,10 @@ import {
   IconShare,
   IconChevronDown,
   IconPlayerPlay,
-  IconDatabase,
-  IconBrandStripe,
-  IconComponents,
   IconFileZip,
-  IconArrowUpRight,
+  IconDots,
   IconRefresh,
   IconLogout,
-  IconWorld,
   IconCode,
   IconLink,
 } from '@tabler/icons-react';
@@ -71,9 +64,13 @@ import { downloadProjectZip, duplicateProject } from '../lib/exportApi';
 import { buildDesignExport, downloadDesignExport } from '../lib/designExport';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 import { LayoutSwitcher } from '../Components/dashboard/LayoutSwitcher';
-import { ObjectBuilderView } from '../Components/dashboard/ObjectBuilderView';
-import { ConnectorsView } from '../Components/dashboard/ConnectorsView';
 import { ModulePipelineView } from '../Components/dashboard/ModulePipelineView';
+import {
+  DASHBOARD_EMPTY,
+  RESEARCH_STARTERS,
+  partitionDashboardWidgets,
+  researchStarterHref,
+} from '../lib/dashboardView.mjs';
 import {
   exportDashboardToPdf,
   exportDashboardToPptx,
@@ -90,7 +87,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   // Navigation rail tab state
-  const [studioTab, setStudioTab] = useState<'canvas' | 'objects' | 'connectors' | 'pipeline' | 'templates'>('canvas');
+  const [studioTab, setStudioTab] = useState<'canvas' | 'pipeline' | 'templates'>('canvas');
   const [isProjectsModalOpen, setIsProjectsModalOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -118,6 +115,7 @@ export default function DashboardPage() {
 
   // ─── Export Menu & Toast State ───────────────────────────────────────────────
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
   const [exportToastMsg, setExportToastMsg] = useState<string | null>(null);
 
   // ─── Curated Templates State ─────────────────────────────────────────────────
@@ -540,47 +538,35 @@ export default function DashboardPage() {
         if (projectToDelete) setProjectToDelete(null);
         if (isUserSettingsOpen) setIsUserSettingsOpen(false);
         if (isExportMenuOpen) setIsExportMenuOpen(false);
+        if (isWorkspaceMenuOpen) setIsWorkspaceMenuOpen(false);
         if (isProjectsModalOpen) setIsProjectsModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isNewProjectOpen, projectToRename, projectToDelete, isUserSettingsOpen, isExportMenuOpen, isProjectsModalOpen]);
+  }, [isNewProjectOpen, projectToRename, projectToDelete, isUserSettingsOpen, isExportMenuOpen, isWorkspaceMenuOpen, isProjectsModalOpen]);
 
-  // KPI row: metric cards + sparkline KPIs; everything else is analytical
-  const kpiTypes = new Set(['metric_card', 'kpi', 'kpi_sparkline']);
-  const wideAnalytical = new Set([
-    'line_chart',
-    'annotated_chart',
-    'multi_series_chart',
-    'table',
-    'choropleth_map',
-    'transaction_list',
-    'radar_chart',
-  ]);
-  const kpiWidgets = currentLayout.widgets.filter((w) => kpiTypes.has(String(w.type)));
-  const analyticalWidgets = currentLayout.widgets.filter((w) => !kpiTypes.has(String(w.type)));
+  const { primary: primaryWidgets, secondary: secondaryWidgets } = partitionDashboardWidgets(currentLayout.widgets);
+  const hasWidgets = currentLayout.widgets.length > 0;
 
   return (
     <AppShell active="dashboard" flush>
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased">
-      {isExportMenuOpen && (
-        <div className="fixed inset-0 z-20 cursor-default" onClick={() => setIsExportMenuOpen(false)} />
+      {(isExportMenuOpen || isWorkspaceMenuOpen) && (
+        <div
+          className="fixed inset-0 z-20 cursor-default"
+          onClick={() => {
+            setIsExportMenuOpen(false);
+            setIsWorkspaceMenuOpen(false);
+          }}
+        />
       )}
 
       <div className="px-[var(--gutter)] pt-4">
         <PageTitle title="Dashboard" />
-      </div>
-
-      <div className="mx-[var(--gutter)] mt-6 mb-2 flex flex-wrap gap-2">
-        <button type="button" onClick={() => setStudioTab('canvas')} className={studioTab === 'canvas' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Canvas</button>
-        <Link href="/objects" className="btn-secondary text-xs">Objects</Link>
-        <Link href="/connectors" className="btn-secondary text-xs">Connectors</Link>
-        <button type="button" onClick={() => setStudioTab('pipeline')} className={studioTab === 'pipeline' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Pipeline</button>
-        <button type="button" onClick={() => setStudioTab('templates')} className={studioTab === 'templates' ? 'btn-primary text-xs' : 'btn-secondary text-xs'}>Templates</button>
-        <Link href="/embeddings" className="btn-secondary text-xs">Embeddings</Link>
-        <button type="button" onClick={() => setIsProjectsModalOpen(true)} className="btn-secondary text-xs">Projects</button>
-        <Link href="/profile#projects" className="btn-secondary text-xs">Manage account</Link>
+        <p className="mt-1 max-w-xl text-sm text-[var(--text-secondary)]">
+          What you kept from Research. Ask the next question when you want another chart.
+        </p>
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -606,63 +592,6 @@ export default function DashboardPage() {
               <h2 className="text-sm font-medium truncate">{activeProjectName}</h2>
             )}
 
-            {/* Live Indicator with motion-safe pulse */}
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-[#4A4238]/12 text-[11px] text-[#6B6155]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#EA8069] motion-safe:animate-pulse" />
-              <span className="font-mono text-[10px]">v{layoutVersion}</span>
-            </div>
-
-            {activeProjectId && (
-              <div className="hidden md:flex items-center gap-1.5 max-w-[280px]">
-                <IconLink size={12} className="text-[var(--text-muted)] shrink-0" />
-                <input
-                  value={slugDraft}
-                  onChange={(e) => setSlugDraft(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                  placeholder="personal-link"
-                  className="w-28 bg-transparent border-b border-[var(--border)] text-[11px] font-mono text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]/50"
-                  title="Premium personal subdomain: slug.analyzeit.in"
-                />
-                <span className="text-[10px] text-[var(--text-muted)] shrink-0">.analyzeit.in</span>
-                {personalSlugAllowed(user) === false ? (
-                  <Link href="/billing" className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--coral)] hover:text-[var(--text-primary)]">
-                    Premium
-                  </Link>
-                ) : (
-                <button
-                  type="button"
-                  disabled={slugBusy || !slugDraft.trim()}
-                  onClick={async () => {
-                    if (!activeProjectId || !slugDraft.trim()) return;
-                    if (personalSlugAllowed(user) === false) {
-                      setExportToastMsg('Personal links are part of Premium and VIP.');
-                      setTimeout(() => setExportToastMsg(null), 4000);
-                      return;
-                    }
-                    setSlugBusy(true);
-                    try {
-                      const result = await claimDashboardSlug(activeProjectId, slugDraft.trim());
-                      setSlugDraft(result.dashboard_slug);
-                      setServerProjects((prev) =>
-                        prev.map((p) =>
-                          p.id === activeProjectId ? { ...p, dashboard_slug: result.dashboard_slug } : p,
-                        ),
-                      );
-                      setExportToastMsg(`Link ready: ${result.url}`);
-                      setTimeout(() => setExportToastMsg(null), 4000);
-                    } catch (err) {
-                      setExportToastMsg(err instanceof Error ? err.message : 'Could not claim link');
-                      setTimeout(() => setExportToastMsg(null), 4000);
-                    } finally {
-                      setSlugBusy(false);
-                    }
-                  }}
-                  className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-40"
-                >
-                  Save
-                </button>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Right: Actions */}
@@ -827,54 +756,164 @@ export default function DashboardPage() {
               </AnimatePresence>
             </div>
 
-            <LayoutSwitcher
-              projectId={activeProjectId}
-              currentLayout={currentLayout}
-              onLoadLayout={(layout) =>
-                setCurrentLayout({ widgets: (layout.widgets as WidgetSpec[]) || [] })
-              }
-            />
+            {hasWidgets ? (
+              <Link href="/research" className="btn-primary min-h-9 px-3 text-xs">
+                Continue research
+              </Link>
+            ) : null}
 
-            {/* Share Button */}
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await copyShareableLink(activeProjectId);
-                  setExportToastMsg('Shareable link copied to clipboard!');
-                  setTimeout(() => setExportToastMsg(null), 3000);
-                } catch (err) {
-                  setExportToastMsg(err instanceof Error ? err.message : 'Failed to create shareable link');
-                  setTimeout(() => setExportToastMsg(null), 5000);
-                }
-              }}
-              className="px-3 py-1.5 rounded-lg border border-[var(--border)] hover:border-[var(--border)] hover:bg-[var(--surface-2)] text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <IconShare size={14} />
-              <span className="hidden sm:inline">Share</span>
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsWorkspaceMenuOpen((prev) => !prev)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]"
+                aria-expanded={isWorkspaceMenuOpen}
+              >
+                <IconDots size={14} />
+                <span className="hidden sm:inline">More</span>
+              </button>
+              <AnimatePresence>
+                {isWorkspaceMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                    className="absolute right-0 mt-2 w-80 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl p-3 z-50 space-y-3"
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs"
+                        onClick={() => {
+                          setIsWorkspaceMenuOpen(false);
+                          setNewProjectName('');
+                          setIsNewProjectOpen(true);
+                        }}
+                      >
+                        New project
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs"
+                        onClick={() => {
+                          setIsWorkspaceMenuOpen(false);
+                          setIsProjectsModalOpen(true);
+                        }}
+                      >
+                        Projects
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs"
+                        onClick={() => {
+                          setIsWorkspaceMenuOpen(false);
+                          setStudioTab('pipeline');
+                        }}
+                      >
+                        Pipeline
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs"
+                        onClick={() => {
+                          setIsWorkspaceMenuOpen(false);
+                          setStudioTab('templates');
+                        }}
+                      >
+                        Sample layouts
+                      </button>
+                      <Link href="/embeddings" className="btn-secondary text-xs" onClick={() => setIsWorkspaceMenuOpen(false)}>
+                        Embeddings
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs"
+                        onClick={async () => {
+                          setIsWorkspaceMenuOpen(false);
+                          try {
+                            await copyShareableLink(activeProjectId);
+                            setExportToastMsg('Shareable link copied to clipboard!');
+                            setTimeout(() => setExportToastMsg(null), 3000);
+                          } catch (err) {
+                            setExportToastMsg(err instanceof Error ? err.message : 'Failed to create shareable link');
+                            setTimeout(() => setExportToastMsg(null), 5000);
+                          }
+                        }}
+                      >
+                        <IconShare size={14} />
+                        Share
+                      </button>
+                    </div>
 
-            {/* New Project CTA */}
-            <button
-              type="button"
-              onClick={() => {
-                setNewProjectName('');
-                setIsNewProjectOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-medium transition-colors shadow-sm cursor-pointer"
-            >
-              <IconPlus size={14} />
-              <span>New Project</span>
-            </button>
+                    {activeProjectId ? (
+                      <div className="space-y-1.5 border-t border-[var(--border)] pt-3">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">Personal link</p>
+                        <div className="flex items-center gap-1.5">
+                          <IconLink size={12} className="text-[var(--text-muted)] shrink-0" />
+                          <input
+                            value={slugDraft}
+                            onChange={(e) => setSlugDraft(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                            placeholder="personal-link"
+                            className="w-28 bg-transparent border-b border-[var(--border)] text-[11px] font-mono text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)]/50"
+                            title="Premium personal subdomain: slug.analyzeit.in"
+                          />
+                          <span className="text-[10px] text-[var(--text-muted)] shrink-0">.analyzeit.in</span>
+                          {personalSlugAllowed(user) === false ? (
+                            <Link href="/billing" className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--coral)]">
+                              Premium
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={slugBusy || !slugDraft.trim()}
+                              onClick={async () => {
+                                if (!activeProjectId || !slugDraft.trim()) return;
+                                if (personalSlugAllowed(user) === false) {
+                                  setExportToastMsg('Personal links are part of Premium and VIP.');
+                                  setTimeout(() => setExportToastMsg(null), 4000);
+                                  return;
+                                }
+                                setSlugBusy(true);
+                                try {
+                                  const result = await claimDashboardSlug(activeProjectId, slugDraft.trim());
+                                  setSlugDraft(result.dashboard_slug);
+                                  setServerProjects((prev) =>
+                                    prev.map((p) =>
+                                      p.id === activeProjectId ? { ...p, dashboard_slug: result.dashboard_slug } : p,
+                                    ),
+                                  );
+                                  setExportToastMsg(`Link ready: ${result.url}`);
+                                  setTimeout(() => setExportToastMsg(null), 4000);
+                                } catch (err) {
+                                  setExportToastMsg(err instanceof Error ? err.message : 'Could not claim link');
+                                  setTimeout(() => setExportToastMsg(null), 4000);
+                                } finally {
+                                  setSlugBusy(false);
+                                }
+                              }}
+                              className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-40"
+                            >
+                              Save
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
 
-            {/* Interactive Studio Link */}
-            <Link
-              href={activeProjectId ? `/new-project?projectId=${activeProjectId}` : '/new-project'}
-              className="p-1.5 rounded-lg border border-[var(--border)] hover:border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-              title="Open full analysis studio with terminal & chat"
-            >
-              <IconArrowUpRight size={16} />
-            </Link>
+                    <div className="border-t border-[var(--border)] pt-3 space-y-2">
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">Layout v{layoutVersion}</p>
+                      <LayoutSwitcher
+                        projectId={activeProjectId}
+                        currentLayout={currentLayout}
+                        onLoadLayout={(layout) =>
+                          setCurrentLayout({ widgets: (layout.widgets as WidgetSpec[]) || [] })
+                        }
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 
@@ -935,60 +974,70 @@ export default function DashboardPage() {
                     Retry
                   </button>
                 </div>
-              ) : currentLayout.widgets.length > 0 ? (
-                <div className="space-y-6">
-                  {/* 1. Hero KPI Strip (Compact, High-Density 28px Tabular Figures) */}
-                  {kpiWidgets.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 [&_.font-mono]:text-[11px] [&_.font-mono]:text-[var(--text-muted)]">
-                      {kpiWidgets.map((w) => (
-                        <div key={w.id} className="col-span-1">
-                          <SandboxedWidgetRenderer
-                            widget={w}
-                            onWidgetAction={handleWidgetAction}
-                          />
-                        </div>
-                      ))}
-                    </div>
+              ) : hasWidgets ? (
+                <div className="space-y-8">
+                  {primaryWidgets.length > 0 && (
+                    <section className="space-y-3" aria-label="Primary findings">
+                      {secondaryWidgets.length > 0 ? (
+                        <h2 className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">Primary</h2>
+                      ) : null}
+                      <div className="grid grid-cols-1 gap-6">
+                        {primaryWidgets.map((w) => (
+                          <div key={w.id} data-widget-role="primary" className="min-w-0">
+                            <SandboxedWidgetRenderer widget={w} onWidgetAction={handleWidgetAction} />
+                          </div>
+                        ))}
+                      </div>
+                    </section>
                   )}
-
-                  {/* 2. Analytical Surfaces (Charts with Airy Padding, Tables with Tighter Rows) */}
-                  {analyticalWidgets.length > 0 && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {analyticalWidgets.map((w) => (
-                        <div
-                          key={w.id}
-                          className={
-                            wideAnalytical.has(String(w.type))
-                              ? 'col-span-1 lg:col-span-2'
-                              : 'col-span-1'
-                          }
-                        >
-                          <SandboxedWidgetRenderer
-                            widget={w}
-                            onWidgetAction={handleWidgetAction}
-                          />
-                        </div>
-                      ))}
-                    </div>
+                  {secondaryWidgets.length > 0 && (
+                    <section className="space-y-3" aria-label="Supporting figures">
+                      {primaryWidgets.length > 0 ? (
+                        <h2 className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">Supporting</h2>
+                      ) : null}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {secondaryWidgets.map((w) => (
+                          <div key={w.id} data-widget-role="secondary" className="min-w-0">
+                            <SandboxedWidgetRenderer widget={w} onWidgetAction={handleWidgetAction} />
+                          </div>
+                        ))}
+                      </div>
+                    </section>
                   )}
                 </div>
               ) : (
-                /* Calm studio empty state */
-                <div className="mx-auto max-w-lg rounded-[var(--radius-card,14px)] border border-[var(--border)] bg-[var(--surface)] px-8 py-14 flex flex-col items-center text-center space-y-5 shadow-sm">
-                  <div className="w-14 h-14 rounded-2xl bg-[var(--coral)]/12 text-[var(--coral)] flex items-center justify-center">
-                    <IconLayoutDashboard size={26} />
+                <section
+                  aria-labelledby="dashboard-empty-title"
+                  className="mx-auto max-w-2xl rounded-[var(--radius-card,14px)] border border-[var(--border)] bg-[var(--surface)] px-6 py-10 sm:px-10"
+                >
+                  <p className="text-[11px] font-mono uppercase tracking-wider text-[var(--coral)]">Research</p>
+                  <h2 id="dashboard-empty-title" className="mt-2 font-serif text-3xl tracking-tight text-[var(--text-primary)]">
+                    {DASHBOARD_EMPTY.title}
+                  </h2>
+                  <p className="mt-3 text-sm leading-relaxed text-[var(--text-secondary)]">{DASHBOARD_EMPTY.body}</p>
+                  <ol className="mt-6 space-y-3">
+                    {DASHBOARD_EMPTY.steps.map((step, index) => (
+                      <li key={step} className="flex gap-3 text-sm leading-relaxed text-[var(--text-primary)]">
+                        <span className="font-mono text-[var(--coral)]">{index + 1}</span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    {RESEARCH_STARTERS.map((prompt) => (
+                      <Link
+                        key={prompt}
+                        href={researchStarterHref(prompt)}
+                        className="rounded-full border border-[var(--coral)]/35 bg-[var(--coral)]/10 px-3.5 py-2 text-left text-xs font-medium text-[var(--coral-dark,#C96551)] hover:bg-[var(--coral)]/18"
+                      >
+                        {prompt}
+                      </Link>
+                    ))}
                   </div>
-                  <div className="space-y-2 max-w-md">
-                    <h3 className="font-serif text-2xl font-normal tracking-tight text-[var(--text-primary)]">
-                      {activeProjectId ? 'A quiet canvas' : 'Start a research studio'}
-                    </h3>
-                    <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-                      {activeProjectId
-                        ? 'Add your first widget from Chat, or apply a template. This surface only shows what you save — it never invents charts on its own.'
-                        : 'Projects hold charts and KPIs from Chat. Create one, then ask a question or pick a template.'}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                  <div className="mt-8 flex flex-wrap items-center gap-3">
+                    <Link href={DASHBOARD_EMPTY.primaryHref} className="btn-primary min-h-11 px-5 text-sm">
+                      {DASHBOARD_EMPTY.primaryLabel}
+                    </Link>
                     {!activeProjectId ? (
                       <button
                         type="button"
@@ -996,59 +1045,49 @@ export default function DashboardPage() {
                           setNewProjectName('');
                           setIsNewProjectOpen(true);
                         }}
-                        className="btn-primary min-h-11 px-5 text-sm"
+                        className="btn-secondary min-h-11 px-5 text-sm"
                       >
-                        Create first project
+                        Create a project
                       </button>
-                    ) : (
-                      <Link href="/research" className="btn-primary min-h-11 px-5 text-sm">
-                        Add first widget in Chat
-                      </Link>
-                    )}
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => setStudioTab('templates')}
-                      className="btn-secondary min-h-11 px-5 text-sm"
+                      className="text-sm text-[var(--text-muted)] underline-offset-2 hover:underline"
                     >
-                      Explore templates
+                      {DASHBOARD_EMPTY.sampleLabel}
                     </button>
-                    {activeProjectId ? (
-                      <Link href="/research" className="text-xs text-[var(--text-muted)] hover:text-[var(--coral)] underline-offset-2 hover:underline">
-                        How widgets land here
-                      </Link>
-                    ) : null}
                   </div>
-                </div>
+                  <p className="mt-4 text-[11px] text-[var(--text-muted)]">{DASHBOARD_EMPTY.freeNote}</p>
+                </section>
               )}
             </>
           )}
 
-          {/* ─── TAB: CUSTOM OBJECTS STUDIO ─── */}
-          {studioTab === 'objects' && (
-            <ObjectBuilderView projectId={activeProjectId || serverProjects[0]?.id || 'default'} />
-          )}
-
-          {/* ─── TAB: LIVE CONNECTORS HUB ─── */}
-          {studioTab === 'connectors' && (
-            <ConnectorsView projectId={activeProjectId || serverProjects[0]?.id || 'default'} />
-          )}
-
           {/* ─── TAB: MODULE PIPELINE ─── */}
           {studioTab === 'pipeline' && (
-            <ModulePipelineView
-              projectId={activeProjectId || serverProjects[0]?.id || 'default'}
-              onRefreshLayout={refreshActiveProjectLayout}
-            />
+            <div className="space-y-4">
+              <button type="button" className="text-xs text-[var(--text-muted)] underline-offset-2 hover:underline" onClick={() => setStudioTab('canvas')}>
+                Back to saved research
+              </button>
+              <ModulePipelineView
+                projectId={activeProjectId || serverProjects[0]?.id || 'default'}
+                onRefreshLayout={refreshActiveProjectLayout}
+              />
+            </div>
           )}
 
           {/* ─── TAB: STARTER TEMPLATES GALLERY ─── */}
           {studioTab === 'templates' && (
             <div className="space-y-6">
+              <button type="button" className="text-xs text-[var(--text-muted)] underline-offset-2 hover:underline" onClick={() => setStudioTab('canvas')}>
+                Back to saved research
+              </button>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
                 <div>
-                  <h2 className="text-lg font-medium text-[var(--text-primary)]">Curated Starter Workspaces</h2>
+                  <h2 className="text-lg font-medium text-[var(--text-primary)]">Sample layouts</h2>
                   <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                    Sample layouts with illustrative data — swap in live connectors or Chat-built widgets when you are ready
+                    Illustrative numbers only. They are not live research results.
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
@@ -1131,18 +1170,6 @@ export default function DashboardPage() {
           )}
 
         </main>
-      </div>
-
-      {/* Chat entry — dashboard stays display-only; research happens in Chat */}
-      <div className="fixed bottom-6 right-6 z-40">
-        <Link
-          href="/research"
-          className="flex items-center gap-2 rounded-full bg-[#EA8069] px-4 py-2.5 text-xs font-medium text-white shadow-xl transition-all hover:bg-[var(--coral-hover,#ED967F)] hover:scale-105"
-          title="Open Chat to ask questions or research"
-        >
-          <IconSparkles size={16} />
-          <span>Ask in Chat</span>
-        </Link>
       </div>
 
       {/* ─── TOAST NOTIFICATION ─── */}
