@@ -22,7 +22,8 @@ const FREE_TIER: TierCard = {
   price: '₹0',
   period: '/mo',
   currencyNote: 'INR · billed as ₹0',
-  tagline: 'Personal research after you create an account.',
+  tagline:
+    'Personal research after you create an account. Enough to run the ask → tools → answer loop.',
   features: [
     'Requires an AnalyzeIt account',
     'Core Chat + research loop',
@@ -42,7 +43,7 @@ const PAID_BASE: Omit<TierCard, 'price' | 'currencyNote'>[] = [
     name: 'Premium',
     planId: 'premium',
     period: '/mo',
-    tagline: 'Better model and 3× token budget for deeper analysis.',
+    tagline: 'Deeper runs: better model, 3× tokens, ad-free research.',
     popular: true,
     features: [
       'Everything in Free',
@@ -62,7 +63,8 @@ const PAID_BASE: Omit<TierCard, 'price' | 'currencyNote'>[] = [
     name: 'VIP',
     planId: 'premium_plus',
     period: '/mo',
-    tagline: '6× tokens, 50M monthly usage, more concurrent projects.',
+    tagline:
+      'Heaviest research: 6× tokens, deep orchestrated context, priority when the agent is busy.',
     features: [
       'Everything in Premium',
       '6× tokens · large model',
@@ -151,9 +153,9 @@ export const PricingTeaserSection: React.FC = () => {
           Fair pricing for quiet research.
         </h2>
         <p className="text-base text-[#3F3830] dark:text-[#E6DCD2]">
-          Chat, dashboards, globe, and connectors require an account. Paid plans are billed monthly
-          through Razorpay in INR; amounts below match live Billing quotes. Failed renewals keep
-          entitlements for 7 days, then Free.
+          Chat, dashboards, Globe, and connectors need an account. Paid plans billed monthly in INR
+          via Razorpay. USD is reference only — live INR quote at checkout. Amounts below match live
+          Billing quotes.
         </p>
       </div>
 
@@ -204,6 +206,11 @@ export const PricingTeaserSection: React.FC = () => {
           </div>
         ))}
       </div>
+
+      <p className="text-center text-sm text-[#5C534A] dark:text-[#C5B9AE] max-w-2xl mx-auto">
+        Hit a Free limit mid-research? Upgrade from Billing after sign-in — your work stays;
+        entitlements change.
+      </p>
     </section>
   );
 };

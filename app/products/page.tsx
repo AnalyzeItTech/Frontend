@@ -14,6 +14,8 @@ const PLANS = [
     inr: '₹0',
     usd: '$0 USD reference',
     cadence: 'Monthly · no charge',
+    tagline:
+      'Personal research after you create an account. Enough to run the ask → tools → answer loop.',
     href: '/login?tab=register',
     cta: 'Create a free account',
     features: [
@@ -31,6 +33,7 @@ const PLANS = [
     inr: '₹1,814.76',
     usd: '$19 USD reference',
     cadence: 'Billed monthly in INR via Razorpay',
+    tagline: 'Deeper runs: better model, 3× tokens, ad-free research.',
     href: '/login?next=/billing',
     cta: 'Sign in to upgrade',
     popular: true,
@@ -48,6 +51,8 @@ const PLANS = [
     inr: '₹4,680.18',
     usd: '$49 USD reference',
     cadence: 'Billed monthly in INR via Razorpay',
+    tagline:
+      'Heaviest research: 6× tokens, deep orchestrated context, priority when the agent is busy.',
     href: '/login?next=/billing',
     cta: 'Sign in to go VIP',
     features: [
@@ -63,11 +68,10 @@ const PLANS = [
 
 export default function ProductsPage() {
   return (
-    <LegalLayout title="Products" updated="September 11, 2026">
+    <LegalLayout title="Fair pricing for quiet research." updated="September 25, 2026">
       <p>
-        AnalyzeIt is a digital analytics workspace. Paid plans are charged in{' '}
-        <strong>INR via Razorpay</strong>. USD figures are for reference only. Live checkout amounts
-        may vary slightly with FX at the time of payment.
+        Chat, dashboards, Globe, and connectors need an account. Paid plans billed monthly in INR via
+        Razorpay. USD is reference only — live INR quote at checkout.
       </p>
       {GSTIN ? <p className="text-xs">GSTIN: {GSTIN}</p> : null}
 
@@ -82,6 +86,7 @@ export default function ProductsPage() {
             }`}
           >
             <h2 className="font-serif text-2xl text-[#322C28] dark:text-[#F4EDE5]">{plan.name}</h2>
+            <p className="mt-1 text-sm text-[#5C534A] dark:text-[#C5B9AE]">{plan.tagline}</p>
             <p className="mt-2 font-serif text-3xl text-[#322C28] dark:text-[#F4EDE5]">{plan.inr}<span className="text-base font-sans">/mo</span></p>
             <p className="text-xs text-[#5C534A] dark:text-[#C5B9AE]">{plan.usd}</p>
             <p className="mb-4 text-xs text-[#5C534A] dark:text-[#C5B9AE]">{plan.cadence}</p>
@@ -105,18 +110,23 @@ export default function ProductsPage() {
         ))}
       </div>
 
+      <p>
+        Hit a Free limit mid-research? Upgrade from Billing after sign-in — your work stays;
+        entitlements change.
+      </p>
+
       <p className="text-xs">
         Compare on the homepage{' '}
         <a href="/#pricing" className="text-[#E3836C] hover:underline">
           pricing section
         </a>
-        . Refunds and cancellations:{' '}
+        . Policies:{' '}
         <a href="/refund" className="text-[#E3836C] hover:underline">
-          Refund policy
+          Refunds and cancellations
         </a>
-        . Delivery:{' '}
+        ;{' '}
         <a href="/shipping" className="text-[#E3836C] hover:underline">
-          Shipping policy
+          digital access (no physical shipping)
         </a>
         .
       </p>
