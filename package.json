@@ -7,7 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test app/Components/globe/liveOverlays.test.mjs app/lib/contextWall.test.mjs app/lib/noFreeTrial.test.mjs app/lib/personalHost.test.mjs app/Components/app/appNav.test.mjs",
+    "test": "node --test app/Components/globe/liveOverlays.test.mjs app/lib/contextWall.test.mjs app/lib/noFreeTrial.test.mjs app/lib/personalHost.test.mjs app/Components/app/appNav.test.mjs app/lib/profileHero.test.mjs",
     "test:globe": "node --test app/Components/globe/liveOverlays.test.mjs",
     "postinstall": "node scripts/copy-maplibre-workers.mjs",
     "prebuild": "node scripts/copy-maplibre-workers.mjs"
