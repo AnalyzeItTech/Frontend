@@ -5,6 +5,7 @@ import Map, { Marker, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
 import type { CircleLayerSpecification, HeatmapLayerSpecification, LineLayerSpecification, Map as MapLibreMap, StyleSpecification, SymbolLayerSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from '../ui/ThemeProvider';
+import { eventDrawWeight, strongestRows } from '../globe/dataQuality.mjs';
 import { GLOBE_HUBS } from '../globe/sourceCatalog';
 import { fullPixelRatio, miniPixelRatio } from '../globe/globePerf';
 import type {
@@ -363,19 +364,8 @@ function ensurePlaneIcon(map: MapLibreMap) {
 }
 
 /** 0–1 strength so heat, density, and bars share one scale. */
-function pointMetric(p: SourcePoint): number {
-  const m = p.meta || {};
-  const mag = Number(m.mag);
-  if (Number.isFinite(mag)) return Math.min(Math.max(mag, 0) / 8, 1);
-  const aqi = Number(m.aqi);
-  if (Number.isFinite(aqi)) return Math.min(Math.max(aqi, 0) / 200, 1);
-  const temp = Number(m.temperature_c);
-  if (Number.isFinite(temp)) return Math.min(Math.abs(temp) / 45, 1);
-  const ch = Number(m.change_pct);
-  if (Number.isFinite(ch)) return Math.min(Math.abs(ch) / 5, 1);
-  const el = Number(m.elevation_m);
-  if (Number.isFinite(el)) return Math.min(Math.abs(el) / 4500, 1);
-  return 0.4;
+function pointMetric(p: SourcePoint): number | null {
+  return eventDrawWeight(p);
 }
 
 export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(function PlaceMapLibre(
@@ -790,10 +780,11 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
   const metricGeoJson = useMemo((): GeoJSON.FeatureCollection => {
     const features: GeoJSON.Feature[] = [];
     for (const p of sourcePoints) {
-      if (p.kind === 'hub') continue;
+      const w = pointMetric(p);
+      if (w == null) continue;
       features.push({
         type: 'Feature',
-        properties: { id: p.id, w: pointMetric(p), label: p.label },
+        properties: { id: p.id, w, label: p.label },
         geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
       });
     }
@@ -848,11 +839,18 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
 
   const barPoints = useMemo(() => {
     if (dataView !== 'bars') return [];
-    return sourcePoints
-      .filter((p) => p.kind !== 'hub')
-      .map((p) => ({ point: p, w: pointMetric(p) }))
-      .sort((a, b) => b.w - a.w)
-      .slice(0, 80);
+    const ranked = strongestRows(sourcePoints, 80) as {
+      rows: Array<{ id: string; score: number }>;
+    };
+    const max = ranked.rows[0]?.score || 1;
+    const byId = new globalThis.Map(sourcePoints.map((p) => [p.id, p]));
+    return ranked.rows
+      .map((row) => {
+        const point = byId.get(row.id);
+        if (!point) return null;
+        return { point, w: row.score / max };
+      })
+      .filter((row): row is { point: SourcePoint; w: number } => row != null);
   }, [dataView, sourcePoints]);
 
   const pathLineLayer = useMemo(
@@ -977,7 +975,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
           </Source>
         ) : null}
 
-        {variant === 'full' || variant === 'mini'
+        {variant === 'full'
           ? GLOBE_HUBS.map((hub) => {
               const key = `hub:${hub.name}`;
               const facing = isFacing(key);
@@ -993,7 +991,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
                   }}
                   onClick={(e) => {
                     e.originalEvent.stopPropagation();
-                    if (variant === 'mini' || !facing) return;
+                    if (!facing) return;
                     onHubSelect?.(hub);
                   }}
                 >

@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const contentType = upstream.headers.get('content-type') || 'application/json';
     return new NextResponse(text, {
       status: upstream.status,
-      headers: { 'Content-Type': contentType },
+      headers: { 'Content-Type': contentType, 'Cache-Control': 'no-store' },
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Upstream unreachable';
