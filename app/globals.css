@@ -708,12 +708,15 @@ details > summary::-webkit-details-marker {
   display: none;
 }
 
-/* Shared MapLibre globe — light atmosphere so LocationIQ/OSM basemap stays readable */
+/* Shared MapLibre globe. The full page is a dark research stage; the chat mini-globe stays theme-matched. */
 .globe-map-canvas .maplibregl-canvas {
   filter: none;
 }
-.dark .globe-map-canvas .maplibregl-canvas {
-  filter: none;
+.globe-map-canvas--research {
+  background: #07090c;
+}
+.globe-map-canvas--research .maplibregl-canvas {
+  filter: brightness(0.9) saturate(0.76) contrast(1.05);
 }
 
 .globe-map-canvas .maplibregl-marker {
@@ -751,6 +754,22 @@ details > summary::-webkit-details-marker {
     color-mix(in srgb, var(--bg) 45%, transparent) 100%
   );
 }
+.globe-map-canvas--research .globe-atmosphere-rim {
+  background: radial-gradient(
+    ellipse 46% 46% at 50% 48%,
+    transparent 0%,
+    transparent 58%,
+    rgba(7, 9, 12, 0.42) 78%,
+    #07090c 100%
+  );
+}
+.globe-map-canvas--research .globe-sphere-shade {
+  background: radial-gradient(
+    ellipse 42% 40% at 32% 30%,
+    rgba(186, 198, 212, 0.08) 0%,
+    transparent 56%
+  );
+}
 
 .globe-sphere-shade {
   pointer-events: none;
@@ -762,6 +781,191 @@ details > summary::-webkit-details-marker {
     color-mix(in srgb, var(--surface) 18%, transparent) 0%,
     transparent 58%
   );
+}
+
+.globe-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.globe-seg button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+}
+.globe-seg button[aria-pressed='true'] {
+  background: var(--text-primary);
+  color: var(--surface);
+  border-color: var(--text-primary);
+}
+.globe-layer-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 16.5rem;
+  overflow: auto;
+}
+.globe-layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+}
+.globe-layer-toggle.is-on {
+  background: color-mix(in srgb, var(--text-primary) 6%, var(--surface));
+  border-color: var(--border);
+}
+.globe-layer-toggle:hover {
+  background: var(--surface-2);
+}
+.globe-layer-swatch {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.globe-layer-toggle:not(.is-on) .globe-layer-swatch {
+  opacity: 0.4;
+}
+.globe-layer-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.globe-layer-coverage {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5e564e;
+}
+.dark .globe-layer-coverage {
+  color: #c5ced6;
+}
+.globe-health {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.globe-health--count,
+.globe-health--zero,
+.globe-health--loading {
+  padding-inline: 0;
+  background: transparent;
+  color: var(--text-primary);
+}
+.globe-health--zero,
+.globe-health--loading {
+  color: #5e564e;
+}
+.dark .globe-health--zero,
+.dark .globe-health--loading {
+  color: #c5ced6;
+}
+.globe-health--unavailable {
+  color: #7c2d12;
+  background: #f4e0d2;
+}
+.globe-health--stale {
+  color: #7a4b08;
+  background: #f6e7c8;
+}
+.dark .globe-health--unavailable {
+  color: #f8d7c4;
+  background: #4a2c22;
+}
+.dark .globe-health--stale {
+  color: #f6e0b5;
+  background: #3e3118;
+}
+.globe-legend {
+  width: min(240px, calc(100% - 1.5rem));
+  padding: 8px 10px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(232, 237, 242, 0.16);
+  background: rgba(10, 12, 16, 0.92);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+}
+.globe-legend-kicker {
+  margin: 0 0 6px;
+  color: #c5ced6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.globe-legend ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.globe-legend li {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+}
+.globe-legend-name {
+  overflow: hidden;
+  color: #e8edf2;
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.globe-legend-coverage {
+  color: #c5ced6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.globe-legend .globe-health--count,
+.globe-legend .globe-health--loading {
+  color: #e8edf2;
+}
+.globe-legend .globe-health--zero {
+  color: #c5ced6;
+}
+.globe-legend .globe-health--unavailable {
+  color: #f8d7c4;
+  background: #4a2c22;
+}
+.globe-legend .globe-health--stale {
+  color: #f6e0b5;
+  background: #3e3118;
 }
 
 .chat-globe-scrim {

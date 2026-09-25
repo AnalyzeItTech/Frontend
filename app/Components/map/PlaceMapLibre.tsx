@@ -6,6 +6,7 @@ import type { CircleLayerSpecification, HeatmapLayerSpecification, LineLayerSpec
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from '../ui/ThemeProvider';
 import { eventDrawWeight, strongestRows } from '../globe/dataQuality.mjs';
+import { globeAtmosphere, globeBasemapTheme } from '../globe/globeVisual.mjs';
 import { GLOBE_HUBS } from '../globe/sourceCatalog';
 import { fullPixelRatio, miniPixelRatio } from '../globe/globePerf';
 import type {
@@ -398,7 +399,8 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
 ) {
   const mapRef = useRef<MapRef | null>(null);
   const { theme } = useTheme();
-  const mapTheme = theme === 'dark' ? 'dark' : 'streets';
+  const appTheme = theme === 'dark' ? 'dark' : 'light';
+  const basemapTheme = globeBasemapTheme({ variant, appTheme });
   const [config, setConfig] = useState<MapConfig | null>(null);
   const [mapInstance, setMapInstance] = useState<MapLibreMap | null>(null);
   const [frontKeys, setFrontKeys] = useState<Set<string> | null>(null);
@@ -415,7 +417,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     let cancelled = false;
     setConfig(null);
     engineReadyRef.current = false;
-    void fetch(`/api/map/config?theme=${encodeURIComponent(mapTheme)}`)
+    void fetch(`/api/map/config?theme=${encodeURIComponent(basemapTheme)}`)
       .then(async (res) => {
         if (!res.ok) throw new Error('Map config failed');
         return res.json() as Promise<MapConfig>;
@@ -427,15 +429,15 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         if (!cancelled) {
           setConfig({
             provider: 'openfreemap',
-            theme: mapTheme,
-            mapStyle: mapTheme === 'dark' ? OPENFREEMAP_DARK : OPENFREEMAP_LIGHT,
+            theme: basemapTheme,
+            mapStyle: basemapTheme === 'dark' ? OPENFREEMAP_DARK : OPENFREEMAP_LIGHT,
           });
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [mapTheme]);
+  }, [basemapTheme]);
 
   const getMap = useCallback((): MapLibreMap | null => {
     const wrapped = mapRef.current;
@@ -591,26 +593,10 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     };
   }, [getMap, idleDrift, inFlight, paused, variant]);
 
-  const fog = useMemo(() => {
-    const mini = variant === 'mini';
-    return mapTheme === 'dark'
-      ? {
-          color: 'rgb(18, 28, 52)',
-          'high-color': 'rgb(64, 110, 210)',
-          'horizon-blend': mini ? 0.04 : 0.09,
-          'space-color': 'rgb(3, 5, 14)',
-          'star-intensity': mini ? 0 : 0.82,
-          range: [0.5, 12],
-        }
-      : {
-          color: 'rgb(168, 204, 236)',
-          'high-color': 'rgb(56, 118, 232)',
-          'horizon-blend': mini ? 0.03 : 0.07,
-          'space-color': 'rgb(8, 10, 26)',
-          'star-intensity': mini ? 0 : 0.58,
-          range: [0.6, 10],
-        };
-  }, [mapTheme, variant]);
+  const atmosphere = useMemo(
+    () => globeAtmosphere({ variant, appTheme }),
+    [appTheme, variant],
+  );
 
   const applyAtmosphere = useCallback(
     (map: MapLibreMap) => {
@@ -626,22 +612,17 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
       }
       try {
         if (mapProjection === 'mercator') globeMap.setFog?.(null);
-        else globeMap.setFog?.(fog);
+        else globeMap.setFog?.(atmosphere.fog);
       } catch {
         /* fog optional */
       }
       try {
-        globeMap.setLight?.({
-          anchor: 'viewport',
-          color: mapTheme === 'dark' ? '#c8d4ea' : '#fff4e8',
-          intensity: mapTheme === 'dark' ? 0.42 : 0.55,
-          position: [1.3, 210, 35],
-        });
+        globeMap.setLight?.(atmosphere.light);
       } catch {
         /* light optional */
       }
     },
-    [fog, mapTheme, mapProjection],
+    [atmosphere, mapProjection],
   );
 
   useEffect(() => {
@@ -873,8 +854,16 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
 
   if (!config) {
     return (
-      <div className={`absolute inset-0 flex items-center justify-center bg-[var(--bg)] ${className}`}>
-        <span className="font-mono text-xs text-[var(--text-muted)]">Preparing map…</span>
+      <div
+        className={`absolute inset-0 flex items-center justify-center ${
+          variant === 'full' ? 'bg-[#07090c]' : 'bg-[var(--bg)]'
+        } ${className}`}
+      >
+        <span
+          className={`font-mono text-xs ${variant === 'full' ? 'text-[#C5CED6]' : 'text-[var(--text-muted)]'}`}
+        >
+          Preparing map…
+        </span>
       </div>
     );
   }
@@ -884,9 +873,13 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
   const liveIds = new Set(sourcePoints.filter((p) => p.kind === 'live' || p.kind === 'place').map((p) => p.id));
 
   return (
-    <div className={`globe-map-canvas absolute inset-0 h-full w-full ${className}`}>
+    <div
+      className={`globe-map-canvas absolute inset-0 h-full w-full ${
+        variant === 'full' ? 'globe-map-canvas--research' : ''
+      } ${className}`}
+    >
       <Map
-        key={`map-${mapTheme}-${usingLocationIq ? 'liq' : 'ofm'}`}
+        key={`map-${basemapTheme}-${usingLocationIq ? 'liq' : 'ofm'}`}
         ref={mapRef}
         onClick={handleClick}
         mapStyle={config.mapStyle}
@@ -1133,14 +1126,6 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         </div>
       ) : null}
 
-      {!hideChrome ? (
-        <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-lg bg-[var(--surface)]/90 px-2 py-1 text-[10px] font-mono text-[var(--text-muted)] backdrop-blur">
-          {usingLocationIq
-            ? `LocationIQ · ${mapTheme} · ${mapProjection === 'globe' ? 'MapLibre globe' : 'flat geographic'} · ${dataView}`
-            : `OpenFreeMap · MapLibre · ${dataView}`}{' '}
-          click anywhere
-        </div>
-      ) : null}
     </div>
   );
 });
