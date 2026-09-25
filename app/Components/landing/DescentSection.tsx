@@ -42,7 +42,7 @@ const HIGHLIGHTS: IslandHighlight[] = [
       ],
     },
     specs: [
-      { label: 'Latency', value: '< 120ms' },
+      { label: 'Provenance', value: 'Cited metrics' },
       { label: 'Delivery', value: 'Slack & Email' },
     ],
   },
@@ -72,7 +72,7 @@ const HIGHLIGHTS: IslandHighlight[] = [
     },
     specs: [
       { label: 'Horizon', value: '30-day rolling' },
-      { label: 'Band', value: '95% envelope' },
+      { label: 'Band', value: 'Adaptive range' },
     ],
   },
   {
@@ -100,7 +100,7 @@ const HIGHLIGHTS: IslandHighlight[] = [
       ],
     },
     specs: [
-      { label: 'Noise cut', value: '87% quieter' },
+      { label: 'Signal', value: 'Contextual, not spam' },
       { label: 'Trace', value: 'Multi-table' },
     ],
   },
