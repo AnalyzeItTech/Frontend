@@ -4,6 +4,8 @@ export type ApiFailure = {
   upgradeRequired: boolean;
   code?: string;
   tier?: string;
+  /** Stream/final soft-fail flag. True means retry is allowed; false is a hard stop. */
+  recoverable?: boolean;
 };
 
 export class ChatRequestError extends Error {
@@ -11,6 +13,7 @@ export class ChatRequestError extends Error {
   upgradeRequired: boolean;
   code?: string;
   tier?: string;
+  recoverable?: boolean;
 
   constructor(failure: ApiFailure) {
     super(failure.message);
@@ -19,6 +22,7 @@ export class ChatRequestError extends Error {
     this.upgradeRequired = failure.upgradeRequired;
     this.code = failure.code;
     this.tier = failure.tier;
+    this.recoverable = failure.recoverable;
   }
 }
 
@@ -48,6 +52,7 @@ export function parseApiFailure(status: number, body: unknown): ApiFailure {
       upgradeRequired: Boolean(rec.upgrade_required) || status === 429 || monthlyQuota,
       code,
       tier: typeof rec.tier === 'string' ? rec.tier : undefined,
+      recoverable: rec.recoverable === true ? true : rec.recoverable === false ? false : undefined,
     };
   }
   if (typeof detail === 'string') {

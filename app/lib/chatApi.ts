@@ -1,6 +1,7 @@
 import { getAuthHeaders, getStoredUser } from './auth';
 import { ChatRequestError, friendlyHttpMessage, parseApiFailure } from './apiErrors';
 import { buildChatClientContext, type ChatTurn } from './clientPreprocess';
+import { detectContextWall, readQuotaSignal } from './contextWall.mjs';
 
 export { ChatRequestError };
 
@@ -547,6 +548,25 @@ export async function streamChat(options: ChatOptions): Promise<{
   let resolvedProjectId = projectId || '';
   let finalText = '';
   let streamError = '';
+  let contextSoftFail = false;
+  let hardContext: { message: string; code?: string; upgradeRequired: boolean } | null = null;
+  let quotaSignal: { code: string; message: string; upgradeRequired: boolean; recoverable: boolean } | null = null;
+
+  const streamErrorMessage = (payload: Record<string, unknown>): string => {
+    if (typeof payload.message === 'string' && payload.message.trim()) return payload.message.trim();
+    const err = payload.error;
+    if (typeof err === 'string' && err.trim()) return err.trim();
+    if (err && typeof err === 'object' && !Array.isArray(err)) {
+      const nested = err as Record<string, unknown>;
+      if (typeof nested.message === 'string' && nested.message.trim()) return nested.message.trim();
+    }
+    if (typeof payload.detail === 'string' && payload.detail.trim()) return payload.detail.trim();
+    if (payload.detail && typeof payload.detail === 'object' && !Array.isArray(payload.detail)) {
+      const nested = payload.detail as Record<string, unknown>;
+      if (typeof nested.message === 'string' && nested.message.trim()) return nested.message.trim();
+    }
+    return 'Backend returned an error';
+  };
   const artifacts: Array<{ filename: string; type: string }> = [];
   const sources: Array<{
     url: string;
@@ -595,6 +615,20 @@ export async function streamChat(options: ChatOptions): Promise<{
         const event: StreamEvent = JSON.parse(line);
         onEvent?.(event);
 
+        const wall = detectContextWall(event.payload);
+        if (wall?.softFail) {
+          contextSoftFail = true;
+        } else if (wall && !wall.softFail) {
+          hardContext = {
+            message: wall.message || streamErrorMessage(event.payload),
+            code: wall.code,
+            upgradeRequired: wall.openUpgrade,
+          };
+        } else if (event.event === 'error' || event.event === 'final') {
+          const quota = readQuotaSignal(event.payload);
+          if (quota) quotaSignal = quota;
+        }
+
         if (event.event === 'run_id') {
           resolvedRunId = (event.payload.run_id as string) || resolvedRunId;
           resolvedProjectId = (event.payload.project_id as string) || resolvedProjectId;
@@ -620,13 +654,8 @@ export async function streamChat(options: ChatOptions): Promise<{
           }>) || [];
           sources.push(...srcs);
         }
-        if (event.event === 'error') {
-          const msg =
-            (event.payload.message as string) ||
-            (event.payload.error as string) ||
-            (event.payload.detail as string) ||
-            'Backend returned an error';
-          streamError = msg;
+        if (event.event === 'error' && !contextSoftFail) {
+          streamError = streamErrorMessage(event.payload);
         }
       } catch (parseErr) {
         console.warn('Failed to parse stream line:', line, parseErr);
@@ -634,7 +663,30 @@ export async function streamChat(options: ChatOptions): Promise<{
     }
   }
 
+  if (contextSoftFail) {
+    return { runId: resolvedRunId, projectId: resolvedProjectId, finalText, artifacts, sources };
+  }
+
+  if (hardContext && !finalText) {
+    throw new ChatRequestError({
+      status: 409,
+      message: hardContext.message || streamError || 'The research pipeline could not complete with the available data.',
+      upgradeRequired: hardContext.upgradeRequired,
+      code: hardContext.code,
+      recoverable: false,
+    });
+  }
+
   if (!finalText && streamError) {
+    if (quotaSignal) {
+      throw new ChatRequestError({
+        status: quotaSignal.upgradeRequired ? 429 : 400,
+        message: quotaSignal.message || streamError,
+        upgradeRequired: quotaSignal.upgradeRequired,
+        code: quotaSignal.code,
+        recoverable: quotaSignal.recoverable,
+      });
+    }
     const lower = streamError.toLowerCase();
     if (
       lower.includes('ngrok') ||

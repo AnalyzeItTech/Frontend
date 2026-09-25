@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect } from 'react';
+import { CONTEXT_UPGRADE_COPY } from '../../lib/contextWall.mjs';
 
-export type UpgradeReason = 'model' | 'quota' | 'generic';
+export type UpgradeReason = 'model' | 'quota' | 'context' | 'generic';
 
 type UpgradeModalProps = {
   open: boolean;
@@ -22,6 +23,7 @@ const COPY: Record<UpgradeReason, { title: string; body: string }> = {
     title: 'Monthly free LLM runs used',
     body: 'You have hit this month’s free LLM run ceiling. Weather and calculator still work when they match. Upgrade for full Chat and a higher monthly budget.',
   },
+  context: CONTEXT_UPGRADE_COPY,
   generic: {
     title: 'Upgrade AnalyzeIt',
     body: 'Premium unlocks larger models, a higher monthly LLM budget, and an ad-free workspace.',
