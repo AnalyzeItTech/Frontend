@@ -87,7 +87,7 @@ export function LandingExperience({ children }: { children: React.ReactNode }) {
     <div
       id="main-content"
       className="relative min-h-screen bg-transparent text-ink selection:bg-coral/30 selection:text-ink overflow-x-hidden"
-      style={{ ['--nav-h' as string]: '96px' }}
+      style={{ ['--nav-h' as string]: '56px' }}
     >
       {isLoading && <LoadingScreen onComplete={handleLoadComplete} />}
 

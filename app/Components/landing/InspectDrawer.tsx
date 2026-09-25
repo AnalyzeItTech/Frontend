@@ -24,7 +24,7 @@ export const InspectDrawer: React.FC<InspectDrawerProps> = ({
   if (!detail) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex justify-end pointer-events-auto">
+    <div className="fixed inset-0 z-[100] flex justify-end pointer-events-auto">
       {/* Dark Ambient Backdrop */}
       <div
         onClick={onClose}
