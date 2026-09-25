@@ -104,8 +104,7 @@ export function normalizeDatasetRows<T extends Record<string, unknown>>(
 /**
  * Build optional client_context blob for chat POST (A may ignore until wired).
  * Prior turns only in history.recent — the live outbound message already goes
- * as body.message (+ message_freq). Do not double-append it here (a large paste
- * alone would blow Free's 20k client_context ceiling).
+ * as body.message (+ message_freq). Do not double-append it here.
  */
 export function buildChatClientContext(message: string, history: ChatTurn[] = []) {
   const compressed = compressMessagesForApi(history, { keepRecent: 6 });

@@ -42,6 +42,7 @@ import {
   contextWallSummary,
   detectContextWall,
   mergeContextWall,
+  quoteFreeContextLimit,
   type ContextWallSignal,
 } from '../lib/contextWall.mjs';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
@@ -127,6 +128,8 @@ interface ChatMessage {
     code: string;
     summary: string;
     openUpgrade: boolean;
+    /** context = Free context-limit sheet. capacity = deeper mode. Absent when upgrade stays closed. */
+    upgradeReason?: 'context' | 'capacity';
   };
   contextCompress?: ContextCompress;
   rlmSteps?: RlmStep[];
@@ -359,6 +362,9 @@ function ChatInner() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const nearBottomRef = useRef(true);
   const postRunAdArmed = useRef(false);
+  const [freeContextLabel, setFreeContextLabel] = useState(() => quoteFreeContextLimit(null));
+  const freeContextLabelRef = useRef(freeContextLabel);
+  freeContextLabelRef.current = freeContextLabel;
 
   useEffect(() => {
     const preset = params.get('q');
@@ -380,6 +386,9 @@ function ChatInner() {
       .then(async (snap) => {
         // Premium/Plus: ads_free true → never fetch AdSense
         setAdsFree(Boolean(snap.ads_free));
+        const contextLabel = quoteFreeContextLimit(snap);
+        freeContextLabelRef.current = contextLabel;
+        setFreeContextLabel(contextLabel);
         const quota = parseLlmQuota(snap);
         setLlmQuota(quota);
         if (quota?.show && quota.exhausted) setQuotaBanner('exhausted');
@@ -439,6 +448,9 @@ function ChatInner() {
     }
     try {
       const snap = await getEntitlements();
+      const contextLabel = quoteFreeContextLimit(snap);
+      freeContextLabelRef.current = contextLabel;
+      setFreeContextLabel(contextLabel);
       const quota = parseLlmQuota(snap);
       setLlmQuota(quota);
       if (quota?.show && quota.exhausted) setQuotaBanner('exhausted');
@@ -785,12 +797,16 @@ function ChatInner() {
       let toolFailureName = '';
       const contextWallRef: { current: ContextWallSignal | null } = { current: null };
       let suppressPostRunAd = false;
-      let openedContextUpgrade = false;
+      let openedUpgradeReason: 'context' | 'capacity' | null = null;
 
-      const openContextUpgrade = () => {
-        if (openedContextUpgrade) return;
-        openedContextUpgrade = true;
-        setUpgradeModal({ open: true, reason: 'context' });
+      const openWallUpgrade = (wall: ContextWallSignal | null | undefined) => {
+        const reason = wall?.upgradeReason;
+        if (!wall?.openUpgrade || !reason) return;
+        // A later truncate notice replaces a capacity sheet. Context stays put.
+        if (openedUpgradeReason === 'context') return;
+        if (openedUpgradeReason === reason) return;
+        openedUpgradeReason = reason;
+        setUpgradeModal({ open: true, reason });
       };
 
       const noteContextWall = (event: StreamEvent) => {
@@ -798,15 +814,15 @@ function ChatInner() {
         if (!next) return;
         suppressPostRunAd = true;
         contextWallRef.current = mergeContextWall(contextWallRef.current, next);
-        if (contextWallRef.current?.openUpgrade) openContextUpgrade();
+        openWallUpgrade(contextWallRef.current);
       };
 
       const applyContextWall = () => {
         const wall = contextWallRef.current;
         if (!wall) return;
-        const summary = contextWallSummary(wall);
+        const summary = contextWallSummary(wall, freeContextLabelRef.current);
         const showAnswer = Boolean(streamed.trim()) && !answerIsOnlyPipelineFail(streamed);
-        if (wall.openUpgrade) openContextUpgrade();
+        openWallUpgrade(wall);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
@@ -825,6 +841,7 @@ function ChatInner() {
                     code: wall.code || '',
                     summary,
                     openUpgrade: wall.openUpgrade,
+                    upgradeReason: wall.upgradeReason,
                   },
                 }
               : m,
@@ -1312,9 +1329,10 @@ function ChatInner() {
             suppressPostRunAd = true;
             if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
             applyContextWall();
-          } else if (fromHttp?.openUpgrade) {
+          } else if (fromHttp) {
+            contextWallRef.current = mergeContextWall(contextWallRef.current, fromHttp);
             suppressPostRunAd = true;
-            openContextUpgrade();
+            openWallUpgrade(contextWallRef.current);
             setError(chatError.message);
             if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
             setMessages((prev) =>
@@ -1338,7 +1356,7 @@ function ChatInner() {
           applyContextWall();
         } else if (contextWallRef.current?.openUpgrade) {
           suppressPostRunAd = true;
-          openContextUpgrade();
+          openWallUpgrade(contextWallRef.current);
           const msg = chatError instanceof Error ? chatError.message : 'Request failed.';
           setError(msg);
           if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
@@ -1658,11 +1676,14 @@ function ChatInner() {
                             >
                               Retry
                             </button>
-                            {msg.softFail.openUpgrade ? (
+                            {msg.softFail.openUpgrade && msg.softFail.upgradeReason ? (
                               <button
                                 type="button"
                                 className="inline-flex min-h-8 items-center rounded-full bg-[var(--coral,#EA8069)] px-3 text-[11px] font-medium text-white"
-                                onClick={() => setUpgradeModal({ open: true, reason: 'context' })}
+                                onClick={() => {
+                                  const reason = msg.softFail?.upgradeReason;
+                                  if (reason) setUpgradeModal({ open: true, reason });
+                                }}
                               >
                                 Upgrade
                               </button>
@@ -2198,6 +2219,7 @@ function ChatInner() {
         open={upgradeModal.open}
         reason={upgradeModal.reason}
         lockedModelLabel={upgradeModal.lockedModelLabel}
+        contextLimitLabel={freeContextLabel}
         onClose={() => setUpgradeModal((s) => ({ ...s, open: false }))}
       />
 </AppShell>
