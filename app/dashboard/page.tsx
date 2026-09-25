@@ -229,13 +229,29 @@ export default function DashboardPage() {
         }
         if (!target && projectParam) {
           target = projs.find((p) => p.id === projectParam) || null;
+          if (!target) {
+            try {
+              target = await getProjectById(projectParam);
+            } catch (err) {
+              if (cancelled) return;
+              setWorkspaceError(redactClientError(err, 'This project isn’t in your workspace.'));
+              setActiveProjectId(null);
+              setActiveProjectName('Workspace Canvas');
+              setCurrentLayout({ widgets: [] });
+              return;
+            }
+          }
         }
         if (!target && !slugParam && projs.length > 0) {
           target = projs[0];
         }
 
         if (target) {
-          setActiveProjectId(target.id);
+          const opened = target;
+          if (!projs.some((p) => p.id === opened.id)) {
+            setServerProjects([opened, ...projs]);
+          }
+          setActiveProjectId(opened.id);
           setActiveProjectName(target.name);
           setSlugDraft(target.dashboard_slug || '');
 

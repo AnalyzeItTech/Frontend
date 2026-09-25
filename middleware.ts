@@ -10,6 +10,7 @@ const PROTECTED_PREFIXES = [
   '/profile',
   '/billing',
   '/new-project',
+  '/project',
 ];
 
 function hasSession(request: NextRequest): boolean {
@@ -87,5 +88,7 @@ export const config = {
     '/billing',
     '/new-project/:path*',
     '/new-project',
+    '/project/:path*',
+    '/project',
   ],
 };

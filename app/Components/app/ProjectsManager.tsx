@@ -263,7 +263,12 @@ export function ProjectsManager({
               className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-3 transition-colors hover:bg-[var(--surface-2)]"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-[var(--text-primary)]">{project.name}</p>
+                <Link
+                  href={`/project/${encodeURIComponent(project.id)}`}
+                  className="truncate text-sm font-medium text-[var(--text-primary)] hover:text-[var(--coral,#EA8069)]"
+                >
+                  {project.name}
+                </Link>
                 <p className="truncate font-mono text-[10px] text-[var(--text-muted)]">
                   {project.id.slice(0, 18)}…
                   {project.widget_count != null ? ` · ${project.widget_count} widgets` : ''}
@@ -271,9 +276,9 @@ export function ProjectsManager({
               </div>
               <div className="flex items-center gap-1">
                 <Link
-                  href={`/dashboard?project=${encodeURIComponent(project.id)}`}
+                  href={`/project/${encodeURIComponent(project.id)}`}
                   className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--surface)] hover:text-[var(--coral,#EA8069)]"
-                  title="Open in Dashboard"
+                  title="Open project home"
                 >
                   <IconLayoutDashboard size={14} />
                   Open

@@ -366,6 +366,9 @@ function ChatInner() {
       setInput(preset);
       setComposerMode('research');
     }
+    const scoped = params.get('project') || params.get('projectId');
+    if (scoped) setProjectId(scoped);
+    if (params.get('mode') === 'research') setComposerMode('research');
   }, [params]);
 
   useEffect(() => {
@@ -532,7 +535,7 @@ function ChatInner() {
     setShowDashboard(false);
     setDashStatus(null);
     setRunId(null);
-    setProjectId(null);
+    setProjectId(params.get('project') || params.get('projectId'));
     setPromoteNudge(null);
     setPendingAttachments([]);
   };
@@ -1410,7 +1413,21 @@ function ChatInner() {
                   {composerMode === 'research' ? 'Chat · Research on' : 'Chat'}
                 </p>
                 <p className="truncate text-[11px] text-[var(--text-muted)]">
-                  {isIncognito ? 'Incognito session' : 'Lightweight chat — promote to a project to keep full history'}
+                  {projectId ? (
+                    <>
+                      Scoped to this project ·{' '}
+                      <Link
+                        href={`/project/${encodeURIComponent(projectId)}`}
+                        className="underline underline-offset-2 hover:text-[var(--text-primary)]"
+                      >
+                        Project home
+                      </Link>
+                    </>
+                  ) : isIncognito ? (
+                    'Incognito session'
+                  ) : (
+                    'Lightweight chat — promote to a project to keep full history'
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-2">
