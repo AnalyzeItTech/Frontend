@@ -740,10 +740,9 @@ function ChatInner() {
       let sawToolFailure = false;
       let toolFailureName = '';
 
-      const outbound =
-        mode === 'research'
-          ? `[Research mode] Prefer web/news/geo tools and cite sources.\n\n${value || 'Please review the attached file(s).'}`
-          : value || 'Please review the attached file(s).';
+      // Raw user text on the wire — do not prepend "[Research mode] … cite sources."
+      // That preamble falsely triggered Model discover_source. Flag via research_mode.
+      const outbound = value || 'Please review the attached file(s).';
 
       let chipsSnapshot: ChatAttachment[] = [];
       try {
@@ -766,6 +765,9 @@ function ChatInner() {
           history,
           includeClientContext: true,
           modelSize: selectedModelSize,
+          // Contract: Model prefers context.research_mode (extractors.py); Backend A
+          // should map this body field onto context when wired (currently ignored).
+          researchMode: mode === 'research',
           attachmentIds: attachmentIds.length ? attachmentIds : undefined,
           signal: controller.signal,
           onEvent: (event: StreamEvent) => {
