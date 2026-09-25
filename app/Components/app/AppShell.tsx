@@ -13,7 +13,7 @@ import {
   IconUser,
   IconX,
 } from '@tabler/icons-react';
-import { clearAuthSession, getStoredUser, logout, type UserProfile } from '../../lib/auth';
+import { clearAuthSession, getStoredUser, logout, planTierLabel, type UserProfile } from '../../lib/auth';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { IncognitoToggle } from '../ui/IncognitoToggle';
 import { useTheme } from '../ui/ThemeProvider';
@@ -33,8 +33,7 @@ const LINKS: Array<{ id: AppNavId; href: string; label: string }> = [
 ];
 
 function tierLabel(raw?: string) {
-  const t = (raw || 'free').replace(/_/g, ' ');
-  return t.toUpperCase();
+  return planTierLabel(raw).toUpperCase();
 }
 
 function initials(user: UserProfile | null) {

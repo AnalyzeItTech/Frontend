@@ -5,7 +5,7 @@ import { AppShell } from '../Components/app/AppShell';
 import { PageTitle } from '../Components/app/PageTitle';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { fetchMe, getStoredToken, type UserProfile } from '../lib/auth';
+import { fetchMe, getStoredToken, isPaidPlan, planTierLabel, type UserProfile } from '../lib/auth';
 import {
   coerceMoney,
   formatMoney,
@@ -14,7 +14,6 @@ import {
   isValidMoney,
   openRazorpayCheckout,
   startCheckout,
-  startTrial,
   type BillingQuote,
   type CheckoutSession,
 } from '../lib/billingApi';
@@ -76,7 +75,6 @@ export default function BillingPage() {
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [reviewPlan, setReviewPlan] = useState<PlanId | null>(null);
   const [me, setMe] = useState<UserProfile | null>(null);
-  const [trialNotice, setTrialNotice] = useState<string | null>(null);
   const [usage, setUsage] = useState<{ used: number; cap: number; near: boolean; exhausted: boolean } | null>(null);
 
   const loadQuote = () => {
@@ -144,14 +142,8 @@ export default function BillingPage() {
     return { plan: reviewPlan, meta, amount, currency };
   }, [reviewPlan, quote]);
 
-  const trialEligible = Boolean(
-    me && !me.trial_used && me.trial_status !== 'active' && me.tier === 'free',
-  );
-  const trialActive = me?.trial_status === 'active';
-
   const openReview = (plan: PlanId) => {
     setError(null);
-    setTrialNotice(null);
     if (!getStoredToken()) {
       router.replace('/login?next=/billing');
       return;
@@ -162,29 +154,6 @@ export default function BillingPage() {
       return;
     }
     setReviewPlan(plan);
-  };
-
-  const onStartTrial = async () => {
-    if (!getStoredToken()) {
-      router.replace('/login?next=/billing');
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setTrialNotice(null);
-    try {
-      const result = await startTrial('premium');
-      await fetchMe().then((user) => setMe(user));
-      setTrialNotice(
-        result.trial_ends_at
-          ? `Premium trial is on through ${new Date(result.trial_ends_at).toLocaleDateString()}.`
-          : 'Premium trial is active.',
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start trial');
-    } finally {
-      setBusy(false);
-    }
   };
 
   const confirmRazorpay = async () => {
@@ -243,52 +212,16 @@ export default function BillingPage() {
           <div className="app-card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
             <div>
               <p className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">Current plan</p>
-              <p className="text-sm font-medium text-[var(--text)]">
-                {(me.tier || 'free').replace(/_/g, ' ')}
-                {trialActive ? ' · trial' : ''}
-              </p>
+              <p className="text-sm font-medium text-[var(--text)]">{planTierLabel(me.tier)}</p>
             </div>
-            {me.tier === 'free' || trialActive ? (
-              <p className="text-xs text-[var(--text-muted)]">Upgrade below when you are ready.</p>
-            ) : (
+            {isPaidPlan(me.tier) ? (
               <Link href="/profile" className="btn-ghost text-xs">
                 Manage in profile
               </Link>
+            ) : (
+              <p className="text-xs text-[var(--text-muted)]">Upgrade below when you are ready.</p>
             )}
           </div>
-        ) : null}
-
-        {trialEligible ? (
-          <section className="rounded-xl border border-[var(--border,#D9CFC0)] bg-[var(--surface-muted,#EEE4D6)]/50 px-4 py-3 space-y-2">
-            <h2 className="font-serif text-lg text-[var(--text,#322C28)]">Try Premium free for 7 days</h2>
-            <p className="text-sm text-[var(--text-muted,#6B6155)]">
-              One trial per account. No card required — after seven days you return to Free unless you upgrade.
-            </p>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void onStartTrial()}
-              className="btn-secondary disabled:opacity-50"
-            >
-              {busy ? 'Starting…' : 'Start free trial'}
-            </button>
-          </section>
-        ) : null}
-
-        {trialActive && me?.trial_ends_at ? (
-          <p className="text-sm text-[var(--text-muted,#6B6155)]">
-            Premium trial active until{' '}
-            <strong className="font-medium text-[var(--text,#3A342D)]">
-              {new Date(me.trial_ends_at).toLocaleDateString()}
-            </strong>
-            .
-          </p>
-        ) : null}
-
-        {trialNotice ? (
-          <p role="status" className="text-sm text-[var(--text,#3A342D)]">
-            {trialNotice}
-          </p>
         ) : null}
 
         {quoteError ? (
