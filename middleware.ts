@@ -28,11 +28,11 @@ export function middleware(request: NextRequest) {
     sessionCookie: request.cookies.get(SESSION_COOKIE)?.value || '',
   });
 
-  if (decision.action === 'redirect') {
+  if (decision.action === 'redirect' && decision.url) {
     return NextResponse.redirect(decision.url, decision.status);
   }
 
-  if (decision.action === 'rewrite') {
+  if (decision.action === 'rewrite' && decision.slug) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     url.searchParams.set('slug', decision.slug);
