@@ -812,16 +812,52 @@ export async function getProjectById(projectId: string): Promise<ProjectSummary>
   return res.json();
 }
 
+export class DashboardSlugError extends Error {
+  status: number;
+  upgradeRequired: boolean;
+
+  constructor(status: number, message: string, upgradeRequired = false) {
+    super(message);
+    this.name = 'DashboardSlugError';
+    this.status = status;
+    this.upgradeRequired = upgradeRequired;
+  }
+}
+
+function dashboardSlugError(status: number, body: unknown, fallback: string): DashboardSlugError {
+  const detail =
+    body && typeof body === 'object' && 'detail' in body
+      ? (body as { detail: unknown }).detail
+      : undefined;
+  if (detail && typeof detail === 'object') {
+    const failure = parseApiFailure(status, body);
+    const upgrade =
+      failure.upgradeRequired ||
+      status === 402 ||
+      /slug|premium|entitlement/i.test(failure.code || '');
+    return new DashboardSlugError(status, failure.message, upgrade);
+  }
+  const raw = typeof detail === 'string' ? detail.trim() : '';
+  const upgrade = status === 402 || /upgrade|premium|personal_dashboard|entitlement/i.test(raw);
+  if (status === 404) return new DashboardSlugError(404, 'This personal link doesn’t exist.', false);
+  if (status === 403) {
+    return new DashboardSlugError(
+      403,
+      upgrade ? raw || 'Personal links are part of Premium and VIP.' : 'This personal link is private to its owner.',
+      upgrade,
+    );
+  }
+  if (status === 401) return new DashboardSlugError(401, 'Please sign in to continue.', false);
+  return new DashboardSlugError(status, raw || friendlyHttpMessage(status, fallback), upgrade);
+}
+
 export async function resolveDashboardSlug(slug: string): Promise<ProjectSummary> {
   const res = await fetch(`${API_V1}/dashboards/by-slug/${encodeURIComponent(slug)}`, {
     headers: getAuthHeaders(),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(
-      (body as { detail?: string }).detail ||
-        friendlyHttpMessage(res.status, 'Could not open this dashboard link'),
-    );
+    throw dashboardSlugError(res.status, body, 'Could not open this dashboard link');
   }
   return res.json();
 }
@@ -834,11 +870,7 @@ export async function claimDashboardSlug(projectId: string, slug: string): Promi
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const detail = (body as { detail?: unknown }).detail;
-    if (detail && typeof detail === 'object' && detail !== null && 'message' in detail) {
-      throw new Error(String((detail as { message: string }).message));
-    }
-    throw new Error(typeof detail === 'string' ? detail : friendlyHttpMessage(res.status, 'Could not claim link'));
+    throw dashboardSlugError(res.status, body, 'Could not claim link');
   }
   return res.json();
 }

@@ -49,9 +49,16 @@ import {
   updateProjectLayout,
   resolveDashboardSlug,
   claimDashboardSlug,
+  DashboardSlugError,
   type WidgetSpec,
   type ProjectSummary,
 } from '../lib/chatApi';
+import {
+  canonicalAppOrigin,
+  classifySlugFailure,
+  extractPersonalSlug,
+  personalSlugAllowed,
+} from '../lib/personalHost.mjs';
 import {
   getStoredUser,
   fetchMe,
@@ -104,6 +111,9 @@ export default function DashboardPage() {
   const [loadKey, setLoadKey] = useState(0);
   const [slugDraft, setSlugDraft] = useState('');
   const [slugBusy, setSlugBusy] = useState(false);
+  const [slugGate, setSlugGate] = useState<null | 'upgrade' | 'missing' | 'denied' | 'error'>(null);
+  const [slugGateText, setSlugGateText] = useState('');
+  const [slugGateName, setSlugGateName] = useState('');
   const [isOnline, setIsOnline] = useState(true);
 
   // ─── Export Menu & Toast State ───────────────────────────────────────────────
@@ -163,6 +173,7 @@ export default function DashboardPage() {
     async function loadWorkspace() {
       setIsLoadingProjects(true);
       setWorkspaceError(null);
+      setSlugGate(null);
       try {
         const stored = getStoredUser();
         if (stored) {
@@ -185,7 +196,8 @@ export default function DashboardPage() {
 
         const slugParam =
           typeof window !== 'undefined'
-            ? new URLSearchParams(window.location.search).get('slug')
+            ? extractPersonalSlug(window.location.host) ||
+              new URLSearchParams(window.location.search).get('slug')
             : null;
         const projectParam =
           typeof window !== 'undefined'
@@ -193,19 +205,32 @@ export default function DashboardPage() {
             : null;
 
         let target: ProjectSummary | null = null;
+        let slugBlocked = false;
         if (slugParam) {
           try {
             target = await resolveDashboardSlug(slugParam);
           } catch (err) {
-            setWorkspaceError(
+            slugBlocked = true;
+            const status = err instanceof DashboardSlugError ? err.status : 0;
+            const upgrade = err instanceof DashboardSlugError ? err.upgradeRequired : false;
+            setSlugGate(classifySlugFailure(status, upgrade));
+            setSlugGateName(slugParam);
+            setSlugGateText(
               err instanceof Error ? err.message : 'Could not open this personal dashboard link.',
             );
           }
         }
+        if (slugBlocked) {
+          setActiveProjectId(null);
+          setActiveProjectName('Personal link');
+          setSlugDraft(slugParam || '');
+          setCurrentLayout({ widgets: [] });
+          return;
+        }
         if (!target && projectParam) {
           target = projs.find((p) => p.id === projectParam) || null;
         }
-        if (!target && projs.length > 0) {
+        if (!target && !slugParam && projs.length > 0) {
           target = projs[0];
         }
 
@@ -582,11 +607,21 @@ export default function DashboardPage() {
                   title="Premium personal subdomain: slug.analyzeit.in"
                 />
                 <span className="text-[10px] text-[var(--text-muted)] shrink-0">.analyzeit.in</span>
+                {personalSlugAllowed(user) === false ? (
+                  <Link href="/billing" className="text-[10px] px-1.5 py-0.5 rounded border border-[var(--border)] text-[var(--coral)] hover:text-[var(--text-primary)]">
+                    Premium
+                  </Link>
+                ) : (
                 <button
                   type="button"
                   disabled={slugBusy || !slugDraft.trim()}
                   onClick={async () => {
                     if (!activeProjectId || !slugDraft.trim()) return;
+                    if (personalSlugAllowed(user) === false) {
+                      setExportToastMsg('Personal links are part of Premium and VIP.');
+                      setTimeout(() => setExportToastMsg(null), 4000);
+                      return;
+                    }
                     setSlugBusy(true);
                     try {
                       const result = await claimDashboardSlug(activeProjectId, slugDraft.trim());
@@ -609,6 +644,7 @@ export default function DashboardPage() {
                 >
                   Save
                 </button>
+                )}
               </div>
             )}
           </div>
@@ -840,6 +876,40 @@ export default function DashboardPage() {
                     <div className="h-64 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] animate-pulse" />
                   </div>
                   <p className="text-sm text-[var(--text-secondary)]">Loading your dashboard…</p>
+                </div>
+              ) : slugGate ? (
+                <div role="alert" className="app-card py-16 px-6 flex flex-col items-center justify-center text-center space-y-4 max-w-lg mx-auto">
+                  <h3 className="font-serif text-2xl font-normal tracking-tight">
+                    {slugGate === 'upgrade'
+                      ? 'Premium personal link'
+                      : slugGate === 'missing'
+                        ? 'This link isn’t claimed'
+                        : slugGate === 'denied'
+                          ? 'This link is private'
+                          : 'Couldn’t open this link'}
+                  </h3>
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{slugGateText}</p>
+                  {slugGateName ? (
+                    <p className="font-mono text-[11px] text-[var(--text-muted)]">{slugGateName}.analyzeit.in</p>
+                  ) : null}
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    {slugGate === 'upgrade' || personalSlugAllowed(user) === false ? (
+                      <Link href="/billing" className="btn-primary min-h-11 px-5">See Premium</Link>
+                    ) : null}
+                    {slugGate === 'denied' || slugGate === 'missing' ? (
+                      <a
+                        href={`${canonicalAppOrigin({ protocol: window.location.protocol, hostHeader: window.location.host })}/dashboard`}
+                        className="btn-secondary min-h-11 px-5"
+                      >
+                        Open your dashboard
+                      </a>
+                    ) : null}
+                    {slugGate === 'error' ? (
+                      <button type="button" className="btn-primary min-h-11 px-5" onClick={() => setLoadKey((k) => k + 1)}>
+                        Retry
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ) : workspaceError ? (
                 <div role="alert" className="app-card py-16 px-6 flex flex-col items-center justify-center text-center space-y-4 max-w-lg mx-auto">
