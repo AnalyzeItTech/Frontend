@@ -17,6 +17,7 @@ import {
   type BillingQuote,
   type CheckoutSession,
 } from '../lib/billingApi';
+import { CONTEXT_RETENTION_TOKENS, formatContextRetention } from '../lib/contextWall.mjs';
 
 type PlanId = 'premium' | 'premium_plus';
 
@@ -32,7 +33,7 @@ const PLAN_COPY: Record<
       'Better model + 3× daily tokens',
       '15 projects · 30 widgets',
       '10M tokens/month usage',
-      '500M context retention (memory)',
+      `${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium)} context retention (memory)`,
       'Ad-free · personal dashboard link',
       '30-day artifact retention',
     ],
@@ -45,7 +46,7 @@ const PLAN_COPY: Record<
       'Large model + 6× daily tokens',
       '10 concurrent projects · 90-day artifacts',
       '50M tokens/month usage',
-      '1B context retention (memory) · account-wide memory',
+      `${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium_plus)} context retention (memory) · account-wide memory`,
       'Ad-free · personal dashboard link',
       'Priority queue when the agent is busy',
     ],

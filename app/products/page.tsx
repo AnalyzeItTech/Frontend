@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LegalLayout } from '../Components/legal/LegalLayout';
+import { CONTEXT_RETENTION_TOKENS, formatContextRetention } from '../lib/contextWall.mjs';
 
 export const metadata: Metadata = {
   title: 'Products & pricing — AnalyzeIt',
@@ -38,7 +39,7 @@ const PLANS = [
       'Everything in Free',
       'Better model + 3× tokens',
       '15 projects · 30 widgets',
-      '500M context retention (memory)',
+      `${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium)} context retention (memory)`,
       '30-day artifact retention',
     ],
   },

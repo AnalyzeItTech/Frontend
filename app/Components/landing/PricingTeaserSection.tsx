@@ -3,6 +3,11 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getBillingQuote, type BillingQuote } from '../../lib/billingApi';
+import { CONTEXT_RETENTION_TOKENS, formatContextRetention } from '../../lib/contextWall.mjs';
+
+const FREE_RETENTION = `${formatContextRetention(CONTEXT_RETENTION_TOKENS.free)} context retention (memory)`;
+const PREMIUM_RETENTION = `${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium)} context retention (memory)`;
+const VIP_RETENTION = `${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium_plus)} context retention (memory) · account-wide memory`;
 
 type TierCard = {
   name: string;
@@ -32,7 +37,7 @@ const FREE_TIER: TierCard = {
     'Sponsored units after research runs',
     '7-day artifact retention',
     '50,000 tokens/month usage',
-    '10M context retention (memory)',
+    FREE_RETENTION,
   ],
   cta: 'Create a free account',
   href: '/login?tab=register',
@@ -50,7 +55,7 @@ const PAID_BASE: Omit<TierCard, 'price' | 'currencyNote'>[] = [
       'Better model + 3× tokens',
       '15 projects · 30 widgets',
       '10M tokens/month usage',
-      '500M context retention (memory)',
+      PREMIUM_RETENTION,
       'Ad-free research',
       'Personal link: yourname.analyzeit.in',
       '30-day artifact retention',
@@ -70,7 +75,7 @@ const PAID_BASE: Omit<TierCard, 'price' | 'currencyNote'>[] = [
       '6× tokens · large model',
       '50M tokens/month usage',
       '10 concurrent projects · 90-day artifacts',
-      '1B context retention (memory) · account-wide memory',
+      VIP_RETENTION,
       'Ad-free + personal dashboard link',
       'Deep · orchestrated context (RLM-style inspect)',
       'Priority queue when the agent is busy',
