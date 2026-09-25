@@ -24,6 +24,7 @@ import {
 } from './appNavConfig.mjs';
 
 export type AppNavId =
+  | 'home'
   | 'chat'
   | 'research'
   | 'globe'
@@ -31,7 +32,8 @@ export type AppNavId =
   | 'connectors'
   | 'objects'
   | 'billing'
-  | 'profile';
+  | 'profile'
+  | 'project';
 
 export type AppNavSurface = 'marketing' | 'app';
 
