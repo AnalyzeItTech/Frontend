@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { CONTEXT_UPGRADE_COPY } from '../../lib/contextWall.mjs';
+import { CAPACITY_UPGRADE_COPY, CONTEXT_UPGRADE_COPY, contextUpgradeBody } from '../../lib/contextWall.mjs';
 
-export type UpgradeReason = 'model' | 'quota' | 'context' | 'generic';
+export type UpgradeReason = 'model' | 'quota' | 'context' | 'capacity' | 'generic';
 
 type UpgradeModalProps = {
   open: boolean;
@@ -12,6 +12,8 @@ type UpgradeModalProps = {
   reason?: UpgradeReason;
   /** Optional locked model size label, e.g. "Medium (Standard)". */
   lockedModelLabel?: string;
+  /** Free client-context ceiling label, e.g. "10M". Ignored unless reason is context. */
+  contextLimitLabel?: string;
 };
 
 const COPY: Record<UpgradeReason, { title: string; body: string }> = {
@@ -24,13 +26,20 @@ const COPY: Record<UpgradeReason, { title: string; body: string }> = {
     body: 'You have hit this month’s free LLM run ceiling. Weather and calculator still work when they match. Upgrade for full Chat and a higher monthly budget.',
   },
   context: CONTEXT_UPGRADE_COPY,
+  capacity: CAPACITY_UPGRADE_COPY,
   generic: {
     title: 'Upgrade AnalyzeIt',
     body: 'Premium unlocks larger models, a higher monthly LLM budget, and an ad-free workspace.',
   },
 };
 
-export function UpgradeModal({ open, onClose, reason = 'generic', lockedModelLabel }: UpgradeModalProps) {
+export function UpgradeModal({
+  open,
+  onClose,
+  reason = 'generic',
+  lockedModelLabel,
+  contextLimitLabel,
+}: UpgradeModalProps) {
   useEffect(() => {
     if (!open) return;
     // Close native <select> dropdowns that sit under the overlay.
@@ -47,9 +56,11 @@ export function UpgradeModal({ open, onClose, reason = 'generic', lockedModelLab
 
   const copy = COPY[reason];
   const body =
-    reason === 'model' && lockedModelLabel
-      ? `${lockedModelLabel} needs Premium. Upgrade to unlock Medium and Large — Small (Fast) stays on Free.`
-      : copy.body;
+    reason === 'context'
+      ? contextUpgradeBody(contextLimitLabel)
+      : reason === 'model' && lockedModelLabel
+        ? `${lockedModelLabel} needs Premium. Upgrade to unlock Medium and Large — Small (Fast) stays on Free.`
+        : copy.body;
 
   return (
     <div
