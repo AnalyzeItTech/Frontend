@@ -52,7 +52,7 @@ export function LayoutSwitcher({ projectId, currentLayout, onLoadLayout }: Props
       />
       <button
         type="button"
-        className="h-8 rounded-lg bg-[var(--coral)] px-2 text-xs text-white"
+        className="h-8 rounded-lg border border-[var(--border)] px-2 text-xs text-[var(--text-secondary)]"
         onClick={async () => {
           try {
             const created = await createNamedLayout(projectId, name, currentLayout);

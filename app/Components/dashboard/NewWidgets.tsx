@@ -9,6 +9,7 @@
 import React from 'react';
 import { IconTrash } from '@tabler/icons-react';
 import type { ProvenanceInfo, WidgetSpec } from '../../lib/chatApi';
+import { provenanceBadge, provenanceBadgeText } from '../../lib/dashboardView.mjs';
 
 const PALETTE = ['#EA8069', '#3D6FE0', '#3FB68C', '#D4A017', '#79A8DF', '#EF6C6C', '#5B8CF5', '#9EBB9A'];
 
@@ -30,24 +31,11 @@ function CitationFooter({
   provenance?: ProvenanceInfo;
   freshness?: string;
 }) {
-  if (!provenance && !freshness) return null;
-  const kind = provenance?.kind;
-  const label =
-    kind === 'live_api' ? 'Live API' : kind === 'verified_db' ? 'Verified DB' : 'Synthesized AI';
+  const badge = provenanceBadge({ provenance, freshness });
+  if (!badge) return null;
   return (
-    <div className="mt-3 pt-2.5 border-t border-[#4A4238]/10 dark:border-[#3A3430] flex items-center justify-between text-[11px] font-sans text-[#4A4238]/60 dark:text-[#91867E]">
-      {provenance ? (
-        <span className="inline-flex items-center gap-1.5 truncate">
-          <span className="font-medium">{label}</span>
-          <span className="opacity-40">·</span>
-          <span className="truncate max-w-[140px]">{provenance.source}</span>
-        </span>
-      ) : (
-        <span />
-      )}
-      <span className="text-[10px] flex-shrink-0">
-        {freshness || (kind === 'synthetic_ai' || !kind ? 'Preview' : 'Live')}
-      </span>
+    <div className="mt-3 pt-2.5 border-t border-[#4A4238]/10 dark:border-[#3A3430] text-[11px] font-sans text-[#4A4238]/60 dark:text-[#91867E]">
+      <span className="truncate">{provenanceBadgeText(badge)}</span>
     </div>
   );
 }
