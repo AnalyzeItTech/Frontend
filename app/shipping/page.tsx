@@ -3,13 +3,13 @@ import { LegalLayout, LegalSection } from '../Components/legal/LegalLayout';
 import { EMAIL } from '../lib/legalEntity';
 
 export const metadata: Metadata = {
-  title: 'Shipping & Delivery Policy — AnalyzeIt',
-  description: 'AnalyzeIt is digital SaaS — no physical shipping. Delivery is account access.',
+  title: 'Shipping and Exchange — AnalyzeIt',
+  description: 'AnalyzeIt is digital SaaS — no physical shipping or exchange. Delivery is account access.',
 };
 
 export default function ShippingPage() {
   return (
-    <LegalLayout title="Shipping & Delivery Policy" updated="September 11, 2026">
+    <LegalLayout title="Shipping and Exchange" updated="September 11, 2026">
       <p>
         AnalyzeIt is a digital software-as-a-service product. There is no physical shipping and no
         shipping charge.
@@ -34,7 +34,18 @@ export default function ShippingPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="3. Delivery address">
+      <LegalSection title="3. Exchange">
+        <p>
+          There is nothing physical to exchange. Changing plans is done from Billing: you can move
+          between Free, Premium, and other listed plans, and cancellation follows the{' '}
+          <a href="/refund" className="text-[#E3836C] hover:underline">
+            Cancellation and Refund
+          </a>{' '}
+          policy.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="4. Delivery address">
         <p>
           The delivery address is the email on your AnalyzeIt account. Keep it accurate so we can
           reach you about billing and access.

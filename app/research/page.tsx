@@ -1553,13 +1553,15 @@ function ChatInner() {
             )}
 
             {showPostRunAd && !adsFree && (
-              <div className="mx-4 mb-3 sm:mx-6">
-                <AdSlot
-                  placement="post-run"
-                  enabled
-                  onLoaded={onPostRunAdLoaded}
-                  onDismiss={dismissPostRunAd}
-                />
+              <div className="pointer-events-none absolute inset-x-4 bottom-28 z-30 sm:inset-x-6">
+                <div className="pointer-events-auto">
+                  <AdSlot
+                    placement="post-run"
+                    enabled
+                    onLoaded={onPostRunAdLoaded}
+                    onDismiss={dismissPostRunAd}
+                  />
+                </div>
               </div>
             )}
 

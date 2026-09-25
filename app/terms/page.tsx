@@ -3,15 +3,15 @@ import { LegalLayout, LegalSection } from '../Components/legal/LegalLayout';
 import { EMAIL, JURISDICTION, LEGAL_NAME } from '../lib/legalEntity';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — AnalyzeIt',
-  description: 'The terms that govern your AnalyzeIt account and use of the workspace.',
+  title: 'Terms and Conditions — AnalyzeIt',
+  description: 'The terms and conditions that govern your AnalyzeIt account and use of the workspace.',
 };
 
 export default function TermsPage() {
   return (
-    <LegalLayout title="Terms of Service" updated="September 11, 2026">
+    <LegalLayout title="Terms and Conditions" updated="September 11, 2026">
       <p>
-        These Terms of Service (“Terms”) are an agreement between you and {LEGAL_NAME} for use of
+        These Terms and Conditions (“Terms”) are an agreement between you and {LEGAL_NAME} for use of
         the AnalyzeIt website, applications, and related services (the “Service”). By creating an
         account or signing in, you agree to these Terms, the{' '}
         <a href="/privacy" className="text-[#E3836C] hover:underline">
@@ -58,7 +58,7 @@ export default function TermsPage() {
           . Paid upgrades are processed by Razorpay. Charges are in Indian Rupees (INR); USD amounts on
           the site are for reference only. Taxes may apply. See the{' '}
           <a href="/refund" className="text-[#E3836C] hover:underline">
-            Refund &amp; Cancellation Policy
+            Cancellation and Refund
           </a>{' '}
           for cancellations and refunds. We may change plan features or prices with notice for
           subsequent billing periods.

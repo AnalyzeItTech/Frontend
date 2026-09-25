@@ -63,6 +63,26 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
       {
+        source: '/terms-and-conditions',
+        destination: '/terms',
+        permanent: false,
+      },
+      {
+        source: '/cancellation-and-refund',
+        destination: '/refund',
+        permanent: false,
+      },
+      {
+        source: '/shipping-and-exchange',
+        destination: '/shipping',
+        permanent: false,
+      },
+      {
+        source: '/contact-us',
+        destination: '/contact',
+        permanent: false,
+      },
+      {
         source: '/pricing',
         destination: '/products',
         permanent: false,

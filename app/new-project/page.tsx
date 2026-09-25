@@ -1191,7 +1191,7 @@ function NewProjectContent() {
 
   return (
     <div
-      className={`flex h-dvh max-h-dvh flex-col overflow-hidden transition-colors duration-500 ${
+      className={`relative flex h-dvh max-h-dvh flex-col overflow-hidden transition-colors duration-500 ${
         isIncognito
           ? 'bg-[#100D16] text-[#E7E2EE]'
           : 'bg-[var(--bg)] text-[var(--text-primary)]'

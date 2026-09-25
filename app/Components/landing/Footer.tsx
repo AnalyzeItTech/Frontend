@@ -58,12 +58,12 @@ export const Footer: React.FC = () => {
           <ul className="space-y-2 text-[#4A4238]/80 dark:text-[#C5B9AE]">
             <li><Link href="/#faq" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">FAQ</Link></li>
             <li><Link href="/security" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Security</Link></li>
-            <li><Link href="/terms" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Terms</Link></li>
-            <li><Link href="/privacy" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Privacy</Link></li>
-            <li><Link href="/refund" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Refund</Link></li>
-            <li><Link href="/shipping" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Shipping</Link></li>
+            <li><Link href="/terms" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Terms and Conditions</Link></li>
+            <li><Link href="/privacy" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Privacy Policy</Link></li>
+            <li><Link href="/refund" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Cancellation and Refund</Link></li>
+            <li><Link href="/shipping" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Shipping and Exchange</Link></li>
             <li><Link href="/products" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Products</Link></li>
-            <li><Link href="/contact" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Contact</Link></li>
+            <li><Link href="/contact" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Contact Us</Link></li>
             <li><Link href="/cookies" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Cookies</Link></li>
           </ul>
         </div>

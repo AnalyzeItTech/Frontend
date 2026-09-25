@@ -3,13 +3,13 @@ import { LegalLayout, LegalSection } from '../Components/legal/LegalLayout';
 import { EMAIL } from '../lib/legalEntity';
 
 export const metadata: Metadata = {
-  title: 'Refund & Cancellation Policy — AnalyzeIt',
-  description: 'Cancellation, refund windows, and failed-renewal grace for AnalyzeIt paid plans.',
+  title: 'Cancellation and Refund — AnalyzeIt',
+  description: 'Cancellation and refund windows, and failed-renewal grace for AnalyzeIt paid plans.',
 };
 
 export default function RefundPage() {
   return (
-    <LegalLayout title="Refund & Cancellation Policy" updated="September 11, 2026">
+    <LegalLayout title="Cancellation and Refund" updated="September 11, 2026">
       <p>
         Paid AnalyzeIt plans are billed monthly through Razorpay in INR. This policy is part of the{' '}
         <a href="/terms" className="text-[#E3836C] hover:underline">

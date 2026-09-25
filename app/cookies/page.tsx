@@ -39,7 +39,7 @@ export default function CookiesPage() {
         <p>
           Free-tier research may load Google AdSense units after a run completes and once per
           session on research surfaces. AdSense may set third-party cookies or similar storage
-          when those units load. Premium and Premium Plus do not load AdSense at all
+          when those units load. Premium and VIP do not load AdSense at all
           (<code>ads_free</code>). You can also use browser controls or an ad blocker.
         </p>
         <p>

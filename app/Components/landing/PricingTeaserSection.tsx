@@ -30,7 +30,8 @@ const FREE_TIER: TierCard = {
     '1× daily tokens · smaller model',
     'Sponsored units after research runs',
     '7-day artifact retention',
-    '250M context retention tokens',
+    '50,000 tokens/month usage',
+    '250M context retention (memory)',
   ],
   cta: 'Create a free account',
   href: '/login?tab=register',
@@ -47,7 +48,8 @@ const PAID_BASE: Omit<TierCard, 'price' | 'currencyNote'>[] = [
       'Everything in Free',
       'Better model + 3× tokens',
       '15 projects · 30 widgets',
-      '500M context retention tokens',
+      '10M tokens/month usage',
+      '500M context retention (memory)',
       'Ad-free research',
       'Personal link: yourname.analyzeit.in',
       '30-day artifact retention',
@@ -57,21 +59,22 @@ const PAID_BASE: Omit<TierCard, 'price' | 'currencyNote'>[] = [
     href: '/login?next=/billing',
   },
   {
-    name: 'Premium Plus',
+    name: 'VIP',
     planId: 'premium_plus',
     period: '/mo',
-    tagline: '6× tokens, longer retention, more concurrent projects.',
+    tagline: '6× tokens, 50M monthly usage, more concurrent projects.',
     features: [
       'Everything in Premium',
       '6× tokens · large model',
+      '50M tokens/month usage',
       '10 concurrent projects · 90-day artifacts',
-      '1B context retention · account-wide memory',
+      '1B context retention (memory) · account-wide memory',
       'Ad-free + personal dashboard link',
       'Deep · orchestrated context (RLM-style inspect)',
       'Priority queue when the agent is busy',
       'Monthly billing after you sign in',
     ],
-    cta: 'Sign in to go Plus',
+    cta: 'Sign in to go VIP',
     href: '/login?next=/billing',
   },
 ];
@@ -124,7 +127,7 @@ export const PricingTeaserSection: React.FC = () => {
   const tiers: TierCard[] = [
     FREE_TIER,
     ...PAID_BASE.map((base) => {
-      const fallbackUsd = base.planId === 'premium_plus' ? 100 : 50;
+      const fallbackUsd = base.planId === 'premium_plus' ? 49 : 19;
       const row = base.planId ? quote?.plans?.[base.planId] : undefined;
       return {
         ...base,

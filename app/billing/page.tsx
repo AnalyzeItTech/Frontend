@@ -10,6 +10,7 @@ import {
   coerceMoney,
   formatMoney,
   getBillingQuote,
+  getEntitlements,
   isValidMoney,
   openRazorpayCheckout,
   startCheckout,
@@ -26,24 +27,26 @@ const PLAN_COPY: Record<
 > = {
   premium: {
     name: 'Premium',
-    usdList: 50,
+    usdList: 19,
     cadence: 'Billed monthly',
     perks: [
       'Better model + 3× daily tokens',
       '15 projects · 30 widgets',
-      '500M context retention tokens',
+      '10M tokens/month usage',
+      '500M context retention (memory)',
       'Ad-free · personal dashboard link',
       '30-day artifact retention',
     ],
   },
   premium_plus: {
-    name: 'Premium Plus',
-    usdList: 100,
+    name: 'VIP',
+    usdList: 49,
     cadence: 'Billed monthly',
     perks: [
       'Large model + 6× daily tokens',
       '10 concurrent projects · 90-day artifacts',
-      '1B context retention · account-wide memory',
+      '50M tokens/month usage',
+      '1B context retention (memory) · account-wide memory',
       'Ad-free · personal dashboard link',
       'Priority queue when the agent is busy',
     ],
@@ -74,6 +77,7 @@ export default function BillingPage() {
   const [reviewPlan, setReviewPlan] = useState<PlanId | null>(null);
   const [me, setMe] = useState<UserProfile | null>(null);
   const [trialNotice, setTrialNotice] = useState<string | null>(null);
+  const [usage, setUsage] = useState<{ used: number; cap: number; near: boolean; exhausted: boolean } | null>(null);
 
   const loadQuote = () => {
     if (!getStoredToken()) {
@@ -98,6 +102,22 @@ export default function BillingPage() {
     void fetchMe()
       .then((user) => setMe(user))
       .catch(() => setMe(null));
+    void getEntitlements()
+      .then((snap) => {
+        const cap = Number(snap.token_cap_monthly || 0);
+        const used = Number(snap.usage_tokens_used || 0);
+        if (!Number.isFinite(cap) || cap <= 0) {
+          setUsage(null);
+          return;
+        }
+        setUsage({
+          used,
+          cap,
+          near: Boolean(snap.usage_tokens_near_cap),
+          exhausted: Boolean(snap.usage_tokens_exhausted),
+        });
+      })
+      .catch(() => setUsage(null));
   };
 
   useEffect(() => {
@@ -282,6 +302,30 @@ export default function BillingPage() {
             </button>
           </div>
         ) : null}
+        {usage ? (
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="font-medium text-[var(--text,#3A342D)]">Monthly usage</span>
+              <span className="font-mono text-xs text-[var(--text-muted)]">
+                {usage.used.toLocaleString()} / {usage.cap.toLocaleString()} tokens
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
+              <div
+                className="h-full rounded-full bg-[#E3836C]"
+                style={{ width: `${Math.min(100, (usage.used / usage.cap) * 100)}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
+              {usage.exhausted
+                ? 'You are at this month’s token cap. This is a warning only — chat is not stopped while token logging is still incomplete.'
+                : usage.near
+                  ? 'You are past 90% of this month’s token cap. Warning only for now.'
+                  : 'Input and output tokens this calendar month. Separate from context retention. Warning only until metering is complete.'}
+            </p>
+          </section>
+        ) : null}
+
         {error ? (
           <p role="alert" className="rounded-xl border border-[#C45B4A]/30 bg-[#C45B4A]/10 px-3 py-2 text-sm text-[#9B4D3B]">
             {error}

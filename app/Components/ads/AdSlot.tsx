@@ -110,9 +110,9 @@ export function AdSlot({ placement, enabled, onLoaded, onDismiss, className = ''
   };
 
   const finishGone = () => {
+    setPhase('gone');
     if (finishedRef.current) return;
     finishedRef.current = true;
-    setPhase('gone');
     // Callers unlock gates via onDismiss when there is nothing to show.
     onDismissRef.current?.();
   };
@@ -138,13 +138,14 @@ export function AdSlot({ placement, enabled, onLoaded, onDismiss, className = ''
     let observer: MutationObserver | undefined;
 
     const tryFill = () => {
-      if (cancelled || finishedRef.current) return false;
+      if (cancelled) return false;
       const status = (insRef.current?.getAttribute('data-ad-status') || '').toLowerCase();
-      if (status === 'unfilled') {
+      if (status === 'unfilled' || (status === 'filled' && !adLooksFilled(insRef.current))) {
         finishGone();
         return false;
       }
-      if (adLooksFilled(insRef.current)) {
+      // Only a confirmed fill is shown. An iframe alone is not inventory.
+      if (status === 'filled' && adLooksFilled(insRef.current)) {
         setPhase('filled');
         if (!isVideo) finishOk();
         return true;

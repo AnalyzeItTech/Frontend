@@ -4,13 +4,13 @@ import { LegalLayout, LegalSection } from '../Components/legal/LegalLayout';
 import { EMAIL, GSTIN, LEGAL_NAME, PHONE, REGISTERED_ADDRESS } from '../lib/legalEntity';
 
 export const metadata: Metadata = {
-  title: 'Contact — AnalyzeIt',
-  description: 'Contact AnalyzeIt for support, privacy, security, and legal questions.',
+  title: 'Contact Us — AnalyzeIt',
+  description: 'Contact us for support, privacy, security, and legal questions.',
 };
 
 export default function ContactPage() {
   return (
-    <LegalLayout title="Contact" updated="September 11, 2026">
+    <LegalLayout title="Contact Us" updated="September 11, 2026">
       <p>
         We are glad to hear from you. Product features such as chat still require an account;
         these inboxes are for humans.

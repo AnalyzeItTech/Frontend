@@ -5,12 +5,12 @@ import { Footer } from '../landing/Footer';
 import { OperatorBlock } from './OperatorBlock';
 
 export const LEGAL_NAV = [
-  { href: '/terms', label: 'Terms' },
-  { href: '/privacy', label: 'Privacy' },
-  { href: '/refund', label: 'Refund' },
-  { href: '/shipping', label: 'Shipping' },
+  { href: '/terms', label: 'Terms and Conditions' },
+  { href: '/privacy', label: 'Privacy Policy' },
+  { href: '/refund', label: 'Cancellation and Refund' },
+  { href: '/shipping', label: 'Shipping and Exchange' },
   { href: '/products', label: 'Products' },
-  { href: '/contact', label: 'Contact' },
+  { href: '/contact', label: 'Contact Us' },
   { href: '/security', label: 'Security' },
   { href: '/cookies', label: 'Cookies' },
   { href: '/acceptable-use', label: 'Acceptable use' },
