@@ -13,24 +13,39 @@
  *                                softFail by itself (pipeline can still proceed).
  *   PIPELINE_INSUFFICIENT_DATA — pipeline softFail when recoverable is not
  *                                explicitly false. Not a context wall: do not
- *                                claim a client-context soft-truncate.
+ *                                quote Free context retention for this code alone.
  *                                upgrade_required without a truncate opens a
  *                                capacity sheet.
  *
  * INPUT_TOO_LARGE is a separate Backend HTTP 413 (message over ~1.5M), not the
- * Free context soft-truncate. Quota codes stay on the quota modal path.
+ * Free context-retention wall. Quota codes stay on the quota modal path.
  *
- * Describes the Free ceiling. Does not raise it or truncate on the client.
+ * Listed retention is memory. This module does not truncate on the client.
  */
 
 /**
- * Free client context / retention. Copy only — the client does not enforce a cap.
- * Product truth is 10M. The retired 20k character soft-cap is not the Free story.
+ * Listed context retention (memory), in tokens.
+ * Free is the fallback when entitlements omit a usable ceiling.
  */
-export const FREE_CLIENT_CONTEXT_LIMIT = 10_000_000;
+export const CONTEXT_RETENTION_TOKENS = {
+  free: 10_000_000,
+  premium: 500_000_000,
+  premium_plus: 1_000_000_000,
+};
 
-/** Entitlement / tier fields that quote the Free client-context ceiling. */
-const CONTEXT_LIMIT_KEYS = ['max_client_context_chars', 'client_context_limit'];
+/** Free retention ceiling. Copy only — the client does not enforce a cap. */
+export const FREE_CLIENT_CONTEXT_LIMIT = CONTEXT_RETENTION_TOKENS.free;
+
+/**
+ * Prefer live `context_retention_tokens`. Older ceiling fields are fallbacks
+ * and only when they are at least 1M, so a retired 20k character cap is never quoted.
+ */
+const CONTEXT_LIMIT_KEYS = [
+  'context_retention_tokens',
+  'contextRetentionTokens',
+  'max_client_context_chars',
+  'client_context_limit',
+];
 
 export const CLIENT_CONTEXT_TRUNCATED = 'CLIENT_CONTEXT_TRUNCATED';
 export const PIPELINE_INSUFFICIENT_DATA = 'PIPELINE_INSUFFICIENT_DATA';
@@ -41,20 +56,35 @@ export const PIPELINE_FAIL_TEXT = 'Pipeline could not complete with available da
 const QUOTA_CODES = new Set(['TOKEN_BUDGET', 'LLM_MONTHLY_QUOTA', 'LLM_QUOTA', 'LLM_RUNS']);
 
 /**
+ * @param {number} tokens
+ */
+export function formatContextRetention(tokens) {
+  const n = Number(tokens);
+  if (!Number.isFinite(n) || n <= 0) return formatContextRetention(CONTEXT_RETENTION_TOKENS.free);
+  if (n % 1_000_000_000 === 0) return `${n / 1_000_000_000}B`;
+  if (n % 1_000_000 === 0) return `${n / 1_000_000}M`;
+  if (n >= 1_000_000) {
+    const v = n / 1_000_000;
+    const rounded = Math.round(v * 10) / 10;
+    return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}M`;
+  }
+  return n.toLocaleString('en-US');
+}
+
+/**
  * @param {number} [limit]
  * @returns {string}
  */
 export function formatFreeContextLimit(limit = FREE_CLIENT_CONTEXT_LIMIT) {
   const n = Number(limit);
   const value = Number.isFinite(n) && n >= 1_000_000 ? n : FREE_CLIENT_CONTEXT_LIMIT;
-  const millions = value / 1_000_000;
-  return Number.isInteger(millions) ? `${millions}M` : `${Number(millions.toFixed(1))}M`;
+  return formatContextRetention(value);
 }
 
 /**
- * Quote a client-context ceiling from an entitlements or tier snapshot.
- * Missing values, and anything below 1M (including the retired 20k cap),
- * fall back to Free 10M. Never invents 20k.
+ * Quote retention from an entitlements or tier snapshot.
+ * `context_retention_tokens` wins. Missing values, and anything below 1M
+ * (including the retired 20k character cap), fall back to Free 10M.
  *
  * @param {unknown} source
  * @returns {string}
@@ -62,6 +92,21 @@ export function formatFreeContextLimit(limit = FREE_CLIENT_CONTEXT_LIMIT) {
 export function quoteFreeContextLimit(source) {
   const found = findContextLimit(source, 0);
   return formatFreeContextLimit(found ?? FREE_CLIENT_CONTEXT_LIMIT);
+}
+
+/**
+ * Raw live retention when the entitlements snapshot includes it.
+ * Does not treat `max_client_context_chars` as retention.
+ * @param {unknown} snap
+ * @returns {number | null}
+ */
+export function retentionTokensFromEntitlements(snap) {
+  if (!snap || typeof snap !== 'object') return null;
+  const rec = /** @type {Record<string, unknown>} */ (snap);
+  const raw = rec.context_retention_tokens ?? rec.contextRetentionTokens;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return n;
+  return null;
 }
 
 /**
@@ -100,17 +145,29 @@ function readLimitNumber(value) {
 }
 
 /**
+ * Context sheet only. Names listed Premium and VIP retention.
  * @param {string} [limitLabel]
  */
 export function contextUpgradeBody(limitLabel = formatFreeContextLimit()) {
   const limit = limitLabel || formatFreeContextLimit();
-  return `Free soft-truncates client context at ${limit}, so this request hit a context wall. We do not invent the earlier text that was cut. Premium keeps a larger client context and can compress or recursively inspect (RLM) longer dossiers.`;
+  const premium = formatContextRetention(CONTEXT_RETENTION_TOKENS.premium);
+  const vip = formatContextRetention(CONTEXT_RETENTION_TOKENS.premium_plus);
+  return `Free context retention (memory) is ${limit}, so this request hit a context wall. We do not invent the earlier text that was cut. Premium context retention (memory) is ${premium}; VIP is ${vip}, with compression and recursive inspect (RLM).`;
 }
 
-export const CONTEXT_UPGRADE_COPY = {
-  title: 'Free hit a context limit',
-  body: contextUpgradeBody(),
-};
+/**
+ * @param {number | null | undefined} [freeTokens] live entitlement, else listed Free 10M
+ */
+export function contextUpgradeCopy(freeTokens) {
+  const label =
+    freeTokens == null ? formatFreeContextLimit() : formatFreeContextLimit(freeTokens);
+  return {
+    title: 'Free hit a context limit',
+    body: contextUpgradeBody(label),
+  };
+}
+
+export const CONTEXT_UPGRADE_COPY = contextUpgradeCopy();
 
 /** Pipeline / upgrade_required without a truncate. Not the Free context-limit sheet. */
 export const CAPACITY_UPGRADE_COPY = {
@@ -250,7 +307,7 @@ export function isQuotaCode(code) {
  * @property {boolean} openUpgrade
  * @property {'context' | 'capacity'} [upgradeReason]
  *   context — Free context-limit sheet (truncate / CLIENT_CONTEXT_TRUNCATED only).
- *   capacity — upgrade_required without a truncate. Not the soft-truncate sheet.
+ *   capacity — upgrade_required without a truncate. Not the context-retention sheet.
  * @property {boolean} softFail
  * @property {string} [message]
  */
@@ -410,20 +467,20 @@ export function answerIsOnlyPipelineFail(text) {
 }
 
 /**
- * Honest soft-fail copy. Does not claim missing context was recovered.
- * Pipeline-only copy does not quote a Free context ceiling.
+ * Honest copy. Pipeline-only text does not quote a Free retention ceiling.
  * @param {ContextWallSignal} signal
- * @param {string} [limitLabel] Quoted Free ceiling. Defaults to 10M.
+ * @param {string} [limitLabel] Quoted retention label. Defaults to Free 10M.
  */
 export function contextWallSummary(signal, limitLabel = formatFreeContextLimit()) {
   const limit = limitLabel || formatFreeContextLimit();
+  const paid = `Premium context retention (memory) is ${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium)}; VIP is ${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium_plus)}, with compression and recursive inspect (RLM).`;
   if (signal.truncated && signal.pipeline) {
-    return `Free soft-truncated client context at ${limit}, and the research pipeline could not complete with the data that remained. The missing earlier text was not invented. Retry with a shorter paste, or upgrade for a larger client context with compression and recursive inspect (RLM).`;
+    return `Free context retention (memory) is ${limit}, and the research pipeline could not complete with the data that remained. The missing earlier text was not invented. ${paid}`;
   }
   if (signal.truncated) {
-    return `Free soft-truncated this thread’s client context at ${limit}. Text past that limit was not sent, and the missing part was not invented. Retry with a shorter paste, or upgrade for a larger client context with compression and recursive inspect (RLM).`;
+    return `Free context retention (memory) is ${limit}. Text past that limit was not sent, and the missing part was not invented. ${paid}`;
   }
-  // Pipeline-only must not claim a Free context soft-truncate.
+  // Pipeline-only must not claim a Free context limit.
   if (signal.pipeline) {
     return PIPELINE_FAIL_TEXT;
   }
