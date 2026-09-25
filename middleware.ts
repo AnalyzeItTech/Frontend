@@ -1,7 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-
-const AUTH_COOKIE = 'analyzeit_auth';
-const APEX_HOSTS = new Set(['analyzeit.in', 'www.analyzeit.in', 'localhost', '127.0.0.1']);
+import { AUTH_COOKIE, SESSION_COOKIE, decideHostRequest, publicHost } from './app/lib/personalHost.mjs';
 
 const PROTECTED_PREFIXES = [
   '/research',
@@ -14,51 +12,31 @@ const PROTECTED_PREFIXES = [
   '/new-project',
 ];
 
-function extractSubdomain(hostHeader: string | null): string | null {
-  if (!hostHeader) return null;
-  const host = hostHeader.split(':')[0].toLowerCase();
-  if (APEX_HOSTS.has(host) || host.endsWith('.vercel.app') || host.endsWith('.localhost')) {
-    // Allow local testing via foo.localhost
-    if (host.endsWith('.localhost') && host !== 'localhost') {
-      const sub = host.slice(0, -'.localhost'.length);
-      if (sub && sub !== 'www') return sub;
-    }
-    return null;
-  }
-  if (host.endsWith('.analyzeit.in')) {
-    const sub = host.slice(0, -'.analyzeit.in'.length);
-    if (sub && sub !== 'www' && sub !== 'app' && !sub.includes('.')) return sub;
-  }
-  return null;
+function hasSession(request: NextRequest): boolean {
+  if (request.cookies.get(AUTH_COOKIE)?.value === '1') return true;
+  return Boolean(request.cookies.get(SESSION_COOKIE)?.value);
 }
 
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  const host = (request.headers.get('host') || '').split(':')[0].toLowerCase();
+  const hostHeader = publicHost(request.headers.get('host'), request.headers.get('x-forwarded-host'));
+  const decision = decideHostRequest({
+    hostHeader,
+    pathname,
+    search,
+    protocol: request.nextUrl.protocol,
+    sessionCookie: request.cookies.get(SESSION_COOKIE)?.value || '',
+  });
 
-  // Keep auth cookies + sessions on one host (apex ↔ www was bouncing signed-in users).
-  if (host === 'analyzeit.in') {
-    const url = request.nextUrl.clone();
-    url.hostname = 'www.analyzeit.in';
-    return NextResponse.redirect(url, 308);
+  if (decision.action === 'redirect' && decision.url) {
+    return NextResponse.redirect(decision.url, decision.status);
   }
 
-  const subdomain = extractSubdomain(request.headers.get('host'));
-
-  // Personal dashboard bookmark: rewrite slug.analyzeit.in → /dashboard?slug=
-  if (subdomain && (pathname === '/' || pathname === '/dashboard')) {
+  if (decision.action === 'rewrite' && decision.slug) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
-    url.searchParams.set('slug', subdomain);
-    const rewritten = NextResponse.rewrite(url);
-    if (request.cookies.get(AUTH_COOKIE)?.value !== '1') {
-      const login = request.nextUrl.clone();
-      login.pathname = '/login';
-      login.search = '';
-      login.searchParams.set('next', `/dashboard?slug=${encodeURIComponent(subdomain)}`);
-      return NextResponse.redirect(login);
-    }
-    return rewritten;
+    url.searchParams.set('slug', decision.slug);
+    return NextResponse.rewrite(url);
   }
 
   // Case-sensitive legacy path only — avoids Vercel next.config case-insensitive loop.
@@ -74,7 +52,7 @@ export function middleware(request: NextRequest) {
       pathname.toLowerCase().startsWith(`${prefix.toLowerCase()}/`),
   );
 
-  if (needsAuth && request.cookies.get(AUTH_COOKIE)?.value !== '1') {
+  if (needsAuth && !hasSession(request)) {
     const login = request.nextUrl.clone();
     login.pathname = '/login';
     login.search = '';
@@ -88,6 +66,9 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/',
+    '/login',
+    '/login/:path*',
+    '/auth/:path*',
     '/research/:path*',
     '/research',
     '/dashboard/:path*',
@@ -106,5 +87,5 @@ export const config = {
     '/billing',
     '/new-project/:path*',
     '/new-project',
-    ],
+  ],
 };

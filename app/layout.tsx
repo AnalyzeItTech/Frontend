@@ -5,6 +5,7 @@ import { GlobeProvider } from "./Components/globe/GlobeProvider";
 import { SmoothScrollProvider } from "./Components/ui/SmoothScrollProvider";
 import { SkipToContent } from "./Components/ui/SkipToContent";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "./lib/site";
+import { buildSessionBootScript } from "./lib/personalHost.mjs";
 import { Analytics } from "@vercel/analytics/next";
 
 /** Public AdSense publisher ID — omit meta when unset (no hardcoded publisher). */
@@ -132,7 +133,7 @@ export default function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var host=location.hostname.toLowerCase();var domain=(host==='analyzeit.in'||host.endsWith('.analyzeit.in'))?'; Domain=.analyzeit.in':'';var secure=location.protocol==='https:'?'; Secure':'';if(localStorage.getItem('analyzeit_token')){document.cookie='analyzeit_auth=1; Path=/; SameSite=Lax; Max-Age=2592000'+domain+secure}else{document.cookie='analyzeit_auth=; Path=/; SameSite=Lax; Max-Age=0'+domain+secure}var t=localStorage.getItem('analyzeit-theme');if(t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');document.documentElement.setAttribute('data-theme','dark')}else{document.documentElement.setAttribute('data-theme','light')}}catch(e){}`,
+            __html: buildSessionBootScript(),
           }}
         />
         <script
