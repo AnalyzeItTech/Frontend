@@ -154,6 +154,13 @@ export function AppNav({
           href={LOGO_HREF}
           aria-label="AnalyzeIt home"
           className="mr-3 flex shrink-0 items-center gap-2 sm:mr-5"
+          onClick={(event) => {
+            if (window.location.pathname !== '/') return;
+            event.preventDefault();
+            if (window.location.hash) {
+              window.history.replaceState(null, '', LOGO_HREF);
+            }
+          }}
         >
           <Image
             src="/logo.png"
