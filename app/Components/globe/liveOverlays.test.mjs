@@ -152,7 +152,7 @@ describe('bug #7 — source invariants in globe/page.tsx', () => {
   it('uses buildLiveOverlays and selectionLoadsPlaceContext helpers', () => {
     assert.ok(pageSource.includes('buildLiveOverlays('));
     assert.ok(pageSource.includes('selectionLoadsPlaceContext('));
-    assert.ok(pageSource.includes('layerCountLabel('));
+    assert.ok(pageSource.includes('layerHealthView('));
     assert.ok(pageSource.includes('globeAskPrompt('));
     assert.ok(pageSource.includes('mergeLayerRefresh('));
     assert.ok(!pageSource.includes('weather:selected'));
