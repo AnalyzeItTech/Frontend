@@ -15,6 +15,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { AppShell } from '../Components/app/AppShell';
+import { useTheme } from '../Components/ui/ThemeProvider';
 import { PlaceContextCard } from '../Components/map/PlaceContextCard';
 import { EventDetailCard } from '../Components/map/EventDetailCard';
 import { GlobeCanvas } from '../Components/globe/GlobeCanvas';
@@ -27,7 +28,7 @@ import {
   mergeLayerRefresh,
   strongestRows,
 } from '../Components/globe/dataQuality.mjs';
-import { layerHealthView } from '../Components/globe/globeVisual.mjs';
+import { globeStage, layerHealthView } from '../Components/globe/globeVisual.mjs';
 import {
   buildLiveOverlays,
   selectionLoadsPlaceContext,
@@ -158,6 +159,11 @@ function kpis(ctx: PlaceContext | null | undefined) {
 
 export default function GlobePage() {
   const router = useRouter();
+  const { theme } = useTheme();
+  const globePageStage = globeStage({
+    variant: 'full',
+    appTheme: theme === 'dark' ? 'dark' : 'light',
+  });
   const {
     flyToLatLon,
     camera,
@@ -870,7 +876,7 @@ export default function GlobePage() {
           className="z-10 cursor-col-resize bg-[var(--border)] hover:bg-[#EA8069]"
         />
 
-        <section className="relative min-w-0 bg-[#07090c]">
+        <section className={`${globePageStage.pageClass} relative min-w-0`}>
           <div className="absolute inset-0">
             <GlobeCanvas variant="full" />
           </div>
