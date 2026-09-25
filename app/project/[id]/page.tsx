@@ -147,6 +147,11 @@ export default function ProjectHomePage() {
           errorTitle="Couldn’t open this project"
           errorBody={errorBody}
           onRetry={() => {
+            if (!projectId) {
+              setStatus('error');
+              setErrorBody('This address does not include a project id.');
+              return;
+            }
             setStatus('loading');
             setErrorBody(undefined);
             setReloadKey((key) => key + 1);
