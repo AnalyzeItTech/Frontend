@@ -47,11 +47,25 @@ export interface UserProfile {
   name: string;
   preferences?: Record<string, unknown>;
   created_at?: string;
+  /** Subscription tier from `/me`: `free`, `premium`, or `premium_plus`. */
   tier?: string;
-  trial_status?: string;
-  trial_ends_at?: string | null;
-  trial_used?: boolean;
   entitlements?: Record<string, unknown>;
+}
+
+/**
+ * Plan name for UI. Uses the account tier only.
+ * A leftover `free_trial` value is shown as Free — trial is not a plan.
+ */
+export function planTierLabel(raw?: string | null): string {
+  const tier = (raw || 'free').toLowerCase();
+  if (tier === 'free' || tier === 'free_trial') return 'free';
+  return tier.replace(/_/g, ' ');
+}
+
+/** Paid Razorpay plans. Anything else (including a leftover trial tier) is Free. */
+export function isPaidPlan(raw?: string | null): boolean {
+  const tier = (raw || '').toLowerCase();
+  return tier === 'premium' || tier === 'premium_plus';
 }
 
 export interface AuthResult {

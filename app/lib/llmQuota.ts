@@ -142,7 +142,7 @@ export function parseLlmQuota(snap: Record<string, unknown> | null | undefined):
     nearCap: isNearCap(tokenRemaining, tokenLimit),
     exhausted,
     unlimited: false,
-    show: tier === 'free' || tier === 'free_trial',
+    show: tier === 'free',
     unit: 'tokens',
   };
 }

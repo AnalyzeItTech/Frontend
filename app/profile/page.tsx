@@ -11,6 +11,8 @@ import {
   changePassword,
   fetchMe,
   getStoredToken,
+  isPaidPlan,
+  planTierLabel,
   updateUserProfile,
   type UserProfile,
 } from '../lib/auth';
@@ -166,7 +168,7 @@ function ProfileInner() {
                   <h2 className="text-sm font-medium">Account</h2>
                   <p className="text-xs text-[var(--text-muted)]">{user.email}</p>
                 </div>
-                <span className="tier-badge">{tier.replace(/_/g, ' ')}</span>
+                <span className="tier-badge">{planTierLabel(tier)}</span>
               </div>
               <form onSubmit={saveName} className="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <label className="flex-1 space-y-1.5">
@@ -290,7 +292,7 @@ function ProfileInner() {
                 </Link>
                 <button
                   type="button"
-                  disabled={busy || tier === 'free'}
+                  disabled={busy || !isPaidPlan(tier)}
                   className="btn-secondary text-xs disabled:opacity-40"
                   onClick={async () => {
                     setBusy(true);
