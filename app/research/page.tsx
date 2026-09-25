@@ -138,13 +138,18 @@ function labelZeroTokenTool(toolName: string): string {
   return ZERO_TOKEN_TOOL_LABELS[toolName] || toolName.replace(/_/g, ' ');
 }
 
-/** Only latch from an explicit zero_token_tool route — never agent-path hint_tools[0]. */
+/** Only latch from an explicit success route `zero_token_tool:<name>`. */
+function isZeroTokenSuccessRoute(route: string): boolean {
+  // Model may emit `zero_token_tool_failed:…` — never treat as success chrome.
+  if (route.startsWith('zero_token_tool_failed')) return false;
+  return /^zero_token_tool:(?!.*_failed)/.test(route);
+}
+
+/** Parse tool name from a success zero-token route — never agent-path hint_tools[0]. */
 function parseZeroTokenTool(route: unknown, _hintTools?: unknown): string | null {
-  if (typeof route === 'string' && route.startsWith('zero_token_tool:')) {
-    const name = route.slice('zero_token_tool:'.length).trim();
-    return name || null;
-  }
-  return null;
+  if (typeof route !== 'string' || !isZeroTokenSuccessRoute(route)) return null;
+  const name = route.slice('zero_token_tool:'.length).trim();
+  return name || null;
 }
 
 
@@ -161,7 +166,7 @@ function isZeroTokenFinal(payload: Record<string, unknown>): boolean {
   const usage = payload.usage as Record<string, unknown> | undefined;
   if (usage && usage.zero_token === true) return true;
   const route = payload.route;
-  return typeof route === 'string' && route.startsWith('zero_token_tool:');
+  return typeof route === 'string' && isZeroTokenSuccessRoute(route);
 }
 
 function formatBudgetCount(n: number): string {
