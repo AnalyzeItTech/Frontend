@@ -1,4 +1,71 @@
+import { dedupePointsByHost, normalizeLatLon, resolveArchivePoints } from './dataQuality.mjs';
 import type { SourcePoint, SourceTier } from './types';
+
+/**
+ * Default Globe "Sources" pins. Official agencies and statistical seats only.
+ * Newsrooms and publisher HQs stay in the lookup table so chat citations can
+ * still fly to an editorial seat — they are not painted as a live dataset.
+ */
+export const DEFAULT_SOURCE_PIN_HOSTS = new Set([
+  'usgs.gov',
+  'nasa.gov',
+  'noaa.gov',
+  'cdc.gov',
+  'nih.gov',
+  'who.int',
+  'un.org',
+  'worldbank.org',
+  'imf.org',
+  'oecd.org',
+  'ec.europa.eu',
+  'eurostat.ec.europa.eu',
+  'esa.int',
+  'copernicus.eu',
+  'data.gov',
+  'census.gov',
+  'bls.gov',
+  'bea.gov',
+  'eia.gov',
+  'federalreserve.gov',
+  'sec.gov',
+  'fda.gov',
+  'epa.gov',
+  'arxiv.org',
+  'ourworldindata.org',
+  'data.worldbank.org',
+  'fred.stlouisfed.org',
+  'openstreetmap.org',
+  'open-meteo.com',
+  'weather.gov',
+  'metoffice.gov.uk',
+  'ecmwf.int',
+  'ipcc.ch',
+  'unfccc.int',
+  'iea.org',
+  'irena.org',
+  'fao.org',
+  'wto.org',
+  'ilo.org',
+  'unesco.org',
+  'unicef.org',
+  'undp.org',
+  'reliefweb.int',
+  'sipri.org',
+  'gov.uk',
+  'ons.gov.uk',
+  'rbi.org.in',
+  'mospi.gov.in',
+  'data.gov.in',
+  'ibge.gov.br',
+  'abs.gov.au',
+  'stats.govt.nz',
+  'stat.go.jp',
+  'stats.gov.cn',
+  'destatis.de',
+  'insee.fr',
+  'ine.es',
+  'istat.it',
+]);
 
 /** Quick-jump hubs only — search still covers any place on Earth. */
 export const GLOBE_HUBS = [
@@ -45,7 +112,6 @@ const ENTRIES: CatalogEntry[] = [
   { host: 'worldbank.org', label: 'World Bank', lat: 38.899, lon: -77.042, tier: 'trusted' },
   { host: 'imf.org', label: 'IMF', lat: 38.899, lon: -77.044, tier: 'trusted' },
   { host: 'oecd.org', label: 'OECD', lat: 48.862, lon: 2.269, tier: 'trusted' },
-  { host: 'imf.org', label: 'IMF', lat: 38.899, lon: -77.044, tier: 'trusted' },
   { host: 'ec.europa.eu', label: 'European Commission', lat: 50.843, lon: 4.382, tier: 'trusted' },
   { host: 'eurostat.ec.europa.eu', label: 'Eurostat', lat: 49.628, lon: 6.168, tier: 'trusted' },
   { host: 'esa.int', label: 'ESA', lat: 48.847, lon: 2.219, tier: 'trusted' },
@@ -170,17 +236,17 @@ export function lookupSourceHost(host: string): CatalogEntry | null {
   return null;
 }
 
-export function catalogArchivePoints(): SourcePoint[] {
-  const seen = new Set<string>();
+export function catalogArchivePoints(opts?: { mode?: 'curated' | 'all' }): SourcePoint[] {
+  const mode = opts?.mode ?? 'curated';
   const points: SourcePoint[] = [];
   for (const entry of ENTRIES) {
-    const key = `${entry.lat.toFixed(3)},${entry.lon.toFixed(3)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    if (mode === 'curated' && !DEFAULT_SOURCE_PIN_HOSTS.has(entry.host)) continue;
+    const coords = normalizeLatLon(entry.lat, entry.lon);
+    if (!coords) continue;
     points.push({
       id: `archive:${entry.host}`,
-      lat: entry.lat,
-      lon: entry.lon,
+      lat: coords.lat,
+      lon: coords.lon,
       label: entry.label,
       host: entry.host,
       source_id: entry.host,
@@ -189,7 +255,7 @@ export function catalogArchivePoints(): SourcePoint[] {
       pulse: false,
     });
   }
-  return points;
+  return dedupePointsByHost(points) as SourcePoint[];
 }
 
 export function hubPoints(): SourcePoint[] {
@@ -217,45 +283,31 @@ export async function fetchRegistryPoints(): Promise<SourcePoint[]> {
         domain?: string;
         lat?: number;
         lng?: number;
+        lon?: number;
         category?: string;
       }>;
     };
     const points: SourcePoint[] = [];
-    const seen = new Set<string>();
     for (const row of data.sources || []) {
-      const lat = row.lat;
-      const lon = row.lng;
-      if (typeof lat !== 'number' || typeof lon !== 'number') continue;
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-      const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
+      const coords = normalizeLatLon(row.lat, row.lng ?? row.lon);
+      if (!coords) continue;
       const host = row.domain || row.source_id || '';
+      if (!host) continue;
+      const known = lookupSourceHost(host);
       points.push({
         id: `archive:${row.source_id || host}`,
-        lat,
-        lon,
-        label: row.title || host,
+        lat: coords.lat,
+        lon: coords.lon,
+        label: row.title || known?.label || host,
         host,
         source_id: row.source_id,
         kind: 'archive',
+        tier: known?.tier || 'candidate',
         pulse: false,
       });
     }
-    return points.length ? mergeArchivePoints(catalogArchivePoints(), points) : catalogArchivePoints();
+    return resolveArchivePoints(catalogArchivePoints(), points).points as SourcePoint[];
   } catch {
     return catalogArchivePoints();
   }
-}
-
-function mergeArchivePoints(base: SourcePoint[], extra: SourcePoint[]): SourcePoint[] {
-  const seen = new Set(base.map((p) => `${p.lat.toFixed(3)},${p.lon.toFixed(3)}`));
-  const out = [...base];
-  for (const p of extra) {
-    const key = `${p.lat.toFixed(3)},${p.lon.toFixed(3)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(p);
-  }
-  return out;
 }

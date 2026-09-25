@@ -22,6 +22,13 @@ import { QueuedFlyToast } from '../Components/globe/QueuedFlyToast';
 import { GLOBE_HUBS } from '../Components/globe/sourceCatalog';
 import { LIVE_LAYER_POLL_MS } from '../Components/globe/globePerf';
 import {
+  globeAskPrompt,
+  interpretLayerPayload,
+  layerCountLabel,
+  mergeLayerRefresh,
+  strongestRows,
+} from '../Components/globe/dataQuality.mjs';
+import {
   buildLiveOverlays,
   selectionLoadsPlaceContext,
 } from '../Components/globe/liveOverlays.mjs';
@@ -78,8 +85,8 @@ function readRails(): { left: number; right: number } {
 }
 
 const LAYERS: { id: LayerId; label: string; hint: string; color: string; coverage: 'complete' | 'sample' | 'limited' }[] = [
-  { id: 'catalog', label: 'Sources', hint: 'Research HQ catalog (~90+)', color: '#c4a28a', coverage: 'complete' },
-  { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS worldwide', color: '#d97706', coverage: 'complete' },
+  { id: 'catalog', label: 'Sources', hint: 'Agency & statistics seats — registry when available, otherwise a built-in list', color: '#c4a28a', coverage: 'limited' },
+  { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS M4.5+ · last 7 days', color: '#d97706', coverage: 'complete' },
   { id: 'disasters', label: 'Disasters', hint: 'GDACS alerts worldwide', color: '#dc2626', coverage: 'complete' },
   { id: 'wildfires', label: 'Wildfires', hint: 'NASA EONET open fires', color: '#ef4444', coverage: 'complete' },
   { id: 'storms', label: 'Storms', hint: 'NASA EONET severe storms', color: '#6366f1', coverage: 'complete' },
@@ -97,33 +104,15 @@ function placeId(p: { lat: number; lon: number; name?: string }) {
   return `${(p.name || 'p').toLowerCase()}-${p.lat.toFixed(3)}-${p.lon.toFixed(3)}`;
 }
 
-function barScore(p: SourcePoint): number {
-  const m = p.meta || {};
-  const mag = Number(m.mag);
-  if (Number.isFinite(mag)) return mag;
-  const aqi = Number(m.aqi);
-  if (Number.isFinite(aqi)) return aqi;
-  const temp = Number(m.temperature_c);
-  if (Number.isFinite(temp)) return Math.abs(temp);
-  const ch = Number(m.change_pct);
-  if (Number.isFinite(ch)) return Math.abs(ch);
-  const el = Number(m.elevation_m);
-  if (Number.isFinite(el)) return Math.abs(el);
-  return 1;
-}
-
 function RankedBars({ points }: { points: SourcePoint[] }) {
-  const rows = points
-    .filter((p) => p.kind !== 'hub')
-    .map((p) => ({ id: p.id, label: p.label, score: barScore(p) }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
+  const ranked = strongestRows(points, 8) as { unit: string; rows: Array<{ id: string; label: string; score: number }> };
+  const rows = ranked.rows;
   if (!rows.length) return null;
   const max = rows[0].score || 1;
   return (
     <div className="space-y-1.5 pt-1">
       <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-        Strongest on the map
+        Strongest {ranked.unit ? `· ${ranked.unit}` : 'on the map'}
       </p>
       {rows.map((row) => (
         <div key={row.id} className="grid grid-cols-[1fr_auto] items-center gap-2">
@@ -201,6 +190,9 @@ export default function GlobePage() {
     elevation: false,
   });
   const [layerCounts, setLayerCounts] = useState<Partial<Record<LayerId, number>>>({});
+  const [layerHealth, setLayerHealth] = useState<
+    Partial<Record<LayerId, { status: string; message?: string | null }>>
+  >({});
   const [layersLoading, setLayersLoading] = useState(false);
   const [compare, setCompare] = useState<ComparePlace[]>([]);
   const [leftRail, setLeftRail] = useState(LEFT_DEFAULT);
@@ -208,6 +200,12 @@ export default function GlobePage() {
   const [railsReady, setRailsReady] = useState(false);
   const fetchGen = useRef(0);
   const searchGen = useRef(0);
+  const pollGen = useRef(0);
+  const pollAbortRef = useRef<AbortController | null>(null);
+  const contextAbortRef = useRef<AbortController | null>(null);
+  const layerCacheRef = useRef<
+    Record<string, { events: Array<Record<string, unknown>>; path: Array<{ lat?: number; lon?: number }> | null }>
+  >({});
 
   const anyLayerOn = useMemo(() => Object.values(layers).some(Boolean), [layers]);
   const visibleLayers = useMemo(() => {
@@ -241,9 +239,14 @@ export default function GlobePage() {
     ).filter((id) => layers[id]);
 
     const buildOverlays = async () => {
+      pollAbortRef.current?.abort();
+      const ac = new AbortController();
+      pollAbortRef.current = ac;
+      const gen = ++pollGen.current;
       if (liveIds.length === 0) {
         if (!cancelled) {
           setLayerCounts({});
+          setLayerHealth({});
           setOverlayPoints([]);
           setOverlayPaths([]);
           setLayersLoading(false);
@@ -253,7 +256,7 @@ export default function GlobePage() {
 
       setLayersLoading(true);
       try {
-        // One request per layer. A slow flights sweep must not blank earthquakes.
+        // One request per layer. A slow layer must not blank the others.
         const payloads = await Promise.all(
           liveIds.map(async (id) => {
             try {
@@ -261,26 +264,42 @@ export default function GlobePage() {
                 layers: [id],
                 minMagnitude: 4.5,
                 days: 7,
+                signal: ac.signal,
               });
-              return data.layers || {};
-            } catch {
-              return {};
+              const bucket = (data.layers || {}) as Record<string, Record<string, unknown>>;
+              return { id, payload: bucket[id] || { events: [] } };
+            } catch (err) {
+              if (ac.signal.aborted) return { id, aborted: true as const, payload: null };
+              const message = err instanceof Error ? err.message : 'Could not load layer';
+              return { id, aborted: false as const, payload: { fetchError: message } };
             }
           }),
         );
-        if (cancelled) return;
+        if (cancelled || gen !== pollGen.current) return;
         const merged: Record<string, { events?: Array<Record<string, unknown>>; path?: Array<{ lat?: number; lon?: number }> }> = {};
-        for (const part of payloads) Object.assign(merged, part);
+        const health: Partial<Record<LayerId, { status: string; message?: string | null }>> = {};
+        for (const row of payloads) {
+          if (row.aborted) return;
+          const interpreted = interpretLayerPayload(row.payload);
+          const next = mergeLayerRefresh(layerCacheRef.current[row.id], interpreted);
+          layerCacheRef.current[row.id] = { events: next.events, path: next.path };
+          merged[row.id] = {
+            events: next.events,
+            ...(next.path ? { path: next.path } : {}),
+          };
+          health[row.id] = { status: next.status, message: next.message };
+        }
 
         const { points, paths, counts } = buildLiveOverlays(layers, merged);
 
         setLayerCounts(counts);
+        setLayerHealth(health);
         setOverlayPoints(points as SourcePoint[]);
         setOverlayPaths(paths);
       } catch {
-        if (!cancelled) setLayersLoading(false);
+        if (!cancelled && gen === pollGen.current) setLayersLoading(false);
       } finally {
-        if (!cancelled) setLayersLoading(false);
+        if (!cancelled && gen === pollGen.current) setLayersLoading(false);
       }
     };
 
@@ -290,6 +309,7 @@ export default function GlobePage() {
     }, LIVE_LAYER_POLL_MS);
     return () => {
       cancelled = true;
+      pollAbortRef.current?.abort();
       window.clearInterval(timer);
     };
   }, [layers, setOverlayPoints, setOverlayPaths]);
@@ -310,7 +330,10 @@ export default function GlobePage() {
         .join(' · ');
       const ids = list.map((p) => `${p.lat},${p.lon}`).join('|');
       const qs = new URLSearchParams();
-      qs.set('q', prompt || (labels ? `Analyze ${labels}` : 'Analyze this place'));
+      qs.set(
+        'q',
+        globeAskPrompt(prompt || (labels ? `Analyze ${labels}` : 'Analyze this place'), list),
+      );
       if (labels) qs.set('place', labels);
       if (ids) qs.set('placeIds', ids);
       router.push(`/research?${qs.toString()}`);
@@ -320,13 +343,16 @@ export default function GlobePage() {
 
   const loadContext = useCallback(
     async (lat: number, lon: number, meta?: { name?: string; country?: string }) => {
+      contextAbortRef.current?.abort();
+      const ac = new AbortController();
+      contextAbortRef.current = ac;
       const gen = ++fetchGen.current;
       setSelectedEvent(null);
       setSelected({ lat, lon, name: meta?.name, country: meta?.country });
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchPlaceContext(lat, lon);
+        const data = await fetchPlaceContext(lat, lon, { signal: ac.signal });
         if (gen !== fetchGen.current) return;
         setContext(data);
         const name = meta?.name || data.place?.name || undefined;
@@ -339,9 +365,10 @@ export default function GlobePage() {
           );
         }
       } catch (err) {
-        if (gen !== fetchGen.current) return;
+        if (gen !== fetchGen.current || ac.signal.aborted) return;
         setContext(null);
-        setError(err instanceof Error ? err.message : 'Could not load place context');
+        const message = err instanceof Error ? err.message : 'Could not load place context';
+        setError(message === 'The operation was aborted.' ? 'Place context timed out. Retry to load this place again.' : message);
       } finally {
         if (gen === fetchGen.current) setLoading(false);
       }
@@ -709,9 +736,14 @@ export default function GlobePage() {
                         limited
                       </span>
                     ) : null}
-                    {on && (layerCounts[layer.id] ?? 0) > 0 ? (
+                    {on ? (
                       <span className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[9px] tabular-nums text-[var(--text-muted)]">
-                        {layerCounts[layer.id]}
+                        {layer.id === 'catalog'
+                          ? archivePoints.length
+                          : layerCountLabel(
+                              layerCounts[layer.id] ?? 0,
+                              layerHealth[layer.id] || (layersLoading ? { status: 'loading' } : undefined),
+                            )}
                       </span>
                     ) : null}
                     {on && layersLoading ? (
@@ -867,13 +899,16 @@ export default function GlobePage() {
                       <span className="text-[var(--text-muted)]">· limited</span>
                     ) : null}
                     <span className="text-[var(--text-muted)]">· {l.hint}</span>
-                    {(layerCounts[l.id] ?? 0) > 0 ? (
-                      <span className="tabular-nums text-[var(--text-muted)]">({layerCounts[l.id]})</span>
-                    ) : layersLoading ? (
-                      <span className="text-[var(--text-muted)]">…</span>
-                    ) : (
-                      <span className="text-[var(--text-muted)]">(0)</span>
-                    )}
+                    <span className="tabular-nums text-[var(--text-muted)]">
+                      (
+                      {l.id === 'catalog'
+                        ? archivePoints.length
+                        : layerCountLabel(
+                            layerCounts[l.id] ?? 0,
+                            layerHealth[l.id] || (layersLoading ? { status: 'loading' } : undefined),
+                          )}
+                      )
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -928,6 +963,15 @@ export default function GlobePage() {
                   loading={loading}
                   error={error}
                   rail
+                  onRetry={
+                    selected
+                      ? () =>
+                          void loadContext(selected.lat, selected.lon, {
+                            name: selected.name,
+                            country: selected.country,
+                          })
+                      : undefined
+                  }
                   onClose={() => {
                     setContext(null);
                     setError(null);

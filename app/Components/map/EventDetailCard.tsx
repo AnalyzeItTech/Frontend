@@ -1,6 +1,7 @@
 'use client';
 
 import { IconPlane, IconSatellite, IconX } from '@tabler/icons-react';
+import { formatSatelliteVelocity } from '../globe/dataQuality.mjs';
 import type { SourcePoint } from '../globe/types';
 
 function fmtAltitude(meta: Record<string, unknown>): string | null {
@@ -97,7 +98,8 @@ export function EventDetailCard({
     if (meta.norad_id != null) rows.push(['NORAD', String(meta.norad_id)]);
     if (meta.altitude_km != null) rows.push(['Altitude', `${Math.round(Number(meta.altitude_km))} km`]);
     if (meta.velocity_kms != null) {
-      rows.push(['Velocity', `${Math.round(Number(meta.velocity_kms))} km/h`]);
+      const velocity = formatSatelliteVelocity(meta.velocity_kms);
+      if (velocity) rows.push(['Velocity', velocity]);
     }
     if (meta.group) rows.push(['Catalog', String(meta.group)]);
   } else if (isSpaceWeather) {
