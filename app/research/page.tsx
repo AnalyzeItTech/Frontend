@@ -786,17 +786,11 @@ function ChatInner() {
               if (Array.isArray(hints)) {
                 hintTools = hints.filter((h): h is string => typeof h === 'string');
               }
-              const path = typeof event.payload?.path === 'string' ? event.payload.path : '';
               const reason = typeof event.payload?.reason === 'string' ? event.payload.reason : '';
-              // Explicit zero_token_tool path only — hint_tools are agent suggestions, not 0-token success.
-              const routeKey = reason.startsWith('zero_token_tool:')
-                ? reason
-                : path === 'zero_token_tool' && hintTools[0]
-                  ? `zero_token_tool:${hintTools[0]}`
-                  : path === 'zero_token_tool'
-                    ? 'zero_token_tool:'
-                    : '';
-              const fromRoute = parseZeroTokenTool(routeKey);
+              const routeField = typeof event.payload?.route === 'string' ? event.payload.route : '';
+              // ONLY latch from an explicit zero_token_tool: reason/route — never invent from path + hint_tools[0].
+              // Status may still say "Gathering sources…" when hint_tools exist without latching success chrome.
+              const fromRoute = parseZeroTokenTool(reason) || parseZeroTokenTool(routeField);
               if (fromRoute) zeroTokenTool = fromRoute;
               const nextMode = event.payload?.response_mode === 'report' ? 'report' : 'chat';
               const ztStatus = zeroTokenTool
@@ -862,13 +856,11 @@ function ChatInner() {
                 sawToolFailure = true;
                 toolFailureName = name;
                 // Failed tool must never keep a success 0-token latch (esp. web_search on agent path).
-                if (
-                  zeroTokenTool &&
-                  (zeroTokenTool === name ||
-                    name.includes('web_search') ||
-                    zeroTokenTool.includes('web_search'))
-                ) {
-                  zeroTokenTool = null;
+                zeroTokenTool = null;
+                const dropWebSearchSources =
+                  name.includes('web_search') || name.includes('web search');
+                if (dropWebSearchSources) {
+                  sources = [];
                 }
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -878,6 +870,7 @@ function ChatInner() {
                           status: `No live result from ${labelZeroTokenTool(name)}`,
                           zeroToken: undefined,
                           toolError: `No live result from ${labelZeroTokenTool(name)}`,
+                          ...(dropWebSearchSources ? { sources: [] } : {}),
                         }
                       : m,
                   ),
@@ -1067,9 +1060,10 @@ function ChatInner() {
                   setLiveRlmDepth(rlmDepth);
                 }
               }
-              if (isZeroTokenFinal(event.payload || {})) {
+              if (isZeroTokenFinal(event.payload || {}) && !sawToolFailure) {
                 const tool =
                   parseZeroTokenTool(event.payload?.route) ||
+                  parseZeroTokenTool(event.payload?.reason) ||
                   zeroTokenTool ||
                   'tool';
                 zeroTokenTool = tool;
@@ -1136,11 +1130,23 @@ function ChatInner() {
           );
         }
 
-        if (sources.length) ingestChatRun({ sources });
-
         // Never keep 0-token success chrome after a tool failure (hint_tools / web_search agent path).
         const resolvedZeroToken = sawToolFailure ? null : zeroTokenTool;
         const failedWithoutZeroToken = sawToolFailure && !resolvedZeroToken && !streamed.trim();
+        const webSearchFailed =
+          sawToolFailure &&
+          (toolFailureName.includes('web_search') || toolFailureName.includes('web search'));
+        // Omit misleading chips that imply successful web search / tools-only when the tool failed.
+        const resolvedSources = webSearchFailed
+          ? sources.filter((s) => {
+              const host = (s.host || '').toLowerCase();
+              const title = (s.title || '').toLowerCase();
+              if (host.includes('web_search') || host.includes('web search')) return false;
+              if (title.includes('0 token') || title.includes('from tools')) return false;
+              return Boolean(s.url || (s.host && s.host.includes('.')));
+            })
+          : sources;
+        if (resolvedSources.length) ingestChatRun({ sources: resolvedSources });
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
@@ -1149,7 +1155,7 @@ function ChatInner() {
                   content: failedWithoutZeroToken
                     ? ''
                     : streamed || 'No written answer came back.',
-                  sources,
+                  sources: resolvedSources,
                   widget: widget || m.widget,
                   proposal: proposalMeta || m.proposal,
                   streaming: false,
