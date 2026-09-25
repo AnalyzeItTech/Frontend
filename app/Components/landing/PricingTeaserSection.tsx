@@ -32,7 +32,7 @@ const FREE_TIER: TierCard = {
     'Sponsored units after research runs',
     '7-day artifact retention',
     '50,000 tokens/month usage',
-    '250M context retention (memory)',
+    '10M context retention (memory)',
   ],
   cta: 'Create a free account',
   href: '/login?tab=register',
