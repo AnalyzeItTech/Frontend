@@ -28,7 +28,7 @@ export const HeroSection: React.FC = () => {
           </h1>
 
           <p className="text-base md:text-lg text-[#3F3830] dark:text-[#E6DCD2] font-normal max-w-xl leading-relaxed">
-            A quiet analytics workspace — narratives, forecasts, and place-aware exploration without dashboard busywork.
+            Ask in plain words. Get tool-backed answers with visible provenance — narratives, forecasts, and map-first exploration, without dashboard busywork.
           </p>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -45,6 +45,10 @@ export const HeroSection: React.FC = () => {
               <span>Skip to product</span>
             </a>
           </div>
+
+          <p className="text-sm text-[#5C534A] dark:text-[#C5B9AE] font-normal max-w-xl leading-relaxed">
+            Simple calc, weather, FX, and stocks can resolve as From tools · 0 tokens — so you can see when a live tool answered, not a model.
+          </p>
         </div>
       </div>
 
