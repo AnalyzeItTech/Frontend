@@ -453,6 +453,11 @@ export interface ChatOptions {
   modelAccess?: 'small' | 'medium' | 'large';
   /** Structured compose-box file chips (attachment_ids from POST /v1/chat/attachments). */
   attachmentIds?: string[];
+  /**
+   * Research composer: set true so Backend A / Model can prefer context.research_mode
+   * instead of a message preamble. Wire name: research_mode (see Model extractors.py).
+   */
+  researchMode?: boolean;
   /** Abort in-flight NDJSON stream (Stop). */
   signal?: AbortSignal;
   onEvent?: (event: StreamEvent) => void;
@@ -498,6 +503,7 @@ export async function streamChat(options: ChatOptions): Promise<{
     modelSize,
     modelAccess,
     attachmentIds,
+    researchMode,
     signal,
     onEvent,
   } = options;
@@ -522,6 +528,8 @@ export async function streamChat(options: ChatOptions): Promise<{
       ...(client_context ? { client_context } : {}),
       ...(resolvedModelSize ? { model_size: resolvedModelSize } : {}),
       ...(attachmentIds?.length ? { attachment_ids: attachmentIds } : {}),
+      // Mapped by Backend A onto context.research_mode when wired (Model contract).
+      ...(researchMode ? { research_mode: true } : {}),
     }),
   });
 
