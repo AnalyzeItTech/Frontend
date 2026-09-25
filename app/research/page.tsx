@@ -36,6 +36,14 @@ import {
   type ModelSize,
 } from '../lib/modelAccess';
 import { UpgradeModal, type UpgradeReason } from '../Components/billing/UpgradeModal';
+import {
+  answerIsOnlyPipelineFail,
+  contextWallFromStreamEvent,
+  contextWallSummary,
+  detectContextWall,
+  mergeContextWall,
+  type ContextWallSignal,
+} from '../lib/contextWall.mjs';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 import { AdSlot, AD_LOAD_TIMEOUT_MS, isAdPlacementConfigured } from '../Components/ads/AdSlot';
 import { shouldShowPostRunAd } from '../lib/adCadence';
@@ -106,6 +114,12 @@ interface ChatMessage {
   neededFullerResearch?: boolean;
   /** Live context budget from Model B (research / RLM paths) */
   contextBudget?: ContextBudget;
+  /** Free context or pipeline soft-fail — not a completed answer on its own */
+  softFail?: {
+    code: string;
+    summary: string;
+    openUpgrade: boolean;
+  };
   contextCompress?: ContextCompress;
   rlmSteps?: RlmStep[];
   contextRetrieve?: { query?: string; hits?: number; source?: string };
@@ -739,6 +753,54 @@ function ChatInner() {
       let zeroTokenTool: string | null = null;
       let sawToolFailure = false;
       let toolFailureName = '';
+      const contextWallRef: { current: ContextWallSignal | null } = { current: null };
+      let suppressPostRunAd = false;
+      let openedContextUpgrade = false;
+
+      const openContextUpgrade = () => {
+        if (openedContextUpgrade) return;
+        openedContextUpgrade = true;
+        setUpgradeModal({ open: true, reason: 'context' });
+      };
+
+      const noteContextWall = (event: StreamEvent) => {
+        const next = contextWallFromStreamEvent(event);
+        if (!next) return;
+        suppressPostRunAd = true;
+        contextWallRef.current = mergeContextWall(contextWallRef.current, next);
+        if (contextWallRef.current?.openUpgrade) openContextUpgrade();
+      };
+
+      const applyContextWall = () => {
+        const wall = contextWallRef.current;
+        if (!wall) return;
+        const summary = contextWallSummary(wall);
+        const showAnswer = Boolean(streamed.trim()) && !answerIsOnlyPipelineFail(streamed);
+        if (wall.openUpgrade) openContextUpgrade();
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  content: showAnswer ? streamed : '',
+                  sources,
+                  widget: showAnswer ? widget || m.widget : undefined,
+                  proposal: showAnswer ? proposalMeta || m.proposal : undefined,
+                  streaming: false,
+                  status: undefined,
+                  zeroToken: undefined,
+                  toolError: undefined,
+                  neededFullerResearch: false,
+                  softFail: {
+                    code: wall.code || '',
+                    summary,
+                    openUpgrade: wall.openUpgrade,
+                  },
+                }
+              : m,
+          ),
+        );
+      };
 
       // Raw user text on the wire — do not prepend "[Research mode] … cite sources."
       // That preamble falsely triggered Model discover_source. Flag via research_mode.
@@ -772,6 +834,7 @@ function ChatInner() {
           signal: controller.signal,
           onEvent: (event: StreamEvent) => {
             if (abortRef.current) return;
+            noteContextWall(event);
 
             if (event.event === 'run_id' || event.event === 'run_started') {
               const rid =
@@ -784,7 +847,9 @@ function ChatInner() {
             }
 
             if (event.event === 'run_completed') {
-              armPostRunAd();
+              const status = typeof event.payload?.status === 'string' ? event.payload.status : '';
+              if (status === 'failed' || status === 'error') suppressPostRunAd = true;
+              if (!suppressPostRunAd) armPostRunAd();
               return;
             }
 
@@ -1034,9 +1099,18 @@ function ChatInner() {
                     : '';
               if (delta) {
                 streamed += delta;
+                const onlyFail = answerIsOnlyPipelineFail(streamed);
                 setMessages((prev) =>
                   prev.map((m) =>
-                    m.id === assistantId ? { ...m, content: streamed, status: 'Synthesizing…' } : m,
+                    m.id === assistantId
+                      ? {
+                          ...m,
+                          content: onlyFail ? '' : streamed,
+                          status: onlyFail
+                            ? 'Research could not finish with available data'
+                            : 'Synthesizing…',
+                        }
+                      : m,
                   ),
                 );
               }
@@ -1154,33 +1228,40 @@ function ChatInner() {
             })
           : sources;
         if (resolvedSources.length) ingestChatRun({ sources: resolvedSources });
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantId
-              ? {
-                  ...m,
-                  content: failedWithoutZeroToken
-                    ? ''
-                    : streamed || 'No written answer came back.',
-                  sources: resolvedSources,
-                  widget: widget || m.widget,
-                  proposal: proposalMeta || m.proposal,
-                  streaming: false,
-                  status: undefined,
-                  zeroToken: resolvedZeroToken ? { toolName: resolvedZeroToken } : undefined,
-                  toolError: failedWithoutZeroToken
-                    ? `No live result from ${labelZeroTokenTool(toolFailureName || 'tool')}. Check the query and try again.`
-                    : undefined,
-                  neededFullerResearch:
-                    mode === 'research' &&
-                    !resolvedZeroToken &&
-                    !failedWithoutZeroToken &&
-                    Boolean(streamed.trim()) &&
-                    looksLikeZeroTokenQuery(value),
-                }
-              : m,
-          ),
-        );
+        if (contextWallRef.current?.softFail) {
+          suppressPostRunAd = true;
+          sources = resolvedSources;
+          applyContextWall();
+        } else {
+          if (contextWallRef.current?.openUpgrade) suppressPostRunAd = true;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? {
+                    ...m,
+                    content: failedWithoutZeroToken
+                      ? ''
+                      : streamed || 'No written answer came back.',
+                    sources: resolvedSources,
+                    widget: widget || m.widget,
+                    proposal: proposalMeta || m.proposal,
+                    streaming: false,
+                    status: undefined,
+                    zeroToken: resolvedZeroToken ? { toolName: resolvedZeroToken } : undefined,
+                    toolError: failedWithoutZeroToken
+                      ? `No live result from ${labelZeroTokenTool(toolFailureName || 'tool')}. Check the query and try again.`
+                      : undefined,
+                    neededFullerResearch:
+                      mode === 'research' &&
+                      !resolvedZeroToken &&
+                      !failedWithoutZeroToken &&
+                      Boolean(streamed.trim()) &&
+                      looksLikeZeroTokenQuery(value),
+                  }
+                : m,
+            ),
+          );
+        }
       } catch (chatError: unknown) {
         const aborted =
           abortRef.current ||
@@ -1206,6 +1287,38 @@ function ChatInner() {
           if (timedOut) {
             setError('Research timed out. The agent may be cold-starting — try once more.');
           }
+        } else if (
+          chatError instanceof ChatRequestError &&
+          (chatError.code === 'CLIENT_CONTEXT_TRUNCATED' || chatError.code === 'PIPELINE_INSUFFICIENT_DATA')
+        ) {
+          const fromHttp = detectContextWall({
+            code: chatError.code,
+            upgrade_required: chatError.upgradeRequired,
+            ...(chatError.recoverable === true
+              ? { recoverable: true }
+              : chatError.recoverable === false
+                ? { recoverable: false }
+                : {}),
+            message: chatError.message,
+          });
+          if (fromHttp?.softFail) {
+            contextWallRef.current = mergeContextWall(contextWallRef.current, fromHttp);
+            suppressPostRunAd = true;
+            if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
+            applyContextWall();
+          } else if (fromHttp?.openUpgrade) {
+            suppressPostRunAd = true;
+            openContextUpgrade();
+            setError(chatError.message);
+            if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: chatError.message, streaming: false, status: undefined }
+                  : m,
+              ),
+            );
+          }
         } else if (chatError instanceof ChatRequestError && (chatError.upgradeRequired || isLlmMonthlyQuotaError(chatError))) {
           setUpgradeHref(true);
           setError(chatError.message);
@@ -1214,6 +1327,22 @@ function ChatInner() {
           setUpgradeModal({ open: true, reason: 'quota' });
           setMessages((prev) => prev.filter((m) => m.id !== assistantId && m.id !== userMsg.id));
           if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
+        } else if (contextWallRef.current?.softFail) {
+          suppressPostRunAd = true;
+          applyContextWall();
+        } else if (contextWallRef.current?.openUpgrade) {
+          suppressPostRunAd = true;
+          openContextUpgrade();
+          const msg = chatError instanceof Error ? chatError.message : 'Request failed.';
+          setError(msg);
+          if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: msg, streaming: false, status: undefined }
+                : m,
+            ),
+          );
         } else {
           const msg = chatError instanceof Error ? chatError.message : 'Request failed.';
           setError(msg);
@@ -1231,8 +1360,8 @@ function ChatInner() {
         streamAbortRef.current = null;
         setIsStreaming(false);
         setAwaitingAd(false);
-        // Stream end without run_completed still arms the post-run slot for free users
-        if (!abortRef.current) armPostRunAd();
+        // A context/pipeline soft-fail is not a completed run.
+        if (!abortRef.current && !suppressPostRunAd) armPostRunAd();
         void refreshLlmQuota();
       }
     },
@@ -1474,14 +1603,47 @@ function ChatInner() {
                           <p className="whitespace-pre-wrap">{msg.toolError}</p>
                         ) : isUser ? (
                           <p className="whitespace-pre-wrap">{msg.content}</p>
-                        ) : (
-                          <ChatMarkdown text={msg.content || (msg.streaming ? '' : '…')} />
+                        ) : msg.content ? (
+                          <ChatMarkdown text={msg.content} />
+                        ) : msg.streaming || msg.softFail ? null : (
+                          <ChatMarkdown text="…" />
                         )}
                         {msg.streaming && (
                           <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse align-middle bg-[#E3836C]" />
                         )}
                       </div>
-                      {!isUser && msg.toolError && !msg.streaming && (
+                      {!isUser && msg.softFail && !msg.streaming && (
+                        <div
+                          role="status"
+                          className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5"
+                        >
+                          <p className="text-[12px] leading-relaxed text-amber-950 dark:text-amber-100">
+                            {msg.softFail.summary}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              className="btn-secondary text-[11px]"
+                              onClick={() => {
+                                const prior = [...messages].reverse().find((m) => m.role === 'user');
+                                if (prior) void sendMessage(prior.content, prior.mode);
+                              }}
+                            >
+                              Retry
+                            </button>
+                            {msg.softFail.openUpgrade ? (
+                              <button
+                                type="button"
+                                className="inline-flex min-h-8 items-center rounded-full bg-[var(--coral,#EA8069)] px-3 text-[11px] font-medium text-white"
+                                onClick={() => setUpgradeModal({ open: true, reason: 'context' })}
+                              >
+                                Upgrade
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      )}
+                      {!isUser && msg.toolError && !msg.streaming && !msg.softFail && (
                         <button
                           type="button"
                           className="btn-secondary text-[11px]"
