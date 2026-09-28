@@ -6,7 +6,7 @@ import type { CircleLayerSpecification, HeatmapLayerSpecification, LineLayerSpec
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from '../ui/ThemeProvider';
 import { eventDrawWeight, strongestRows } from '../globe/dataQuality.mjs';
-import { globeAtmosphere, globeBasemapTheme } from '../globe/globeVisual.mjs';
+import { globeAtmosphere, globeBasemapTheme, globeStage } from '../globe/globeVisual.mjs';
 import { GLOBE_HUBS } from '../globe/sourceCatalog';
 import { fullPixelRatio, miniPixelRatio } from '../globe/globePerf';
 import type {
@@ -401,6 +401,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
   const { theme } = useTheme();
   const appTheme = theme === 'dark' ? 'dark' : 'light';
   const basemapTheme = globeBasemapTheme({ variant, appTheme });
+  const stage = globeStage({ variant, appTheme });
   const [config, setConfig] = useState<MapConfig | null>(null);
   const [mapInstance, setMapInstance] = useState<MapLibreMap | null>(null);
   const [frontKeys, setFrontKeys] = useState<Set<string> | null>(null);
@@ -856,11 +857,11 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     return (
       <div
         className={`absolute inset-0 flex items-center justify-center ${
-          variant === 'full' ? 'bg-[#07090c]' : 'bg-[var(--bg)]'
+          stage.canvasClass || 'bg-[var(--bg)]'
         } ${className}`}
       >
         <span
-          className={`font-mono text-xs ${variant === 'full' ? 'text-[#C5CED6]' : 'text-[var(--text-muted)]'}`}
+          className={`font-mono text-xs ${stage.research ? 'text-[#C5CED6]' : 'text-[var(--text-muted)]'}`}
         >
           Preparing map…
         </span>
@@ -874,9 +875,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
 
   return (
     <div
-      className={`globe-map-canvas absolute inset-0 h-full w-full ${
-        variant === 'full' ? 'globe-map-canvas--research' : ''
-      } ${className}`}
+      className={`globe-map-canvas absolute inset-0 h-full w-full ${stage.canvasClass} ${className}`}
     >
       <Map
         key={`map-${basemapTheme}-${usingLocationIq ? 'liq' : 'ofm'}`}

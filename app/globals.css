@@ -708,7 +708,14 @@ details > summary::-webkit-details-marker {
   display: none;
 }
 
-/* Shared MapLibre globe. The full page is a dark research stage; the chat mini-globe stays theme-matched. */
+/* Shared MapLibre globe. The full page follows the app theme; dark keeps the research night stage. */
+.globe-page-stage--light,
+.globe-map-canvas--light {
+  background: var(--bg);
+}
+.globe-page-stage--research {
+  background: #07090c;
+}
 .globe-map-canvas .maplibregl-canvas {
   filter: none;
 }

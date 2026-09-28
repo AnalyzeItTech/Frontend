@@ -1,22 +1,32 @@
 /**
- * Globe view helpers: research-instrument basemap/atmosphere and layer-health
- * chrome. Labels still come from layerCountLabel — this module only adds
- * tone for styling. No live data.
+ * Globe view helpers: theme-aware basemap/atmosphere and layer-health chrome.
+ * Labels still come from layerCountLabel — this module only adds tone for
+ * styling. No live data.
+ *
+ * The full page follows the app theme. Dark keeps the research night stage.
+ * The chat mini-globe follows the app theme for tiles and its own atmosphere.
  */
 import { layerCountLabel } from './dataQuality.mjs';
 
+/** Page/canvas background for a light full globe. Matches `--bg` in light mode. */
+export const LIGHT_STAGE_BG = 'var(--bg)';
+/** Near-black research stage. Full globe, dark theme only. */
+export const RESEARCH_STAGE_BG = '#07090c';
+/** WebGL space behind a light full globe — same cream as the light page. */
+export const LIGHT_SPACE_COLOR = 'rgb(245, 238, 229)';
+
 /**
- * Full globe always uses the dark basemap so the page reads as research
- * tooling. The chat mini-globe follows the app theme.
+ * Streets tiles in light theme, dark tiles in dark theme.
+ * Both the full page and the chat mini-globe follow `appTheme`.
  * @param {{ variant?: string, appTheme?: string }} [opts]
  * @returns {'dark' | 'streets'}
  */
 export function globeBasemapTheme({ variant = 'full', appTheme = 'light' } = {}) {
-  if (variant === 'full') return 'dark';
+  void variant;
   return appTheme === 'dark' ? 'dark' : 'streets';
 }
 
-/** Dark limb, dim space, faint stars — not a bright consumer sky. */
+/** Dark limb, dim space, faint stars — the full globe in the dark theme. */
 export function researchAtmosphere() {
   return {
     fog: {
@@ -37,11 +47,35 @@ export function researchAtmosphere() {
 }
 
 /**
+ * Light limb (blue rim, no steel, no stars). The full page uses a light
+ * stage; the mini globe keeps its existing space color.
+ * @param {{ mini?: boolean }} [opts]
+ */
+export function lightAtmosphere({ mini = false } = {}) {
+  return {
+    fog: {
+      color: 'rgb(168, 204, 236)',
+      'high-color': 'rgb(56, 118, 232)',
+      'horizon-blend': mini ? 0.03 : 0.07,
+      'space-color': mini ? 'rgb(8, 10, 26)' : LIGHT_SPACE_COLOR,
+      'star-intensity': 0,
+      range: [0.6, 10],
+    },
+    light: {
+      anchor: 'viewport',
+      color: '#fff4e8',
+      intensity: 0.55,
+      position: [1.3, 210, 35],
+    },
+  };
+}
+
+/**
  * @param {{ variant?: string, appTheme?: string }} [opts]
  */
 export function globeAtmosphere({ variant = 'full', appTheme = 'light' } = {}) {
-  if (variant === 'full') return researchAtmosphere();
-  const mini = true;
+  const mini = variant === 'mini';
+  if (!mini && appTheme === 'dark') return researchAtmosphere();
   if (appTheme === 'dark') {
     return {
       fog: {
@@ -60,21 +94,42 @@ export function globeAtmosphere({ variant = 'full', appTheme = 'light' } = {}) {
       },
     };
   }
+  return lightAtmosphere({ mini });
+}
+
+/**
+ * Stage chrome. Research night styles apply only to the full globe in dark theme.
+ * @param {{ variant?: string, appTheme?: string }} [opts]
+ * @returns {{
+ *   research: boolean,
+ *   background: string,
+ *   pageClass: string,
+ *   canvasClass: string,
+ * }}
+ */
+export function globeStage({ variant = 'full', appTheme = 'light' } = {}) {
+  const research = variant === 'full' && appTheme === 'dark';
+  if (variant !== 'full') {
+    return {
+      research: false,
+      background: LIGHT_STAGE_BG,
+      pageClass: '',
+      canvasClass: '',
+    };
+  }
+  if (research) {
+    return {
+      research: true,
+      background: RESEARCH_STAGE_BG,
+      pageClass: 'globe-page-stage globe-page-stage--research',
+      canvasClass: 'globe-map-canvas--research',
+    };
+  }
   return {
-    fog: {
-      color: 'rgb(168, 204, 236)',
-      'high-color': 'rgb(56, 118, 232)',
-      'horizon-blend': mini ? 0.03 : 0.07,
-      'space-color': 'rgb(8, 10, 26)',
-      'star-intensity': 0,
-      range: [0.6, 10],
-    },
-    light: {
-      anchor: 'viewport',
-      color: '#fff4e8',
-      intensity: 0.55,
-      position: [1.3, 210, 35],
-    },
+    research: false,
+    background: LIGHT_STAGE_BG,
+    pageClass: 'globe-page-stage globe-page-stage--light',
+    canvasClass: 'globe-map-canvas--light',
   };
 }
 
