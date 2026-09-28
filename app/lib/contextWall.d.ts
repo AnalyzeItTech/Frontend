@@ -1,8 +1,19 @@
+export const CONTEXT_RETENTION_TOKENS: {
+  free: number;
+  premium: number;
+  premium_plus: number;
+};
 export const FREE_CLIENT_CONTEXT_LIMIT: number;
 
+export function formatContextRetention(tokens: number): string;
 export function formatFreeContextLimit(limit?: number): string;
 export function quoteFreeContextLimit(source: unknown): string;
+export function retentionTokensFromEntitlements(snap: unknown): number | null;
 export function contextUpgradeBody(limitLabel?: string): string;
+export function contextUpgradeCopy(freeTokens?: number | null): {
+  title: string;
+  body: string;
+};
 export const CLIENT_CONTEXT_TRUNCATED: 'CLIENT_CONTEXT_TRUNCATED';
 export const PIPELINE_INSUFFICIENT_DATA: 'PIPELINE_INSUFFICIENT_DATA';
 export const PIPELINE_FAIL_TEXT: string;

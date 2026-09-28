@@ -38,7 +38,7 @@ Devansh’s CSR/SSR load split: do cheap, deterministic shaping on the browser s
 }
 ```
 
-`history.recent` is **prior turns only**. The live outbound text is `message` (plus `message_freq`); do not also append it into `history.recent`. Free client context / retention is 10M (`max_client_context_chars` when entitlements quote it).
+`history.recent` is **prior turns only**. The live outbound text is `message` (plus `message_freq`); do not also append it into `history.recent`. Free context retention (memory) is 10M. When entitlements include `context_retention_tokens`, that live value is quoted; a ceiling below 1M is not. A duplicated paste is the wrong shape even when it fits.
 
 ## What Backend A must NOT redo
 - Re-tokenize / re-count frequencies already present in `client_context.message_freq` / `older_freq` for metering previews (may recompute server-side only for trust/billing audits).

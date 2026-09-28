@@ -12,7 +12,7 @@ type UpgradeModalProps = {
   reason?: UpgradeReason;
   /** Optional locked model size label, e.g. "Medium (Standard)". */
   lockedModelLabel?: string;
-  /** Free client-context ceiling label, e.g. "10M". Ignored unless reason is context. */
+  /** Quoted retention label, e.g. "10M". Ignored unless reason is context. */
   contextLimitLabel?: string;
 };
 
