@@ -1,5 +1,6 @@
 /**
- * Shared nav frame: one chrome, logo always home, app links include Home.
+ * App nav contract: logo always home, authenticated shell mounts AppNav.
+ * Marketing home keeps its own floating pill.
  * Run: node --test app/Components/app/appNav.test.mjs
  */
 import assert from 'node:assert/strict';
@@ -51,7 +52,7 @@ describe('shared app nav contract', () => {
     assert.equal(isAppLinkActive('dashboard', 'dashboard'), true);
   });
 
-  it('mounts one AppNav from Home and the authenticated shell', () => {
+  it('mounts AppNav from the authenticated shell only', () => {
     const appNav = read('app/Components/app/AppNav.tsx');
     const appShell = read('app/Components/app/AppShell.tsx');
     const landingNav = read('app/Components/landing/Navbar.tsx');
@@ -61,7 +62,7 @@ describe('shared app nav contract', () => {
     assert.match(appNav, /className=\{`app-topnav/);
     assert.match(appShell, /<AppNav\s+surface="app"/);
     assert.doesNotMatch(appShell, /<header/);
-    assert.match(landingNav, /<AppNav\s+surface="marketing"/);
-    assert.doesNotMatch(landingNav, /<header/);
+    assert.doesNotMatch(landingNav, /AppNav/);
+    assert.match(landingNav, /Floating Pill Header/);
   });
 });
