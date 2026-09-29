@@ -310,6 +310,28 @@ export default function ChatPage() {
   );
 }
 
+function ResultBars({ text }: { text: string }) {
+  const nums = [...text.matchAll(/-?\d+(?:\.\d+)?/g)]
+    .map((m) => Number(m[0]))
+    .filter((n) => Number.isFinite(n) && Math.abs(n) < 1e9)
+    .slice(0, 5);
+  if (!nums.length) return null;
+  const max = Math.max(...nums.map((n) => Math.abs(n)), 1);
+  return (
+    <div className="mt-2 flex h-16 items-end gap-1" aria-label="Result chart">
+      {nums.map((n, i) => (
+        <div key={i} className="flex min-w-0 flex-1 flex-col justify-end h-full">
+          <div
+            className="rounded-t bg-[#E3836C]"
+            style={{ height: `${Math.max(12, (Math.abs(n) / max) * 100)}%` }}
+            title={String(n)}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ChatInner() {
   const params = useSearchParams();
   const router = useRouter();
@@ -324,7 +346,8 @@ function ChatInner() {
   const [modelOptions, setModelOptions] = useState<ModelOption[]>(() =>
     allModelSizes().map((size) => ({ size, label: MODEL_SIZE_LABELS[size], available: true })),
   );
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(() => params.get('q') || '');
+  const guestQuerySent = useRef(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [liveBudget, setLiveBudget] = useState<ContextBudget | null>(null);
   const [liveRlmDepth, setLiveRlmDepth] = useState(0);
@@ -670,6 +693,25 @@ function ChatInner() {
     }
   };
 
+  const shareResult = async (text: string, shareRunId?: string | null) => {
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${base}/v1/shares`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'AnalyzeIt result', text, run_id: shareRunId || '' }),
+      });
+      if (!res.ok) throw new Error('share failed');
+      const data = (await res.json()) as { path?: string };
+      const url = `${window.location.origin}${data.path || ''}`;
+      await navigator.clipboard.writeText(url);
+      setError(null);
+      setDashStatus('Share link copied.');
+    } catch {
+      setError('Could not create a share link.');
+    }
+  };
+
   const copyMessage = async (id: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -713,8 +755,13 @@ function ChatInner() {
       // gates real LLM spend; do not hard-block the composer here.
 
       if (!getStoredToken()) {
-        setError('Sign in to chat with AnalyzeIt.');
-        return;
+        const used = Number(sessionStorage.getItem('guest_tries') || '0');
+        if (used >= 2) {
+          setError('You’ve used both free tries. Create a free account to keep going.');
+          setUpgradeHref(true);
+          return;
+        }
+        sessionStorage.setItem('guest_tries', String(used + 1));
       }
 
       const mode = modeOverride || composerMode;
@@ -1393,6 +1440,13 @@ function ChatInner() {
     [armPostRunAd, awaitingAd, beginChatRun, composerMode, ingestChatRun, input, isIncognito, isStreaming, messages, pendingAttachments, projectId, refreshLlmQuota, refreshPromoteNudge, runId, selectedModelSize],
   );
 
+  useEffect(() => {
+    const q = params.get('q');
+    if (!q || guestQuerySent.current) return;
+    guestQuerySent.current = true;
+    void sendMessage(q);
+  }, [params, sendMessage]);
+
   const stopStreaming = () => {
     abortRef.current = true;
     sendGenRef.current += 1;
@@ -1742,6 +1796,13 @@ function ChatInner() {
                             >
                               Preview panel
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => void shareResult(msg.widget?.title || msg.content || 'Chart', runId)}
+                              className="text-[11px] text-[var(--text-muted)]"
+                            >
+                              Share this result
+                            </button>
                           </div>
                           <SandboxedWidgetRenderer widget={msg.widget} isDraftPreview />
                           {msg.proposal && (
@@ -1759,6 +1820,10 @@ function ChatInner() {
                       )}
 
                       {!isUser && msg.content && !msg.streaming && (
+                        <ResultBars text={msg.content} />
+                      )}
+
+                      {!isUser && msg.content && !msg.streaming && (
                         <div className="flex items-center gap-2 pt-1">
                           <button
                             type="button"
@@ -1767,6 +1832,13 @@ function ChatInner() {
                           >
                             {copiedId === msg.id ? <IconCheck size={12} /> : <IconCopy size={12} />}
                             {copiedId === msg.id ? 'Copied' : 'Copy'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void shareResult(msg.content, runId)}
+                            className="inline-flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                          >
+                            Share this result
                           </button>
                         </div>
                       )}

@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { AUTH_COOKIE, SESSION_COOKIE, decideHostRequest, publicHost } from './app/lib/personalHost.mjs';
 
 const PROTECTED_PREFIXES = [
-  '/research',
   '/dashboard',
   '/globe',
   '/connectors',

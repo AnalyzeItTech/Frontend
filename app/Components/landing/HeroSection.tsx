@@ -31,6 +31,24 @@ export const HeroSection: React.FC = () => {
             Ask in plain words. Get tool-backed answers with visible provenance — narratives, forecasts, and map-first exploration, without dashboard busywork.
           </p>
 
+          <div className="flex flex-wrap gap-2 pt-1">
+            {[
+              ['Weather in Mumbai', 'Weather in Mumbai'],
+              ['AAPL stock price', 'AAPL stock price'],
+              ['100 USD to INR', 'Convert 100 USD to INR'],
+              ['12 * 30', 'Calculate 12 * 30'],
+              ['10 km to miles', 'Convert 10 km to miles'],
+            ].map(([label, q]) => (
+              <Link
+                key={label}
+                href={`/research?q=${encodeURIComponent(q)}`}
+                className="rounded-full border border-[#4A4238]/15 dark:border-[#3A3430] bg-[#FFF7F1]/80 dark:bg-[#211E1C] px-3 py-1.5 text-xs text-[#322C28] dark:text-[#F4EDE5] hover:border-[#E3836C]"
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <Link
               href="/login?tab=register"
