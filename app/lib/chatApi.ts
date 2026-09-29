@@ -483,14 +483,6 @@ export async function streamChat(options: ChatOptions): Promise<{
 }> {
   const storedUser = getStoredUser();
   const effectiveUserId = options.userId || (storedUser ? storedUser.id : undefined);
-  if (!effectiveUserId) {
-    throw new ChatRequestError({
-      status: 401,
-      message: 'Sign in to chat with AnalyzeIt.',
-      code: 'AUTH_REQUIRED',
-      upgradeRequired: false,
-    });
-  }
   const {
     message,
     userId = effectiveUserId,

@@ -4,7 +4,6 @@ const AUTH_COOKIE = 'analyzeit_auth';
 const APEX_HOSTS = new Set(['analyzeit.in', 'www.analyzeit.in', 'localhost', '127.0.0.1']);
 
 const PROTECTED_PREFIXES = [
-  '/research',
   '/dashboard',
   '/globe',
   '/connectors',
@@ -88,8 +87,6 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/',
-    '/research/:path*',
-    '/research',
     '/dashboard/:path*',
     '/dashboard',
     '/Dashboard/:path*',
