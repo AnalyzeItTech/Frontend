@@ -68,6 +68,7 @@ import {
 import { RequireAuth } from '../Components/app/RequireAuth';
 import { DashboardCanvas, type LayoutSnapshot } from '../Components/dashboard/DashboardCanvas';
 import { ChatMiniGlobe } from '../Components/globe/ChatMiniGlobe';
+import { sourceFromProgressPayload } from '../Components/globe/dataQuality.mjs';
 import { useGlobe } from '../Components/globe/useGlobe';
 
 interface Message {
@@ -882,15 +883,18 @@ function NewProjectContent() {
         const nested = event.payload?.progress as Record<string, unknown> | undefined;
         const step = (typeof event.payload?.step === 'string' ? event.payload.step : nested?.step) || '';
         if (step === 'source_found') {
-          const detail = typeof event.payload?.detail === 'string' ? event.payload.detail : '';
-          const host = detail.split('/').pop() || detail || 'source';
-          const url = typeof event.payload?.url === 'string' ? event.payload.url : typeof nested?.url === 'string' ? nested.url : `https://${host}`;
-          const title = typeof event.payload?.title === 'string' ? event.payload.title : '';
-          const lat = typeof event.payload?.lat === 'number' ? event.payload.lat : typeof nested?.lat === 'number' ? nested.lat : undefined;
-          const lngRaw = event.payload?.lng ?? event.payload?.lon ?? nested?.lng ?? nested?.lon;
-          const lng = typeof lngRaw === 'number' ? lngRaw : undefined;
-          const source_id = typeof event.payload?.source_id === 'string' ? event.payload.source_id : typeof nested?.source_id === 'string' ? nested.source_id : undefined;
-          ingestChatRun({ sources: [{ host, url, title, lat, lng, source_id }] });
+          const detail =
+            typeof event.payload?.detail === 'string'
+              ? event.payload.detail
+              : typeof nested?.detail === 'string'
+                ? nested.detail
+                : '';
+          const found = sourceFromProgressPayload({
+            ...(event.payload || {}),
+            progress: nested,
+            detail,
+          });
+          if (found) ingestChatRun({ sources: [found] });
         }
       }
       if (event.event === 'tool_result') {

@@ -36,7 +36,7 @@ export function parseApiFailure(status: number, body: unknown): ApiFailure {
     const code = typeof rec.code === 'string' ? rec.code : undefined;
     const rawMessage = String(rec.message || rec.detail || 'Request failed');
     // Structured `code` means the API authored a user-facing message — keep it
-    // (generic 403/409 maps would otherwise hide trial/support copy).
+    // (generic 403/409 maps would otherwise hide that copy).
     const monthlyQuota =
       code === 'LLM_MONTHLY_QUOTA' || code === 'LLM_QUOTA' || code === 'LLM_RUNS';
     const message = code

@@ -17,7 +17,10 @@ export async function GET(request: Request) {
     const text = await upstream.text();
     return new NextResponse(text, {
       status: upstream.status,
-      headers: { 'Content-Type': upstream.headers.get('content-type') || 'application/json' },
+      headers: {
+        'Content-Type': upstream.headers.get('content-type') || 'application/json',
+        'Cache-Control': 'no-store',
+      },
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Upstream unreachable';

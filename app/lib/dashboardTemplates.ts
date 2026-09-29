@@ -541,7 +541,7 @@ export const CURATED_TEMPLATES: DashboardTemplate[] = [
         rows: [
           { id: 'ch_1', label: 'Acme renewal', amount: '$1,200', status: 'paid' },
           { id: 'ch_2', label: 'Helix seat add', amount: '$320', status: 'paid' },
-          { id: 'ch_3', label: 'Oasis trial→paid', amount: '$50', status: 'paid' },
+          { id: 'ch_3', label: 'Oasis renewal', amount: '$50', status: 'paid' },
           { id: 'ch_4', label: 'Refund · Vanguard', amount: '-$65', status: 'refunded' },
         ],
         limit: 6,

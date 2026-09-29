@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ObjectBuilderView } from '../Components/dashboard/ObjectBuilderView';
 import { getProjects } from '../lib/chatApi';
 import { redactClientError } from '../lib/apiErrors';
+import { pickScopedProject } from '../lib/projectHome.mjs';
 import { AppShell } from '../Components/app/AppShell';
 import { PageTitle } from '../Components/app/PageTitle';
 import { WorkspaceStatus } from '../Components/app/WorkspaceStatus';
@@ -12,7 +14,9 @@ import { IconArrowRight, IconBraces, IconPlus } from '@tabler/icons-react';
 
 const LOAD_TIMEOUT_MS = 12000;
 
-export default function ObjectsPage() {
+function ObjectsPageInner() {
+  const params = useSearchParams();
+  const requested = params.get('project') || params.get('projectId') || '';
   const [projectId, setProjectId] = useState<string>('');
   const [status, setStatus] = useState<'loading' | 'empty' | 'error' | 'content'>('loading');
   const [errorBody, setErrorBody] = useState<string | undefined>();
@@ -32,9 +36,15 @@ export default function ObjectsPage() {
     getProjects()
       .then((rows) => {
         if (cancelled) return;
-        const id = rows[0]?.id || '';
-        setProjectId(id);
-        setStatus(id ? 'content' : 'empty');
+        const picked = pickScopedProject(rows, requested);
+        if (picked.status === 'missing') {
+          setProjectId('');
+          setStatus('error');
+          setErrorBody('That project isn’t in your workspace, so these objects stay closed.');
+          return;
+        }
+        setProjectId(picked.projectId);
+        setStatus(picked.status === 'empty' ? 'empty' : 'content');
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -47,9 +57,11 @@ export default function ObjectsPage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [requested]);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => {
+    return load();
+  }, [load]);
 
   return (
     <AppShell active="objects">
@@ -60,7 +72,10 @@ export default function ObjectsPage() {
             Shape repeatable business records once, then use those objects across dashboards and research.
           </p>
         </div>
-        <Link href="/dashboard" className="btn-primary w-fit gap-2 px-5 text-sm">
+        <Link
+          href={projectId ? `/dashboard?project=${encodeURIComponent(projectId)}` : '/dashboard'}
+          className="btn-primary w-fit gap-2 px-5 text-sm"
+        >
           <IconPlus size={16} /> Create an object
         </Link>
       </div>
@@ -87,12 +102,23 @@ export default function ObjectsPage() {
                 <div key={field} className="border-b border-[var(--border)] px-3 py-2.5 last:border-b-0 font-mono text-[11px] text-[var(--text-secondary)]">{field}</div>
               ))}
             </div>
-            <Link href="/dashboard" className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-[var(--coral)] hover:underline">
+            <Link
+              href={projectId ? `/dashboard?project=${encodeURIComponent(projectId)}` : '/dashboard'}
+              className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-[var(--coral)] hover:underline"
+            >
               Build this object <IconArrowRight size={15} />
             </Link>
           </aside>
         </div>
       </WorkspaceStatus>
     </AppShell>
+  );
+}
+
+export default function ObjectsPage() {
+  return (
+    <Suspense fallback={<main className="px-6 py-16 text-sm">Loading objects…</main>}>
+      <ObjectsPageInner />
+    </Suspense>
   );
 }

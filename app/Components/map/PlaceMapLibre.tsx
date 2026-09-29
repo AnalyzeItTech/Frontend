@@ -5,6 +5,8 @@ import Map, { Marker, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
 import type { CircleLayerSpecification, HeatmapLayerSpecification, LineLayerSpecification, Map as MapLibreMap, StyleSpecification, SymbolLayerSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from '../ui/ThemeProvider';
+import { eventDrawWeight, strongestRows } from '../globe/dataQuality.mjs';
+import { globeAtmosphere, globeBasemapTheme, globeStage } from '../globe/globeVisual.mjs';
 import { GLOBE_HUBS } from '../globe/sourceCatalog';
 import { fullPixelRatio, miniPixelRatio } from '../globe/globePerf';
 import type {
@@ -363,19 +365,8 @@ function ensurePlaneIcon(map: MapLibreMap) {
 }
 
 /** 0–1 strength so heat, density, and bars share one scale. */
-function pointMetric(p: SourcePoint): number {
-  const m = p.meta || {};
-  const mag = Number(m.mag);
-  if (Number.isFinite(mag)) return Math.min(Math.max(mag, 0) / 8, 1);
-  const aqi = Number(m.aqi);
-  if (Number.isFinite(aqi)) return Math.min(Math.max(aqi, 0) / 200, 1);
-  const temp = Number(m.temperature_c);
-  if (Number.isFinite(temp)) return Math.min(Math.abs(temp) / 45, 1);
-  const ch = Number(m.change_pct);
-  if (Number.isFinite(ch)) return Math.min(Math.abs(ch) / 5, 1);
-  const el = Number(m.elevation_m);
-  if (Number.isFinite(el)) return Math.min(Math.abs(el) / 4500, 1);
-  return 0.4;
+function pointMetric(p: SourcePoint): number | null {
+  return eventDrawWeight(p);
 }
 
 export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(function PlaceMapLibre(
@@ -408,7 +399,9 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
 ) {
   const mapRef = useRef<MapRef | null>(null);
   const { theme } = useTheme();
-  const mapTheme = theme === 'dark' ? 'dark' : 'streets';
+  const appTheme = theme === 'dark' ? 'dark' : 'light';
+  const basemapTheme = globeBasemapTheme({ variant, appTheme });
+  const stage = globeStage({ variant, appTheme });
   const [config, setConfig] = useState<MapConfig | null>(null);
   const [mapInstance, setMapInstance] = useState<MapLibreMap | null>(null);
   const [frontKeys, setFrontKeys] = useState<Set<string> | null>(null);
@@ -425,7 +418,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     let cancelled = false;
     setConfig(null);
     engineReadyRef.current = false;
-    void fetch(`/api/map/config?theme=${encodeURIComponent(mapTheme)}`)
+    void fetch(`/api/map/config?theme=${encodeURIComponent(basemapTheme)}`)
       .then(async (res) => {
         if (!res.ok) throw new Error('Map config failed');
         return res.json() as Promise<MapConfig>;
@@ -437,15 +430,15 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         if (!cancelled) {
           setConfig({
             provider: 'openfreemap',
-            theme: mapTheme,
-            mapStyle: mapTheme === 'dark' ? OPENFREEMAP_DARK : OPENFREEMAP_LIGHT,
+            theme: basemapTheme,
+            mapStyle: basemapTheme === 'dark' ? OPENFREEMAP_DARK : OPENFREEMAP_LIGHT,
           });
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [mapTheme]);
+  }, [basemapTheme]);
 
   const getMap = useCallback((): MapLibreMap | null => {
     const wrapped = mapRef.current;
@@ -601,26 +594,10 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     };
   }, [getMap, idleDrift, inFlight, paused, variant]);
 
-  const fog = useMemo(() => {
-    const mini = variant === 'mini';
-    return mapTheme === 'dark'
-      ? {
-          color: 'rgb(18, 28, 52)',
-          'high-color': 'rgb(64, 110, 210)',
-          'horizon-blend': mini ? 0.04 : 0.09,
-          'space-color': 'rgb(3, 5, 14)',
-          'star-intensity': mini ? 0 : 0.82,
-          range: [0.5, 12],
-        }
-      : {
-          color: 'rgb(168, 204, 236)',
-          'high-color': 'rgb(56, 118, 232)',
-          'horizon-blend': mini ? 0.03 : 0.07,
-          'space-color': 'rgb(8, 10, 26)',
-          'star-intensity': mini ? 0 : 0.58,
-          range: [0.6, 10],
-        };
-  }, [mapTheme, variant]);
+  const atmosphere = useMemo(
+    () => globeAtmosphere({ variant, appTheme }),
+    [appTheme, variant],
+  );
 
   const applyAtmosphere = useCallback(
     (map: MapLibreMap) => {
@@ -636,22 +613,17 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
       }
       try {
         if (mapProjection === 'mercator') globeMap.setFog?.(null);
-        else globeMap.setFog?.(fog);
+        else globeMap.setFog?.(atmosphere.fog);
       } catch {
         /* fog optional */
       }
       try {
-        globeMap.setLight?.({
-          anchor: 'viewport',
-          color: mapTheme === 'dark' ? '#c8d4ea' : '#fff4e8',
-          intensity: mapTheme === 'dark' ? 0.42 : 0.55,
-          position: [1.3, 210, 35],
-        });
+        globeMap.setLight?.(atmosphere.light);
       } catch {
         /* light optional */
       }
     },
-    [fog, mapTheme, mapProjection],
+    [atmosphere, mapProjection],
   );
 
   useEffect(() => {
@@ -790,10 +762,11 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
   const metricGeoJson = useMemo((): GeoJSON.FeatureCollection => {
     const features: GeoJSON.Feature[] = [];
     for (const p of sourcePoints) {
-      if (p.kind === 'hub') continue;
+      const w = pointMetric(p);
+      if (w == null) continue;
       features.push({
         type: 'Feature',
-        properties: { id: p.id, w: pointMetric(p), label: p.label },
+        properties: { id: p.id, w, label: p.label },
         geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
       });
     }
@@ -848,11 +821,18 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
 
   const barPoints = useMemo(() => {
     if (dataView !== 'bars') return [];
-    return sourcePoints
-      .filter((p) => p.kind !== 'hub')
-      .map((p) => ({ point: p, w: pointMetric(p) }))
-      .sort((a, b) => b.w - a.w)
-      .slice(0, 80);
+    const ranked = strongestRows(sourcePoints, 80) as {
+      rows: Array<{ id: string; score: number }>;
+    };
+    const max = ranked.rows[0]?.score || 1;
+    const byId = new globalThis.Map(sourcePoints.map((p) => [p.id, p]));
+    return ranked.rows
+      .map((row) => {
+        const point = byId.get(row.id);
+        if (!point) return null;
+        return { point, w: row.score / max };
+      })
+      .filter((row): row is { point: SourcePoint; w: number } => row != null);
   }, [dataView, sourcePoints]);
 
   const pathLineLayer = useMemo(
@@ -875,8 +855,16 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
 
   if (!config) {
     return (
-      <div className={`absolute inset-0 flex items-center justify-center bg-[var(--bg)] ${className}`}>
-        <span className="font-mono text-xs text-[var(--text-muted)]">Preparing map…</span>
+      <div
+        className={`absolute inset-0 flex items-center justify-center ${
+          stage.canvasClass || 'bg-[var(--bg)]'
+        } ${className}`}
+      >
+        <span
+          className={`font-mono text-xs ${stage.research ? 'text-[#C5CED6]' : 'text-[var(--text-muted)]'}`}
+        >
+          Preparing map…
+        </span>
       </div>
     );
   }
@@ -886,9 +874,11 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
   const liveIds = new Set(sourcePoints.filter((p) => p.kind === 'live' || p.kind === 'place').map((p) => p.id));
 
   return (
-    <div className={`globe-map-canvas absolute inset-0 h-full w-full ${className}`}>
+    <div
+      className={`globe-map-canvas absolute inset-0 h-full w-full ${stage.canvasClass} ${className}`}
+    >
       <Map
-        key={`map-${mapTheme}-${usingLocationIq ? 'liq' : 'ofm'}`}
+        key={`map-${basemapTheme}-${usingLocationIq ? 'liq' : 'ofm'}`}
         ref={mapRef}
         onClick={handleClick}
         mapStyle={config.mapStyle}
@@ -977,7 +967,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
           </Source>
         ) : null}
 
-        {variant === 'full' || variant === 'mini'
+        {variant === 'full'
           ? GLOBE_HUBS.map((hub) => {
               const key = `hub:${hub.name}`;
               const facing = isFacing(key);
@@ -993,7 +983,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
                   }}
                   onClick={(e) => {
                     e.originalEvent.stopPropagation();
-                    if (variant === 'mini' || !facing) return;
+                    if (!facing) return;
                     onHubSelect?.(hub);
                   }}
                 >
@@ -1135,14 +1125,6 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         </div>
       ) : null}
 
-      {!hideChrome ? (
-        <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-lg bg-[var(--surface)]/90 px-2 py-1 text-[10px] font-mono text-[var(--text-muted)] backdrop-blur">
-          {usingLocationIq
-            ? `LocationIQ · ${mapTheme} · ${mapProjection === 'globe' ? 'MapLibre globe' : 'flat geographic'} · ${dataView}`
-            : `OpenFreeMap · MapLibre · ${dataView}`}{' '}
-          click anywhere
-        </div>
-      ) : null}
     </div>
   );
 });

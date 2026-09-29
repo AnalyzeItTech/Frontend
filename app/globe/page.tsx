@@ -15,12 +15,20 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { AppShell } from '../Components/app/AppShell';
+import { useTheme } from '../Components/ui/ThemeProvider';
 import { PlaceContextCard } from '../Components/map/PlaceContextCard';
 import { EventDetailCard } from '../Components/map/EventDetailCard';
 import { GlobeCanvas } from '../Components/globe/GlobeCanvas';
 import { QueuedFlyToast } from '../Components/globe/QueuedFlyToast';
 import { GLOBE_HUBS } from '../Components/globe/sourceCatalog';
 import { LIVE_LAYER_POLL_MS } from '../Components/globe/globePerf';
+import {
+  globeAskPrompt,
+  interpretLayerPayload,
+  mergeLayerRefresh,
+  strongestRows,
+} from '../Components/globe/dataQuality.mjs';
+import { globeStage, layerHealthView } from '../Components/globe/globeVisual.mjs';
 import {
   buildLiveOverlays,
   selectionLoadsPlaceContext,
@@ -78,8 +86,8 @@ function readRails(): { left: number; right: number } {
 }
 
 const LAYERS: { id: LayerId; label: string; hint: string; color: string; coverage: 'complete' | 'sample' | 'limited' }[] = [
-  { id: 'catalog', label: 'Sources', hint: 'Research HQ catalog (~90+)', color: '#c4a28a', coverage: 'complete' },
-  { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS worldwide', color: '#d97706', coverage: 'complete' },
+  { id: 'catalog', label: 'Sources', hint: 'Agency & statistics seats — registry when available, otherwise a built-in list', color: '#c4a28a', coverage: 'limited' },
+  { id: 'earthquakes', label: 'Earthquakes', hint: 'USGS M4.5+ · last 7 days', color: '#d97706', coverage: 'complete' },
   { id: 'disasters', label: 'Disasters', hint: 'GDACS alerts worldwide', color: '#dc2626', coverage: 'complete' },
   { id: 'wildfires', label: 'Wildfires', hint: 'NASA EONET open fires', color: '#ef4444', coverage: 'complete' },
   { id: 'storms', label: 'Storms', hint: 'NASA EONET severe storms', color: '#6366f1', coverage: 'complete' },
@@ -97,33 +105,15 @@ function placeId(p: { lat: number; lon: number; name?: string }) {
   return `${(p.name || 'p').toLowerCase()}-${p.lat.toFixed(3)}-${p.lon.toFixed(3)}`;
 }
 
-function barScore(p: SourcePoint): number {
-  const m = p.meta || {};
-  const mag = Number(m.mag);
-  if (Number.isFinite(mag)) return mag;
-  const aqi = Number(m.aqi);
-  if (Number.isFinite(aqi)) return aqi;
-  const temp = Number(m.temperature_c);
-  if (Number.isFinite(temp)) return Math.abs(temp);
-  const ch = Number(m.change_pct);
-  if (Number.isFinite(ch)) return Math.abs(ch);
-  const el = Number(m.elevation_m);
-  if (Number.isFinite(el)) return Math.abs(el);
-  return 1;
-}
-
 function RankedBars({ points }: { points: SourcePoint[] }) {
-  const rows = points
-    .filter((p) => p.kind !== 'hub')
-    .map((p) => ({ id: p.id, label: p.label, score: barScore(p) }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
+  const ranked = strongestRows(points, 8) as { unit: string; rows: Array<{ id: string; label: string; score: number }> };
+  const rows = ranked.rows;
   if (!rows.length) return null;
   const max = rows[0].score || 1;
   return (
     <div className="space-y-1.5 pt-1">
       <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-        Strongest on the map
+        Strongest {ranked.unit ? `· ${ranked.unit}` : 'on the map'}
       </p>
       {rows.map((row) => (
         <div key={row.id} className="grid grid-cols-[1fr_auto] items-center gap-2">
@@ -145,6 +135,17 @@ function RankedBars({ points }: { points: SourcePoint[] }) {
   );
 }
 
+function LayerHealthBadge({
+  count,
+  health,
+}: {
+  count: number;
+  health?: { status: string; message?: string | null };
+}) {
+  const view = layerHealthView(count, health) as { label: string; tone: string };
+  return <span className={`globe-health globe-health--${view.tone}`}>{view.label}</span>;
+}
+
 function kpis(ctx: PlaceContext | null | undefined) {
   const temp = ctx?.weather?.temperature_c;
   const aqi = ctx?.air_quality?.us_aqi ?? ctx?.air_quality?.european_aqi;
@@ -158,6 +159,11 @@ function kpis(ctx: PlaceContext | null | undefined) {
 
 export default function GlobePage() {
   const router = useRouter();
+  const { theme } = useTheme();
+  const globePageStage = globeStage({
+    variant: 'full',
+    appTheme: theme === 'dark' ? 'dark' : 'light',
+  });
   const {
     flyToLatLon,
     camera,
@@ -201,6 +207,9 @@ export default function GlobePage() {
     elevation: false,
   });
   const [layerCounts, setLayerCounts] = useState<Partial<Record<LayerId, number>>>({});
+  const [layerHealth, setLayerHealth] = useState<
+    Partial<Record<LayerId, { status: string; message?: string | null }>>
+  >({});
   const [layersLoading, setLayersLoading] = useState(false);
   const [compare, setCompare] = useState<ComparePlace[]>([]);
   const [leftRail, setLeftRail] = useState(LEFT_DEFAULT);
@@ -208,6 +217,12 @@ export default function GlobePage() {
   const [railsReady, setRailsReady] = useState(false);
   const fetchGen = useRef(0);
   const searchGen = useRef(0);
+  const pollGen = useRef(0);
+  const pollAbortRef = useRef<AbortController | null>(null);
+  const contextAbortRef = useRef<AbortController | null>(null);
+  const layerCacheRef = useRef<
+    Record<string, { events: Array<Record<string, unknown>>; path: Array<{ lat?: number; lon?: number }> | null }>
+  >({});
 
   const anyLayerOn = useMemo(() => Object.values(layers).some(Boolean), [layers]);
   const visibleLayers = useMemo(() => {
@@ -241,9 +256,14 @@ export default function GlobePage() {
     ).filter((id) => layers[id]);
 
     const buildOverlays = async () => {
+      pollAbortRef.current?.abort();
+      const ac = new AbortController();
+      pollAbortRef.current = ac;
+      const gen = ++pollGen.current;
       if (liveIds.length === 0) {
         if (!cancelled) {
           setLayerCounts({});
+          setLayerHealth({});
           setOverlayPoints([]);
           setOverlayPaths([]);
           setLayersLoading(false);
@@ -253,7 +273,7 @@ export default function GlobePage() {
 
       setLayersLoading(true);
       try {
-        // One request per layer. A slow flights sweep must not blank earthquakes.
+        // One request per layer. A slow layer must not blank the others.
         const payloads = await Promise.all(
           liveIds.map(async (id) => {
             try {
@@ -261,26 +281,42 @@ export default function GlobePage() {
                 layers: [id],
                 minMagnitude: 4.5,
                 days: 7,
+                signal: ac.signal,
               });
-              return data.layers || {};
-            } catch {
-              return {};
+              const bucket = (data.layers || {}) as Record<string, Record<string, unknown>>;
+              return { id, payload: bucket[id] || { events: [] } };
+            } catch (err) {
+              if (ac.signal.aborted) return { id, aborted: true as const, payload: null };
+              const message = err instanceof Error ? err.message : 'Could not load layer';
+              return { id, aborted: false as const, payload: { fetchError: message } };
             }
           }),
         );
-        if (cancelled) return;
+        if (cancelled || gen !== pollGen.current) return;
         const merged: Record<string, { events?: Array<Record<string, unknown>>; path?: Array<{ lat?: number; lon?: number }> }> = {};
-        for (const part of payloads) Object.assign(merged, part);
+        const health: Partial<Record<LayerId, { status: string; message?: string | null }>> = {};
+        for (const row of payloads) {
+          if (row.aborted) return;
+          const interpreted = interpretLayerPayload(row.payload);
+          const next = mergeLayerRefresh(layerCacheRef.current[row.id], interpreted);
+          layerCacheRef.current[row.id] = { events: next.events, path: next.path };
+          merged[row.id] = {
+            events: next.events,
+            ...(next.path ? { path: next.path } : {}),
+          };
+          health[row.id] = { status: next.status, message: next.message };
+        }
 
         const { points, paths, counts } = buildLiveOverlays(layers, merged);
 
         setLayerCounts(counts);
+        setLayerHealth(health);
         setOverlayPoints(points as SourcePoint[]);
         setOverlayPaths(paths);
       } catch {
-        if (!cancelled) setLayersLoading(false);
+        if (!cancelled && gen === pollGen.current) setLayersLoading(false);
       } finally {
-        if (!cancelled) setLayersLoading(false);
+        if (!cancelled && gen === pollGen.current) setLayersLoading(false);
       }
     };
 
@@ -290,6 +326,7 @@ export default function GlobePage() {
     }, LIVE_LAYER_POLL_MS);
     return () => {
       cancelled = true;
+      pollAbortRef.current?.abort();
       window.clearInterval(timer);
     };
   }, [layers, setOverlayPoints, setOverlayPaths]);
@@ -310,7 +347,10 @@ export default function GlobePage() {
         .join(' · ');
       const ids = list.map((p) => `${p.lat},${p.lon}`).join('|');
       const qs = new URLSearchParams();
-      qs.set('q', prompt || (labels ? `Analyze ${labels}` : 'Analyze this place'));
+      qs.set(
+        'q',
+        globeAskPrompt(prompt || (labels ? `Analyze ${labels}` : 'Analyze this place'), list),
+      );
       if (labels) qs.set('place', labels);
       if (ids) qs.set('placeIds', ids);
       router.push(`/research?${qs.toString()}`);
@@ -320,13 +360,16 @@ export default function GlobePage() {
 
   const loadContext = useCallback(
     async (lat: number, lon: number, meta?: { name?: string; country?: string }) => {
+      contextAbortRef.current?.abort();
+      const ac = new AbortController();
+      contextAbortRef.current = ac;
       const gen = ++fetchGen.current;
       setSelectedEvent(null);
       setSelected({ lat, lon, name: meta?.name, country: meta?.country });
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchPlaceContext(lat, lon);
+        const data = await fetchPlaceContext(lat, lon, { signal: ac.signal });
         if (gen !== fetchGen.current) return;
         setContext(data);
         const name = meta?.name || data.place?.name || undefined;
@@ -339,9 +382,10 @@ export default function GlobePage() {
           );
         }
       } catch (err) {
-        if (gen !== fetchGen.current) return;
+        if (gen !== fetchGen.current || ac.signal.aborted) return;
         setContext(null);
-        setError(err instanceof Error ? err.message : 'Could not load place context');
+        const message = err instanceof Error ? err.message : 'Could not load place context';
+        setError(message === 'The operation was aborted.' ? 'Place context timed out. Retry to load this place again.' : message);
       } finally {
         if (gen === fetchGen.current) setLoading(false);
       }
@@ -522,22 +566,7 @@ export default function GlobePage() {
         }}
       >
         <aside className="flex min-w-0 flex-col overflow-hidden border-r border-[var(--border)] bg-[var(--surface)]">
-          <div className="space-y-3 border-b border-[var(--border)] p-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-                Drag edges to widen
-              </p>
-              <button
-                type="button"
-                className="text-[10px] text-[var(--text-muted)] underline underline-offset-2"
-                onClick={() => {
-                  setLeftRail(LEFT_DEFAULT);
-                  setRightRail(RIGHT_DEFAULT);
-                }}
-              >
-                Reset width
-              </button>
-            </div>
+          <div className="space-y-2.5 border-b border-[var(--border)] p-3">
             <div className="flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2">
               <IconSearch size={15} className="shrink-0 text-[#EA8069]" />
               <input
@@ -626,28 +655,40 @@ export default function GlobePage() {
               >
                 <IconCurrentLocation size={14} />
               </button>
-              <div className="ml-auto flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-                <IconLayersSubtract size={12} />
-                Layers
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
-                onClick={() => setMapProjection(mapProjection === 'globe' ? 'mercator' : 'globe')}
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 text-[11px] font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-2)]"
-                title={mapProjection === 'globe' ? 'Switch to flat geographic map' : 'Switch to 3D globe'}
+                className="ml-auto text-[11px] font-medium text-[var(--text-primary)] underline-offset-2 hover:underline"
+                onClick={() => {
+                  setLeftRail(LEFT_DEFAULT);
+                  setRightRail(RIGHT_DEFAULT);
+                }}
               >
-                {mapProjection === 'globe' ? <IconWorld size={12} /> : <IconMap size={12} />}
-                {mapProjection === 'globe' ? 'Globe view' : 'Geographic map'}
+                Reset width
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-                Draw
-              </span>
+            <div className="globe-seg" role="group" aria-label="Map projection">
+              <button
+                type="button"
+                aria-pressed={mapProjection === 'globe'}
+                onClick={() => setMapProjection('globe')}
+                title="3D globe"
+              >
+                <IconWorld size={12} />
+                Globe
+              </button>
+              <button
+                type="button"
+                aria-pressed={mapProjection === 'mercator'}
+                onClick={() => setMapProjection('mercator')}
+                title="Flat geographic map"
+              >
+                <IconMap size={12} />
+                Flat
+              </button>
+            </div>
+
+            <div className="globe-seg" role="group" aria-label="Draw mode">
               {(
                 [
                   ['pins', 'Pins'],
@@ -659,72 +700,72 @@ export default function GlobePage() {
                 <button
                   key={id}
                   type="button"
+                  aria-pressed={dataView === id}
                   onClick={() => setDataView(id)}
-                  className={`inline-flex min-h-8 items-center rounded-full border px-2.5 text-[11px] font-medium ${
-                    dataView === id
-                      ? 'border-[#EA8069]/50 bg-[#EA8069]/15 text-[#C96551]'
-                      : 'border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-2)]'
-                  }`}
                 >
                   {label}
                 </button>
               ))}
             </div>
+          </div>
 
+          <div className="border-b border-[var(--border)] px-3 py-2">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <p className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-primary)]">
+                <IconLayersSubtract size={13} aria-hidden />
+                Layers
+              </p>
+              {layersLoading ? (
+                <span className="inline-flex items-center gap-1 text-[11px] text-[var(--text-secondary)]">
+                  <IconLoader2 size={12} className="animate-spin" aria-hidden />
+                  Updating
+                </span>
+              ) : null}
+            </div>
             <label className="relative block">
               <IconSearch
                 size={14}
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]"
               />
               <input
                 value={layerFilter}
                 onChange={(e) => setLayerFilter(e.target.value)}
                 placeholder="Filter layers…"
-                className="h-8 w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] pl-8 pr-3 text-[11px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[#EA8069]/50"
+                aria-label="Filter layers"
+                className="h-8 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] pl-8 pr-3 text-[12px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-secondary)] focus:border-[var(--border-strong)]"
               />
             </label>
-
-            <div className="flex flex-wrap gap-1.5">
+            <div className="globe-layer-scroll mt-1.5" role="group" aria-label="Map layers">
               {visibleLayers.map((layer) => {
                 const on = layers[layer.id];
+                const count = layer.id === 'catalog' ? archivePoints.length : (layerCounts[layer.id] ?? 0);
+                const health =
+                  layer.id === 'catalog'
+                    ? { status: 'ok' }
+                    : layerHealth[layer.id] || (layersLoading ? { status: 'loading' } : undefined);
+                const healthMessage = layer.id === 'catalog' ? null : layerHealth[layer.id]?.message;
                 return (
                   <button
                     key={layer.id}
                     type="button"
-                    title={layer.hint}
+                    aria-pressed={on}
+                    title={healthMessage ? `${layer.hint} — ${healthMessage}` : layer.hint}
                     onClick={() => setLayers((prev) => ({ ...prev, [layer.id]: !prev[layer.id] }))}
-                    className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-medium transition-colors ${
-                      on
-                        ? 'border-[#EA8069]/50 bg-[#EA8069]/15 text-[#C96551]'
-                        : 'border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-2)]'
-                    }`}
+                    className={`globe-layer-toggle${on ? ' is-on' : ''}`}
                   >
-                    {layer.label}
-                    {layer.coverage === 'sample' ? (
-                      <span className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-                        sample
-                      </span>
-                    ) : layer.coverage === 'limited' ? (
-                      <span className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
-                        limited
-                      </span>
+                    <span className="globe-layer-swatch" style={{ background: layer.color }} aria-hidden />
+                    <span className="globe-layer-name">{layer.label}</span>
+                    {layer.coverage !== 'complete' ? (
+                      <span className="globe-layer-coverage">{layer.coverage}</span>
                     ) : null}
-                    {on && (layerCounts[layer.id] ?? 0) > 0 ? (
-                      <span className="rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[9px] tabular-nums text-[var(--text-muted)]">
-                        {layerCounts[layer.id]}
-                      </span>
-                    ) : null}
-                    {on && layersLoading ? (
-                      <IconLoader2 size={11} className="animate-spin text-[var(--text-muted)]" />
-                    ) : null}
+                    {on ? <LayerHealthBadge count={count} health={health} /> : null}
                   </button>
                 );
               })}
             </div>
             {layerFilter.trim() && visibleLayers.length === 0 ? (
-              <p className="text-[11px] text-[var(--text-muted)]">No layers match that filter.</p>
+              <p className="px-1 pt-2 text-[12px] text-[var(--text-secondary)]">No layers match that filter.</p>
             ) : null}
-            <RankedBars points={layers.catalog ? [...archivePoints, ...overlayPoints] : overlayPoints} />
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -765,6 +806,7 @@ export default function GlobePage() {
               </div>
             ) : (
               <div className="space-y-3">
+                <RankedBars points={layers.catalog ? [...archivePoints, ...overlayPoints] : overlayPoints} />
                 <div>
                   <p className="mb-2 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
                     Hubs
@@ -834,48 +876,35 @@ export default function GlobePage() {
           className="z-10 cursor-col-resize bg-[var(--border)] hover:bg-[#EA8069]"
         />
 
-        <section className="relative min-w-0 bg-[var(--bg)]">
+        <section className={`${globePageStage.pageClass} relative min-w-0`}>
           <div className="absolute inset-0">
             <GlobeCanvas variant="full" />
           </div>
           <QueuedFlyToast />
 
-          {!selected && mapReady ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-4">
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 px-4 py-3 text-center shadow-lg backdrop-blur">
-                <p className="font-serif text-sm text-[var(--text-primary)]">Search a place to begin</p>
-                <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                  Or click anywhere on the globe
-                </p>
-              </div>
-            </div>
-          ) : null}
-
           {anyLayerOn ? (
-            <div className="absolute bottom-3 left-3 z-20 max-w-xs rounded-xl border border-[var(--border)] bg-[var(--surface)]/95 p-3 text-[11px] shadow-lg backdrop-blur">
-              <p className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-                Active layers · {mapProjection === 'globe' ? '3D globe' : 'flat map'}
-              </p>
-              <ul className="space-y-1 text-[var(--text-secondary)]">
-                {LAYERS.filter((l) => layers[l.id]).map((l) => (
-                  <li key={l.id} className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: l.color }} />
-                    {l.label}
-                    {l.coverage === 'sample' ? (
-                      <span className="text-[var(--text-muted)]">· sample</span>
-                    ) : l.coverage === 'limited' ? (
-                      <span className="text-[var(--text-muted)]">· limited</span>
-                    ) : null}
-                    <span className="text-[var(--text-muted)]">· {l.hint}</span>
-                    {(layerCounts[l.id] ?? 0) > 0 ? (
-                      <span className="tabular-nums text-[var(--text-muted)]">({layerCounts[l.id]})</span>
-                    ) : layersLoading ? (
-                      <span className="text-[var(--text-muted)]">…</span>
-                    ) : (
-                      <span className="text-[var(--text-muted)]">(0)</span>
-                    )}
-                  </li>
-                ))}
+            <div className="globe-legend absolute bottom-3 left-3 z-20" aria-label="Layer legend">
+              <p className="globe-legend-kicker">Legend</p>
+              <ul>
+                {LAYERS.filter((l) => layers[l.id]).map((l) => {
+                  const count = l.id === 'catalog' ? archivePoints.length : (layerCounts[l.id] ?? 0);
+                  const health =
+                    l.id === 'catalog'
+                      ? { status: 'ok' }
+                      : layerHealth[l.id] || (layersLoading ? { status: 'loading' } : undefined);
+                  return (
+                    <li key={l.id}>
+                      <span className="globe-layer-swatch" style={{ background: l.color }} aria-hidden />
+                      <span className="globe-legend-name">{l.label}</span>
+                      {l.coverage !== 'complete' ? (
+                        <span className="globe-legend-coverage">{l.coverage}</span>
+                      ) : (
+                        <span />
+                      )}
+                      <LayerHealthBadge count={count} health={health} />
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ) : null}
@@ -928,6 +957,15 @@ export default function GlobePage() {
                   loading={loading}
                   error={error}
                   rail
+                  onRetry={
+                    selected
+                      ? () =>
+                          void loadContext(selected.lat, selected.lon, {
+                            name: selected.name,
+                            country: selected.country,
+                          })
+                      : undefined
+                  }
                   onClose={() => {
                     setContext(null);
                     setError(null);

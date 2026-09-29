@@ -27,6 +27,7 @@ interface PlaceContextCardProps {
   loading?: boolean;
   error?: string | null;
   onClose?: () => void;
+  onRetry?: () => void;
   onSendToChat?: (prompt: string) => void;
   /** Full-height rail mode (no max-width card chrome). */
   rail?: boolean;
@@ -78,6 +79,7 @@ export function PlaceContextCard({
   loading,
   error,
   onClose,
+  onRetry,
   onSendToChat,
   rail = false,
 }: PlaceContextCardProps) {
@@ -154,9 +156,14 @@ export function PlaceContextCard({
         ) : null}
 
         {error ? (
-          <p role="alert" className="rounded-lg border border-[var(--danger)]/25 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--danger)]">
-            {error}
-          </p>
+          <div role="alert" className="rounded-lg border border-[var(--danger)]/25 bg-[var(--danger)]/10 px-3 py-2 text-xs text-[var(--danger)]">
+            <p>{error}</p>
+            {onRetry && !loading ? (
+              <button type="button" className="btn-secondary mt-2 min-h-8 text-[11px]" onClick={onRetry}>
+                Retry
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         {!loading && context ? (
@@ -262,9 +269,12 @@ export function PlaceContextCard({
                       {weather.sunset ? ` ↓${timeOnly(weather.sunset)}` : ''}
                       {weather.day_length_hours != null ? ` · ${weather.day_length_hours}h day` : ''}
                     </p>
+                    {weather.source ? (
+                      <p className="mt-1 text-[10px] text-[var(--text-muted)]">Source: {weather.source}</p>
+                    ) : null}
                   </>
                 ) : (
-                  <p className="text-[11px] text-[var(--text-muted)]">Unavailable</p>
+                  <p className="text-[11px] text-[var(--text-muted)]">{weather?.error || 'Unavailable'}</p>
                 )}
               </div>
 
@@ -286,9 +296,12 @@ export function PlaceContextCard({
                       {aqi.ozone != null ? ` · O₃ ${Math.round(aqi.ozone)}` : ''}
                       {aqi.no2 != null ? ` · NO₂ ${Math.round(aqi.no2)}` : ''}
                     </p>
+                    {aqi.source ? (
+                      <p className="mt-1 text-[10px] text-[var(--text-muted)]">Source: {aqi.source}</p>
+                    ) : null}
                   </>
                 ) : (
-                  <p className="text-[11px] text-[var(--text-muted)]">Unavailable</p>
+                  <p className="text-[11px] text-[var(--text-muted)]">{aqi?.error || 'Unavailable'}</p>
                 )}
               </div>
 
@@ -377,6 +390,9 @@ export function PlaceContextCard({
                 <div className="mb-1 flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
                   <IconWaveSawTool size={12} className="text-[#EA8069]" /> Quakes (30d)
                 </div>
+                {quakes?.source ? (
+                  <p className="mb-1 text-[10px] text-[var(--text-muted)]">Source: {quakes.source}</p>
+                ) : null}
                 {quakes?.available && quakes.events.length > 0 ? (
                   <ul className="space-y-1 text-[10px] text-[var(--text-secondary)]">
                     {quakes.events.slice(0, 8).map((ev, i) => (
@@ -392,7 +408,9 @@ export function PlaceContextCard({
                     ) : null}
                   </ul>
                 ) : (
-                  <p className="text-[11px] text-[var(--text-muted)]">None nearby</p>
+                  <p className="text-[11px] text-[var(--text-muted)]">
+                    {quakes?.error || quakes?.available === false ? 'Unavailable' : 'None nearby'}
+                  </p>
                 )}
               </div>
               <div className="rounded-xl bg-[var(--surface-2)] p-2.5">
@@ -414,7 +432,13 @@ export function PlaceContextCard({
                     <li className="text-[var(--text-muted)]">{flights.count} in airspace</li>
                   </ul>
                 ) : (
-                  <p className="text-[11px] text-[var(--text-muted)]">Quiet skies / rate-limited</p>
+                  <p className="text-[11px] text-[var(--text-muted)]">
+                    {flights?.error
+                      ? 'Unavailable'
+                      : flights?.source
+                        ? `No aircraft reported · ${flights.source}`
+                        : 'No aircraft reported'}
+                  </p>
                 )}
               </div>
             </div>
@@ -439,10 +463,13 @@ export function PlaceContextCard({
             ) : null}
 
             <div className="space-y-1.5">
-              <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
                 <IconNews size={12} className="text-[#EA8069]" /> News
                 {news?.count != null ? (
                   <span className="normal-case tracking-normal">({news.count})</span>
+                ) : null}
+                {news?.source ? (
+                  <span className="normal-case tracking-normal">· {news.source}</span>
                 ) : null}
               </div>
               {news?.available && news.articles.length > 0 ? (
@@ -468,7 +495,9 @@ export function PlaceContextCard({
                   ))}
                 </ul>
               ) : (
-                <p className="text-[11px] text-[var(--text-muted)]">No recent headlines</p>
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  {news?.error ? `Unavailable${news.source ? ` · ${news.source}` : ''}` : 'No recent headlines'}
+                </p>
               )}
             </div>
 

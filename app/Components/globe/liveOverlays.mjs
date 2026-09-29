@@ -5,6 +5,8 @@
  * Node's built-in test runner can import without a TS harness.
  */
 
+import { eventCoordinates, pathCoordinates } from './dataQuality.mjs';
+
 /**
  * Map API events for one layer into SourcePoints. Does not accept place context.
  * @param {string} layerId
@@ -16,15 +18,16 @@ export function mapLayerEventsToPoints(layerId, events, opts = {}) {
   const points = [];
   const host = opts.host || layerId;
   for (const ev of events || []) {
-    if (ev.lat == null || ev.lon == null) continue;
+    const coords = eventCoordinates(ev);
+    if (!coords) continue;
     const mag = ev.mag != null ? Number(ev.mag) : null;
     const label =
       ev.label ||
       (mag != null ? `M${mag.toFixed(1)} · ${ev.place || layerId}` : ev.place || layerId);
     points.push({
-      id: `${layerId}:${ev.id || `${ev.lat},${ev.lon}`}`,
-      lat: ev.lat,
-      lon: ev.lon,
+      id: `${layerId}:${ev.id || `${coords.lat},${coords.lon}`}`,
+      lat: coords.lat,
+      lon: coords.lon,
       label,
       kind: 'event',
       host,
@@ -131,14 +134,12 @@ export function buildLiveOverlays(enabledLayers, layerPayloads) {
   push('elevation', layerPayloads?.elevation?.events, { host: 'elevation' });
 
   if (enabledLayers?.iss) {
-    const rawPath = layerPayloads?.iss?.path || [];
-    if (rawPath.length >= 2) {
+    const coordinates = pathCoordinates(layerPayloads?.iss?.path || []);
+    if (coordinates.length >= 2) {
       paths.push({
         id: 'iss-orbit',
         color: '#f43f5e',
-        coordinates: rawPath
-          .filter((p) => p.lat != null && p.lon != null)
-          .map((p) => [Number(p.lon), Number(p.lat)]),
+        coordinates,
       });
     }
   }

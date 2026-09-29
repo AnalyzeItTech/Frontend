@@ -196,23 +196,6 @@ export async function cancelSubscription() {
   return res.json();
 }
 
-export async function startTrial(trialTier: 'premium' | 'premium_plus' = 'premium') {
-  const res = await fetch(`${API_V1}/trial/start`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ trial_tier: trialTier }),
-  });
-  if (!res.ok) throw new Error(await readError(res, 'Could not start trial'));
-  return res.json() as Promise<{
-    ok: boolean;
-    trial_status: string;
-    trial_tier: string;
-    trial_started_at: string;
-    trial_ends_at: string;
-    entitlements: Record<string, unknown>;
-  }>;
-}
-
 export async function getCheckoutStatus(txnid: string) {
   const res = await fetch(`${API_V1}/billing/checkout/${encodeURIComponent(txnid)}/status`, {
     headers: getAuthHeaders(),

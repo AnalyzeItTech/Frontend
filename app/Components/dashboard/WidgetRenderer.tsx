@@ -27,6 +27,7 @@ import {
 } from '@tabler/icons-react';
 import { useTheme } from '../ui/ThemeProvider';
 import { resolveWidgetData, type WidgetSpec, type ProvenanceInfo, type ChartAnnotation } from '../../lib/chatApi';
+import { provenanceBadge, provenanceBadgeText } from '../../lib/dashboardView.mjs';
 import {
   BubbleGridWidget,
   ChoroplethMapWidget,
@@ -68,67 +69,33 @@ export function CitationFooter({
   binding?: unknown;
   onRefresh?: () => void;
 }) {
-  if (!provenance && !freshness && !binding) return null;
+  const badge = provenanceBadge({
+    provenance,
+    freshness,
+    binding: binding as { last_refreshed_at?: string } | undefined,
+  });
+  if (!badge) return null;
 
-  const getKindConfig = (kind?: string) => {
-    switch (kind) {
-      case 'live_api':
-        return {
-          dotColor: 'bg-[#3FB68C]',
-          badgeClass: 'bg-[#3FB68C]/10 text-[#3FB68C] border-[#3FB68C]/25',
-          label: 'Live API',
-        };
-      case 'verified_db':
-        return {
-          dotColor: 'bg-[#EA8069]',
-          badgeClass: 'bg-[#EA8069]/10 text-[#C96551] border-[#EA8069]/25',
-          label: 'Verified DB',
-        };
-      case 'synthetic_ai':
-      default:
-        return {
-          dotColor: 'bg-[#81786F]',
-          badgeClass: 'bg-[#81786F]/10 text-[#81786F] border-[#81786F]/25',
-          label: 'Synthesized AI',
-        };
-    }
-  };
-
-  const badge = provenance ? getKindConfig(provenance.kind) : null;
-  const lastRefreshed = (binding as any)?.last_refreshed_at
-    ? `Refreshed ${new Date((binding as any).last_refreshed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-    : null;
+  const text = provenanceBadgeText(badge);
 
   return (
-    <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[11px] font-sans text-[#8B93A1]">
-      {badge && provenance ? (
-        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border ${badge.badgeClass}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${badge.dotColor} motion-safe:animate-pulse flex-shrink-0`} />
-          <span className="font-medium">{badge.label}</span>
-          <span className="opacity-40">·</span>
-          <span className="truncate max-w-[130px]">{provenance.source}</span>
-        </span>
-      ) : (
-        <span />
-      )}
-      <div className="flex items-center gap-1.5">
-        <span className="text-[10px] text-[#8B93A1] flex-shrink-0">
-          {lastRefreshed || provenance?.timestamp || freshness || (provenance?.kind === 'synthetic_ai' || !provenance ? 'Preview' : 'Live')}
-        </span>
-        {onRefresh && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRefresh();
-            }}
-            className="p-1 rounded hover:bg-white/[0.06] text-[#8B93A1] hover:text-[#EDEFF2] transition-colors cursor-pointer"
-            title="Refresh data"
-          >
-            <IconRefresh size={12} />
-          </button>
-        )}
-      </div>
+    <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between gap-2 text-[11px] font-sans text-[#8B93A1]">
+      <span className="inline-flex min-w-0 items-center gap-1.5 px-2 py-0.5 rounded-md border border-white/10 bg-white/[0.04]">
+        <span className="truncate">{text}</span>
+      </span>
+      {onRefresh ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRefresh();
+          }}
+          className="p-1 rounded hover:bg-white/[0.06] text-[#8B93A1] hover:text-[#EDEFF2] transition-colors cursor-pointer"
+          title="Refresh data"
+        >
+          <IconRefresh size={12} />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -2177,6 +2144,12 @@ export function SandboxedFrameWidget({
           />
         </div>
       )}
+      <CitationFooter
+        provenance={(widget.provenance || (p as { provenance?: ProvenanceInfo }).provenance) as ProvenanceInfo | undefined}
+        freshness={widget.freshness}
+        binding={widget.binding || (p as { binding?: unknown }).binding}
+        onRefresh={onWidgetAction ? () => onWidgetAction(widget.id, 'refresh') : undefined}
+      />
     </div>
   );
 }
@@ -2300,47 +2273,9 @@ export function SandboxedWidgetRenderer({
         </div>
       )}
 
-      {/* Freshness / provenance badge — never invent a fake "Live" clock */}
-      {(() => {
-        const binding = widget.binding as { last_refreshed_at?: string } | undefined;
-        const kind = widget.provenance?.kind;
-        const isSynthetic = !kind || kind === 'synthetic_ai';
-        const refreshedAt = binding?.last_refreshed_at
-          ? `Refreshed ${new Date(binding.last_refreshed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-          : null;
-        const label =
-          widget.freshness ||
-          refreshedAt ||
-          widget.provenance?.timestamp ||
-          (isSynthetic ? 'Preview · not live' : kind === 'verified_db' ? 'Verified DB' : 'Live API');
-        const tone = isSynthetic
-          ? 'bg-amber-500/10 text-amber-700 dark:text-[#D9AD70] border-amber-500/25 dark:border-amber-500/30'
-          : 'bg-emerald-500/10 text-emerald-600 dark:text-[#9EBB9A] border-emerald-500/20 dark:border-emerald-500/30';
-        const dot = isSynthetic ? 'bg-amber-500' : 'bg-emerald-500';
-        return (
-          <div className="absolute top-3 right-3 z-10 group-hover/canvas-widget:hidden transition-all">
-            <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border flex items-center gap-1.5 shadow-xs ${tone}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${dot} ${isSynthetic ? '' : 'animate-pulse'}`} />
-              {label}
-            </span>
-          </div>
-        );
-      })()}
-
       {/* Hover Action Toolbar */}
       {hasToolbarControls && (
         <div className="absolute top-2.5 right-2.5 z-20 hidden group-hover/canvas-widget:flex items-center gap-1 bg-[#FAF6F0]/95 dark:bg-[#302B28]/95 backdrop-blur-md px-2 py-1 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] shadow-md transition-all">
-          <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md mr-1 flex items-center gap-1 ${
-            !widget.provenance?.kind || widget.provenance.kind === 'synthetic_ai'
-              ? 'bg-amber-500/10 text-amber-700 dark:text-[#D9AD70]'
-              : 'bg-emerald-500/10 text-emerald-600 dark:text-[#9EBB9A]'
-          }`}>
-            <span className={`w-1 h-1 rounded-full ${
-              !widget.provenance?.kind || widget.provenance.kind === 'synthetic_ai' ? 'bg-amber-500' : 'bg-emerald-500'
-            }`} />
-            {!widget.provenance?.kind || widget.provenance.kind === 'synthetic_ai' ? 'Preview' : 'Live'}
-          </span>
-
           {onRefine && (
             <button
               type="button"

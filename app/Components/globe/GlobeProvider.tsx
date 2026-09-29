@@ -17,7 +17,8 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
-import { mergeDisplayPoints } from './liveOverlays.mjs';
+import { selectDisplayPoints } from './dataQuality.mjs';
+import { MINI_PIN_CAP } from './globePerf';
 import { catalogArchivePoints, fetchRegistryPoints } from './sourceCatalog';
 import { calloutFor, resolveChatIngest } from './resolveSources';
 import type {
@@ -540,11 +541,20 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     (parked
       ? { top: -400, left: -400, width: 8, height: 8 }
       : { top: 0, left: 0, width: 1, height: 1 });
-  // Catalog + chat actives + live overlays (earthquakes etc.). LocationIQ/OSM keeps lat/lon honest.
-  const displayPoints = useMemo(() => {
-    const catalog = showCatalog || variant === 'mini' ? archivePoints : [];
-    return mergeDisplayPoints(catalog, activePoints, overlayPoints);
-  }, [archivePoints, activePoints, overlayPoints, showCatalog, variant]);
+  // Full globe: catalog (when that layer is on) + this chat's pins + live overlays.
+  // Mini globe on Research is this run only — HQ seats are not the answer.
+  const displayPoints = useMemo(
+    () =>
+      selectDisplayPoints({
+        variant,
+        showCatalog,
+        archivePoints,
+        activePoints,
+        overlayPoints,
+        cap: MINI_PIN_CAP,
+      }),
+    [archivePoints, activePoints, overlayPoints, showCatalog, variant],
+  );
 
   useEffect(() => {
     if (!mapReady) return;

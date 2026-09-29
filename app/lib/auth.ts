@@ -1,3 +1,5 @@
+import { AUTH_COOKIE, SESSION_COOKIE } from './personalHost.mjs';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_V1 = `${API_BASE}/v1`;
 
@@ -47,11 +49,25 @@ export interface UserProfile {
   name: string;
   preferences?: Record<string, unknown>;
   created_at?: string;
+  /** Subscription tier from `/me`: `free`, `premium`, or `premium_plus`. */
   tier?: string;
-  trial_status?: string;
-  trial_ends_at?: string | null;
-  trial_used?: boolean;
   entitlements?: Record<string, unknown>;
+}
+
+/**
+ * Plan name for UI. Uses the account tier only.
+ * A leftover `free_trial` value is shown as Free — trial is not a plan.
+ */
+export function planTierLabel(raw?: string | null): string {
+  const tier = (raw || 'free').toLowerCase();
+  if (tier === 'free' || tier === 'free_trial') return 'free';
+  return tier.replace(/_/g, ' ');
+}
+
+/** Paid Razorpay plans. Anything else (including a leftover trial tier) is Free. */
+export function isPaidPlan(raw?: string | null): boolean {
+  const tier = (raw || '').toLowerCase();
+  return tier === 'premium' || tier === 'premium_plus';
 }
 
 export interface AuthResult {
@@ -62,9 +78,9 @@ export interface AuthResult {
 
 const TOKEN_KEY = 'analyzeit_token';
 const USER_KEY = 'analyzeit_user';
-export const AUTH_COOKIE = 'analyzeit_auth';
+export { AUTH_COOKIE };
 
-/** Host-only cookies break across analyzeit.in ↔ www.analyzeit.in after login. */
+/** Host-only cookies break across analyzeit.in ↔ www and personal subdomains. */
 function authCookieSuffix(maxAge: number): string {
   const parts = [`Path=/`, `SameSite=Lax`, `Max-Age=${maxAge}`];
   if (typeof window !== 'undefined') {
@@ -79,11 +95,33 @@ function authCookieSuffix(maxAge: number): string {
   return parts.join('; ');
 }
 
+function expireCookie(name: string) {
+  if (typeof document === 'undefined') return;
+  const rows = [
+    `${name}=; Path=/; SameSite=Lax; Max-Age=0`,
+    `${name}=; Path=/; SameSite=Lax; Max-Age=0; Secure`,
+  ];
+  const host = window.location.hostname.toLowerCase();
+  if (host === 'analyzeit.in' || host.endsWith('.analyzeit.in')) {
+    rows.push(
+      `${name}=; Path=/; SameSite=Lax; Max-Age=0; Domain=.analyzeit.in`,
+      `${name}=; Path=/; SameSite=Lax; Max-Age=0; Domain=.analyzeit.in; Secure`,
+    );
+  }
+  for (const row of rows) document.cookie = row;
+}
+
 function writeAuthCookie(present: boolean) {
   if (typeof document === 'undefined') return;
-  document.cookie = present
-    ? `${AUTH_COOKIE}=1; ${authCookieSuffix(60 * 60 * 24 * 30)}`
-    : `${AUTH_COOKIE}=; ${authCookieSuffix(0)}`;
+  const token = present ? getStoredToken() : null;
+  if (token) {
+    const suffix = authCookieSuffix(60 * 60 * 24 * 30);
+    document.cookie = `${AUTH_COOKIE}=1; ${suffix}`;
+    document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(token)}; ${suffix}`;
+    return;
+  }
+  expireCookie(AUTH_COOKIE);
+  expireCookie(SESSION_COOKIE);
 }
 
 /** Keep middleware cookie in sync for sessions that already exist in localStorage. */

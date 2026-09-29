@@ -55,12 +55,23 @@ export async function uploadDataset(projectId: string, file: File): Promise<Data
   return res.json();
 }
 
-export async function fetchDatasets(projectId: string): Promise<Dataset[]> {
+export async function fetchDatasets(
+  projectId: string,
+  options?: { strict?: boolean },
+): Promise<Dataset[]> {
   const res = await fetch(`${API_V1}/projects/${projectId}/datasets`, {
     headers: { ...getAuthHeaders() },
   });
-  if (!res.ok) return [];
-  return res.json();
+  if (!res.ok) {
+    if (options?.strict) throw new Error('Could not load datasets for this project.');
+    return [];
+  }
+  const data = await res.json();
+  if (!Array.isArray(data)) {
+    if (options?.strict) throw new Error('Could not load datasets for this project.');
+    return [];
+  }
+  return data;
 }
 
 export async function deleteDataset(

@@ -1,4 +1,5 @@
 import { searchPlaces } from '../../lib/geoApi';
+import { normalizeLatLon } from './dataQuality.mjs';
 import { lookupSourceHost } from './sourceCatalog';
 import type { ChatRunIngest, SourcePoint } from './types';
 
@@ -28,10 +29,11 @@ export function pointsFromSources(
   for (const src of sources) {
     const host = hostFromSource(src);
     const entry = lookupSourceHost(host);
-    const lat = typeof src.lat === 'number' ? src.lat : entry?.lat;
-    const lon =
-      typeof src.lon === 'number' ? src.lon : typeof src.lng === 'number' ? src.lng : entry?.lon;
-    if (lat == null || lon == null || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const explicit = normalizeLatLon(src.lat, src.lon ?? src.lng);
+    const fallback = entry ? normalizeLatLon(entry.lat, entry.lon) : null;
+    const coords = explicit || fallback;
+    if (!coords) continue;
+    const { lat, lon } = coords;
     const id = `live:${src.source_id || entry?.host || host || `${lat.toFixed(3)},${lon.toFixed(3)}`}`;
     if (seen.has(id)) continue;
     seen.add(id);
@@ -107,12 +109,13 @@ export async function resolveChatIngest(input: ChatRunIngest): Promise<SourcePoi
     points.push(point);
   };
 
-  if (input.lat != null && input.lon != null && Number.isFinite(input.lat) && Number.isFinite(input.lon)) {
+  const direct = normalizeLatLon(input.lat, input.lon);
+  if (direct) {
     add({
-      id: `place:${input.lat.toFixed(3)}:${input.lon.toFixed(3)}`,
-      lat: input.lat,
-      lon: input.lon,
-      label: input.name || `${input.lat.toFixed(2)}°, ${input.lon.toFixed(2)}°`,
+      id: `place:${direct.lat.toFixed(3)}:${direct.lon.toFixed(3)}`,
+      lat: direct.lat,
+      lon: direct.lon,
+      label: input.name || `${direct.lat.toFixed(2)}°, ${direct.lon.toFixed(2)}°`,
       kind: 'place',
       pulse: true,
     });

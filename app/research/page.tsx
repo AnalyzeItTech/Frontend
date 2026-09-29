@@ -42,6 +42,7 @@ import {
   contextWallSummary,
   detectContextWall,
   mergeContextWall,
+  quoteFreeContextLimit,
   type ContextWallSignal,
 } from '../lib/contextWall.mjs';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
@@ -71,6 +72,11 @@ import {
 import { SourceChips, type ResearchSource } from '../Components/research/SourceChips';
 import { AppShell } from '../Components/app/AppShell';
 import { ChatMiniGlobe } from '../Components/globe/ChatMiniGlobe';
+import {
+  messageOffersRetry,
+  sourceFromProgressPayload,
+  stoppedAssistantMessage,
+} from '../Components/globe/dataQuality.mjs';
 import { useGlobe } from '../Components/globe/useGlobe';
 import { useTheme } from '../Components/ui/ThemeProvider';
 
@@ -112,6 +118,9 @@ interface ChatMessage {
   toolError?: string;
   /** Soft note when 0-token path declined into full agent */
   neededFullerResearch?: boolean;
+  /** User Stop or client timeout released a hung stream. */
+  stopped?: boolean;
+  canRetry?: boolean;
   /** Live context budget from Model B (research / RLM paths) */
   contextBudget?: ContextBudget;
   /** Free context or pipeline soft-fail — not a completed answer on its own */
@@ -119,6 +128,8 @@ interface ChatMessage {
     code: string;
     summary: string;
     openUpgrade: boolean;
+    /** context = Free context-limit sheet. capacity = deeper mode. Absent when upgrade stays closed. */
+    upgradeReason?: 'context' | 'capacity';
   };
   contextCompress?: ContextCompress;
   rlmSteps?: RlmStep[];
@@ -367,12 +378,16 @@ function ChatInner() {
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const abortRef = useRef(false);
   const streamAbortRef = useRef<AbortController | null>(null);
+  const sendGenRef = useRef(0);
   const activeRunIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const nearBottomRef = useRef(true);
   const postRunAdArmed = useRef(false);
+  const [freeContextLabel, setFreeContextLabel] = useState(() => quoteFreeContextLimit(null));
+  const freeContextLabelRef = useRef(freeContextLabel);
+  freeContextLabelRef.current = freeContextLabel;
 
   useEffect(() => {
     const preset = params.get('q');
@@ -380,6 +395,9 @@ function ChatInner() {
       setInput(preset);
       setComposerMode('research');
     }
+    const scoped = params.get('project') || params.get('projectId');
+    if (scoped) setProjectId(scoped);
+    if (params.get('mode') === 'research') setComposerMode('research');
   }, [params]);
 
   useEffect(() => {
@@ -391,6 +409,9 @@ function ChatInner() {
       .then(async (snap) => {
         // Premium/Plus: ads_free true → never fetch AdSense
         setAdsFree(Boolean(snap.ads_free));
+        const contextLabel = quoteFreeContextLimit(snap);
+        freeContextLabelRef.current = contextLabel;
+        setFreeContextLabel(contextLabel);
         const quota = parseLlmQuota(snap);
         setLlmQuota(quota);
         if (quota?.show && quota.exhausted) setQuotaBanner('exhausted');
@@ -450,6 +471,9 @@ function ChatInner() {
     }
     try {
       const snap = await getEntitlements();
+      const contextLabel = quoteFreeContextLimit(snap);
+      freeContextLabelRef.current = contextLabel;
+      setFreeContextLabel(contextLabel);
       const quota = parseLlmQuota(snap);
       setLlmQuota(quota);
       if (quota?.show && quota.exhausted) setQuotaBanner('exhausted');
@@ -546,7 +570,7 @@ function ChatInner() {
     setShowDashboard(false);
     setDashStatus(null);
     setRunId(null);
-    setProjectId(null);
+    setProjectId(params.get('project') || params.get('projectId'));
     setPromoteNudge(null);
     setPendingAttachments([]);
   };
@@ -722,7 +746,11 @@ function ChatInner() {
     async (raw?: string, modeOverride?: ComposerMode) => {
       const value = (raw ?? input).trim();
       const attachmentIds = pendingAttachments.map((a) => a.attachment_id);
-      if ((!value && !attachmentIds.length) || isStreaming || awaitingAd) return;
+      if ((!value && !attachmentIds.length) || awaitingAd) return;
+      if (isStreaming) {
+        abortRef.current = true;
+        streamAbortRef.current?.abort();
+      }
       // Exhausted Free LLM quota still allows 0-token tools (weather/calc). Server
       // gates real LLM spend; do not hard-block the composer here.
 
@@ -773,19 +801,33 @@ function ChatInner() {
       setShowPostRunAd(false);
       setAwaitingAd(false);
       postRunAdArmed.current = false;
+      const gen = ++sendGenRef.current;
       abortRef.current = false;
       const controller = new AbortController();
       streamAbortRef.current = controller;
       let timedOut = false;
       const STREAM_TIMEOUT_MS = 120_000;
+      const releaseThisRun = (becauseTimeout: boolean) => {
+        if (gen !== sendGenRef.current) return;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId && m.streaming
+              ? (stoppedAssistantMessage(m, { timedOut: becauseTimeout }) as ChatMessage)
+              : m,
+          ),
+        );
+        setIsStreaming(false);
+        setAwaitingAd(false);
+      };
       const timeoutId = window.setTimeout(() => {
-        if (!controller.signal.aborted) {
-          timedOut = true;
-          abortRef.current = true;
-          controller.abort();
-          const rid = activeRunIdRef.current;
-          if (rid) void cancelRun(rid).catch(() => undefined);
-        }
+        if (gen !== sendGenRef.current || controller.signal.aborted) return;
+        timedOut = true;
+        abortRef.current = true;
+        controller.abort();
+        const rid = activeRunIdRef.current;
+        if (rid) void cancelRun(rid).catch(() => undefined);
+        releaseThisRun(true);
+        setError('Research timed out. The agent may be cold-starting — try once more.');
       }, STREAM_TIMEOUT_MS);
       nearBottomRef.current = true;
 
@@ -802,12 +844,16 @@ function ChatInner() {
       let toolFailureName = '';
       const contextWallRef: { current: ContextWallSignal | null } = { current: null };
       let suppressPostRunAd = false;
-      let openedContextUpgrade = false;
+      let openedUpgradeReason: 'context' | 'capacity' | null = null;
 
-      const openContextUpgrade = () => {
-        if (openedContextUpgrade) return;
-        openedContextUpgrade = true;
-        setUpgradeModal({ open: true, reason: 'context' });
+      const openWallUpgrade = (wall: ContextWallSignal | null | undefined) => {
+        const reason = wall?.upgradeReason;
+        if (!wall?.openUpgrade || !reason) return;
+        // A later truncate notice replaces a capacity sheet. Context stays put.
+        if (openedUpgradeReason === 'context') return;
+        if (openedUpgradeReason === reason) return;
+        openedUpgradeReason = reason;
+        setUpgradeModal({ open: true, reason });
       };
 
       const noteContextWall = (event: StreamEvent) => {
@@ -815,15 +861,15 @@ function ChatInner() {
         if (!next) return;
         suppressPostRunAd = true;
         contextWallRef.current = mergeContextWall(contextWallRef.current, next);
-        if (contextWallRef.current?.openUpgrade) openContextUpgrade();
+        openWallUpgrade(contextWallRef.current);
       };
 
       const applyContextWall = () => {
         const wall = contextWallRef.current;
         if (!wall) return;
-        const summary = contextWallSummary(wall);
+        const summary = contextWallSummary(wall, freeContextLabelRef.current);
         const showAnswer = Boolean(streamed.trim()) && !answerIsOnlyPipelineFail(streamed);
-        if (wall.openUpgrade) openContextUpgrade();
+        openWallUpgrade(wall);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
@@ -842,6 +888,7 @@ function ChatInner() {
                     code: wall.code || '',
                     summary,
                     openUpgrade: wall.openUpgrade,
+                    upgradeReason: wall.upgradeReason,
                   },
                 }
               : m,
@@ -880,7 +927,7 @@ function ChatInner() {
           attachmentIds: attachmentIds.length ? attachmentIds : undefined,
           signal: controller.signal,
           onEvent: (event: StreamEvent) => {
-            if (abortRef.current) return;
+            if (gen !== sendGenRef.current || abortRef.current) return;
             noteContextWall(event);
 
             if (event.event === 'run_id' || event.event === 'run_started') {
@@ -1011,43 +1058,18 @@ function ChatInner() {
                 prev.map((m) => (m.id === assistantId ? { ...m, status: detail } : m)),
               );
               if (step === 'source_found') {
-                const host = detail.split('/').pop() || detail;
-                const url =
-                  typeof event.payload?.url === 'string'
-                    ? event.payload.url
-                    : typeof nested?.url === 'string'
-                      ? nested.url
-                      : `https://${host}`;
-                const title = typeof event.payload?.title === 'string' ? event.payload.title : '';
-                const lat =
-                  typeof event.payload?.lat === 'number'
-                    ? event.payload.lat
-                    : typeof nested?.lat === 'number'
-                      ? nested.lat
-                      : undefined;
-                const lngRaw = event.payload?.lng ?? event.payload?.lon ?? nested?.lng ?? nested?.lon;
-                const lng = typeof lngRaw === 'number' ? lngRaw : undefined;
-                const source_id =
-                  typeof event.payload?.source_id === 'string'
-                    ? event.payload.source_id
-                    : typeof nested?.source_id === 'string'
-                      ? nested.source_id
-                      : undefined;
-                const category =
-                  typeof event.payload?.category === 'string'
-                    ? event.payload.category
-                    : typeof nested?.category === 'string'
-                      ? nested.category
-                      : undefined;
-                sources = mergeSources(sources, [
-                  { host, url, title, lat, lng, source_id, category, verified: true },
-                ]);
-                ingestChatRun({
-                  sources: [{ host, url, title, lat, lng, source_id, category }],
-                });
-                setMessages((prev) =>
-                  prev.map((m) => (m.id === assistantId ? { ...m, sources: [...sources] } : m)),
-                );
+                const found = sourceFromProgressPayload({
+                  ...(event.payload || {}),
+                  progress: nested,
+                  detail,
+                }) as ResearchSource | null;
+                if (found?.host || found?.url) {
+                  sources = mergeSources(sources, [{ ...found, verified: true }]);
+                  ingestChatRun({ sources: [found] });
+                  setMessages((prev) =>
+                    prev.map((m) => (m.id === assistantId ? { ...m, sources: [...sources] } : m)),
+                  );
+                }
               }
               return;
             }
@@ -1310,6 +1332,7 @@ function ChatInner() {
           );
         }
       } catch (chatError: unknown) {
+        if (gen !== sendGenRef.current) return;
         const aborted =
           abortRef.current ||
           (chatError instanceof DOMException && chatError.name === 'AbortError') ||
@@ -1353,9 +1376,10 @@ function ChatInner() {
             suppressPostRunAd = true;
             if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
             applyContextWall();
-          } else if (fromHttp?.openUpgrade) {
+          } else if (fromHttp) {
+            contextWallRef.current = mergeContextWall(contextWallRef.current, fromHttp);
             suppressPostRunAd = true;
-            openContextUpgrade();
+            openWallUpgrade(contextWallRef.current);
             setError(chatError.message);
             if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
             setMessages((prev) =>
@@ -1379,7 +1403,7 @@ function ChatInner() {
           applyContextWall();
         } else if (contextWallRef.current?.openUpgrade) {
           suppressPostRunAd = true;
-          openContextUpgrade();
+          openWallUpgrade(contextWallRef.current);
           const msg = chatError instanceof Error ? chatError.message : 'Request failed.';
           setError(msg);
           if (chipsSnapshot.length) setPendingAttachments(chipsSnapshot);
@@ -1403,6 +1427,7 @@ function ChatInner() {
           );
         }
       } finally {
+        if (gen !== sendGenRef.current) return;
         window.clearTimeout(timeoutId);
         streamAbortRef.current = null;
         setIsStreaming(false);
@@ -1424,9 +1449,15 @@ function ChatInner() {
 
   const stopStreaming = () => {
     abortRef.current = true;
+    sendGenRef.current += 1;
     streamAbortRef.current?.abort();
     const rid = activeRunIdRef.current || runId;
     if (rid) void cancelRun(rid).catch(() => undefined);
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.streaming && m.role === 'assistant' ? (stoppedAssistantMessage(m) as ChatMessage) : m,
+      ),
+    );
     setIsStreaming(false);
     setAwaitingAd(false);
     postRunAdArmed.current = false;
@@ -1454,7 +1485,21 @@ function ChatInner() {
                   {composerMode === 'research' ? 'Chat · Research on' : 'Chat'}
                 </p>
                 <p className="truncate text-[11px] text-[var(--text-muted)]">
-                  {isIncognito ? 'Incognito session' : 'Lightweight chat — promote to a project to keep full history'}
+                  {projectId ? (
+                    <>
+                      Scoped to this project ·{' '}
+                      <Link
+                        href={`/project/${encodeURIComponent(projectId)}`}
+                        className="underline underline-offset-2 hover:text-[var(--text-primary)]"
+                      >
+                        Project home
+                      </Link>
+                    </>
+                  ) : isIncognito ? (
+                    'Incognito session'
+                  ) : (
+                    'Lightweight chat — promote to a project to keep full history'
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1685,11 +1730,14 @@ function ChatInner() {
                             >
                               Retry
                             </button>
-                            {msg.softFail.openUpgrade ? (
+                            {msg.softFail.openUpgrade && msg.softFail.upgradeReason ? (
                               <button
                                 type="button"
                                 className="inline-flex min-h-8 items-center rounded-full bg-[var(--coral,#EA8069)] px-3 text-[11px] font-medium text-white"
-                                onClick={() => setUpgradeModal({ open: true, reason: 'context' })}
+                                onClick={() => {
+                                  const reason = msg.softFail?.upgradeReason;
+                                  if (reason) setUpgradeModal({ open: true, reason });
+                                }}
                               >
                                 Upgrade
                               </button>
@@ -1709,6 +1757,23 @@ function ChatInner() {
                           Retry
                         </button>
                       )}
+                      {!isUser &&
+                      messageOffersRetry(msg) &&
+                      !msg.toolError &&
+                      !msg.softFail &&
+                      !msg.streaming ? (
+                        <button
+                          type="button"
+                          className="btn-secondary text-[11px]"
+                          onClick={() => {
+                            stopStreaming();
+                            const prior = [...messages].reverse().find((m) => m.role === 'user');
+                            if (prior) void sendMessage(prior.content, prior.mode);
+                          }}
+                        >
+                          Retry
+                        </button>
+                      ) : null}
 
                       {!isUser && msg.status && msg.streaming && (
                         <p className="text-[11px] font-mono text-[var(--text-muted)]">{msg.status}</p>
@@ -2226,6 +2291,7 @@ function ChatInner() {
         open={upgradeModal.open}
         reason={upgradeModal.reason}
         lockedModelLabel={upgradeModal.lockedModelLabel}
+        contextLimitLabel={freeContextLabel}
         onClose={() => setUpgradeModal((s) => ({ ...s, open: false }))}
       />
 </AppShell>

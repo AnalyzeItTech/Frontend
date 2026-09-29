@@ -321,12 +321,23 @@ export async function fetchAvailableConnectors(): Promise<any[]> {
   return res.json();
 }
 
-export async function fetchProjectConnectors(projectId: string): Promise<Connector[]> {
+export async function fetchProjectConnectors(
+  projectId: string,
+  options?: { strict?: boolean },
+): Promise<Connector[]> {
   const res = await fetch(`${API_V1}/projects/${projectId}/connectors`, {
     headers: { ...getAuthHeaders() },
   });
-  if (!res.ok) return [];
-  return res.json();
+  if (!res.ok) {
+    if (options?.strict) throw new Error('Could not load connectors for this project.');
+    return [];
+  }
+  const data = await res.json();
+  if (!Array.isArray(data)) {
+    if (options?.strict) throw new Error('Could not load connectors for this project.');
+    return [];
+  }
+  return data;
 }
 
 export async function authorizeConnector(

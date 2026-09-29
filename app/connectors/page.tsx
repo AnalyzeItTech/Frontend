@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ConnectorsView } from '../Components/dashboard/ConnectorsView';
 import { getProjects } from '../lib/chatApi';
 import { redactClientError } from '../lib/apiErrors';
+import { pickScopedProject } from '../lib/projectHome.mjs';
 import { AppShell } from '../Components/app/AppShell';
 import { PageTitle } from '../Components/app/PageTitle';
 import { WorkspaceStatus } from '../Components/app/WorkspaceStatus';
@@ -12,7 +14,9 @@ import { IconArrowRight, IconDatabase, IconPlugConnected, IconShieldLock } from 
 
 const LOAD_TIMEOUT_MS = 12000;
 
-export default function ConnectorsPage() {
+function ConnectorsPageInner() {
+  const params = useSearchParams();
+  const requested = params.get('project') || params.get('projectId') || '';
   const [projectId, setProjectId] = useState<string>('');
   const [status, setStatus] = useState<'loading' | 'empty' | 'error' | 'content'>('loading');
   const [errorBody, setErrorBody] = useState<string | undefined>();
@@ -32,9 +36,15 @@ export default function ConnectorsPage() {
     getProjects()
       .then((rows) => {
         if (cancelled) return;
-        const id = rows[0]?.id || '';
-        setProjectId(id);
-        setStatus(id ? 'content' : 'empty');
+        const picked = pickScopedProject(rows, requested);
+        if (picked.status === 'missing') {
+          setProjectId('');
+          setStatus('error');
+          setErrorBody('That project isn’t in your workspace, so connectors stay closed.');
+          return;
+        }
+        setProjectId(picked.projectId);
+        setStatus(picked.status === 'empty' ? 'empty' : 'content');
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -47,9 +57,11 @@ export default function ConnectorsPage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [requested]);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => {
+    return load();
+  }, [load]);
 
   return (
     <AppShell active="connectors">
@@ -105,5 +117,13 @@ export default function ConnectorsPage() {
         </div>
       </section>
     </AppShell>
+  );
+}
+
+export default function ConnectorsPage() {
+  return (
+    <Suspense fallback={<main className="px-6 py-16 text-sm">Loading connectors…</main>}>
+      <ConnectorsPageInner />
+    </Suspense>
   );
 }

@@ -343,7 +343,9 @@ export async function searchPlaces(query: string, limit = 8): Promise<GeoSearchH
   const q = query.trim();
   if (q.length < 2) return [];
   try {
-    const res = await fetch(`${GEO_SEARCH_URL}?q=${encodeURIComponent(q)}&limit=${limit}`);
+    const res = await fetch(`${GEO_SEARCH_URL}?q=${encodeURIComponent(q)}&limit=${limit}`, {
+      cache: 'no-store',
+    });
     if (res.ok) {
       const data = (await res.json()) as { results?: GeoSearchHit[] };
       if (data.results && data.results.length > 0) return data.results;
@@ -354,22 +356,64 @@ export async function searchPlaces(query: string, limit = 8): Promise<GeoSearchH
   return searchPlacesOpenMeteo(q, limit);
 }
 
+const PLACE_CONTEXT_TIMEOUT_MS = 20_000;
+const GLOBE_EVENTS_TIMEOUT_MS = 20_000;
+
+function combineSignals(parent: AbortSignal | undefined, timeoutMs: number): {
+  signal: AbortSignal;
+  clear: () => void;
+  timedOut: () => boolean;
+} {
+  const controller = new AbortController();
+  let didTimeout = false;
+  const timer = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, timeoutMs);
+  const onAbort = () => controller.abort();
+  if (parent?.aborted) controller.abort();
+  else parent?.addEventListener('abort', onAbort, { once: true });
+  return {
+    signal: controller.signal,
+    clear: () => {
+      clearTimeout(timer);
+      parent?.removeEventListener('abort', onAbort);
+    },
+    timedOut: () => didTimeout && !parent?.aborted,
+  };
+}
+
 /** Full Globe page only. Chat mini-globe must not call this. */
-export async function fetchPlaceContext(latitude: number, longitude: number): Promise<PlaceContext> {
+export async function fetchPlaceContext(
+  latitude: number,
+  longitude: number,
+  opts?: { signal?: AbortSignal },
+): Promise<PlaceContext> {
+  const linked = combineSignals(opts?.signal, PLACE_CONTEXT_TIMEOUT_MS);
   let res: Response;
   try {
     res = await fetch(GEO_CONTEXT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      signal: linked.signal,
       body: JSON.stringify({ latitude, longitude }),
     });
   } catch (err) {
+    if (linked.timedOut()) {
+      throw new Error('Place context timed out. Retry to load this place again.');
+    }
+    if (opts?.signal?.aborted) {
+      throw err;
+    }
     const msg = err instanceof Error ? err.message : 'Network error';
     throw new Error(
       msg === 'Load failed' || msg === 'Failed to fetch'
         ? 'Could not reach place context API. Check network and API URL.'
         : msg,
     );
+  } finally {
+    linked.clear();
   }
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -460,12 +504,25 @@ export async function fetchGlobeEvents(opts?: {
   layers?: string[];
   minMagnitude?: number;
   days?: number;
+  signal?: AbortSignal;
 }): Promise<GlobeEventsResponse> {
   const params = new URLSearchParams();
   params.set('layers', (opts?.layers || ['earthquakes']).join(','));
   if (opts?.minMagnitude != null) params.set('min_magnitude', String(opts.minMagnitude));
   if (opts?.days != null) params.set('days', String(opts.days));
-  const res = await fetch(`${GEO_EVENTS_URL}?${params.toString()}`);
+  const linked = combineSignals(opts?.signal, GLOBE_EVENTS_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${GEO_EVENTS_URL}?${params.toString()}`, {
+      cache: 'no-store',
+      signal: linked.signal,
+    });
+  } catch (err) {
+    if (linked.timedOut()) throw new Error('Globe layer timed out');
+    throw err;
+  } finally {
+    linked.clear();
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     const detail =
