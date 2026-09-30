@@ -536,16 +536,16 @@ function Health({ data, onRefresh }: { data: Record<string, unknown>; onRefresh:
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {Object.entries(services).map(([name, row]) => {
           const text = String(row?.value ?? '');
-          const asleep = name === 'backend_b';
-          const bad = row?.provenance === 'unavailable';
+          const down = text.startsWith('down') || text.includes('auth failed') || text.includes('unreachable');
+          const asleep = name === 'backend_b' && text.startsWith('asleep');
           return (
             <div key={name} className="rounded-xl border border-[var(--border)] p-3 text-sm">
               <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${bad ? 'bg-amber-500' : 'bg-emerald-600'}`} />
-                <span className="font-medium">{name}</span>
-                {asleep ? <span className="text-xs text-[var(--text-muted,#8A8178)]">asleep is normal</span> : null}
+                <span className={`h-2 w-2 rounded-full ${down ? 'bg-red-600' : asleep ? 'bg-amber-500' : 'bg-emerald-600'}`} />
+                <span className="font-medium">{name.replaceAll('_', ' ')}</span>
               </div>
               <p className="mt-2 text-xs">{text}{excBadge(row)}</p>
+              {row?.note ? <p className="mt-1 text-xs text-[var(--text-muted,#8A8178)]">{row.note}</p> : null}
             </div>
           );
         })}
