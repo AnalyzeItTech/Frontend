@@ -40,7 +40,8 @@ export function FeedbackWidget() {
     pathname.startsWith('/signup') ||
     pathname.startsWith('/pricing') ||
     pathname.startsWith('/products') ||
-    pathname.startsWith('/admin')
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/ops')
   ) {
     return null;
   }
@@ -53,12 +54,15 @@ export function FeedbackWidget() {
     setBusy(true);
     setError(null);
     try {
+      const lastRun = typeof window !== 'undefined' ? sessionStorage.getItem('analyzeit_last_run_id') : null;
       await submitFeedback({
         message: message.trim(),
         category,
         projectId,
         route: pathname,
         pageUrl: typeof window !== 'undefined' ? window.location.href : null,
+        runId: lastRun,
+        appVersion: '0.1.0',
       });
       setSent(true);
       setMessage('');
