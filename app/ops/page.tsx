@@ -557,7 +557,10 @@ function Health({ data, onRefresh }: { data: Record<string, unknown>; onRefresh:
           {Object.entries(crons).map(([name, row]) => (
             <tr key={name} className="border-t border-[var(--border)]"><td className="px-2 py-2">{name}</td><td className="px-2 py-2">{String(row?.value ?? '—')}{excBadge(row)}</td></tr>
           ))}
-          <tr className="border-t border-[var(--border)]"><td className="px-2 py-2">Source-id drift (91 expected)</td><td className="px-2 py-2">not polled{excBadge((data.source_id_sync as Labeled))}</td></tr>
+          <tr className="border-t border-[var(--border)]">
+            <td className="px-2 py-2">Source-id catalog</td>
+            <td className="px-2 py-2">{String((data.source_id_sync as Labeled)?.value ?? '—')}{excBadge(data.source_id_sync)}</td>
+          </tr>
         </tbody>
       </table>
     </div>
