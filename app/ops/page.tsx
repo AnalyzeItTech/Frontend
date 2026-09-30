@@ -264,12 +264,12 @@ function Economics({
           Sample size {n} runs{n < 50 ? ' · low sample, n<50' : ''}. Window: {String(data.window || 'month')}. Token sums use public Foundry list rates.
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {[
+          {([
             ['Free users', funnel.free_users],
             ['Active paid', funnel.active_premium_or_vip],
             ['Hit 75-run cap', funnel.hit_75_run_cap],
             ['Ad-extend claims', funnel.ad_extend_claims_this_month],
-          ].map(([label, row]) => (
+          ] as Array<[string, Labeled | undefined]>).map(([label, row]) => (
             <div key={String(label)} className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
               <div className="text-xs text-[var(--text-muted,#8A8178)]">{label}</div>
               <div className="tabular-nums">{val(row)}{excBadge(row)}</div>
