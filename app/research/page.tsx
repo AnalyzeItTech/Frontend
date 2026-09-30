@@ -372,6 +372,9 @@ function ChatInner() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  useEffect(() => {
+    if (runId) sessionStorage.setItem('analyzeit_last_run_id', runId);
+  }, [runId]);
   const [promoteNudge, setPromoteNudge] = useState<PromoteStatus | null>(null);
   const [promoteBusy, setPromoteBusy] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);

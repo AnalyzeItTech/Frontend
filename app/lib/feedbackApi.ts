@@ -38,6 +38,8 @@ export async function submitFeedback(input: {
   projectId?: string | null;
   route?: string | null;
   pageUrl?: string | null;
+  runId?: string | null;
+  appVersion?: string | null;
 }): Promise<FeedbackItem> {
   if (!getStoredToken()) {
     throw new Error('Sign in to send feedback.');
@@ -51,6 +53,8 @@ export async function submitFeedback(input: {
       project_id: input.projectId || undefined,
       route: input.route || undefined,
       page_url: input.pageUrl || undefined,
+      run_id: input.runId || undefined,
+      app_version: input.appVersion || undefined,
     }),
   });
   if (!res.ok) {
