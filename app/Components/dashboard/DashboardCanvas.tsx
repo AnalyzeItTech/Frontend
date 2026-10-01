@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   IconLayoutDashboard,
@@ -20,8 +20,16 @@ import {
   IconFilter,
   IconTemplate,
   IconUsers,
+  IconPresentation,
+  IconEdit,
+  IconEye,
+  IconCommand,
+  IconExternalLink,
+  IconArrowUpRight,
 } from '@tabler/icons-react';
 import { SandboxedWidgetRenderer } from './WidgetRenderer';
+import { CommandPalette } from './CommandPalette';
+import { DigestBanner } from './DigestBanner';
 import {
   type WidgetSpec,
   type ManagedProposal,
@@ -44,6 +52,8 @@ export interface LayoutSnapshot {
 interface DashboardCanvasProps {
   projectName: string;
   projectId?: string;
+  /** New: canonical dashboard ID for the real dashboard system */
+  dashboardId?: string;
   layoutVersion: number;
   updatedBy: string;
   widgets: WidgetSpec[];
@@ -67,11 +77,20 @@ interface DashboardCanvasProps {
   presenceUsers?: PresenceUser[];
   onSaveTemplate?: (name: string, description?: string, tags?: string[]) => Promise<void>;
   onLoadTemplate?: (template: ProjectTemplate) => void;
+  /** View/edit mode — default 'view'. In 'view' mode hover toolbars are hidden. */
+  mode?: 'view' | 'edit';
+  onModeChange?: (mode: 'view' | 'edit') => void;
+  /** Called when the user tries to add a widget and hits the tier cap */
+  widgetCapReached?: boolean;
+  widgetCapLimit?: number;
+  onAddWidget?: () => void;
 }
+
 
 export function DashboardCanvas({
   projectName,
   projectId,
+  dashboardId,
   layoutVersion,
   updatedBy,
   widgets,
@@ -95,6 +114,11 @@ export function DashboardCanvas({
   presenceUsers,
   onSaveTemplate,
   onLoadTemplate,
+  mode: modeProp = 'view',
+  onModeChange,
+  widgetCapReached = false,
+  widgetCapLimit = 12,
+  onAddWidget,
 }: DashboardCanvasProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(projectName);
@@ -115,6 +139,39 @@ export function DashboardCanvas({
     sourceWidgetId: string;
   } | null>(null);
 
+  // ── View / edit / presentation mode ─────────────────────────────────────────
+  const [internalMode, setInternalMode] = useState<'view' | 'edit'>(modeProp);
+  const mode = modeProp ?? internalMode;
+  const setMode = useCallback((m: 'view' | 'edit') => {
+    setInternalMode(m);
+    onModeChange?.(m);
+  }, [onModeChange]);
+
+  const [isPresentationMode, setIsPresentationMode] = useState(false);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+
+  // Sync mode from prop
+  useEffect(() => { setInternalMode(modeProp); }, [modeProp]);
+
+  // ── Presentation mode: fullscreen toggle ─────────────────────────────────────
+  const togglePresentationMode = useCallback(() => {
+    if (!isPresentationMode) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+    setIsPresentationMode((v) => !v);
+  }, [isPresentationMode]);
+
+  // Exit presentation on Escape (only when not intercepted by proposals)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) setIsPresentationMode(false);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   // Sync editedTitle when projectName changes externally
   useEffect(() => {
     setEditedTitle(projectName);
@@ -124,33 +181,41 @@ export function DashboardCanvas({
     (p) => p.status === 'pending' || p.status === 'applying' || p.status === 'error'
   );
 
-  // ── Keyboard Navigation (Enter = Accept latest, Esc = Reject latest) ───────
+  // ── Keyboard Navigation ───────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeProposals.length === 0) return;
       const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
-      ) {
+      const inInput = target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      );
+
+      // Cmd/Ctrl+K → command palette
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsPaletteOpen((v) => !v);
         return;
       }
 
-      const latest = activeProposals[0];
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        onAcceptProposal(latest.actionId);
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        onRejectProposal(latest.actionId);
+      if (inInput) return;
+
+      // Proposal shortcuts (only when palette is closed)
+      if (!isPaletteOpen && activeProposals.length > 0) {
+        const latest = activeProposals[0];
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          onAcceptProposal(latest.actionId);
+        } else if (e.key === 'Escape' && !isPresentationMode) {
+          e.preventDefault();
+          onRejectProposal(latest.actionId);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeProposals, onAcceptProposal, onRejectProposal]);
+  }, [activeProposals, isPaletteOpen, isPresentationMode, onAcceptProposal, onRejectProposal]);
 
   // ─── Export Generators (High-DPI PNG + Markdown) ───────────────────────────
 
@@ -319,11 +384,50 @@ export function DashboardCanvas({
   };
 
   return (
-    <div
-      data-lenis-prevent
-      className="flex-1 flex flex-col h-full overflow-y-auto space-y-6 p-4 sm:p-6 lg:p-8"
-    >
+    <>
+      {/* ─── Command Palette (Cmd/Ctrl+K) ──────────────────────────────── */}
+      <CommandPalette
+        open={isPaletteOpen}
+        onClose={() => setIsPaletteOpen(false)}
+        widgets={widgets}
+        onJumpToWidget={(id) => {
+          const el = document.getElementById(`widget-${id}`);
+          el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
+        onAddWidget={() => onAddWidget?.()}
+        onAskAboutDashboard={() => onPromptChip?.(`Analyze this dashboard and give me insights about the data.`)}
+        onTogglePresentationMode={togglePresentationMode}
+        onBrowseTemplates={() => setIsTemplateModalOpen(true)}
+        isPresentationMode={isPresentationMode}
+      />
+
+      {/* ─── Digest Banner (since last visit) ──────────────────────────── */}
+      {dashboardId && !isPresentationMode && (
+        <DigestBanner dashboardId={dashboardId} />
+      )}
+
+      <div
+        data-lenis-prevent
+        className={`flex-1 flex flex-col h-full overflow-y-auto space-y-6 p-4 sm:p-6 lg:p-8 ${
+          isPresentationMode ? 'fixed inset-0 z-40 bg-[#0E0C0B] overflow-auto' : ''
+        }`}
+      >
+        {/* ─── Presentation mode exit hint ──────────────────────────────── */}
+        {isPresentationMode && (
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-lg font-semibold text-[#F4EDE5]">{projectName}</h1>
+            <button
+              type="button"
+              onClick={togglePresentationMode}
+              className="text-[11px] font-mono px-3 py-1.5 rounded-lg border border-white/10 text-[#91867E] hover:text-[#F4EDE5] hover:border-white/20 transition-colors cursor-pointer"
+            >
+              Exit presentation  Esc
+            </button>
+          </div>
+        )}
+
       {/* ─── Persistent Status Strip ─────────────────────────────────────── */}
+      {!isPresentationMode && (
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3.5 py-2 rounded-xl bg-black/[0.03] dark:bg-[#211E1C] border border-[#4A4238]/10 dark:border-[#3A3430] text-[11px] font-mono">
         <div className="flex items-center gap-2 flex-wrap">
           <span
@@ -362,7 +466,69 @@ export function DashboardCanvas({
             </span>
           </div>
         )}
+
+        {/* Mode toggle + Presentation + Cmd+K hint */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          <button
+            type="button"
+            title="Command palette (⌘K)"
+            onClick={() => setIsPaletteOpen(true)}
+            className="p-1.5 rounded-lg text-[#91867E] hover:text-[#F4EDE5] hover:bg-white/[0.06] transition-colors cursor-pointer"
+          >
+            <IconCommand size={13} />
+          </button>
+          <button
+            type="button"
+            title={isPresentationMode ? 'Exit presentation' : 'Presentation mode'}
+            onClick={togglePresentationMode}
+            className="p-1.5 rounded-lg text-[#91867E] hover:text-[#F4EDE5] hover:bg-white/[0.06] transition-colors cursor-pointer"
+          >
+            <IconPresentation size={13} />
+          </button>
+          <div className="w-px h-3.5 bg-white/10 mx-0.5" />
+          <button
+            type="button"
+            onClick={() => setMode('view')}
+            title="View mode"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              mode === 'view'
+                ? 'text-[#EA8069] bg-[#EA8069]/10'
+                : 'text-[#91867E] hover:text-[#F4EDE5] hover:bg-white/[0.06]'
+            }`}
+          >
+            <IconEye size={13} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('edit')}
+            title="Edit mode"
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              mode === 'edit'
+                ? 'text-[#EA8069] bg-[#EA8069]/10'
+                : 'text-[#91867E] hover:text-[#F4EDE5] hover:bg-white/[0.06]'
+            }`}
+          >
+            <IconEdit size={13} />
+          </button>
+        </div>
       </div>
+      )}
+
+      {/* ─── Widget cap upgrade prompt ────────────────────────────────────── */}
+      {widgetCapReached && !isPresentationMode && (
+        <div className="flex items-center justify-between rounded-2xl border border-dashed border-[#EA8069]/40 bg-[#EA8069]/5 px-4 py-3">
+          <span className="text-xs font-mono text-[#91867E]">
+            Free plan · {widgetCapLimit}/{widgetCapLimit} widgets — You&apos;ve filled your first dashboard
+          </span>
+          <a
+            href="/billing"
+            className="text-xs font-medium text-[#EA8069] hover:underline flex items-center gap-1"
+          >
+            Upgrade to Premium
+            <IconArrowUpRight size={12} />
+          </a>
+        </div>
+      )}
 
       {/* ─── Active Filter Bus Strip ────────────────────────────────────── */}
       {activeFilter && (
@@ -1323,5 +1489,6 @@ export function DashboardCanvas({
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 }

@@ -45,6 +45,17 @@
   --color-status-warning: #D98F3F;
   --color-status-danger: #EF6C6C;
 
+  /* Dashboard Semantic Intent Tokens */
+  --color-metric-up: #3FB68C;
+  --color-metric-down: #EF6C6C;
+  --color-metric-alert: #D4A017;
+  --color-metric-stale: #79A8DF;
+
+  /* Provenance Identity Tokens */
+  --color-prov-live: #3FB68C;
+  --color-prov-db: #3D6FE0;
+  --color-prov-ai: #9EBB9A;
+
   /* Backward compatibility aliases */
   --color-dark-paper: #0B0D10;
   --color-dark-ink: #EDEFF2;

@@ -62,11 +62,13 @@ export function CitationFooter({
   provenance,
   freshness,
   binding,
+  snapshot,
   onRefresh,
 }: {
   provenance?: ProvenanceInfo;
   freshness?: string;
   binding?: unknown;
+  snapshot?: { status?: 'ok' | 'stale' | 'error'; captured_at?: string; error?: string | null };
   onRefresh?: () => void;
 }) {
   const badge = provenanceBadge({
@@ -74,15 +76,44 @@ export function CitationFooter({
     freshness,
     binding: binding as { last_refreshed_at?: string } | undefined,
   });
-  if (!badge) return null;
 
-  const text = provenanceBadgeText(badge);
+  const snapStatus = snapshot?.status;
+  const snapError = snapshot?.error;
+
+  // Freshness dot color based on snapshot status
+  const dotColor =
+    snapStatus === 'error'
+      ? '#EF6C6C'
+      : snapStatus === 'stale'
+      ? '#D4A017'
+      : snapStatus === 'ok'
+      ? '#3FB68C'
+      : undefined;
+
+  const text = badge ? provenanceBadgeText(badge) : null;
+  if (!text && !dotColor) return null;
 
   return (
     <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between gap-2 text-[11px] font-sans text-[#8B93A1]">
-      <span className="inline-flex min-w-0 items-center gap-1.5 px-2 py-0.5 rounded-md border border-white/10 bg-white/[0.04]">
-        <span className="truncate">{text}</span>
-      </span>
+      <div className="flex items-center gap-1.5 min-w-0">
+        {dotColor && (
+          <span
+            className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse"
+            style={{ backgroundColor: dotColor }}
+            title={snapStatus === 'error' ? (snapError || 'Refresh failed') : snapStatus === 'stale' ? 'Data may be outdated' : 'Live data'}
+          />
+        )}
+        {text && (
+          <span className="inline-flex min-w-0 items-center gap-1.5 px-2 py-0.5 rounded-md border border-white/10 bg-white/[0.04]">
+            <span className="truncate">{text}</span>
+          </span>
+        )}
+        {snapStatus === 'error' && snapError && (
+          <span className="text-[10px] text-[#EF6C6C] truncate max-w-[120px]" title={snapError}>
+            {snapError}
+          </span>
+        )}
+      </div>
       {onRefresh ? (
         <button
           type="button"
@@ -98,6 +129,7 @@ export function CitationFooter({
       ) : null}
     </div>
   );
+
 }
 
 // ── 1. Native Metric Card Widget ─────────────────────────────────────────────
@@ -160,6 +192,7 @@ export function MetricCardWidget({
         provenance={widget.provenance || (p as any)?.provenance}
         freshness={widget.freshness}
         binding={widget.binding || (p as any)?.binding}
+        snapshot={widget.snapshot}
         onRefresh={onWidgetAction ? () => onWidgetAction(widget.id, 'refresh') : undefined}
       />
     </div>

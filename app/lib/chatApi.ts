@@ -64,7 +64,8 @@ export interface DataSourceBinding {
     | 'telemetry_metric'
     | 'custom_api'
     | 'sql_query'
-    | 'object_records';
+    | 'object_records'
+    | 'globe_layers';
   params: Record<string, unknown>;
   refresh_interval_sec?: number;
   last_refreshed_at?: string;
@@ -72,8 +73,43 @@ export interface DataSourceBinding {
   anomaly_rules?: AnomalyRule[];
 }
 
+// ── Widget binding type — determines refresh path and cost ────────────────────
+export type WidgetBindingType =
+  | 'frozen_snapshot'   // never refreshes; labeled with capture date
+  | 'tool_bound'        // weather, FX, stock — 0-token, ideal for scheduled
+  | 'dataset_bound'     // uploaded CSV/XLSX
+  | 'connector_bound'   // SQL connector / custom API
+  | 'object_bound'      // custom object records
+  | 'globe_layer_bound' // feeds / drives the globe
+  | 'llm_derived';      // costs tokens — explicit refresh only
+
+// ── Refresh policy ────────────────────────────────────────────────────────────
+export interface WidgetRefreshPolicy {
+  mode: 'manual' | 'on_open' | 'scheduled';
+  interval_sec?: number;
+  last_attempt_at?: string | null;
+  last_success_at?: string | null;
+  next_refresh_at?: string | null;
+  error?: string | null;
+}
+
+// ── Snapshot envelope — last rendered result, stored separately from spec ─────
+export interface WidgetSnapshot {
+  captured_at: string;
+  status: 'ok' | 'stale' | 'error';
+  data?: unknown;
+  value?: unknown;
+  prev_value?: unknown;
+  data_hash?: string;
+  error?: string | null;
+  last_good_at?: string | null;
+  last_good_value?: unknown;
+}
+
 export interface BaseWidgetSpec {
   id: string;
+  // Schema version — increment on every breaking field change
+  schema_version?: number;
   kind?: WidgetType | string;
   render_mode?: 'native' | 'sandboxed';
   component?: WidgetType | string;
@@ -86,6 +122,20 @@ export interface BaseWidgetSpec {
   freshness?: string;
   provenance?: ProvenanceInfo;
   binding?: DataSourceBinding;
+  // Binding type — determines refresh cost and behaviour
+  binding_type?: WidgetBindingType;
+  // Refresh policy
+  refresh_policy?: WidgetRefreshPolicy;
+  // Snapshot — last rendered result (separate from spec so moving never rewrites data)
+  snapshot?: WidgetSnapshot;
+  // Tab and dashboard scope
+  tab_id?: string;
+  dashboard_id?: string;
+  // Originating run — enables "drill down to chat"
+  origin_run_id?: string;
+  origin_turn_index?: number;
+  // AI narration — one-line insight, computed by Model, cached by data_hash
+  ai_narration?: string;
   consumesDimensions?: string[];
   emitsDimension?: string;
   props?: Record<string, unknown>;
@@ -1063,4 +1113,296 @@ export async function removePresence(projectId: string, userId: string): Promise
   } catch {
     // best-effort cleanup
   }
+}
+
+// ─── Phase 1: Dashboard system ────────────────────────────────────────────────
+
+export interface DashboardTab {
+  id: string;
+  title: string;
+  order: number;
+  widget_ids: string[];
+}
+
+export interface DashboardFilters {
+  date_range?: { from: string; to: string } | null;
+  dimension?: { key: string; value: string } | null;
+}
+
+export interface SavedWidgetRecord {
+  id: string;
+  user_id: string;
+  dashboard_id: string;
+  tab_id: string;
+  spec: WidgetSpec;
+  snapshot?: WidgetSnapshot | null;
+  layout: { x: number; y: number; w: number; h: number };
+  created_at: string;
+  updated_at: string;
+  pinned_from_run_id?: string | null;
+}
+
+export interface DashboardRecord {
+  id: string;
+  user_id: string;
+  project_id?: string | null;
+  title: string;
+  schema_version: number;
+  tabs: DashboardTab[];
+  filters: DashboardFilters;
+  theme: 'default' | 'carbon' | 'warm' | 'arctic';
+  revision: number;
+  created_at: string;
+  updated_at: string;
+  widgets?: SavedWidgetRecord[];
+  widget_count?: number;
+}
+
+export interface PinWidgetResult {
+  widget_id: string;
+  dashboard_id: string;
+  widget_count: number;
+}
+
+/** Pin a widget from chat to a dashboard. Throws ChatRequestError with code='widget_cap_reached' at 12. */
+export async function pinWidgetToDashboard(
+  dashboardId: string,
+  tabId: string,
+  widget: WidgetSpec,
+  originRunId?: string,
+): Promise<PinWidgetResult> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}/widgets`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      tab_id: tabId,
+      spec: {
+        ...widget,
+        origin_run_id: originRunId ?? widget.origin_run_id,
+        binding_type: widget.binding_type ?? 'frozen_snapshot',
+        schema_version: widget.schema_version ?? 1,
+      },
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const failure = parseApiFailure(res.status, body);
+    throw new ChatRequestError(failure);
+  }
+  return res.json();
+}
+
+export async function getDashboards(): Promise<DashboardRecord[]> {
+  const res = await fetch(`${API_V1}/dashboards`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not load dashboards'));
+  return res.json();
+}
+
+export async function getDashboard(dashboardId: string): Promise<DashboardRecord> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not load dashboard'));
+  return res.json();
+}
+
+export async function createDashboard(
+  title: string,
+  projectId?: string,
+  theme: DashboardRecord['theme'] = 'default',
+): Promise<DashboardRecord> {
+  const res = await fetch(`${API_V1}/dashboards`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ title, project_id: projectId ?? null, theme }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const failure = parseApiFailure(res.status, body);
+    throw new ChatRequestError(failure);
+  }
+  return res.json();
+}
+
+export async function updateDashboard(
+  dashboardId: string,
+  expectedRevision: number,
+  updates: Partial<Pick<DashboardRecord, 'title' | 'theme' | 'filters' | 'tabs'>>,
+): Promise<DashboardRecord> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ expected_revision: expectedRevision, ...updates }),
+  });
+  if (!res.ok) {
+    if (res.status === 409) throw new Error('Conflict: Dashboard was modified concurrently. Please refresh.');
+    throw new Error(friendlyHttpMessage(res.status, 'Could not update dashboard'));
+  }
+  return res.json();
+}
+
+export async function deleteDashboard(dashboardId: string): Promise<void> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not delete dashboard'));
+}
+
+export async function getDashboardRevisions(dashboardId: string): Promise<unknown[]> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}/revisions`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function restoreDashboardRevision(
+  dashboardId: string,
+  revision: number,
+): Promise<DashboardRecord> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}/revisions/${revision}/restore`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not restore revision'));
+  return res.json();
+}
+
+export async function addDashboardTab(
+  dashboardId: string,
+  title: string,
+  expectedRevision: number,
+): Promise<DashboardTab> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}/tabs`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ title, expected_revision: expectedRevision }),
+  });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not add tab'));
+  return res.json();
+}
+
+export async function removeDashboardTab(
+  dashboardId: string,
+  tabId: string,
+  expectedRevision: number,
+): Promise<void> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}/tabs/${tabId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ expected_revision: expectedRevision }),
+  });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not remove tab'));
+}
+
+export async function removeWidgetFromDashboard(
+  dashboardId: string,
+  widgetId: string,
+): Promise<void> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}/widgets/${widgetId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not remove widget'));
+}
+
+export async function updateSavedWidget(
+  dashboardId: string,
+  widgetId: string,
+  updates: { spec?: Partial<WidgetSpec>; layout?: { x: number; y: number; w: number; h: number } },
+): Promise<SavedWidgetRecord> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}/widgets/${widgetId}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not update widget'));
+  return res.json();
+}
+
+export async function refreshSavedWidget(
+  dashboardId: string,
+  widgetId: string,
+): Promise<{ ok: boolean; snapshot?: WidgetSnapshot; anomaly_proposal?: unknown }> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}/widgets/${widgetId}/refresh`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not refresh widget'));
+  return res.json();
+}
+
+// ─── Phase 3: Share tokens ────────────────────────────────────────────────────
+
+export interface ShareToken {
+  token: string;
+  dashboard_id: string;
+  widget_id?: string | null;
+  expires_at?: string | null;
+  view_count: number;
+  created_at: string;
+  redact_connector_data: boolean;
+}
+
+export async function createShareToken(
+  dashboardId: string,
+  opts: { widgetId?: string; expiresInDays?: number; redactConnectorData?: boolean } = {},
+): Promise<ShareToken> {
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}/share`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      widget_id: opts.widgetId ?? null,
+      expires_in_days: opts.expiresInDays ?? 30,
+      redact_connector_data: opts.redactConnectorData ?? true,
+    }),
+  });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not create share link'));
+  return res.json();
+}
+
+export async function revokeShareToken(token: string): Promise<void> {
+  const res = await fetch(`${API_V1}/share/${token}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not revoke share link'));
+}
+
+export async function resolveShareToken(
+  token: string,
+): Promise<{ dashboard: DashboardRecord; widgets: SavedWidgetRecord[]; expires_at?: string | null }> {
+  const res = await fetch(`${API_V1}/share/${token}`);
+  if (!res.ok) throw new Error(friendlyHttpMessage(res.status, 'Could not resolve share link'));
+  return res.json();
+}
+
+// ─── Phase 4: Digest ──────────────────────────────────────────────────────────
+
+export interface DigestChange {
+  widget_id: string;
+  title: string;
+  binding_type: string;
+  delta_pct: number;
+  current_value: string | number | null;
+  threshold_crossed: boolean;
+  direction: 'up' | 'down' | 'neutral';
+  snapshot_at?: string | null;
+}
+
+export interface DigestData {
+  last_visit_at: string | null;
+  changes: DigestChange[];
+  threshold_crossed: DigestChange[];
+}
+
+export async function getDashboardDigest(
+  dashboardId: string,
+  lastVisitAt?: string | null,
+): Promise<DigestData> {
+  const params = lastVisitAt ? `?last_visit_at=${encodeURIComponent(lastVisitAt)}` : '';
+  const res = await fetch(`${API_V1}/dashboards/${dashboardId}/since-last-visit${params}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) return { last_visit_at: null, changes: [], threshold_crossed: [] };
+  return res.json();
 }

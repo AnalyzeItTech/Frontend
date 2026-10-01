@@ -18,6 +18,7 @@ import {
   type CheckoutSession,
 } from '../lib/billingApi';
 import { CONTEXT_RETENTION_TOKENS, formatContextRetention } from '../lib/contextWall.mjs';
+import { RetentionMeter } from '../Components/billing/RetentionMeter';
 
 type PlanId = 'premium' | 'premium_plus';
 
@@ -208,6 +209,7 @@ export default function BillingPage() {
           </Link>
           .
         </p>
+        <RetentionMeter />
 
         {me ? (
           <div className="app-card flex flex-wrap items-center justify-between gap-3 px-4 py-3">

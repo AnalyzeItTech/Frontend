@@ -17,6 +17,27 @@ export async function getBillingTiers() {
   return res.json() as Promise<{ tiers: Record<string, Record<string, unknown>> }>;
 }
 
+export type RetentionUsage = {
+  total_tokens: number;
+  hot_tokens: number;
+  warm_tokens: number;
+  cold_tokens: number;
+  writes_allowed: boolean;
+  enforce: boolean;
+  caps: {
+    retention_total_tokens: number;
+    retention_hot_tokens: number;
+    ingest_daily_tokens: number;
+    inactive_expiry_days: number;
+  };
+};
+
+export async function getRetentionUsage() {
+  const res = await fetch(`${API_V1}/retention/usage`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await readError(res, 'Could not load memory usage'));
+  return res.json() as Promise<RetentionUsage>;
+}
+
 export async function getEntitlements() {
   const res = await fetch(`${API_V1}/billing/entitlements`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await readError(res, 'Could not load entitlements'));
