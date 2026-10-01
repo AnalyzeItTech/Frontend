@@ -304,11 +304,11 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
         <div>
           <h2 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2.5">
             <IconPlugConnected className="w-6 h-6 text-emerald-500" />
-            Connectors
+            Your sources
           </h2>
           <p className="text-xs text-[var(--text-muted)] dark:text-neutral-400 mt-1">
             OAuth, API keys, SQL, and online datasets (Kaggle, Hugging Face, OpenML). Credentials stay
-            vault-encrypted on Backend A.
+            vault-encrypted.
           </p>
         </div>
 

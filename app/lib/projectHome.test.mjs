@@ -10,6 +10,11 @@ import { fileURLToPath } from 'node:url';
 
 import {
   RUN_HISTORY_GAP,
+  greetingFor,
+  relativeTime,
+  starterPrompts,
+  setupProgress,
+  researchWithPrompt,
   buildProjectOverview,
   listArtifacts,
   pickScopedProject,
@@ -172,4 +177,42 @@ describe('project home route wiring', () => {
     assert.match(connectors, /pickScopedProject/);
     assert.match(projects, /\/project\/\$\{encodeURIComponent\(project\.id\)\}/);
   });
+});
+
+it('greetingFor follows the local hour', () => {
+  assert.equal(greetingFor(new Date(2026, 0, 1, 8)), 'Good morning');
+  assert.equal(greetingFor(new Date(2026, 0, 1, 14)), 'Good afternoon');
+  assert.equal(greetingFor(new Date(2026, 0, 1, 20)), 'Good evening');
+  assert.equal(greetingFor(new Date(2026, 0, 1, 2)), 'Still up');
+});
+
+it('relativeTime handles ranges and bad input', () => {
+  const now = Date.parse('2026-10-01T12:00:00Z');
+  assert.equal(relativeTime('2026-10-01T11:59:50Z', now), 'just now');
+  assert.equal(relativeTime('2026-10-01T09:00:00Z', now), '3 hours ago');
+  assert.equal(relativeTime('2026-09-30T12:00:00Z', now), '1 day ago');
+  assert.equal(relativeTime('nope', now), null);
+  assert.equal(relativeTime(null, now), null);
+});
+
+it('starterPrompts uses real artifacts and always returns something', () => {
+  const rows = [{ kind: 'dataset', id: '1', title: 'sales.csv', meta: null }];
+  const prompts = starterPrompts(rows, { widgets: 2 });
+  assert.ok(prompts[0].includes('sales.csv'));
+  assert.ok(prompts.length <= 4);
+  assert.equal(starterPrompts([], {}).length, 4);
+  assert.match(starterPrompts([], {})[0], /weather/i);
+});
+
+it('setupProgress counts only real work', () => {
+  const none = setupProgress({ widgets: 0, objects: 0, datasets: 0, attachments: 0, connectors: 0 });
+  assert.equal(none.percent, 0);
+  const some = setupProgress({ widgets: 1, objects: null, datasets: 0, attachments: 2, connectors: 0 });
+  assert.equal(some.done, 2);
+  assert.equal(some.steps.find((s) => s.id === 'model').known, false);
+});
+
+it('researchWithPrompt encodes the question', () => {
+  assert.equal(researchWithPrompt('p1', ''), projectLinks('p1').research);
+  assert.ok(researchWithPrompt('p1', 'a & b').endsWith('&q=a%20%26%20b'));
 });

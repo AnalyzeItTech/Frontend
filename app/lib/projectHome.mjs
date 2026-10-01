@@ -185,3 +185,85 @@ export function pickScopedProject(projects, requestedId) {
   if (!list.length) return { status: 'empty', projectId: '' };
   return { status: 'content', projectId: list[0].id };
 }
+
+/** Greeting by local hour. Takes a Date so tests stay deterministic. */
+export function greetingFor(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 5) return 'Still up';
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/** "3 hours ago" style label, or null for a missing or unparseable stamp. */
+export function relativeTime(value, now = Date.now()) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const then = new Date(value).getTime();
+  if (Number.isNaN(then)) return null;
+  const seconds = Math.round((now - then) / 1000);
+  if (seconds < 45) return 'just now';
+  const units = [
+    ['minute', 60],
+    ['hour', 3600],
+    ['day', 86400],
+    ['week', 604800],
+    ['month', 2592000],
+    ['year', 31536000],
+  ];
+  let label = 'just now';
+  for (const [name, size] of units) {
+    if (seconds >= size) {
+      const n = Math.floor(seconds / size);
+      label = `${n} ${name}${n === 1 ? '' : 's'} ago`;
+    }
+  }
+  return label;
+}
+
+/**
+ * Starter questions built only from what the project really holds.
+ * Falls back to general prompts so the composer is never empty.
+ */
+export function starterPrompts(artifactRows, counts) {
+  const rows = Array.isArray(artifactRows) ? artifactRows : [];
+  const prompts = [];
+  const dataset = rows.find((row) => row.kind === 'dataset');
+  const attachment = rows.find((row) => row.kind === 'attachment');
+  if (dataset) {
+    prompts.push(`Summarize ${dataset.title} and flag anything unusual`);
+    prompts.push(`What are the three most interesting trends in ${dataset.title}?`);
+  }
+  if (attachment) prompts.push(`Pull the key points out of ${attachment.title}`);
+  if (counts?.widgets > 0) prompts.push('What changed on my dashboard since I last looked?');
+  if (counts?.connectors > 0) prompts.push('Give me a briefing from my connected sources');
+  // Live-data asks first: weather, FX and quotes are the quickest real answer a new project can get.
+  const general = [
+    'What is the weather in Mumbai right now?',
+    'Convert 100 USD to INR at today\'s rate',
+    'How are AAPL and MSFT trading today?',
+    'Research a topic and give me sources I can check',
+  ];
+  for (const prompt of general) {
+    if (prompts.length >= 4) break;
+    prompts.push(prompt);
+  }
+  return prompts.slice(0, 4);
+}
+
+/** Setup checklist derived from real counts. Unknown counts are neither done nor blocking. */
+export function setupProgress(counts) {
+  const steps = [
+    { id: 'data', label: 'Add data', done: (counts?.datasets ?? 0) + (counts?.attachments ?? 0) > 0, known: counts?.datasets != null || counts?.attachments != null },
+    { id: 'connect', label: 'Connect a source', done: (counts?.connectors ?? 0) > 0, known: counts?.connectors != null },
+    { id: 'model', label: 'Define an object', done: (counts?.objects ?? 0) > 0, known: counts?.objects != null },
+    { id: 'pin', label: 'Pin a widget', done: (counts?.widgets ?? 0) > 0, known: counts?.widgets != null },
+  ];
+  const done = steps.filter((step) => step.done).length;
+  return { steps, done, total: steps.length, percent: Math.round((done / steps.length) * 100) };
+}
+
+export function researchWithPrompt(projectId, prompt) {
+  const base = projectLinks(projectId).research;
+  const text = typeof prompt === 'string' ? prompt.trim() : '';
+  return text ? `${base}&q=${encodeURIComponent(text)}` : base;
+}

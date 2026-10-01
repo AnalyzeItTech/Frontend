@@ -94,7 +94,7 @@ export function parseLlmQuota(snap: Record<string, unknown> | null | undefined):
     const limit =
       num(snap.llm_runs_per_month) ??
       num(snap.llm_runs_limit) ??
-      75;
+      40;
     const used = num(snap.llm_runs_used) ?? 0;
     const remaining =
       num(snap.llm_runs_remaining) ?? Math.max(0, limit - used);

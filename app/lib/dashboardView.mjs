@@ -31,7 +31,7 @@ export const DASHBOARD_EMPTY = {
   primaryLabel: 'Start Research',
   primaryHref: '/research',
   sampleLabel: 'Sample layouts',
-  freeNote: 'Free includes 75 LLM runs a month.',
+  freeNote: 'Free includes 40 LLM runs a month.',
 };
 
 export const RESEARCH_STARTERS = [

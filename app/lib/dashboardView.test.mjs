@@ -108,7 +108,7 @@ describe('research empty state', () => {
       researchStarterHref(RESEARCH_STARTERS[0]),
       `/research?q=${encodeURIComponent(RESEARCH_STARTERS[0])}`,
     );
-    assert.match(DASHBOARD_EMPTY.freeNote, /75 LLM runs/);
+    assert.match(DASHBOARD_EMPTY.freeNote, /40 LLM runs/);
     assert.equal(DASHBOARD_EMPTY.body.includes('₹'), false);
     assert.equal(DASHBOARD_EMPTY.body.toLowerCase().includes('free trial'), false);
   });

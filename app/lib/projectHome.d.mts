@@ -104,3 +104,19 @@ export function pickScopedProject(
   projects: Array<{ id?: string } | null | undefined> | null | undefined,
   requestedId?: string | null,
 ): { status: 'content' | 'empty' | 'missing'; projectId: string };
+
+export function greetingFor(date?: Date): string;
+export function relativeTime(value: string | null | undefined, now?: number): string | null;
+export function starterPrompts(
+  artifactRows: ArtifactRow[] | null | undefined,
+  counts?: { widgets?: number | null; connectors?: number | null },
+): string[];
+export type SetupStep = { id: string; label: string; done: boolean; known: boolean };
+export function setupProgress(counts?: {
+  widgets?: number | null;
+  objects?: number | null;
+  datasets?: number | null;
+  attachments?: number | null;
+  connectors?: number | null;
+}): { steps: SetupStep[]; done: number; total: number; percent: number };
+export function researchWithPrompt(projectId: string, prompt?: string): string;
