@@ -345,7 +345,27 @@ export async function changePassword(currentPassword: string, newPassword: strin
     throw new Error(errorData.detail || `Change password failed (${res.status})`);
   }
 
-  return res.json();
+  const data = await res.json();
+  // The server revokes older sessions on a password change and returns a fresh token, so this
+  // device stays signed in while every other device must sign in again.
+  if (data?.token && typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(USER_KEY);
+      if (raw) setAuthSession(data.token, JSON.parse(raw) as UserProfile);
+    } catch {
+      /* keep the existing session; the next request will prompt a sign-in if needed */
+    }
+  }
+  return data;
+}
+
+/** Sign out of every device: the server invalidates all sessions issued before now. */
+export async function logoutEverywhere(): Promise<void> {
+  try {
+    await fetch(`${API_V1}/auth/logout-all`, { method: 'POST', headers: getAuthHeaders() });
+  } finally {
+    clearAuthSession();
+  }
 }
 
 export function logout(): void {
