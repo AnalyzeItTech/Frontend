@@ -23,8 +23,12 @@ async function forward(request: Request, path: string[]) {
   if (!who.ok || !whoBody.is_admin) {
     return NextResponse.json({ detail: 'This account is not on the admin allowlist' }, { status: 403 });
   }
+  // Reject traversal / empty segments so a crafted path can't escape /internal/admin/.
+  if (path.some((seg) => !seg || seg === '.' || seg === '..' || seg.includes('/') || seg.includes('\\'))) {
+    return NextResponse.json({ detail: 'Invalid path' }, { status: 400 });
+  }
   const url = new URL(request.url);
-  const target = `${base}/internal/admin/${path.join('/')}${url.search}`;
+  const target = `${base}/internal/admin/${path.map(encodeURIComponent).join('/')}${url.search}`;
   const init: RequestInit = {
     method: request.method,
     headers: {

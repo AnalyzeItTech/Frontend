@@ -11,14 +11,18 @@ const PROTECTED_PREFIXES = [
   '/new-project',
   '/project',
   '/ops',
+  '/memory',
+  '/embeddings',
 ];
 
+// UI gate only: the API enforces real auth on every call. The AUTH_COOKIE flag is client-set,
+// so never treat this as a security boundary.
 function hasSession(request: NextRequest): boolean {
   if (request.cookies.get(AUTH_COOKIE)?.value === '1') return true;
   return Boolean(request.cookies.get(SESSION_COOKIE)?.value);
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const hostHeader = publicHost(request.headers.get('host'), request.headers.get('x-forwarded-host'));
   const decision = decideHostRequest({
@@ -92,5 +96,9 @@ export const config = {
     '/project',
     '/ops/:path*',
     '/ops',
+    '/memory/:path*',
+    '/memory',
+    '/embeddings/:path*',
+    '/embeddings',
   ],
 };

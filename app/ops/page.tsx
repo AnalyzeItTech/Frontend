@@ -6,10 +6,10 @@ import { fetchAdminWhoami } from '../lib/feedbackApi';
 import { getAuthHeaders, getStoredToken } from '../lib/auth';
 
 type Labeled = { value?: unknown; provenance?: string; note?: string };
-type Section = 'economics' | 'users' | 'feedback' | 'health' | 'research' | 'content' | 'audit';
+type Section = 'economics' | 'users' | 'feedback' | 'health' | 'research' | 'content' | 'audit' | 'retention';
 type WindowKey = 'month' | '30d' | 'all';
 
-const NAV: Section[] = ['economics', 'users', 'feedback', 'health', 'research', 'content', 'audit'];
+const NAV: Section[] = ['economics', 'users', 'feedback', 'health', 'research', 'content', 'audit', 'retention'];
 
 function val(row: unknown): number {
   if (row && typeof row === 'object' && 'value' in row) {
@@ -106,7 +106,7 @@ export default function OpsPage() {
     setBusy(true);
     setError('');
     const q = name === 'economics' || name === 'research' ? `?window=${windowKey}` : '';
-    const res = await fetch(`/api/ops/${name}${q}`, { headers: getAuthHeaders() });
+    const res = await fetch(`/api/ops/${name === 'retention' ? 'retention/overview' : name}${q}`, { headers: getAuthHeaders() });
     setBusy(false);
     if (res.status === 401) {
       router.replace('/login?next=/ops');
@@ -184,6 +184,7 @@ export default function OpsPage() {
         </header>
         {error ? <p className="mb-3 text-sm text-[#9B4D3B]">{error}</p> : null}
         {busy ? <p className="text-sm">Loading…</p> : null}
+        {section === 'retention' && data ? <RetentionOps data={data} onFlag={(f, b) => post(`retention/flags/${f}`, b)} onKill={(on) => post(`retention/kill-switch?on=${on}`, {})} /> : null}
         {section === 'economics' && data ? (
           <Economics data={data} assumptions={assumptions} setAssumptions={setAssumptions} onImport={(body) => post('cost-imports', body)} />
         ) : null}
@@ -671,6 +672,59 @@ function Audit({ data }: { data: Record<string, unknown> }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function RetentionOps({ data, onFlag, onKill }: {
+  data: Record<string, unknown>;
+  onFlag: (flag: string, body: Record<string, unknown>) => void;
+  onKill: (on: boolean) => void;
+}) {
+  const flags = (data.flags || {}) as Record<string, { enabled?: boolean; tiers?: string[]; percent?: number | null; source?: string }>;
+  const tiers = (data.tokens_by_tier || {}) as Record<string, number>;
+  const q = (data.embed_queue || {}) as Record<string, number>;
+  const shadow = (data.shadow || {}) as Record<string, number | null>;
+  const margin = (data.margin || []) as Array<Record<string, unknown>>;
+  const alerts = (data.alerts || []) as Array<Record<string, unknown>>;
+  const paused = Boolean(data.ingest_paused);
+  const [pct, setPct] = useState<Record<string, string>>({});
+  return (
+    <div className="max-w-[1400px] space-y-5 text-sm">
+      <div className="flex items-center gap-3">
+        <span className={`rounded-full px-3 py-1 ${paused ? 'bg-red-100' : 'bg-emerald-100'}`}>Ingest {paused ? 'PAUSED' : 'running'}</span>
+        <button type="button" className="rounded-lg border border-[var(--border)] px-3 py-1" onClick={() => onKill(!paused)}>
+          {paused ? 'Resume ingest' : 'Kill switch: pause ingest'}
+        </button>
+      </div>
+      <section>
+        <h2 className="mb-2 font-medium">Flags</h2>
+        <div className="space-y-2">
+          {Object.entries(flags).map(([name, r]) => (
+            <div key={name} className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--border)] p-2">
+              <span className="w-28 font-mono">{name}</span>
+              <span>{r.enabled ? 'on' : 'off'}{r.percent != null ? ` · ${r.percent}%` : ''}{r.tiers?.length ? ` · ${r.tiers.join(',')}` : ''}{r.source === 'env' ? ' · env default' : ''}</span>
+              <button type="button" className="rounded border border-[var(--border)] px-2" onClick={() => onFlag(name, { ...r, enabled: !r.enabled })}>{r.enabled ? 'Turn off' : 'Turn on (all)'}</button>
+              <input className="w-16 rounded border border-[var(--border)] px-1" placeholder="%" value={pct[name] || ''} onChange={(e) => setPct({ ...pct, [name]: e.target.value })} />
+              <button type="button" className="rounded border border-[var(--border)] px-2" onClick={() => onFlag(name, { enabled: true, tiers: r.tiers || [], percent: Number(pct[name] || 0) })}>Set %</button>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-[var(--border)] p-3">Tokens hot/warm/cold<br />{tiers.hot ?? 0} / {tiers.warm ?? 0} / {tiers.cold ?? 0}</div>
+        <div className="rounded-xl border border-[var(--border)] p-3">Embed queue<br />{q.pending_shards ?? 0} shards · {q.pending_items ?? 0} items</div>
+        <div className="rounded-xl border border-[var(--border)] p-3">Shadow read ({shadow.samples ?? 0})<br />overlap {shadow.avg_overlap ?? '-'} · new {shadow.avg_new_ms ?? '-'}ms vs old {shadow.avg_old_ms ?? '-'}ms</div>
+      </section>
+      {alerts.length ? (
+        <section><h2 className="mb-2 font-medium">Alerts</h2>{alerts.map((a, i) => <p key={i}>{String(a.type)}: {String(a.detail)}</p>)}</section>
+      ) : null}
+      <section>
+        <h2 className="mb-2 font-medium">Lowest margin users</h2>
+        <table className="w-full text-left"><thead><tr><th>User</th><th>Tier</th><th>Revenue</th><th>Cost</th><th>Margin</th></tr></thead>
+          <tbody>{margin.slice(0, 20).map((r, i) => <tr key={i}><td>{String(r.user_id)}</td><td>{String(r.tier)}</td><td>${String(r.revenue_usd)}</td><td>${String(r.cost_usd)}</td><td>${String(r.margin_usd)}</td></tr>)}</tbody>
+        </table>
+      </section>
     </div>
   );
 }

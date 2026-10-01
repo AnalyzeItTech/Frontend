@@ -151,7 +151,7 @@ describe('project scope on sibling pages', () => {
 describe('project home route wiring', () => {
   it('protects /project/[id] and renders it inside AppShell', () => {
     const page = read('app/project/[id]/page.tsx');
-    const middleware = read('middleware.ts');
+    const middleware = read('proxy.ts');
     assert.match(page, /<AppShell\s+active="project"/);
     assert.match(page, /buildProjectOverview/);
     assert.match(page, /getProjectById/);

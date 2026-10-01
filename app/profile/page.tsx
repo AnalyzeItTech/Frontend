@@ -19,6 +19,7 @@ import { cancelSubscription, getBillingHistory, getEntitlements } from '../lib/b
 import { getUserUsage, type UserUsageData } from '../lib/exportApi';
 import { parseLlmQuota } from '../lib/llmQuota';
 import { profileInitials, profileMonthUsage, profileTierName } from '../lib/profileHero.mjs';
+import { RetentionMeter } from '../Components/billing/RetentionMeter';
 import { ThemeToggle } from '../Components/ui/ThemeToggle';
 import { IncognitoToggle } from '../Components/ui/IncognitoToggle';
 
@@ -250,6 +251,8 @@ function ProfileInner() {
                   </p>
                 ) : null}
               </div>
+
+              <RetentionMeter />
 
               <div className="flex flex-wrap gap-3">
                 {monthUsage.showUpgrade ? (

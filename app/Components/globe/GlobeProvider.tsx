@@ -101,7 +101,22 @@ export interface GlobeContextValue {
   setOnMapPlaceSelect: (
     fn: ((place: { lat: number; lon: number; name?: string; event?: SourcePoint }) => void) | null,
   ) => void;
+  /**
+   * Widget→Globe bridge: call from a metric widget that has lat/lng data
+   * to fly the globe to that location.
+   * e.g. an earthquake metric → broadcastFocus(lat, lng, 'M6.2 near Tokyo')
+   */
+  broadcastFocus: (lat: number, lng: number, label?: string) => void;
+  /**
+   * Globe→Widget bridge: register a callback that fires when the user clicks
+   * a country/place on the globe, so the dashboard cross-filter can react.
+   * Pass null to deregister.
+   */
+  setOnGlobeClick: (
+    cb: ((lat: number, lng: number, label?: string) => void) | null,
+  ) => void;
 }
+
 
 const GlobeContext = createContext<GlobeContextValue | null>(null);
 
@@ -191,6 +206,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
   const sequenceRef = useRef<SourcePoint[]>([]);
   const sequenceRunningRef = useRef(false);
   const onMapPlaceSelectRef = useRef<((place: { lat: number; lon: number }) => void) | null>(null);
+  const onGlobeClickRef = useRef<((lat: number, lng: number, label?: string) => void) | null>(null);
   const transitioningRef = useRef(false);
   const parkingRef = useRef<HTMLDivElement | null>(null);
   const flipRef = useRef<HTMLDivElement | null>(null);
@@ -476,6 +492,22 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  /** Widget→Globe: fly the globe to a lat/lng from a metric widget. */
+  const broadcastFocus = useCallback(
+    (lat: number, lng: number, label?: string) => {
+      flyToLatLon(lat, lng, { name: label, zoom: 5.5, user: true });
+    },
+    [flyToLatLon],
+  );
+
+  /** Globe→Widget: register a callback for when the user clicks a place on the globe. */
+  const setOnGlobeClick = useCallback(
+    (cb: ((lat: number, lng: number, label?: string) => void) | null) => {
+      onGlobeClickRef.current = cb;
+    },
+    [],
+  );
+
   const handleMapPlaceSelect = useCallback(
     (place: { lat: number; lon: number; name?: string; event?: SourcePoint }) => {
       setActiveHub(null);
@@ -599,6 +631,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       activeHub,
       setActiveHub,
       setOnMapPlaceSelect,
+      broadcastFocus,
+      setOnGlobeClick,
     }),
     [
       variant,
@@ -629,8 +663,11 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       dataView,
       activeHub,
       setOnMapPlaceSelect,
+      broadcastFocus,
+      setOnGlobeClick,
     ],
   );
+
 
   const onChat = pathname === '/research' || pathname?.startsWith('/research');
 
