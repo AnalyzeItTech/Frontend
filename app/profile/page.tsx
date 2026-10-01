@@ -10,6 +10,7 @@ import { motion } from 'motion/react';
 import {
   changePassword,
   fetchMe,
+  logoutEverywhere,
   getStoredToken,
   isPaidPlan,
   updateUserProfile,
@@ -353,6 +354,21 @@ function ProfileInner() {
                   </button>
                 </div>
               </form>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-4">
+                <p className="text-xs text-[var(--text-muted)]">
+                  Lost a device or signed in somewhere you shouldn&apos;t have? Sign out everywhere, then sign back in here.
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await logoutEverywhere();
+                    router.replace('/login?next=/profile');
+                  }}
+                  className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs hover:bg-[var(--surface-2)]"
+                >
+                  Sign out of all devices
+                </button>
+              </div>
             </motion.section>
 
             <motion.section

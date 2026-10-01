@@ -1,4 +1,5 @@
 import { AUTH_COOKIE, SESSION_COOKIE } from './personalHost.mjs';
+import { withRetry } from './retry.mjs';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_V1 = `${API_BASE}/v1`;
@@ -28,18 +29,22 @@ async function fetchWithTimeout(
   init: RequestInit = {},
   timeoutMs: number = AUTH_REQUEST_TIMEOUT_MS,
 ): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(input, { ...init, signal: controller.signal });
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('Request timed out. Check your connection and try again.');
+  // Each attempt gets its own timeout; transient cold-start failures (network error, 502-504)
+  // are retried with backoff so the first sign-in after the API wakes up does not just fail.
+  return withRetry(async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(input, { ...init, signal: controller.signal });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw Object.assign(new Error('Request timed out. Check your connection and try again.'), { name: 'TimeoutError' });
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    throw err;
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  });
 }
 
 
