@@ -52,6 +52,7 @@ import { SessionStartAd } from '../Components/ads/SessionStartAd';
 import { ChartCard, type ChartSpec } from '../Components/research/ChartCard';
 import { SuggestionChips } from '../Components/research/SuggestionChips';
 import { parseExtras } from '../lib/chatExtras.mjs';
+import { globeLinkForPlaces } from '../Components/globe/scene.mjs';
 import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
 import {
   applyUIAction,
@@ -114,6 +115,8 @@ interface ChatMessage {
   sources?: ResearchSource[];
   /** Structured extras from the Model: charts from real data and context-aware follow-ups. */
   charts?: ChartSpec[];
+  /** Real places the answer is about, for 'Open on globe'. */
+  places?: Array<{ name: string; lat: number; lon: number }>;
   suggestions?: string[];
   widget?: WidgetSpec;
   proposal?: { action_id: string; project_id?: string };
@@ -1305,6 +1308,7 @@ function ChatInner() {
                       : streamed || 'No written answer came back.',
                     sources: resolvedSources,
                     charts: extras.charts as ChartSpec[],
+                    places: extras.places,
                     suggestions: extras.suggestions,
                     widget: widget || m.widget,
                     proposal: proposalMeta || m.proposal,
@@ -1814,6 +1818,16 @@ function ChatInner() {
                       )}
 
                       {!isUser && !msg.streaming && msg.charts?.map((c, ci) => <ChartCard key={ci} chart={c} />)}
+                      {!isUser && !msg.streaming && msg.places?.length ? (
+                        <button
+                          type="button"
+                          onClick={() => router.push(globeLinkForPlaces(msg.places ?? []))}
+                          className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]"
+                        >
+                          <IconWorld size={13} aria-hidden />
+                          Open {msg.places.length === 1 ? msg.places[0].name : `${msg.places.length} places`} on the globe
+                        </button>
+                      ) : null}
                       {!isUser && !msg.streaming && msgIndex === messages.length - 1 && msg.suggestions?.length ? (
                         <SuggestionChips
                           suggestions={msg.suggestions}

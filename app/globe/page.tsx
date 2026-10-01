@@ -22,6 +22,8 @@ import { GlobeCanvas } from '../Components/globe/GlobeCanvas';
 import { QueuedFlyToast } from '../Components/globe/QueuedFlyToast';
 import { GLOBE_HUBS } from '../Components/globe/sourceCatalog';
 import { LIVE_LAYER_POLL_MS } from '../Components/globe/globePerf';
+import { TimeControls } from '../Components/globe/TimeControls';
+import { cursorTime, decodeScene, encodeScene, filterByCursor, windowBounds } from '../Components/globe/scene.mjs';
 import {
   globeAskPrompt,
   interpretLayerPayload,
@@ -211,6 +213,13 @@ export default function GlobePage() {
     Partial<Record<LayerId, { status: string; message?: string | null }>>
   >({});
   const [layersLoading, setLayersLoading] = useState(false);
+  const [days, setDays] = useState(7);
+  const [cursor, setCursor] = useState(1); // replay position inside the window; 1 = live
+  const [playing, setPlaying] = useState(false);
+  const [rawPoints, setRawPoints] = useState<SourcePoint[]>([]);
+  /** Per-layer counts of what the replay cursor currently shows (null = live, use layerCounts). */
+  const [replayCounts, setReplayCounts] = useState<Record<string, number> | null>(null);
+  const [shared, setShared] = useState(false);
   const [compare, setCompare] = useState<ComparePlace[]>([]);
   const [leftRail, setLeftRail] = useState(LEFT_DEFAULT);
   const [rightRail, setRightRail] = useState(RIGHT_DEFAULT);
@@ -264,6 +273,7 @@ export default function GlobePage() {
         if (!cancelled) {
           setLayerCounts({});
           setLayerHealth({});
+          setRawPoints([]);
           setOverlayPoints([]);
           setOverlayPaths([]);
           setLayersLoading(false);
@@ -280,7 +290,7 @@ export default function GlobePage() {
               const data = await fetchGlobeEvents({
                 layers: [id],
                 minMagnitude: 4.5,
-                days: 7,
+                days,
                 signal: ac.signal,
               });
               const bucket = (data.layers || {}) as Record<string, Record<string, unknown>>;
@@ -311,7 +321,7 @@ export default function GlobePage() {
 
         setLayerCounts(counts);
         setLayerHealth(health);
-        setOverlayPoints(points as SourcePoint[]);
+        setRawPoints(points as SourcePoint[]);
         setOverlayPaths(paths);
       } catch {
         if (!cancelled && gen === pollGen.current) setLayersLoading(false);
@@ -329,7 +339,47 @@ export default function GlobePage() {
       pollAbortRef.current?.abort();
       window.clearInterval(timer);
     };
-  }, [layers, setOverlayPoints, setOverlayPaths]);
+  }, [layers, days, setOverlayPoints, setOverlayPaths]);
+
+  // A new time window must not merge with cached events from the old one.
+  useEffect(() => {
+    layerCacheRef.current = {};
+    setCursor(1);
+    setPlaying(false);
+  }, [days]);
+
+  // Replay: show only events up to the cursor (undated points like hubs always stay).
+  useEffect(() => {
+    if (cursor >= 1) {
+      setReplayCounts(null);
+      setOverlayPoints(rawPoints);
+      return;
+    }
+    const shown = filterByCursor(rawPoints, cursorTime(cursor, windowBounds(days)));
+    const counts: Record<string, number> = {};
+    for (const p of shown) {
+      const layer = String((p as { host?: string }).host || '');
+      if (layer) counts[layer] = (counts[layer] ?? 0) + 1;
+    }
+    setReplayCounts(counts);
+    setOverlayPoints(shown);
+  }, [rawPoints, cursor, days, setOverlayPoints]);
+
+  // Playback: ~8 s from the start of the window to now.
+  useEffect(() => {
+    if (!playing) return undefined;
+    const id = window.setInterval(() => {
+      setCursor((c) => {
+        const next = c + 0.0125;
+        if (next >= 1) {
+          setPlaying(false);
+          return 1;
+        }
+        return next;
+      });
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [playing]);
 
   useEffect(() => {
     return () => {
@@ -338,6 +388,58 @@ export default function GlobePage() {
       setShowCatalog(true);
     };
   }, [setOverlayPoints, setOverlayPaths, setShowCatalog]);
+
+  // Restore a shared scene (?layers=&days=&view=&proj=&places=&at=). Everything that is just React
+  // state applies immediately; only camera moves wait for the map engine.
+  const sceneRef = useRef<ReturnType<typeof decodeScene> | null>(null);
+  const sceneFlownRef = useRef(false);
+  useEffect(() => {
+    if (sceneRef.current) return;
+    const scene = decodeScene(window.location.search);
+    sceneRef.current = scene;
+    if (scene.layers) {
+      const wanted = new Set(scene.layers);
+      setLayers((prev) => Object.fromEntries(Object.keys(prev).map((k) => [k, wanted.has(k)])) as Record<LayerId, boolean>);
+    }
+    if (scene.days) setDays(scene.days);
+    if (scene.view) setDataView(scene.view);
+    if (scene.projection) setMapProjection(scene.projection);
+    if (scene.places.length) setComparePlaces(scene.places);
+  }, [setComparePlaces, setDataView, setMapProjection]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!mapReady || !scene || sceneFlownRef.current) return;
+    sceneFlownRef.current = true;
+    if (scene.camera) {
+      flyToLatLon(scene.camera.lat, scene.camera.lng, { zoom: scene.camera.zoom, user: true });
+    } else if (scene.places.length) {
+      const first = scene.places[0];
+      flyToLatLon(first.lat, first.lon, { name: first.name, zoom: scene.places.length > 1 ? 3.2 : 5.5, user: true });
+    }
+  }, [mapReady, flyToLatLon]);
+
+  const shareScene = useCallback(async () => {
+    const focus = [...(selected ? [selected] : []), ...compare].filter(
+      (p, i, all) => all.findIndex((q) => q.lat === p.lat && q.lon === p.lon) === i,
+    );
+    const qs = encodeScene({
+      layers: (Object.keys(layers) as LayerId[]).filter((k) => layers[k]),
+      days,
+      view: dataView,
+      projection: mapProjection,
+      places: focus,
+      camera,
+    });
+    const url = `${window.location.origin}/globe${qs ? `?${qs}` : ''}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt('Copy this link to share the view', url);
+    }
+    setShared(true);
+    window.setTimeout(() => setShared(false), 2200);
+  }, [selected, compare, layers, days, dataView, mapProjection, camera]);
 
   const sendToResearch = useCallback(
     (prompt: string, places?: Selected[]) => {
@@ -738,7 +840,12 @@ export default function GlobePage() {
             <div className="globe-layer-scroll mt-1.5" role="group" aria-label="Map layers">
               {visibleLayers.map((layer) => {
                 const on = layers[layer.id];
-                const count = layer.id === 'catalog' ? archivePoints.length : (layerCounts[layer.id] ?? 0);
+                const count =
+                  layer.id === 'catalog'
+                    ? archivePoints.length
+                    : replayCounts
+                      ? (replayCounts[layer.id] ?? 0)
+                      : (layerCounts[layer.id] ?? 0);
                 const health =
                   layer.id === 'catalog'
                     ? { status: 'ok' }
@@ -767,6 +874,17 @@ export default function GlobePage() {
               <p className="px-1 pt-2 text-[12px] text-[var(--text-secondary)]">No layers match that filter.</p>
             ) : null}
           </div>
+
+          <TimeControls
+            days={days}
+            onDays={setDays}
+            cursor={cursor}
+            onCursor={setCursor}
+            playing={playing}
+            onPlay={setPlaying}
+            shared={shared}
+            onShare={() => void shareScene()}
+          />
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {query.trim().length >= 2 ? (
