@@ -20,7 +20,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build production bundle
+      - name: Unit tests
+        run: npm test
+
+      - name: Build production bundle (includes type-check)
         run: npm run build
 
       - name: Check whitespace errors
