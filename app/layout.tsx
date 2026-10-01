@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./reducedMotion.css";
 import { ThemeProvider } from "./Components/ui/ThemeProvider";
 import { GlobeProvider } from "./Components/globe/GlobeProvider";
 import { SmoothScrollProvider } from "./Components/ui/SmoothScrollProvider";

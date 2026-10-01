@@ -1,0 +1,16 @@
+/* Respect the OS "reduce motion" setting: stop non-essential animation and smooth scrolling.
+   Opacity/colour state changes still apply instantly, so nothing becomes unreadable. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
