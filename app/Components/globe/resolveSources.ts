@@ -109,6 +109,19 @@ export async function resolveChatIngest(input: ChatRunIngest): Promise<SourcePoi
     points.push(point);
   };
 
+  for (const place of input.places ?? []) {
+    const pt = normalizeLatLon(place.lat, place.lon);
+    if (!pt) continue;
+    add({
+      id: `place:${pt.lat.toFixed(3)}:${pt.lon.toFixed(3)}`,
+      lat: pt.lat,
+      lon: pt.lon,
+      label: place.name,
+      kind: 'place',
+      pulse: true,
+    });
+  }
+
   const direct = normalizeLatLon(input.lat, input.lon);
   if (direct) {
     add({

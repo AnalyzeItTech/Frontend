@@ -1,10 +1,11 @@
 'use client';
 
 import { Fragment, type ReactNode } from 'react';
+import { parseTableAt, safeHref } from '../../lib/chatExtras.mjs';
 
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const re = /(`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|\*[^*\n]+\*|_[^_\n]+_)/g;
+  const re = /(\[[^\]\n]+\]\([^)\s]+\)|`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|\*[^*\n]+\*|_[^_\n]+_)/g;
   let last = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -13,7 +14,19 @@ function renderInline(text: string): ReactNode[] {
       nodes.push(<Fragment key={key++}>{text.slice(last, match.index)}</Fragment>);
     }
     const token = match[0];
-    if (token.startsWith('`')) {
+    if (token.startsWith('[')) {
+      const m = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
+      const href = m ? safeHref(m[2]) : null;
+      nodes.push(
+        href ? (
+          <a key={key++} href={href} target="_blank" rel="noopener noreferrer" className="underline decoration-[var(--border)] underline-offset-2 hover:text-[var(--text-primary)]">
+            {m![1]}
+          </a>
+        ) : (
+          <Fragment key={key++}>{m ? m[1] : token}</Fragment>
+        ),
+      );
+    } else if (token.startsWith('`')) {
       nodes.push(
         <code
           key={key++}
@@ -76,6 +89,74 @@ export function ChatMarkdown({
       continue;
     }
 
+    if (/^\s*```/.test(line)) {
+      const code: string[] = [];
+      i += 1;
+      while (i < lines.length && !/^\s*```/.test(lines[i])) {
+        code.push(lines[i]);
+        i += 1;
+      }
+      i += 1; // closing fence (or end of a still-streaming block)
+      blocks.push(
+        <pre key={key++} className="my-2 overflow-x-auto rounded-lg bg-[var(--surface-2)] p-3 text-xs">
+          <code className="font-mono">{code.join('\n')}</code>
+        </pre>,
+      );
+      continue;
+    }
+
+    const table = parseTableAt(lines, i);
+    if (table) {
+      blocks.push(
+        <div key={key++} className="my-2 overflow-x-auto">
+          <table className="w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)]">
+                {table.header.map((h, c) => (
+                  <th key={c} className="px-2 py-1.5 font-semibold text-[var(--text-primary)]" style={{ textAlign: table.align[c] }}>
+                    {renderInline(h)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row, r) => (
+                <tr key={r} className="border-b border-[var(--border)]/60">
+                  {row.map((cell, c) => (
+                    <td key={c} className="px-2 py-1.5 text-[var(--text-secondary)]" style={{ textAlign: table.align[c] }}>
+                      {renderInline(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      i = table.next;
+      continue;
+    }
+
+    if (/^\s*>\s?/.test(line)) {
+      const quote: string[] = [];
+      while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
+        quote.push(lines[i].replace(/^\s*>\s?/, ''));
+        i += 1;
+      }
+      blocks.push(
+        <blockquote key={key++} className="my-2 border-l-2 border-[var(--border)] pl-3 text-[var(--text-secondary)]">
+          {renderInline(quote.join(' '))}
+        </blockquote>,
+      );
+      continue;
+    }
+
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+      blocks.push(<hr key={key++} className="my-3 border-[var(--border)]" />);
+      i += 1;
+      continue;
+    }
+
     if (/^\s*[-*•]\s+/.test(line) || /^\s*\d+\.\s+/.test(line)) {
       const items: string[] = [];
       const ordered = /^\s*\d+\.\s+/.test(line);
@@ -110,7 +191,10 @@ export function ChatMarkdown({
       lines[i].trim() !== '' &&
       !/^(#{1,6})\s+/.test(lines[i]) &&
       !/^\s*[-*•]\s+/.test(lines[i]) &&
-      !/^\s*\d+\.\s+/.test(lines[i])
+      !/^\s*\d+\.\s+/.test(lines[i]) &&
+      !/^\s*```/.test(lines[i]) &&
+      !/^\s*>\s?/.test(lines[i]) &&
+      !parseTableAt(lines, i)
     ) {
       para.push(lines[i]);
       i += 1;

@@ -56,6 +56,8 @@ export interface GlobeMapHandle {
 }
 
 export interface ChatRunIngest {
+  /** Real subjects of the answer (countries, cities, events) with coordinates. */
+  places?: Array<{ name: string; lat: number; lon: number }>;
   query?: string;
   city?: string;
   lat?: number;

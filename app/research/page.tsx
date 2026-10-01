@@ -49,6 +49,9 @@ import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer'
 import { AdSlot, AD_LOAD_TIMEOUT_MS, isAdPlacementConfigured } from '../Components/ads/AdSlot';
 import { shouldShowPostRunAd } from '../lib/adCadence';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
+import { ChartCard, type ChartSpec } from '../Components/research/ChartCard';
+import { SuggestionChips } from '../Components/research/SuggestionChips';
+import { parseExtras } from '../lib/chatExtras.mjs';
 import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
 import {
   applyUIAction,
@@ -109,6 +112,9 @@ interface ChatMessage {
   mode?: ComposerMode;
   attachments?: Array<{ attachment_id: string; filename: string }>;
   sources?: ResearchSource[];
+  /** Structured extras from the Model: charts from real data and context-aware follow-ups. */
+  charts?: ChartSpec[];
+  suggestions?: string[];
   widget?: WidgetSpec;
   proposal?: { action_id: string; project_id?: string };
   streaming?: boolean;
@@ -307,28 +313,6 @@ export default function ChatPage() {
     >
       <ChatInner />
     </Suspense>
-  );
-}
-
-function ResultBars({ text }: { text: string }) {
-  const nums = [...text.matchAll(/-?\d+(?:\.\d+)?/g)]
-    .map((m) => Number(m[0]))
-    .filter((n) => Number.isFinite(n) && Math.abs(n) < 1e9)
-    .slice(0, 5);
-  if (!nums.length) return null;
-  const max = Math.max(...nums.map((n) => Math.abs(n)), 1);
-  return (
-    <div className="mt-2 flex h-16 items-end gap-1" aria-label="Result chart">
-      {nums.map((n, i) => (
-        <div key={i} className="flex min-w-0 flex-1 flex-col justify-end h-full">
-          <div
-            className="rounded-t bg-[#E3836C]"
-            style={{ height: `${Math.max(12, (Math.abs(n) / max) * 100)}%` }}
-            title={String(n)}
-          />
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -840,6 +824,7 @@ function ChatInner() {
       let widget: WidgetSpec | undefined;
       let proposalMeta: { action_id: string; project_id?: string } | undefined;
       let sources: ResearchSource[] = [];
+      let extras = parseExtras(null) as ReturnType<typeof parseExtras>;
       let streamed = '';
       let hintTools: string[] = [];
       let zeroTokenTool: string | null = null;
@@ -1191,6 +1176,7 @@ function ChatInner() {
 
             if (event.event === 'final') {
               const finalPayload = (event.payload || {}) as Record<string, unknown>;
+              extras = parseExtras(finalPayload);
               const usage = finalPayload.usage as Record<string, unknown> | undefined;
               if (usage) {
                 const fromUsage = parseContextBudget({
@@ -1299,7 +1285,10 @@ function ChatInner() {
               return Boolean(s.url || (s.host && s.host.includes('.')));
             })
           : sources;
-        if (resolvedSources.length) ingestChatRun({ sources: resolvedSources });
+        // Fly to what the answer is ABOUT (countries, cities, events). Publisher HQ pins are only a
+        // fallback: an answer about Mumbai citing usgs.gov must not fly to Reston, Virginia.
+        if (extras.places.length) ingestChatRun({ places: extras.places });
+        else if (resolvedSources.length) ingestChatRun({ sources: resolvedSources });
         if (contextWallRef.current?.softFail) {
           suppressPostRunAd = true;
           sources = resolvedSources;
@@ -1315,6 +1304,8 @@ function ChatInner() {
                       ? ''
                       : streamed || 'No written answer came back.',
                     sources: resolvedSources,
+                    charts: extras.charts as ChartSpec[],
+                    suggestions: extras.suggestions,
                     widget: widget || m.widget,
                     proposal: proposalMeta || m.proposal,
                     streaming: false,
@@ -1601,7 +1592,7 @@ function ChatInner() {
                 </div>
               )}
 
-              {messages.map((msg) => {
+              {messages.map((msg, msgIndex) => {
                 if (msg.role === 'system') return null;
                 const isUser = msg.role === 'user';
                 return (
@@ -1822,9 +1813,14 @@ function ChatInner() {
                         </div>
                       )}
 
-                      {!isUser && msg.content && !msg.streaming && (
-                        <ResultBars text={msg.content} />
-                      )}
+                      {!isUser && !msg.streaming && msg.charts?.map((c, ci) => <ChartCard key={ci} chart={c} />)}
+                      {!isUser && !msg.streaming && msgIndex === messages.length - 1 && msg.suggestions?.length ? (
+                        <SuggestionChips
+                          suggestions={msg.suggestions}
+                          disabled={isStreaming}
+                          onPick={(q) => void sendMessage(q)}
+                        />
+                      ) : null}
 
                       {!isUser && msg.content && !msg.streaming && (
                         <div className="flex items-center gap-2 pt-1">
