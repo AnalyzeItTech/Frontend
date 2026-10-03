@@ -3,6 +3,40 @@ import { getAuthHeaders } from './auth';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_V1 = `${API_BASE}/v1`;
 
+/** An API failure with the HTTP status and, for quota errors, the structured payload. */
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  upgradeRequired: boolean;
+  constructor(message: string, status: number, code?: string, upgradeRequired = false) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.upgradeRequired = upgradeRequired;
+  }
+  get isConflict() {
+    return this.status === 409;
+  }
+}
+
+/** FastAPI `detail` can be a string, a {message, code} object, or a validation-error list. */
+export async function apiErrorFrom(res: Response, fallback: string): Promise<ApiError> {
+  const body = await res.json().catch(() => null);
+  const detail = body?.detail;
+  let message = fallback;
+  let code: string | undefined;
+  let upgrade = false;
+  if (typeof detail === 'string') message = detail;
+  else if (Array.isArray(detail)) message = detail.map((d: { msg?: string }) => d?.msg).filter(Boolean).join('; ') || fallback;
+  else if (detail && typeof detail === 'object') {
+    message = detail.message || fallback;
+    code = detail.code;
+    upgrade = Boolean(detail.upgrade_required);
+  }
+  return new ApiError(message, res.status, code, upgrade);
+}
+
 export interface ObjectField {
   api_name: string;
   name?: string;
@@ -52,6 +86,9 @@ export interface ObjectRecord {
   origin: string;
   external_id?: string;
   overridden_fields?: string[];
+  /** Optimistic-concurrency counter; send it back as expected_version when editing. */
+  version?: number;
+  deleted_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -263,10 +300,7 @@ export async function createRecord(
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify({ data, values: data, origin: 'manual' }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || 'Failed to create record');
-  }
+  if (!res.ok) throw await apiErrorFrom(res, 'Failed to create record');
   return res.json();
 }
 
@@ -274,20 +308,18 @@ export async function updateRecord(
   projectId: string,
   schemaId: string,
   recordId: string,
-  data: Record<string, any>
+  data: Record<string, any>,
+  expectedVersion?: number
 ): Promise<ObjectRecord> {
   const res = await fetch(
     `${API_V1}/records/${recordId}`,
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ data, values: data }),
+      body: JSON.stringify({ data, values: data, ...(expectedVersion != null ? { expected_version: expectedVersion } : {}) }),
     }
   );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || 'Failed to update record');
-  }
+  if (!res.ok) throw await apiErrorFrom(res, 'Failed to update record');
   return res.json();
 }
 
@@ -308,6 +340,124 @@ export async function deleteRecord(
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || 'Failed to delete record');
   }
+  return res.json();
+}
+
+// ─── Filtered query, bulk, trash, import / export ─────────────────────────────
+
+export interface RecordFilter {
+  field: string;
+  operator: string;
+  value: unknown;
+}
+
+export interface QueryRecordsParams {
+  filters?: RecordFilter[];
+  search?: string;
+  limit?: number;
+  skip?: number;
+  sortBy?: string;
+  sortDesc?: boolean;
+  /** "only" lists the trash. */
+  deleted?: 'exclude' | 'only' | 'include';
+}
+
+export async function queryRecords(projectId: string, schemaId: string, p: QueryRecordsParams = {}): Promise<RecordsResponse> {
+  const res = await fetch(`${API_V1}/objects/${schemaId}/records/query?project_id=${encodeURIComponent(projectId)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({
+      filters: p.filters ?? [],
+      search: p.search?.trim() || null,
+      limit: p.limit ?? 50,
+      skip: p.skip ?? 0,
+      sort_by: p.sortBy ?? 'created_at',
+      sort_desc: p.sortDesc ?? true,
+      deleted: p.deleted ?? 'exclude',
+    }),
+  });
+  if (!res.ok) throw await apiErrorFrom(res, 'Failed to load records');
+  const data = await res.json();
+  return {
+    records: data.records || [],
+    total: data.total ?? 0,
+    limit: data.limit ?? p.limit ?? 50,
+    skip: data.skip ?? p.skip ?? 0,
+    has_more: Boolean(data.has_more),
+  };
+}
+
+async function postJson<T>(path: string, projectId: string, body: unknown, fallback: string): Promise<T> {
+  const res = await fetch(`${API_V1}${path}?project_id=${encodeURIComponent(projectId)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await apiErrorFrom(res, fallback);
+  return res.json();
+}
+
+/** Soft delete: records go to the trash for 30 days and can be restored. */
+export function bulkDeleteRecords(projectId: string, schemaId: string, ids: string[]) {
+  return postJson<{ deleted: number; requested: number }>(`/objects/${schemaId}/records/bulk-delete`, projectId, { ids }, 'Failed to delete records');
+}
+
+export function restoreRecords(projectId: string, schemaId: string, ids: string[]) {
+  return postJson<{ restored: number; requested: number }>(`/objects/${schemaId}/records/restore`, projectId, { ids }, 'Failed to restore records');
+}
+
+export interface BulkResult {
+  created?: number;
+  updated?: number;
+  failed: number;
+  errors: { index?: number; row?: number; id?: string; error: string; conflict?: boolean }[];
+}
+
+export function bulkUpdateRecords(
+  projectId: string,
+  schemaId: string,
+  updates: { id: string; values: Record<string, unknown>; expected_version?: number }[],
+) {
+  return postJson<BulkResult>(`/objects/${schemaId}/records/bulk-update`, projectId, { updates }, 'Failed to update records');
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export async function exportRecords(projectId: string, schemaId: string, format: 'csv' | 'json' = 'csv'): Promise<void> {
+  const res = await fetch(
+    `${API_V1}/objects/${schemaId}/export?format=${format}&project_id=${encodeURIComponent(projectId)}`,
+    { headers: { ...getAuthHeaders() } },
+  );
+  if (!res.ok) throw await apiErrorFrom(res, 'Export failed');
+  const disposition = res.headers.get('content-disposition') || '';
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] || `${schemaId}.${format}`;
+  saveBlob(await res.blob(), name);
+}
+
+export interface ImportResult extends BulkResult {
+  created: number;
+  unmapped_columns: string[];
+  row_limit_hit?: boolean;
+}
+
+export async function importRecords(projectId: string, schemaId: string, file: File): Promise<ImportResult> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_V1}/objects/${schemaId}/import?project_id=${encodeURIComponent(projectId)}`, {
+    method: 'POST',
+    headers: { ...getAuthHeaders() }, // no Content-Type: the browser sets the multipart boundary
+    body: form,
+  });
+  if (!res.ok) throw await apiErrorFrom(res, 'Import failed');
   return res.json();
 }
 

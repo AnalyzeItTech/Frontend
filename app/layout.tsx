@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./reducedMotion.css";
 import { ThemeProvider } from "./Components/ui/ThemeProvider";
+import { UIProvider } from "./Components/ui/UIProvider";
 import { GlobeProvider } from "./Components/globe/GlobeProvider";
 import { SmoothScrollProvider } from "./Components/ui/SmoothScrollProvider";
 import { SkipToContent } from "./Components/ui/SkipToContent";
@@ -149,12 +150,14 @@ export default function RootLayout({
         className="min-h-full flex flex-col bg-[var(--bg)] text-[var(--text-primary)] font-sans antialiased overflow-x-hidden transition-colors duration-300"
       >
         <ThemeProvider>
-          <GlobeProvider>
-            <SmoothScrollProvider>
-              <SkipToContent />
-              {children}
-            </SmoothScrollProvider>
-          </GlobeProvider>
+          <UIProvider>
+            <GlobeProvider>
+              <SmoothScrollProvider>
+                <SkipToContent />
+                {children}
+              </SmoothScrollProvider>
+            </GlobeProvider>
+          </UIProvider>
         </ThemeProvider>
         <Analytics />
       </body>

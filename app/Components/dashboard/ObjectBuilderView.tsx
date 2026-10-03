@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   IconDatabase,
@@ -26,6 +26,12 @@ import {
   IconLinkOff,
   IconLayersLinked,
   IconWorld,
+  IconDownload,
+  IconUpload,
+  IconFilter,
+  IconCopy,
+  IconArrowBackUp,
+  IconTrashX,
 } from '@tabler/icons-react';
 import {
   fetchObjectSchemas,
@@ -38,12 +44,43 @@ import {
   createRecord,
   updateRecord,
   deleteRecord,
+  queryRecords,
+  bulkDeleteRecords,
+  restoreRecords,
+  exportRecords,
+  importRecords,
+  ApiError,
+  type RecordFilter,
   type ObjectSchema,
   type ObjectRecord,
   type ObjectField,
   type RelatedGroup,
 } from '../../lib/customObjectsApi';
 import { RelationCombobox } from './RelationCombobox';
+import { useToast } from '../ui/Toast';
+import { useConfirm } from '../ui/ConfirmDialog';
+import { useDialogA11y } from '../ui/useDialogA11y';
+import { TableSkeleton } from '../ui/Skeleton';
+import { EmptyState } from '../ui/EmptyState';
+import {
+  OPERATOR_LABELS,
+  buildFilters,
+  canEditInline,
+  duplicateValues,
+  emptyFilterRow,
+  loadHidden,
+  operatorsForType,
+  parseInlineValue,
+  plural,
+  pruneSelection,
+  saveHidden,
+  selectionState,
+  toggleAll,
+  toggleHidden,
+  toggleId,
+  visibleFields,
+  type FilterRow,
+} from '../../lib/recordsView.mjs';
 
 interface ObjectBuilderViewProps {
   projectId: string;
@@ -112,6 +149,23 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
   const [loadingRelated, setLoadingRelated] = useState(false);
   const [savingRecord, setSavingRecord] = useState(false);
 
+  // CRUD upgrades: selection, filters, columns, trash, inline edit, import/export
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [filterRows, setFilterRows] = useState<FilterRow[]>([]);
+  const [appliedFilters, setAppliedFilters] = useState<RecordFilter[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [hiddenCols, setHiddenCols] = useState<string[]>([]);
+  const [showTrash, setShowTrash] = useState(false);
+  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
+  const [busy, setBusy] = useState<'import' | 'export' | 'bulk' | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const schemaPanelRef = useRef<HTMLDivElement>(null);
+  const newRecPanelRef = useRef<HTMLDivElement>(null);
+  const detailPanelRef = useRef<HTMLDivElement>(null);
+
   const loadSchemas = async () => {
     if (!projectId) return;
     setLoading(true);
@@ -128,16 +182,39 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
     }
   };
 
+  // Plain list when nothing special is asked for (keeps the cheap GET path); POST query for filters/trash.
+  const fetchPage = (
+    schema: ObjectSchema,
+    skip: number,
+    sBy: string,
+    sDesc: boolean,
+    search: string,
+    filters: RecordFilter[],
+    trash: boolean
+  ) =>
+    filters.length > 0 || trash
+      ? queryRecords(projectId, schema.api_name, {
+          filters,
+          search,
+          skip,
+          sortBy: sBy,
+          sortDesc: sDesc,
+          deleted: trash ? 'only' : 'exclude',
+        })
+      : fetchRecords(projectId, schema.api_name, 50, skip, sBy, sDesc, search);
+
   const loadRecords = async (
     schema: ObjectSchema,
     sBy: string = sortBy,
     sDesc: boolean = sortDesc,
-    search: string = debouncedSearch
+    search: string = debouncedSearch,
+    filters: RecordFilter[] = appliedFilters,
+    trash: boolean = showTrash
   ) => {
     if (!projectId || !schema) return;
     setRecordsLoading(true);
     try {
-      const resp = await fetchRecords(projectId, schema.api_name, 50, 0, sBy, sDesc, search);
+      const resp = await fetchPage(schema, 0, sBy, sDesc, search, filters, trash);
       setRecords(resp.records);
       setTotalRecords(resp.total);
       setHasMore(resp.has_more);
@@ -155,7 +232,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
     if (!projectId || !selectedSchema || loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
-      const resp = await fetchRecords(projectId, selectedSchema.api_name, 50, records.length, sortBy, sortDesc, debouncedSearch);
+      const resp = await fetchPage(selectedSchema, records.length, sortBy, sortDesc, debouncedSearch, appliedFilters, showTrash);
       setRecords((prev) => [...prev, ...resp.records]);
       setTotalRecords(resp.total);
       setHasMore(resp.has_more);
@@ -186,7 +263,24 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
     } else {
       setRecords([]);
     }
-  }, [selectedSchema?.id, debouncedSearch]);
+  }, [selectedSchema?.id, debouncedSearch, appliedFilters, showTrash]);
+
+  // Per-object UI state: reset filters/selection/trash when switching objects, restore saved column choices.
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setFilterRows([]);
+    setAppliedFilters([]);
+    setShowTrash(false);
+    setEditingCell(null);
+    setFiltersOpen(false);
+    setColumnsOpen(false);
+    setHiddenCols(selectedSchema ? loadHidden(typeof window !== 'undefined' ? window.localStorage : undefined, projectId, selectedSchema.id) : []);
+  }, [selectedSchema?.id, projectId]);
+
+  // Selection only ever refers to rows currently on screen.
+  useEffect(() => {
+    setSelectedIds((prev) => pruneSelection(prev, records.map((r) => r.id)));
+  }, [records]);
 
   const openCreateSchemaModal = () => {
     setIsEditingExistingSchema(false);
@@ -315,14 +409,14 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
     const label = schemaLabel.trim();
     const apiName = schemaApiName.trim();
     if (!label || !apiName) {
-      alert('Entity label and API name are required.');
+      toast.error('Entity label and API name are required.');
       return;
     }
     const badField = schemaFields.find(
       (f) => !String(f.label || '').trim() || !String(f.api_name || '').trim(),
     );
     if (badField) {
-      alert('Every field needs a label and API name before you can save the schema.');
+      toast.error('Every field needs a label and API name before you can save the schema.');
       return;
     }
 
@@ -346,15 +440,19 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
       setIsSchemaModalOpen(false);
       await loadSchemas();
     } catch (err: any) {
-      alert(err.message || 'Failed to save schema');
+      toast.error(err.message || 'Failed to save schema');
     }
   };
 
   const handleDeleteSchema = async (schema: ObjectSchema) => {
     if (!projectId) return;
-    if (!confirm(`Are you sure you want to delete object '${schema.label}'? All records will be permanently removed.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Delete object '${schema.label}'?`,
+      message: 'All of its records will be permanently removed. This cannot be undone.',
+      confirmLabel: 'Delete object',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await deleteObjectSchema(projectId, schema.id);
       if (selectedSchema?.id === schema.id) {
@@ -362,7 +460,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
       }
       await loadSchemas();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete object');
+      toast.error(err.message || 'Failed to delete object');
     }
   };
 
@@ -377,7 +475,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
       })
       .map((f) => f.label || f.api_name);
     if (missing.length) {
-      alert(`Fill required fields: ${missing.join(', ')}`);
+      toast.error(`Fill required fields: ${missing.join(', ')}`);
       return;
     }
     setIsCreatingRecord(true);
@@ -389,7 +487,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
       setRecordsMutationVersion((v) => v + 1);
       await loadRecords(selectedSchema, sortBy, sortDesc, debouncedSearch);
     } catch (err: any) {
-      alert(err.message || 'Failed to create record');
+      reportError(err, 'Failed to create record');
     } finally {
       setIsCreatingRecord(false);
     }
@@ -402,48 +500,204 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
     setSavingRecord(true);
     try {
       const cleanData = coerceFormData(selectedSchema, detailFormData);
-      const updated = await updateRecord(projectId, selectedSchema.id, activeRecord.id, cleanData);
+      const updated = await updateRecord(projectId, selectedSchema.id, activeRecord.id, cleanData, activeRecord.version ?? 1);
       setActiveRecord(updated);
       setRecordsMutationVersion((v) => v + 1);
       await loadRecords(selectedSchema, sortBy, sortDesc, debouncedSearch);
-      alert('Record updated successfully');
+      toast.success('Record saved');
     } catch (err: any) {
-      alert(err.message || 'Failed to update record');
+      if (err instanceof ApiError && err.isConflict) {
+        toast.error('Someone else changed this record while you were editing. Reopen it to see the latest version.');
+        await loadRecords(selectedSchema, sortBy, sortDesc, debouncedSearch);
+      } else {
+        reportError(err, 'Failed to update record');
+      }
     } finally {
       setIsUpdatingRecord(false);
       setSavingRecord(false);
     }
   };
 
-  const handleDeleteRecord = async (recordId: string) => {
-    if (!projectId || !selectedSchema) return;
-    try {
-      // Pre-flight check for referencing child records
-      const relCheck = await fetchRelatedRecords(recordId);
-      const groups = relCheck.related || [];
-      const totalReferencing = groups.reduce((acc, g) => acc + g.count, 0);
-
-      let confirmMsg = 'Are you sure you want to delete this record?';
-      if (totalReferencing > 0) {
-        const entityBreakdown = groups.map((g) => `${g.count} in ${g.object_label}`).join(', ');
-        confirmMsg = `⚠️ WARNING: This record is currently referenced by ${totalReferencing} record(s) (${entityBreakdown}).\n\nDeleting will automatically UNLINK these references (clearing the foreign lookup). Are you sure you want to proceed?`;
-      }
-
-      if (!confirm(confirmMsg)) return;
-
-      const res = await deleteRecord(projectId, selectedSchema.id, recordId, 'nullify');
-      if (activeRecord?.id === recordId) {
-        setActiveRecord(null);
-      }
-      setRecordsMutationVersion((v) => v + 1);
-      await loadRecords(selectedSchema, sortBy, sortDesc, debouncedSearch);
-      if (res.unlinked_references && res.unlinked_references > 0) {
-        alert(`Record deleted and ${res.unlinked_references} foreign reference(s) cleanly unlinked.`);
-      }
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete record');
+  /** Quota errors get an Upgrade action; everything else is a plain error toast. */
+  const reportError = (err: unknown, fallback: string) => {
+    const message = err instanceof Error && err.message ? err.message : fallback;
+    if (err instanceof ApiError && err.upgradeRequired) {
+      toast.error(message, { action: { label: 'Upgrade', onClick: () => window.location.assign('/billing') } });
+    } else {
+      toast.error(message);
     }
   };
+
+  const reload = () => (selectedSchema ? loadRecords(selectedSchema) : Promise.resolve());
+
+  /** Soft delete with Undo: records move to the trash (30 days) instead of vanishing. */
+  const softDelete = async (ids: string[]) => {
+    if (!projectId || !selectedSchema || ids.length === 0) return;
+    const schemaId = selectedSchema.id;
+    setBusy('bulk');
+    try {
+      const res = await bulkDeleteRecords(projectId, schemaId, ids);
+      if (activeRecord && ids.includes(activeRecord.id)) setActiveRecord(null);
+      setSelectedIds(new Set());
+      toast.success(`${plural(res.deleted, 'record')} moved to trash`, {
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            try {
+              await restoreRecords(projectId, schemaId, ids);
+              toast.success('Restored');
+              await reload();
+            } catch (err) {
+              reportError(err, 'Could not restore');
+            }
+          },
+        },
+      });
+      await reload();
+    } catch (err) {
+      reportError(err, 'Failed to delete records');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const restoreSelected = async (ids: string[]) => {
+    if (!projectId || !selectedSchema || ids.length === 0) return;
+    setBusy('bulk');
+    try {
+      const res = await restoreRecords(projectId, selectedSchema.id, ids);
+      setSelectedIds(new Set());
+      toast.success(`${plural(res.restored, 'record')} restored`);
+      await reload();
+    } catch (err) {
+      reportError(err, 'Failed to restore records');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /** Permanent delete (trash view only). Unlinks lookups that point at the record. */
+  const deleteForever = async (ids: string[]) => {
+    if (!projectId || !selectedSchema || ids.length === 0) return;
+    const ok = await confirm({
+      title: `Permanently delete ${plural(ids.length, 'record')}?`,
+      message: 'This cannot be undone. Records that link to them will have the link cleared.',
+      confirmLabel: 'Delete forever',
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy('bulk');
+    try {
+      for (const id of ids) await deleteRecord(projectId, selectedSchema.id, id, 'nullify');
+      setSelectedIds(new Set());
+      toast.success(`${plural(ids.length, 'record')} permanently deleted`);
+      await reload();
+    } catch (err) {
+      reportError(err, 'Failed to delete records');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleDuplicate = (r: ObjectRecord) => {
+    if (!selectedSchema) return;
+    setRecordFormData(duplicateValues(selectedSchema.fields || [], r.values || r.data || {}));
+    setIsNewRecModalOpen(true);
+  };
+
+  const commitInline = async (r: ObjectRecord, field: ObjectField, raw: unknown) => {
+    if (!projectId || !selectedSchema) return;
+    const parsed = parseInlineValue(field, raw);
+    if (!parsed.ok) {
+      toast.error(parsed.error);
+      return;
+    }
+    const current = (r.values || r.data || {})[field.api_name] ?? null;
+    if (JSON.stringify(current) === JSON.stringify(parsed.value)) {
+      setEditingCell(null);
+      return;
+    }
+    try {
+      const updated = await updateRecord(projectId, selectedSchema.id, r.id, { [field.api_name]: parsed.value }, r.version ?? 1);
+      setRecords((prev) => prev.map((x) => (x.id === r.id ? { ...x, ...updated, resolved_relations: x.resolved_relations } : x)));
+      setEditingCell(null);
+    } catch (err) {
+      setEditingCell(null);
+      if (err instanceof ApiError && err.isConflict) {
+        toast.error('Someone else changed this record. Showing the latest version.');
+        await reload();
+      } else {
+        reportError(err, 'Failed to save change');
+      }
+    }
+  };
+
+  const applyFilters = () => {
+    if (!selectedSchema) return;
+    setAppliedFilters(buildFilters(filterRows, selectedSchema.fields || []) as RecordFilter[]);
+  };
+
+  const clearFilters = () => {
+    setFilterRows([]);
+    setAppliedFilters([]);
+  };
+
+  const handleExport = async (format: 'csv' | 'json') => {
+    if (!projectId || !selectedSchema) return;
+    setBusy('export');
+    try {
+      await exportRecords(projectId, selectedSchema.id, format);
+    } catch (err) {
+      reportError(err, 'Export failed');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleImportFile = async (file: File | undefined) => {
+    if (!file || !projectId || !selectedSchema) return;
+    setBusy('import');
+    try {
+      const res = await importRecords(projectId, selectedSchema.id, file);
+      const parts = [`Imported ${plural(res.created, 'record')}`];
+      if (res.failed) parts.push(`${plural(res.failed, 'row')} skipped`);
+      if (res.unmapped_columns?.length) parts.push(`ignored columns: ${res.unmapped_columns.slice(0, 4).join(', ')}`);
+      const firstErrors = (res.errors || []).slice(0, 2).map((e) => `row ${e.row ?? (e.index ?? 0) + 2}: ${e.error}`);
+      const message = [parts.join(' · '), ...firstErrors].join('\n');
+      if (res.failed) toast.error(message, { duration: 12000 });
+      else toast.success(message);
+      await reload();
+    } catch (err) {
+      reportError(err, 'Import failed');
+    } finally {
+      setBusy(null);
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
+  };
+
+  const toggleColumn = (apiName: string) => {
+    if (!selectedSchema) return;
+    const next = toggleHidden(hiddenCols, apiName, selectedSchema.fields || []);
+    setHiddenCols(next);
+    saveHidden(typeof window !== 'undefined' ? window.localStorage : undefined, projectId, selectedSchema.id, next);
+  };
+
+  const shownFields = visibleFields(selectedSchema?.fields || [], hiddenCols) as ObjectField[];
+  const visibleIds = records.map((r) => r.id);
+  const sel = selectionState(selectedIds, visibleIds);
+
+  const cellText = (r: ObjectRecord, f: ObjectField): string => {
+    const val = (r.data || r.values || {})[f.api_name];
+    if (val === undefined || val === null || val === '') return '—';
+    if (f.type === 'currency' && typeof val === 'number') return `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    if (f.type === 'boolean') return val ? 'Yes' : 'No';
+    if (f.type === 'lookup' || f.type === 'relation') return r.resolved_relations?.[f.api_name]?.display_label ?? String(val);
+    return String(val);
+  };
+
+  useDialogA11y(isSchemaModalOpen, schemaPanelRef, () => setIsSchemaModalOpen(false));
+  useDialogA11y(isNewRecModalOpen, newRecPanelRef, () => setIsNewRecModalOpen(false), !isCreatingRecord);
+  useDialogA11y(Boolean(activeRecord), detailPanelRef, () => setActiveRecord(null), !isUpdatingRecord);
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 w-full min-h-[640px]">
@@ -566,131 +820,409 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
               </div>
             </div>
 
-            {/* Records Data Table */}
-            <div className="flex-1 overflow-x-auto mt-4">
-              {recordsLoading ? (
-                <div className="py-20 text-center text-xs text-[var(--text-muted)]">Loading records...</div>
-              ) : records.length === 0 ? (
-                <div className="py-20 flex flex-col items-center justify-center text-center gap-2">
-                  <IconColumns className="w-8 h-8 text-neutral-300 dark:text-neutral-600" />
-                  <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">No records found</p>
-                  <p className="text-xs text-[var(--text-muted)] max-w-xs">
-                    Insert records manually with &apos;Add Record&apos;, conversational agent queries, or live connectors.
-                  </p>
-                </div>
-              ) : (
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
-                      <th
-                        onClick={() => handleSort('id')}
-                        className="py-2.5 px-3 font-semibold cursor-pointer hover:text-neutral-900 dark:hover:text-white"
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>Record ID</span>
-                          {sortBy === 'id' && (sortDesc ? <IconArrowDown className="w-3 h-3" /> : <IconArrowUp className="w-3 h-3" />)}
-                        </div>
-                      </th>
-                      {selectedSchema.fields?.map((f) => (
-                        <th
-                          key={f.api_name}
-                          onClick={() => handleSort(f.api_name)}
-                          className="py-2.5 px-3 font-semibold cursor-pointer hover:text-neutral-900 dark:hover:text-white"
-                        >
-                          <div className="flex items-center gap-1">
-                            <span>{f.label}</span>
-                            {sortBy === f.api_name && (sortDesc ? <IconArrowDown className="w-3 h-3" /> : <IconArrowUp className="w-3 h-3" />)}
-                          </div>
-                        </th>
-                      ))}
-                      <th className="py-2.5 px-3 font-semibold">Origin</th>
-                      <th className="py-2.5 px-3 font-semibold text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
-                    {records.map((r) => {
-                      const rData = r.data || r.values || {};
-                      return (
-                        <tr
-                          key={r.id}
-                          onClick={() => openRecordDetail(r)}
-                          className="hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40 transition-colors cursor-pointer"
-                        >
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-[var(--text-muted)]">{r.id.slice(0, 12)}...</td>
-                          {selectedSchema.fields?.map((f) => {
-                            const val = rData[f.api_name];
-                            let display = val === undefined || val === null ? '—' : String(val);
-                            if (f.type === 'currency' && typeof val === 'number') {
-                              display = `$${val.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-                            } else if (f.type === 'boolean') {
-                              display = val ? 'Yes' : 'No';
-                            } else if (f.type === 'lookup' || f.type === 'relation') {
-                              const resolved = r.resolved_relations?.[f.api_name];
-                              if (resolved) {
-                                display = resolved.display_label;
-                              }
-                            }
-                            const isOverridden = r.overridden_fields?.includes(f.api_name);
+            {/* Toolbar: filters, columns, trash, import / export */}
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((o) => !o)}
+                aria-expanded={filtersOpen}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium cursor-pointer ${
+                  appliedFilters.length ? 'border-[var(--coral)] text-[var(--coral)]' : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                <IconFilter className="w-3.5 h-3.5" />
+                Filters{appliedFilters.length ? ` (${appliedFilters.length})` : ''}
+              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setColumnsOpen((o) => !o)}
+                  aria-expanded={columnsOpen}
+                  aria-haspopup="true"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[var(--border)] text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
+                >
+                  <IconColumns className="w-3.5 h-3.5" />
+                  Columns{hiddenCols.length ? ` (${shownFields.length}/${selectedSchema.fields?.length ?? 0})` : ''}
+                </button>
+                {columnsOpen && (
+                  <div
+                    role="group"
+                    aria-label="Visible columns"
+                    className="absolute z-20 mt-1 w-52 max-h-64 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-xl p-2"
+                  >
+                    {(selectedSchema.fields || []).map((f) => (
+                      <label key={f.api_name} className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-[var(--text-primary)] hover:bg-[var(--surface-2)] cursor-pointer">
+                        <input type="checkbox" checked={!hiddenCols.includes(f.api_name)} onChange={() => toggleColumn(f.api_name)} />
+                        {f.label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTrash((t) => !t)}
+                aria-pressed={showTrash}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium cursor-pointer ${
+                  showTrash ? 'border-amber-500 text-amber-600 dark:text-amber-400' : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                <IconTrash className="w-3.5 h-3.5" />
+                {showTrash ? 'Viewing trash' : 'Trash'}
+              </button>
+              <span className="flex-1" />
+              <button
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                disabled={busy === 'import'}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[var(--border)] text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-50 cursor-pointer"
+              >
+                <IconUpload className="w-3.5 h-3.5" />
+                {busy === 'import' ? 'Importing…' : 'Import'}
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".csv,.tsv,.json,.jsonl,.ndjson,.xlsx"
+                className="sr-only"
+                aria-label="Import records from a file"
+                onChange={(e) => handleImportFile(e.target.files?.[0])}
+              />
+              <div className="flex rounded-xl border border-[var(--border)] overflow-hidden" role="group" aria-label="Export records">
+                <button
+                  type="button"
+                  onClick={() => handleExport('csv')}
+                  disabled={busy === 'export'}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-50 cursor-pointer"
+                >
+                  <IconDownload className="w-3.5 h-3.5" />
+                  CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExport('json')}
+                  disabled={busy === 'export'}
+                  className="px-2.5 py-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] border-l border-[var(--border)] disabled:opacity-50 cursor-pointer"
+                >
+                  JSON
+                </button>
+              </div>
+            </div>
 
-                            return (
-                              <td key={f.api_name} className="py-2.5 px-3 text-neutral-900 dark:text-neutral-200">
-                                <div className="flex items-center gap-1.5">
-                                  {(f.type === 'lookup' || f.type === 'relation') && val ? (
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[var(--coral)]/10 text-[var(--coral)] font-mono text-[11px]">
-                                      <IconLink className="w-3 h-3" />
-                                      {display}
-                                    </span>
+            {filtersOpen && (
+              <div className="mt-3 p-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)]/40 flex flex-col gap-2" role="group" aria-label="Record filters">
+                {filterRows.length === 0 && <p className="text-xs text-[var(--text-muted)]">No filters yet. Add one to narrow the list.</p>}
+                {filterRows.map((row, idx) => {
+                  const field = (selectedSchema.fields || []).find((f) => f.api_name === row.field);
+                  const ops = operatorsForType(field?.type || 'text') as string[];
+                  const update = (patch: Partial<FilterRow>) => setFilterRows((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+                  return (
+                    <div key={idx} className="flex flex-wrap items-center gap-2">
+                      <select
+                        aria-label="Filter field"
+                        value={row.field}
+                        onChange={(e) => {
+                          const f = (selectedSchema.fields || []).find((x) => x.api_name === e.target.value);
+                          update({ field: e.target.value, operator: operatorsForType(f?.type || 'text')[0], value: '' });
+                        }}
+                        className="px-2 py-1.5 text-xs rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)]"
+                      >
+                        {(selectedSchema.fields || []).map((f) => (
+                          <option key={f.api_name} value={f.api_name}>{f.label}</option>
+                        ))}
+                      </select>
+                      <select
+                        aria-label="Filter operator"
+                        value={row.operator}
+                        onChange={(e) => update({ operator: e.target.value })}
+                        className="px-2 py-1.5 text-xs rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)]"
+                      >
+                        {ops.map((op) => (
+                          <option key={op} value={op}>{(OPERATOR_LABELS as Record<string, string>)[op] ?? op}</option>
+                        ))}
+                      </select>
+                      {field?.type === 'boolean' ? (
+                        <select
+                          aria-label="Filter value"
+                          value={String(row.value)}
+                          onChange={(e) => update({ value: e.target.value })}
+                          className="px-2 py-1.5 text-xs rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)]"
+                        >
+                          <option value="">—</option>
+                          <option value="true">Yes</option>
+                          <option value="false">No</option>
+                        </select>
+                      ) : (
+                        <input
+                          aria-label="Filter value"
+                          type={field?.type === 'number' || field?.type === 'currency' ? 'text' : field?.type === 'date' ? 'date' : 'text'}
+                          inputMode={field?.type === 'number' || field?.type === 'currency' ? 'decimal' : undefined}
+                          placeholder={row.operator === 'in' ? 'a, b, c' : 'Value'}
+                          value={String(row.value ?? '')}
+                          onChange={(e) => update({ value: e.target.value })}
+                          onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                          className="px-2 py-1.5 text-xs rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] w-40"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        aria-label="Remove filter"
+                        onClick={() => setFilterRows((rows) => rows.filter((_, i) => i !== idx))}
+                        className="p-1 text-[var(--text-muted)] hover:text-red-500 cursor-pointer"
+                      >
+                        <IconX className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFilterRows((rows) => [...rows, emptyFilterRow(selectedSchema.fields || []) as FilterRow])}
+                    className="px-2.5 py-1 text-xs rounded-lg border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--surface-2)] cursor-pointer"
+                  >
+                    + Add filter
+                  </button>
+                  <button type="button" onClick={applyFilters} className="px-2.5 py-1 text-xs rounded-lg bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white font-medium cursor-pointer">
+                    Apply
+                  </button>
+                  {(filterRows.length > 0 || appliedFilters.length > 0) && (
+                    <button type="button" onClick={clearFilters} className="px-2.5 py-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer">
+                      Clear all
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Bulk action bar */}
+            {sel.count > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-3 px-3 py-2 rounded-xl bg-[var(--coral)]/10 border border-[var(--coral)]/30" role="status">
+                <span className="text-xs font-medium text-[var(--text-primary)]">{plural(sel.count, 'record')} selected</span>
+                {showTrash ? (
+                  <>
+                    <button type="button" disabled={busy === 'bulk'} onClick={() => restoreSelected([...selectedIds])} className="flex items-center gap-1 text-xs font-medium text-[var(--coral)] hover:underline disabled:opacity-50 cursor-pointer">
+                      <IconArrowBackUp className="w-3.5 h-3.5" /> Restore
+                    </button>
+                    <button type="button" disabled={busy === 'bulk'} onClick={() => deleteForever([...selectedIds])} className="flex items-center gap-1 text-xs font-medium text-red-500 hover:underline disabled:opacity-50 cursor-pointer">
+                      <IconTrashX className="w-3.5 h-3.5" /> Delete forever
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" disabled={busy === 'bulk'} onClick={() => softDelete([...selectedIds])} className="flex items-center gap-1 text-xs font-medium text-red-500 hover:underline disabled:opacity-50 cursor-pointer">
+                    <IconTrash className="w-3.5 h-3.5" /> Move to trash
+                  </button>
+                )}
+                <button type="button" onClick={() => setSelectedIds(new Set())} className="ml-auto text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer">
+                  Clear selection
+                </button>
+              </div>
+            )}
+
+            {/* Records Data Table */}
+            <div className="flex-1 mt-4">
+              {recordsLoading ? (
+                <TableSkeleton rows={6} cols={Math.min(6, shownFields.length + 2)} />
+              ) : records.length === 0 ? (
+                <EmptyState
+                  icon={<IconColumns className="w-8 h-8" />}
+                  title={showTrash ? 'Trash is empty' : appliedFilters.length || debouncedSearch ? 'No records match' : 'No records found'}
+                  hint={
+                    showTrash
+                      ? 'Deleted records stay here for 30 days and can be restored.'
+                      : appliedFilters.length || debouncedSearch
+                        ? 'Try removing a filter or changing the search.'
+                        : "Insert records manually with 'Add Record', import a CSV, use conversational agent queries, or live connectors."
+                  }
+                  action={
+                    !showTrash && !appliedFilters.length && !debouncedSearch ? (
+                      <button type="button" onClick={openNewRecordModal} className="px-3 py-1.5 text-xs rounded-lg bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white font-medium cursor-pointer">
+                        Add Record
+                      </button>
+                    ) : undefined
+                  }
+                />
+              ) : (
+                <>
+                  {/* Desktop: table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse" aria-label={`${selectedSchema.label} records`}>
+                      <thead>
+                        <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
+                          <th scope="col" className="w-8 py-2.5 px-3">
+                            <input
+                              type="checkbox"
+                              aria-label="Select all records on this page"
+                              checked={sel.all}
+                              ref={(el) => {
+                                if (el) el.indeterminate = sel.some;
+                              }}
+                              onChange={() => setSelectedIds(toggleAll(selectedIds, visibleIds))}
+                            />
+                          </th>
+                          <th scope="col" aria-sort={sortBy === 'id' ? (sortDesc ? 'descending' : 'ascending') : 'none'} className="py-2.5 px-3 font-semibold">
+                            <button type="button" onClick={() => handleSort('id')} className="flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white cursor-pointer">
+                              <span>Record ID</span>
+                              {sortBy === 'id' && (sortDesc ? <IconArrowDown className="w-3 h-3" /> : <IconArrowUp className="w-3 h-3" />)}
+                            </button>
+                          </th>
+                          {shownFields.map((f) => (
+                            <th key={f.api_name} scope="col" aria-sort={sortBy === f.api_name ? (sortDesc ? 'descending' : 'ascending') : 'none'} className="py-2.5 px-3 font-semibold">
+                              <button type="button" onClick={() => handleSort(f.api_name)} className="flex items-center gap-1 hover:text-neutral-900 dark:hover:text-white cursor-pointer">
+                                <span>{f.label}</span>
+                                {sortBy === f.api_name && (sortDesc ? <IconArrowDown className="w-3 h-3" /> : <IconArrowUp className="w-3 h-3" />)}
+                              </button>
+                            </th>
+                          ))}
+                          <th scope="col" className="py-2.5 px-3 font-semibold">Origin</th>
+                          <th scope="col" className="py-2.5 px-3 font-semibold text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-100 dark:divide-white/5">
+                        {records.map((r) => {
+                          const isSel = selectedIds.has(r.id);
+                          return (
+                            <tr
+                              key={r.id}
+                              tabIndex={0}
+                              aria-selected={isSel}
+                              onClick={() => !showTrash && openRecordDetail(r)}
+                              onKeyDown={(e) => {
+                                if (e.target !== e.currentTarget) return;
+                                if (e.key === 'Enter' && !showTrash) openRecordDetail(r);
+                                if (e.key === ' ') {
+                                  e.preventDefault();
+                                  setSelectedIds(toggleId(selectedIds, r.id));
+                                }
+                              }}
+                              className={`transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--coral)] ${
+                                isSel ? 'bg-[var(--coral)]/5' : 'hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40'
+                              } ${showTrash ? '' : 'cursor-pointer'}`}
+                            >
+                              <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Select record ${r.id}`}
+                                  checked={isSel}
+                                  onChange={() => setSelectedIds(toggleId(selectedIds, r.id))}
+                                />
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-[var(--text-muted)]">{r.id.slice(0, 12)}...</td>
+                              {shownFields.map((f) => {
+                                const val = (r.data || r.values || {})[f.api_name];
+                                const editing = editingCell?.id === r.id && editingCell.field === f.api_name;
+                                const editable = !showTrash && canEditInline(f);
+                                const isOverridden = r.overridden_fields?.includes(f.api_name);
+                                return (
+                                  <td
+                                    key={f.api_name}
+                                    className="py-2.5 px-3 text-neutral-900 dark:text-neutral-200"
+                                    onDoubleClick={editable ? (e) => { e.stopPropagation(); setEditingCell({ id: r.id, field: f.api_name }); } : undefined}
+                                    title={editable ? 'Double-click to edit' : undefined}
+                                  >
+                                    {editing ? (
+                                      <InlineEditor field={f} value={val} onCommit={(v) => commitInline(r, f, v)} onCancel={() => setEditingCell(null)} />
+                                    ) : (
+                                      <div className="flex items-center gap-1.5">
+                                        {(f.type === 'lookup' || f.type === 'relation') && val ? (
+                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[var(--coral)]/10 text-[var(--coral)] font-mono text-[11px]">
+                                            <IconLink className="w-3 h-3" />
+                                            {cellText(r, f)}
+                                          </span>
+                                        ) : (
+                                          <span>{cellText(r, f)}</span>
+                                        )}
+                                        {isOverridden && (
+                                          <span className="px-1 py-0.5 text-[9px] rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium" title="Manual user override protected from connector overwrite">
+                                            override
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                              <td className="py-2.5 px-3 text-[11px]">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full font-medium ${
+                                    r.origin.startsWith('sync')
+                                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                      : r.origin === 'agent'
+                                        ? 'bg-[var(--coral)]/10 text-[var(--coral)]'
+                                        : 'bg-neutral-500/10 text-neutral-600 dark:text-[var(--text-muted)]'
+                                  }`}
+                                >
+                                  {r.origin}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-end gap-1">
+                                  {showTrash ? (
+                                    <>
+                                      <button type="button" onClick={() => restoreSelected([r.id])} aria-label="Restore record" title="Restore" className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--coral)] cursor-pointer">
+                                        <IconArrowBackUp className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button type="button" onClick={() => deleteForever([r.id])} aria-label="Delete record forever" title="Delete forever" className="p-1 rounded text-[var(--text-muted)] hover:text-red-500 cursor-pointer">
+                                        <IconTrashX className="w-3.5 h-3.5" />
+                                      </button>
+                                    </>
                                   ) : (
-                                    <span>{display}</span>
-                                  )}
-                                  {isOverridden && (
-                                    <span
-                                      className="px-1 py-0.5 text-[9px] rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium"
-                                      title="Manual user override protected from connector overwrite"
-                                    >
-                                      override
-                                    </span>
+                                    <>
+                                      <button type="button" onClick={() => openRecordDetail(r)} aria-label="View or edit record details" title="View/Edit Details & Relations" className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--coral)] transition-colors cursor-pointer">
+                                        <IconEye className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button type="button" onClick={() => handleDuplicate(r)} aria-label="Duplicate record" title="Duplicate" className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--coral)] transition-colors cursor-pointer">
+                                        <IconCopy className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button type="button" onClick={() => softDelete([r.id])} aria-label="Move record to trash" title="Move to trash" className="p-1 rounded text-[var(--text-muted)] hover:text-red-500 transition-colors cursor-pointer">
+                                        <IconTrash className="w-3.5 h-3.5" />
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </td>
-                            );
-                          })}
-                          <td className="py-2.5 px-3 text-[11px]">
-                            <span
-                              className={`px-2 py-0.5 rounded-full font-medium ${
-                                r.origin.startsWith('sync')
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                  : r.origin === 'agent'
-                                  ? 'bg-[var(--coral)]/10 text-[var(--coral)]'
-                                  : 'bg-neutral-500/10 text-neutral-600 dark:text-[var(--text-muted)]'
-                              }`}
-                            >
-                              {r.origin}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => openRecordDetail(r)}
-                                className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--coral)] transition-colors cursor-pointer"
-                                title="View/Edit Details & Relations"
-                              >
-                                <IconEye className="w-3.5 h-3.5" />
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile: cards */}
+                  <ul className="md:hidden flex flex-col gap-2" aria-label={`${selectedSchema.label} records`}>
+                    {records.map((r) => {
+                      const isSel = selectedIds.has(r.id);
+                      const [titleField, ...rest] = shownFields;
+                      return (
+                        <li key={r.id} className={`rounded-xl border p-3 ${isSel ? 'border-[var(--coral)] bg-[var(--coral)]/5' : 'border-[var(--border)]'}`}>
+                          <div className="flex items-start gap-3">
+                            <input type="checkbox" className="mt-1" aria-label={`Select record ${r.id}`} checked={isSel} onChange={() => setSelectedIds(toggleId(selectedIds, r.id))} />
+                            <button type="button" disabled={showTrash} onClick={() => openRecordDetail(r)} className="flex-1 min-w-0 text-left cursor-pointer">
+                              <div className="text-sm font-medium text-[var(--text-primary)] truncate">{titleField ? cellText(r, titleField) : r.id}</div>
+                              <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                                {rest.slice(0, 4).map((f) => (
+                                  <div key={f.api_name} className="min-w-0">
+                                    <dt className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">{f.label}</dt>
+                                    <dd className="text-xs text-[var(--text-primary)] truncate">{cellText(r, f)}</dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </button>
+                            {showTrash ? (
+                              <button type="button" onClick={() => restoreSelected([r.id])} aria-label="Restore record" className="p-1 text-[var(--coral)] cursor-pointer">
+                                <IconArrowBackUp className="w-4 h-4" />
                               </button>
-                              <button
-                                onClick={() => handleDeleteRecord(r.id)}
-                                className="p-1 rounded text-[var(--text-muted)] hover:text-red-500 transition-colors cursor-pointer"
-                                title="Delete record"
-                              >
-                                <IconTrash className="w-3.5 h-3.5" />
+                            ) : (
+                              <button type="button" onClick={() => softDelete([r.id])} aria-label="Move record to trash" className="p-1 text-[var(--text-muted)] hover:text-red-500 cursor-pointer">
+                                <IconTrash className="w-4 h-4" />
                               </button>
-                            </div>
-                          </td>
-                        </tr>
+                            )}
+                          </div>
+                        </li>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </ul>
+                </>
               )}
             </div>
 
@@ -735,7 +1267,12 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-xl bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]"
+              ref={schemaPanelRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label={isEditingExistingSchema ? 'Edit object schema' : 'Create custom object'}
+              tabIndex={-1}
+              className="w-full max-w-xl bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh] outline-none"
             >
               <div className="flex items-center justify-between pb-4 border-b border-[var(--border)]">
                 <div className="flex items-center gap-2">
@@ -928,7 +1465,12 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]"
+              ref={newRecPanelRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="New record"
+              tabIndex={-1}
+              className="w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh] outline-none"
             >
               <div className="flex items-center justify-between pb-4 border-b border-[var(--border)]">
                 <h3 className="font-semibold text-base text-[var(--text-primary)]">
@@ -1045,7 +1587,12 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-2xl bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]"
+              ref={detailPanelRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Record details"
+              tabIndex={-1}
+              className="w-full max-w-2xl bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-2xl flex flex-col max-h-[90vh] outline-none"
             >
               {/* Header */}
               <div className="flex items-center justify-between pb-4 border-b border-[var(--border)]">
@@ -1172,10 +1719,10 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                   <div className="flex items-center justify-between pt-4 border-t border-[var(--border)] mt-2">
                     <button
                       type="button"
-                      onClick={() => handleDeleteRecord(activeRecord.id)}
+                      onClick={() => softDelete([activeRecord.id])}
                       className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 font-medium cursor-pointer"
                     >
-                      <IconTrash className="w-4 h-4" /> Delete Record
+                      <IconTrash className="w-4 h-4" /> Move to trash
                     </button>
                     <div className="flex items-center gap-2">
                       <button
@@ -1274,5 +1821,71 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+/** Cell editor: Enter or blur saves, Esc cancels. Booleans toggle immediately. */
+function InlineEditor({
+  field,
+  value,
+  onCommit,
+  onCancel,
+}: {
+  field: ObjectField;
+  value: unknown;
+  onCommit: (v: unknown) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState<string>(value === null || value === undefined ? '' : String(value));
+  const done = useRef(false);
+  const finish = (v: unknown) => {
+    if (done.current) return;
+    done.current = true;
+    onCommit(v);
+  };
+  const common = {
+    autoFocus: true,
+    'aria-label': `Edit ${field.label}`,
+    className: 'w-full min-w-[6rem] px-1.5 py-1 text-xs rounded-md bg-[var(--surface)] border border-[var(--coral)] text-[var(--text-primary)] focus:outline-none',
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        done.current = true;
+        onCancel();
+      }
+      if (e.key === 'Enter') finish(draft);
+    },
+  };
+  if (field.type === 'boolean') {
+    return (
+      <input
+        type="checkbox"
+        autoFocus
+        aria-label={`Edit ${field.label}`}
+        defaultChecked={Boolean(value)}
+        onChange={(e) => finish(e.target.checked)}
+        onBlur={onCancel}
+        onKeyDown={(e) => e.key === 'Escape' && onCancel()}
+      />
+    );
+  }
+  if (field.type === 'picklist' || field.type === 'select') {
+    return (
+      <select {...common} value={draft} onChange={(e) => finish(e.target.value)} onBlur={() => finish(draft)}>
+        <option value="">—</option>
+        {(field.options || []).map((o) => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+    );
+  }
+  return (
+    <input
+      {...common}
+      type={field.type === 'date' ? 'date' : 'text'}
+      inputMode={field.type === 'number' || field.type === 'currency' ? 'decimal' : undefined}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => finish(draft)}
+    />
   );
 }
