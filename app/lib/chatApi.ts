@@ -1051,7 +1051,22 @@ export async function refreshWidgetData(
     method: 'POST',
     headers: getAuthHeaders(),
   });
-  if (!res.ok) throw new Error(`Failed to refresh widget: ${res.status}`);
+  if (!res.ok) {
+    // 501 unsupported_binding: the source can't be refreshed live; the widget keeps its last data.
+    let message = `Failed to refresh widget: ${res.status}`;
+    try {
+      const body = await res.json();
+      const detail = body?.detail;
+      if (detail?.error === 'unsupported_binding') {
+        message = detail.message || 'This widget cannot be refreshed live; showing last known data.';
+      } else if (typeof detail === 'string') {
+        message = detail;
+      }
+    } catch {
+      /* non-JSON error body: keep the status message */
+    }
+    throw new Error(message);
+  }
   return res.json();
 }
 
