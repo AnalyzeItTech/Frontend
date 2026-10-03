@@ -18,6 +18,10 @@ const LAYER_LABELS = {
   space_weather: 'Space weather',
   elevation: 'Elevation',
   my_data: 'My data',
+  fireballs: 'Fireballs',
+  aurora_oval: 'Aurora oval',
+  ocean: 'Ocean buoys',
+  weather_alerts: 'Severe weather alerts',
 };
 
 const placeName = (p) => String(p?.name || '').trim() || `${Number(p?.lat).toFixed(2)}, ${Number(p?.lon).toFixed(2)}`;
@@ -68,6 +72,9 @@ export function askSuggestions(state = {}) {
   if (has('earthquakes')) out.push('Which of the earthquakes shown matter most, and why?');
   if (has('wildfires') || has('storms') || has('disasters')) out.push('Where is the most serious hazard on the map right now?');
   if (has('my_data')) out.push('Which of my places are exposed to the hazards on the map?');
+  if (has('weather_alerts')) out.push('Which of the severe weather alerts is most dangerous right now?');
+  if (has('ocean')) out.push('Where are the roughest seas right now?');
+  if (has('aurora_oval')) out.push('Where could I see the aurora tonight?');
   if (has('markets')) out.push('Which markets are moving the most today?');
   if (!out.length) out.push('What is the most important thing on the globe today?', 'Where should I look first?');
   return [...new Set(out)].slice(0, 4);

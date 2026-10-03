@@ -192,3 +192,28 @@ describe('my_data layer (the user’s own project records)', () => {
     assert.ok(points.every((p) => p.showLabel === false));
   });
 });
+
+describe('newer live layers (fireballs, aurora, ocean, alerts)', () => {
+  const ev = {
+    id: 'buoy:41001', lat: 34.7, lon: -72.7, label: 'Buoy 41001 · 3.1 m waves', type: 'buoy',
+    details: { 'Wave height': '3.1 m', Wind: '10 m/s from 220°' },
+    metric: { key: 'wave', label: 'Wave height (m)', score: 3.1, weight: 0.31 },
+  };
+
+  it('carries the layer’s own facts and unit through to the pin', () => {
+    const { points, counts } = buildLiveOverlays({ ocean: true }, { ocean: { events: [ev] } });
+    assert.equal(counts.ocean, 1);
+    assert.equal(points[0].host, 'ocean');
+    assert.equal(points[0].meta['d:Wave height'], '3.1 m');
+    assert.equal(points[0].meta.metric_key, 'wave');
+    assert.equal(points[0].meta.metric_score, 3.1);
+  });
+
+  it('maps every new layer id and nothing else when off', () => {
+    const payloads = Object.fromEntries(['fireballs', 'aurora_oval', 'ocean', 'weather_alerts'].map((id) => [id, { events: [{ ...ev, id: `${id}:1` }] }]));
+    const on = buildLiveOverlays({ fireballs: true, aurora_oval: true, ocean: true, weather_alerts: true }, payloads);
+    assert.equal(on.points.length, 4);
+    const off = buildLiveOverlays({ ocean: true }, payloads);
+    assert.deepEqual(off.points.map((p) => p.host), ['ocean']);
+  });
+});

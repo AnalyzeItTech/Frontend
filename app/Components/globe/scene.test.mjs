@@ -99,3 +99,9 @@ test('recency is 1 for new events and fades with age', () => {
   assert.ok(recency({ time: T + 500 }, T + 1000, b) < 1);
   assert.equal(recency({}, T + 1000, b), 1);
 });
+
+test('the newer layers and My data survive a share link', () => {
+  const ids = ['my_data', 'fireballs', 'aurora_oval', 'ocean', 'weather_alerts'];
+  const q = encodeScene({ layers: ids });
+  assert.deepEqual([...(decodeScene(q).layers || [])].sort(), [...ids].sort());
+});

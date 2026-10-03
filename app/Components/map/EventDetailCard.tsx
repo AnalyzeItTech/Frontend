@@ -49,6 +49,13 @@ function fmtLastSeen(meta: Record<string, unknown>): string | null {
   }
 }
 
+const EVENT_KIND: Record<string, string> = {
+  fireball: 'Fireball',
+  aurora: 'Aurora forecast',
+  buoy: 'Ocean buoy',
+  weather_alert: 'Weather alert',
+};
+
 export function EventDetailCard({
   point,
   onClose,
@@ -167,6 +174,12 @@ export function EventDetailCard({
       rows.push(['Source', meta.url.replace(/^https?:\/\//, '').slice(0, 48)]);
     }
   }
+  if (!isMyData && !isFlight && !isSat) {
+    // Facts a newer layer supplies about itself (wave height, aurora %, impact energy…).
+    for (const [k, v] of Object.entries(meta)) {
+      if (k.startsWith('d:') && v !== null && v !== undefined && v !== '') rows.push([k.slice(2), String(v)]);
+    }
+  }
   rows.push(['Coordinates', `${point.lat.toFixed(3)}°, ${point.lon.toFixed(3)}°`]);
 
   return (
@@ -174,7 +187,7 @@ export function EventDetailCard({
       <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-            {isFlight ? 'Aircraft' : isSat ? 'Satellite' : isSpaceWeather ? 'Space weather' : isMyData ? `Your data · ${meta.object_label ?? 'record'}` : 'Event'}
+            {isFlight ? 'Aircraft' : isSat ? 'Satellite' : isSpaceWeather ? 'Space weather' : isMyData ? `Your data · ${meta.object_label ?? 'record'}` : (EVENT_KIND[String(meta.type)] ?? 'Event')}
           </p>
           <h2 className="truncate font-serif text-lg text-[var(--text-primary)]">{point.label}</h2>
         </div>

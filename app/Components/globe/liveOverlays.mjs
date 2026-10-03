@@ -8,6 +8,23 @@
 import { eventCoordinates, pathCoordinates } from './dataQuality.mjs';
 
 /**
+ * Layer-supplied facts (`details`: label -> text) and ranking metric, flattened so the detail card and the
+ * ranked list can use them without knowing about each layer.
+ * @param {Record<string, any>} ev
+ */
+export function detailsMeta(ev) {
+  const out = {};
+  for (const [k, v] of Object.entries(ev.details || {})) out[`d:${k}`] = v;
+  if (ev.metric && Number.isFinite(Number(ev.metric.score))) {
+    out.metric_key = ev.metric.key;
+    out.metric_label = ev.metric.label;
+    out.metric_score = Number(ev.metric.score);
+    out.metric_weight = Number(ev.metric.weight);
+  }
+  return out;
+}
+
+/**
  * Record fields of a user's own point, flattened to `f:<Label>` keys so the detail card can list them.
  * @param {Record<string, any>} ev
  */
@@ -103,6 +120,7 @@ export function mapLayerEventsToPoints(layerId, events, opts = {}) {
         date: ev.date,
         tsunami: ev.tsunami,
         ...(layerId === 'my_data' ? myDataMeta(ev) : {}),
+        ...detailsMeta(ev),
       },
     });
   }
@@ -146,6 +164,10 @@ export function buildLiveOverlays(enabledLayers, layerPayloads) {
   push('space_weather', layerPayloads?.space_weather?.events, { host: 'space_weather' });
   push('elevation', layerPayloads?.elevation?.events, { host: 'elevation' });
   push('my_data', layerPayloads?.my_data?.events, { host: 'my_data' });
+  push('fireballs', layerPayloads?.fireballs?.events, { host: 'fireballs' });
+  push('aurora_oval', layerPayloads?.aurora_oval?.events, { host: 'aurora_oval' });
+  push('ocean', layerPayloads?.ocean?.events, { host: 'ocean' });
+  push('weather_alerts', layerPayloads?.weather_alerts?.events, { host: 'weather_alerts' });
 
   if (enabledLayers?.iss) {
     const coordinates = pathCoordinates(layerPayloads?.iss?.path || []);

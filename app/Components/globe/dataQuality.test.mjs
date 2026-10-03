@@ -193,3 +193,14 @@ describe('strongestRows ignores a user’s own records', () => {
     assert.deepEqual(out.rows, []);
   });
 });
+
+describe('metricOfPoint with a layer-supplied unit', () => {
+  it('uses the layer’s own metric instead of a fake magnitude', async () => {
+    const { metricOfPoint, strongestRows } = await import('./dataQuality.mjs');
+    const mk = (id, score) => ({ id, kind: 'event', label: id, meta: { metric_key: 'wave', metric_label: 'Wave height (m)', metric_score: score, metric_weight: score / 10 } });
+    assert.deepEqual(metricOfPoint(mk('a', 4)), { key: 'wave', label: 'Wave height (m)', score: 4, weight: 0.4 });
+    const ranked = strongestRows([mk('a', 4), mk('b', 7)], 8);
+    assert.equal(ranked.unit, 'Wave height (m)');
+    assert.deepEqual(ranked.rows.map((r) => r.id), ['b', 'a']);
+  });
+});

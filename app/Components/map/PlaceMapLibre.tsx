@@ -334,6 +334,11 @@ const LAYER_COLOR: Record<string, string> = {
   space_weather: '#14b8a6',
   elevation: '#78716c',
   flights: '#0284c7',
+  fireballs: '#fb7185',
+  aurora_oval: '#22c55e',
+  ocean: '#0ea5e9',
+  weather_alerts: '#f97316',
+  my_data: '#e8896a',
 };
 
 function ensurePlaneIcon(map: MapLibreMap) {

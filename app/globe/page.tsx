@@ -64,7 +64,11 @@ type LayerId =
   | 'iss'
   | 'space_weather'
   | 'elevation'
-  | 'my_data';
+  | 'my_data'
+  | 'fireballs'
+  | 'aurora_oval'
+  | 'ocean'
+  | 'weather_alerts';
 
 const RAIL_KEY = 'analyzeit_globe_rails';
 const LEFT_DEFAULT = 280;
@@ -105,6 +109,10 @@ const LAYERS: { id: LayerId; label: string; hint: string; color: string; coverag
   { id: 'space_weather', label: 'Space Weather', hint: 'NOAA SWPC alerts · scales · flares', color: '#14b8a6', coverage: 'complete' },
   { id: 'elevation', label: 'Elevation', hint: 'Meters above sea level at hubs — sampled', color: '#78716c', coverage: 'sample' },
   { id: 'my_data', label: 'My data', hint: 'Your project’s records with a location — lat/lon fields or place names', color: '#e8896a', coverage: 'complete' },
+  { id: 'weather_alerts', label: 'Severe alerts', hint: 'US National Weather Service · severe & extreme with a mapped area', color: '#f97316', coverage: 'limited' },
+  { id: 'ocean', label: 'Ocean buoys', hint: 'NOAA NDBC waves & wind · stations that report', color: '#0ea5e9', coverage: 'limited' },
+  { id: 'aurora_oval', label: 'Aurora oval', hint: 'NOAA OVATION forecast · cells at 5%+', color: '#22c55e', coverage: 'complete' },
+  { id: 'fireballs', label: 'Fireballs', hint: 'NASA CNEOS bolides · last 6 months', color: '#fb7185', coverage: 'limited' },
   { id: 'markets', label: 'Markets', hint: 'Live equity indices at hubs — sampled', color: '#8b5cf6', coverage: 'sample' },
 ];
 /** Live layers: this page is the only caller of geo context/events. Poll on LIVE_LAYER_POLL_MS — never in rAF. */
@@ -214,6 +222,10 @@ function GlobePageInner() {
     space_weather: false,
     elevation: false,
     my_data: false,
+    fireballs: false,
+    aurora_oval: false,
+    ocean: false,
+    weather_alerts: false,
   });
   const [layerCounts, setLayerCounts] = useState<Partial<Record<LayerId, number>>>({});
   const [layerHealth, setLayerHealth] = useState<
@@ -293,6 +305,10 @@ function GlobePageInner() {
         'space_weather',
         'elevation',
         'my_data',
+        'fireballs',
+        'aurora_oval',
+        'ocean',
+        'weather_alerts',
       ] as LayerId[]
     ).filter((id) => layers[id]);
 

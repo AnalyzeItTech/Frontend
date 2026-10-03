@@ -1041,6 +1041,31 @@ details > summary::-webkit-details-marker {
   border-color: rgba(221, 214, 254, 0.95);
   box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.25), 0 2px 6px rgba(28, 18, 12, 0.28);
 }
+.globe-pin--fireballs {
+  background: #fb7185;
+  border-color: rgba(254, 205, 211, 0.95);
+  box-shadow: 0 0 0 2px rgba(251, 113, 133, 0.25), 0 2px 6px rgba(28, 18, 12, 0.28);
+}
+.globe-pin--aurora_oval {
+  background: #22c55e;
+  border-color: rgba(187, 247, 208, 0.95);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25), 0 2px 6px rgba(28, 18, 12, 0.28);
+}
+.globe-pin--ocean {
+  background: #0ea5e9;
+  border-color: rgba(186, 230, 253, 0.95);
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.25), 0 2px 6px rgba(28, 18, 12, 0.28);
+}
+.globe-pin--weather_alerts {
+  background: #f97316;
+  border-color: rgba(254, 215, 170, 0.95);
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25), 0 2px 6px rgba(28, 18, 12, 0.28);
+}
+.globe-pin--my_data {
+  background: #e8896a;
+  border-color: rgba(251, 220, 208, 0.95);
+  box-shadow: 0 0 0 2px rgba(232, 137, 106, 0.25), 0 2px 6px rgba(28, 18, 12, 0.28);
+}
 .globe-pin--flights {
   background: #0ea5e9;
   border-color: rgba(186, 230, 253, 0.95);

@@ -159,6 +159,12 @@ export function dedupePointsByHost(points) {
 
 export function metricOfPoint(point) {
   const m = point?.meta || {};
+  // A layer that brings its own unit (waves, aurora %, kt TNT) must not be ranked as a 'magnitude'.
+  const own = Number(m.metric_score);
+  if (m.metric_key && Number.isFinite(own)) {
+    const w = Number(m.metric_weight);
+    return { key: String(m.metric_key), label: String(m.metric_label || m.metric_key), score: own, weight: Number.isFinite(w) ? w : 0.5 };
+  }
   const mag = Number(m.mag);
   if (Number.isFinite(mag)) {
     return { key: 'mag', label: 'Magnitude', score: mag, weight: Math.min(Math.max(mag, 0) / 8, 1) };
