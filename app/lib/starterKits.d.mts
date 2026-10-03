@@ -1,5 +1,9 @@
 export const MAX_LAYOUT_WIDGETS: number;
-export function kitWidgets(projectId: string, created: Array<{ api_name: string; label: string }>): Array<Record<string, any>>;
+export function kitWidgets(
+  projectId: string,
+  created: Array<{ api_name: string; label: string }>,
+  charts?: Array<Record<string, any>>,
+): Array<Record<string, any>>;
 export function mergeKitWidgets(
   existing: Array<Record<string, any>>,
   added: Array<Record<string, any>>,

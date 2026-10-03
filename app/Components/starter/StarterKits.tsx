@@ -15,16 +15,27 @@ import {
 } from '../../lib/starterKitsApi';
 import { askHref, kitSummary, kitWidgets, mergeKitWidgets } from '../../lib/starterKits.mjs';
 
-/** Add a live table per new object to the project's dashboard. Best effort: the data is created either way. */
-async function addTablesToDashboard(projectId: string, created: Array<{ api_name: string; label: string }>) {
+/** Add the kit's charts and a live table per new object to the dashboard. Best effort: the data exists either way. */
+async function addToDashboard(
+  projectId: string,
+  created: Array<{ api_name: string; label: string }>,
+  charts: Array<Record<string, unknown>>,
+) {
   const layout = await getProjectLayout(projectId);
   const existing = (layout.layout_json?.widgets ?? []) as unknown as Array<Record<string, unknown>>;
-  const added = kitWidgets(projectId, created);
+  const added = kitWidgets(projectId, created, charts);
   const { widgets } = mergeKitWidgets(existing, added);
   await updateProjectLayout(projectId, layout.version, { widgets: widgets as unknown as WidgetSpec[] });
-  // A new table has no rows until it is refreshed; do it now so the dashboard is populated at first sight.
+  // A new widget has no data until it is refreshed; do it now so the dashboard is populated at first sight.
   const ids = new Set(widgets.map((w) => w.id));
-  await Promise.allSettled(added.filter((w) => ids.has(w.id)).map((w) => refreshWidgetData(projectId, String(w.id))));
+  // One at a time: each refresh rewrites the whole layout, so parallel refreshes overwrite each other.
+  for (const w of added.filter((x) => ids.has(x.id))) {
+    try {
+      await refreshWidgetData(projectId, String(w.id));
+    } catch {
+      /* the widget stays empty and can be refreshed by hand */
+    }
+  }
 }
 
 /** Pick a ready-made set of objects with sample data, so a new project starts populated instead of empty. */
@@ -53,7 +64,7 @@ export function StarterKits({ projectId, onApplied }: { projectId: string; onApp
         let boardNote = '';
         if (res.created.length) {
           try {
-            await addTablesToDashboard(projectId, res.created);
+            await addToDashboard(projectId, res.created, res.charts ?? []);
           } catch {
             boardNote = ' (it could not be added to your dashboard; add it from the widget picker)';
           }

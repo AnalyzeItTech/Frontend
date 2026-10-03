@@ -36,6 +36,33 @@ describe('starter kit widgets', () => {
   });
 });
 
+describe('kit charts', () => {
+  const chart = { type: 'bar_chart', component: 'bar_chart', title: 'MRR by plan ($)', binding: { query_type: 'object_aggregate', params: { object_api_name: 'subscription', group_by: 'plan', metric: 'sum', field: 'mrr' } } };
+
+  it('adds charts first, stamped with an id and the project, then the tables', () => {
+    const w = kitWidgets('p1', [{ api_name: 'subscription', label: 'Subscriptions' }], [chart]);
+    assert.equal(w.length, 2);
+    assert.equal(w[0].binding.query_type, 'object_aggregate');
+    assert.equal(w[0].binding.params.project_id, 'p1');
+    assert.equal(w[0].binding.params.group_by, 'plan');
+    assert.ok(w[0].id);
+    assert.equal(w[1].binding.query_type, 'object_records');
+    assert.equal(chart.binding.params.project_id, undefined); // the server's template is not mutated
+  });
+
+  it('does not add a chart that is already on the board', () => {
+    const first = kitWidgets('p1', [], [chart]);
+    const { widgets } = mergeKitWidgets(first, kitWidgets('p1', [], [chart]));
+    assert.equal(widgets.length, 1);
+  });
+
+  it('keeps two different charts on the same object', () => {
+    const other = { ...chart, title: 'Subscriptions by status' };
+    const { widgets } = mergeKitWidgets(kitWidgets('p1', [], [chart]), kitWidgets('p1', [], [other]));
+    assert.equal(widgets.length, 2);
+  });
+});
+
 describe('links and labels', () => {
   it('builds a research link scoped to the project', () => {
     assert.equal(askHref('p1', 'What is my MRR?'), '/research?q=What+is+my+MRR%3F&project=p1');

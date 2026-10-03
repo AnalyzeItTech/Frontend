@@ -15,6 +15,8 @@ export interface AppliedKit {
   kit_id: string;
   created: Array<{ api_name: string; object_id: string; label: string; rows: number }>;
   skipped: string[];
+  /** Chart widgets bound live to object aggregates (only for objects this call created). */
+  charts: Array<Record<string, unknown>>;
 }
 
 export async function listStarterKits(): Promise<StarterKit[]> {
