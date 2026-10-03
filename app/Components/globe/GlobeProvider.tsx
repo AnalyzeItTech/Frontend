@@ -33,7 +33,7 @@ import type {
   SourcePoint,
 } from './types';
 import { DEFAULT_CAMERA } from './types';
-import { isGlobePath, MAX_FLY_QUEUE } from './globePerf';
+import { currentTierSettings, isGlobePath, MAX_FLY_QUEUE } from './globePerf';
 
 const PlaceMapLibre = dynamic(
   () => import('../map/PlaceMapLibre').then((m) => m.PlaceMapLibre),
@@ -724,7 +724,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
               dataView={variant === 'full' ? dataView : 'pins'}
               hideNavControl
               hideChrome={variant !== 'full'}
-              idleDrift={variant === 'mini' && !inFlight && activePoints.length === 0 && onChat && !paused}
+              idleDrift={variant === 'mini' && !inFlight && activePoints.length === 0 && onChat && !paused && currentTierSettings().idleDrift}
               inFlight={inFlight}
               paused={paused}
               freezeResize={transitioning}

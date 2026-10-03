@@ -19,7 +19,9 @@ export async function GET(request: Request) {
       status: upstream.status,
       headers: {
         'Content-Type': upstream.headers.get('content-type') || 'application/json',
-        'Cache-Control': 'no-store',
+        // Public, identical for every visitor: let the edge share one answer and refresh it behind the request.
+        // Errors are never cached.
+        'Cache-Control': upstream.ok ? 'public, s-maxage=30, stale-while-revalidate=120' : 'no-store',
       },
     });
   } catch (err) {

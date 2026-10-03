@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react';
+import { loadMapConfig } from './mapConfig';
+import { sameKeySet } from './facingSet.mjs';
 import Map, { Marker, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
 import type { CircleLayerSpecification, HeatmapLayerSpecification, LineLayerSpecification, Map as MapLibreMap, StyleSpecification, SymbolLayerSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -8,7 +10,7 @@ import { useTheme } from '../ui/ThemeProvider';
 import { eventDrawWeight, strongestRows } from '../globe/dataQuality.mjs';
 import { globeAtmosphere, globeBasemapTheme, globeStage } from '../globe/globeVisual.mjs';
 import { GLOBE_HUBS } from '../globe/sourceCatalog';
-import { fullPixelRatio, miniPixelRatio } from '../globe/globePerf';
+import { currentTierSettings, fullPixelRatio, miniPixelRatio } from '../globe/globePerf';
 import type {
   GlobeCamera,
   GlobeDataView,
@@ -69,6 +71,7 @@ type MapConfig = {
   mapStyle: string | StyleSpecification;
 };
 
+const FACING_MIN_INTERVAL_MS = 120;
 const OPENFREEMAP_LIGHT = 'https://tiles.openfreemap.org/styles/liberty';
 const OPENFREEMAP_DARK = 'https://tiles.openfreemap.org/styles/dark';
 
@@ -405,6 +408,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
   const [config, setConfig] = useState<MapConfig | null>(null);
   const [mapInstance, setMapInstance] = useState<MapLibreMap | null>(null);
   const [frontKeys, setFrontKeys] = useState<Set<string> | null>(null);
+  const frontKeysRef = useRef<Set<string> | null>(null);
   const flyGenRef = useRef(0);
   const engineReadyRef = useRef(false);
   const pausedRef = useRef(paused);
@@ -418,11 +422,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     let cancelled = false;
     setConfig(null);
     engineReadyRef.current = false;
-    void fetch(`/api/map/config?theme=${encodeURIComponent(basemapTheme)}`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error('Map config failed');
-        return res.json() as Promise<MapConfig>;
-      })
+    void loadMapConfig(basemapTheme)
       .then((data) => {
         if (!cancelled) setConfig(data);
       })
@@ -637,9 +637,41 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
     const map = mapInstance || getMap();
     if (!map) return;
 
+    // Far-side visibility does not need frame-perfect updates: at most ~8 per second while moving, plus a final
+    // exact one when the movement ends.
+    let lastRun = 0;
+    let pending: number | null = null;
+    const throttled = () => {
+      const now = performance.now();
+      if (now - lastRun >= FACING_MIN_INTERVAL_MS) {
+        updateFacing();
+        return;
+      }
+      if (pending == null) {
+        pending = window.setTimeout(() => {
+          pending = null;
+          updateFacing();
+        }, FACING_MIN_INTERVAL_MS - (now - lastRun));
+      }
+    };
+    const onMoveEnd = () => {
+      if (pending != null) {
+        window.clearTimeout(pending);
+        pending = null;
+      }
+      updateFacing();
+    };
+
     const updateFacing = () => {
+      lastRun = performance.now();
+      const publish = (next: Set<string> | null) => {
+        // Only a point crossing the horizon changes this; skip the re-render of every marker otherwise.
+        if (sameKeySet(frontKeysRef.current, next)) return;
+        frontKeysRef.current = next;
+        setFrontKeys(next);
+      };
       if (mapProjection !== 'globe') {
-        setFrontKeys(null); // null = all visible (flat map)
+        publish(null); // null = all visible (flat map)
         return;
       }
       const c = map.getCenter();
@@ -656,15 +688,16 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
       if (selected && isFrontFacing(c.lat, c.lng, selected.lat, selected.lon)) {
         next.add(`sel:${selected.lat},${selected.lon}`);
       }
-      setFrontKeys(next);
+      publish(next);
     };
 
     updateFacing();
-    map.on('move', updateFacing);
-    map.on('moveend', updateFacing);
+    map.on('move', throttled);
+    map.on('moveend', onMoveEnd);
     return () => {
-      map.off('move', updateFacing);
-      map.off('moveend', updateFacing);
+      if (pending != null) window.clearTimeout(pending);
+      map.off('move', throttled);
+      map.off('moveend', onMoveEnd);
     };
   }, [comparePlaces, getMap, mapInstance, mapProjection, selected, sourcePoints]);
 
@@ -898,8 +931,8 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         keyboard={interactive}
         trackResize={!paused && !freezeResize}
         pixelRatio={pixelRatio}
-        fadeDuration={variant === 'mini' ? 0 : 300}
-        maxTileCacheSize={variant === 'mini' ? 48 : 180}
+        fadeDuration={variant === 'mini' ? 0 : currentTierSettings().fadeMs}
+        maxTileCacheSize={variant === 'mini' ? 48 : currentTierSettings().tileCache}
         renderWorldCopies={variant === 'full'}
         style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
         cursor={interactive ? 'crosshair' : 'pointer'}

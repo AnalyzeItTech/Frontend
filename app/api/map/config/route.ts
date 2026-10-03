@@ -13,17 +13,18 @@ export async function GET(request: Request) {
   const tileTheme = isDark ? 'dark' : 'streets';
 
   const key = (process.env.LOCATIONIQ_KEY || '').trim();
+  const cache = { headers: { 'Cache-Control': 'public, max-age=300, s-maxage=3600' } };
   if (!key) {
     return NextResponse.json({
       provider: 'openfreemap',
       theme: isDark ? 'dark' : 'light',
       mapStyle: isDark ? OPENFREEMAP_DARK : OPENFREEMAP_LIGHT,
-    });
+    }, cache);
   }
   return NextResponse.json({
     provider: 'locationiq',
     theme: tileTheme,
     // Style is served by us; tiles hit our proxy (key stays server-side)
     mapStyle: `/api/map/style?theme=${encodeURIComponent(tileTheme)}`,
-  });
+  }, cache);
 }
