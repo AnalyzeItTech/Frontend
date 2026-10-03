@@ -503,30 +503,44 @@ export default function DashboardPage() {
 
   // Agent chat lives on /research — dashboard is display-only.
 
+  const flashToast = (msg: string) => {
+    setExportToastMsg(msg);
+    setTimeout(() => setExportToastMsg(null), 2500);
+  };
+
+  /** Save the new widget list; on conflict or failure reload the server copy so the UI never lies. */
+  const persistWidgets = async (widgets: WidgetSpec[]) => {
+    if (!activeProjectId) return;
+    try {
+      const res = await updateProjectLayout(activeProjectId, layoutVersion, { widgets }, 'user');
+      if (res?.version) setLayoutVersion(res.version);
+    } catch (err) {
+      console.warn('Failed to persist layout change:', err);
+      flashToast('Change could not be saved. Reloaded the latest layout.');
+      await refreshActiveProjectLayout();
+    }
+  };
+
   const handleWidgetAction = (widgetId: string, action: string) => {
+    const current = currentLayout.widgets;
     if (action === 'delete' || action === 'remove_widget') {
-      setCurrentLayout((prev) => ({
-        ...prev,
-        widgets: prev.widgets.filter((w) => w.id !== widgetId),
-      }));
-      setExportToastMsg('Widget removed from canvas');
-      setTimeout(() => setExportToastMsg(null), 2500);
+      const next = current.filter((w) => w.id !== widgetId);
+      setCurrentLayout((prev) => ({ ...prev, widgets: next }));
+      flashToast('Widget removed from canvas');
+      void persistWidgets(next);
     } else if (action === 'duplicate' || action === 'duplicate_widget') {
-      setCurrentLayout((prev) => {
-        const target = prev.widgets.find((w) => w.id === widgetId);
-        if (!target) return prev;
-        const newWidget = {
-          ...target,
-          id: `${target.id}_copy_${Date.now()}`,
-          title: target.title ? `${target.title} (Copy)` : 'Duplicated Widget',
-        };
-        const idx = prev.widgets.findIndex((w) => w.id === widgetId);
-        const nextWidgets = [...prev.widgets];
-        nextWidgets.splice(idx + 1, 0, newWidget);
-        return { ...prev, widgets: nextWidgets };
-      });
-      setExportToastMsg('Widget duplicated successfully');
-      setTimeout(() => setExportToastMsg(null), 2500);
+      const idx = current.findIndex((w) => w.id === widgetId);
+      if (idx < 0) return;
+      const target = current[idx];
+      const copy = {
+        ...target,
+        id: `${target.id}_copy_${Date.now()}`,
+        title: target.title ? `${target.title} (Copy)` : 'Duplicated Widget',
+      };
+      const next = [...current.slice(0, idx + 1), copy, ...current.slice(idx + 1)];
+      setCurrentLayout((prev) => ({ ...prev, widgets: next }));
+      flashToast('Widget duplicated successfully');
+      void persistWidgets(next);
     }
   };
 

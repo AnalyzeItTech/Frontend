@@ -24,10 +24,13 @@ import {
   IconUser,
   IconPin,
   IconCopy,
+  IconDownload,
 } from '@tabler/icons-react';
 import { useTheme } from '../ui/ThemeProvider';
 import { resolveWidgetData, type WidgetSpec, type ProvenanceInfo, type ChartAnnotation } from '../../lib/chatApi';
 import { provenanceBadge, provenanceBadgeText } from '../../lib/dashboardView.mjs';
+import { csvFilename, extractTable, tableToCsv } from '../../lib/dashboardTools.mjs';
+import { downloadCsv } from '../../lib/downloadBlob';
 import {
   BubbleGridWidget,
   ChoroplethMapWidget,
@@ -2284,7 +2287,12 @@ export function SandboxedWidgetRenderer({
   );
 
   // Interactive Live Canvas Card with Freshness Indicator and Hover Toolbar
-  const hasToolbarControls = Boolean(onRefine || onToggleWidth || onMoveUp || onMoveDown);
+  const exportable = extractTable(widget);
+  const exportCsv = () => {
+    const t = extractTable(widget);
+    if (t) downloadCsv(tableToCsv(t.columns, t.rows), csvFilename(widget.title || widget.label));
+  };
+  const hasToolbarControls = Boolean(onRefine || onToggleWidth || onMoveUp || onMoveDown || exportable);
 
   return (
     <div
@@ -2308,12 +2316,27 @@ export function SandboxedWidgetRenderer({
 
       {/* Hover Action Toolbar */}
       {hasToolbarControls && (
-        <div className="absolute top-2.5 right-2.5 z-20 hidden group-hover/canvas-widget:flex items-center gap-1 bg-[#FAF6F0]/95 dark:bg-[#302B28]/95 backdrop-blur-md px-2 py-1 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] shadow-md transition-all">
+        <div role="toolbar"
+          aria-label={`Actions for ${widget.title || 'widget'}`}
+          className="absolute top-2.5 right-2.5 z-20 hidden group-hover/canvas-widget:flex group-focus-within/canvas-widget:flex items-center gap-1 bg-[#FAF6F0]/95 dark:bg-[#302B28]/95 backdrop-blur-md px-2 py-1 rounded-xl border border-[#4A4238]/15 dark:border-[#504740] shadow-md transition-all">
+          {exportable && (
+            <button
+              type="button"
+              onClick={exportCsv}
+              title="Download data as CSV"
+              aria-label="Download data as CSV"
+              className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#EA8069] hover:bg-[#EA8069]/10 transition-all cursor-pointer"
+            >
+              <IconDownload size={13} />
+            </button>
+          )}
+
           {onRefine && (
             <button
               type="button"
               onClick={() => onRefine(widget)}
               title="Refine with AI (Click-to-chat)"
+              aria-label="Refine with AI"
               className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#EA8069] hover:bg-[#EA8069]/10 transition-all cursor-pointer"
             >
               <IconSparkles size={13} />
@@ -2325,6 +2348,7 @@ export function SandboxedWidgetRenderer({
               type="button"
               onClick={() => onToggleWidth(widget.id)}
               title={widget.span === 2 ? 'Set to 1 Column' : 'Expand to 2 Columns'}
+              aria-label={widget.span === 2 ? 'Set to 1 column' : 'Expand to 2 columns'}
               className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#EA8069] hover:bg-[#EA8069]/10 transition-all cursor-pointer"
             >
               <IconColumns size={13} />
@@ -2336,6 +2360,7 @@ export function SandboxedWidgetRenderer({
               type="button"
               onClick={() => onMoveUp(widget.id)}
               title="Move Widget Up"
+              aria-label="Move widget up"
               className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#EA8069] hover:bg-[#EA8069]/10 transition-all cursor-pointer"
             >
               <IconArrowUp size={13} />
@@ -2347,6 +2372,7 @@ export function SandboxedWidgetRenderer({
               type="button"
               onClick={() => onMoveDown(widget.id)}
               title="Move Widget Down"
+              aria-label="Move widget down"
               className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#EA8069] hover:bg-[#EA8069]/10 transition-all cursor-pointer"
             >
               <IconArrowDown size={13} />
@@ -2358,6 +2384,7 @@ export function SandboxedWidgetRenderer({
               type="button"
               onClick={() => onWidgetAction(widget.id, 'duplicate')}
               title="Duplicate Widget"
+              aria-label="Duplicate widget"
               className="p-1 rounded-lg text-[#4A4238]/70 dark:text-[#C5B9AE] hover:text-[#EA8069] hover:bg-[#EA8069]/10 transition-all cursor-pointer"
             >
               <IconCopy size={13} />
@@ -2369,6 +2396,7 @@ export function SandboxedWidgetRenderer({
               type="button"
               onClick={() => onWidgetAction(widget.id, 'delete')}
               title="Remove Widget"
+              aria-label="Remove widget"
               className="p-1 rounded-lg text-[#4A4238]/40 hover:text-red-500 hover:bg-red-500/10 transition-all cursor-pointer"
             >
               <IconTrash size={13} />

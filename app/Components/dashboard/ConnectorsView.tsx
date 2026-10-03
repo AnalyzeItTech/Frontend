@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../ui/Toast';
+import { useConfirm } from '../ui/ConfirmDialog';
 import {
   IconPlugConnected,
   IconBrandStripe,
@@ -45,6 +47,8 @@ type FormKind =
 type AuthMode = 'oauth' | 'connection' | 'catalog';
 
 export function ConnectorsView({ projectId }: ConnectorsViewProps) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [available, setAvailable] = useState<any[]>([]);
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(false);
@@ -104,7 +108,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
         window.open(res.auth_url, '_blank', 'width=600,height=700');
       }
     } catch (err: any) {
-      alert(err.message || 'Failed to initiate OAuth');
+      toast.error(err.message || 'Failed to initiate OAuth');
     }
   };
 
@@ -178,30 +182,31 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
     try {
       const result = await syncConnector(connectorId);
       if (result?.status === 'skipped' || result?.data_mode === 'preview') {
-        alert(result.note || 'Live provider pull is not available yet. Credentials stay in the vault.');
+        toast.toast(result.note || 'Live provider pull is not available yet. Credentials stay in the vault.');
       } else if (result?.note) {
-        alert(result.note);
+        toast.toast(result.note);
       }
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Sync failed');
+      toast.error(err.message || 'Sync failed');
     } finally {
       setSyncingId(null);
     }
   };
 
   const handleDisconnect = async (connectorId: string, providerName: string) => {
-    if (
-      !confirm(
-        `Are you sure you want to disconnect ${providerName}? All encrypted credentials will be purged from the vault.`
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: `Disconnect ${providerName}?`,
+      message: 'All encrypted credentials will be purged from the vault.',
+      confirmLabel: 'Disconnect',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await revokeConnector(connectorId);
       await loadData();
     } catch (err: any) {
-      alert(err.message || 'Failed to disconnect');
+      toast.error(err.message || 'Failed to disconnect');
     }
   };
 

@@ -30,6 +30,19 @@ import {
 import { SandboxedWidgetRenderer } from './WidgetRenderer';
 import { CommandPalette } from './CommandPalette';
 import { DigestBanner } from './DigestBanner';
+import { WidgetErrorBoundary } from './WidgetErrorBoundary';
+import { GlobalFilterBar } from './GlobalFilterBar';
+import { AddWidgetModal } from './AddWidgetModal';
+import { useToast } from '../ui/Toast';
+import {
+  applyDateRange,
+  isDateFilterable,
+  loadDateFilter,
+  moveIndex,
+  resolveDateRange,
+  saveDateFilter,
+  type DateFilterState,
+} from '../../lib/dashboardTools.mjs';
 import {
   type WidgetSpec,
   type ManagedProposal,
@@ -84,6 +97,8 @@ interface DashboardCanvasProps {
   widgetCapReached?: boolean;
   widgetCapLimit?: number;
   onAddWidget?: () => void;
+  /** Manual add: receives a ready-made widget spec from the picker. When set, the picker replaces onAddWidget. */
+  onAddWidgetSpec?: (spec: WidgetSpec) => void;
 }
 
 
@@ -114,11 +129,12 @@ export function DashboardCanvas({
   presenceUsers,
   onSaveTemplate,
   onLoadTemplate,
-  mode: modeProp = 'view',
+  mode: modeProp,
   onModeChange,
   widgetCapReached = false,
   widgetCapLimit = 12,
   onAddWidget,
+  onAddWidgetSpec,
 }: DashboardCanvasProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(projectName);
@@ -140,7 +156,7 @@ export function DashboardCanvas({
   } | null>(null);
 
   // ── View / edit / presentation mode ─────────────────────────────────────────
-  const [internalMode, setInternalMode] = useState<'view' | 'edit'>(modeProp);
+  const [internalMode, setInternalMode] = useState<'view' | 'edit'>(modeProp ?? 'view');
   const mode = modeProp ?? internalMode;
   const setMode = useCallback((m: 'view' | 'edit') => {
     setInternalMode(m);
@@ -150,8 +166,28 @@ export function DashboardCanvas({
   const [isPresentationMode, setIsPresentationMode] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
+  // ── Add widget, global date filter, drag reorder ───────────────────────────
+  const toast = useToast();
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'all', from: '', to: '' });
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+  useEffect(() => {
+    setDateFilter(loadDateFilter(typeof window !== 'undefined' ? window.localStorage : undefined, projectId));
+  }, [projectId]);
+  const updateDateFilter = (next: DateFilterState) => {
+    setDateFilter(next);
+    saveDateFilter(typeof window !== 'undefined' ? window.localStorage : undefined, projectId, next);
+  };
+  const dateRange = resolveDateRange(dateFilter.preset, new Date(), { from: dateFilter.from, to: dateFilter.to });
+  const filterActive = Boolean(dateRange.from || dateRange.to);
+  const displayWidgets = filterActive ? widgets.map((w) => applyDateRange(w, dateRange)) : widgets;
+  const filterableCount = widgets.filter((w) => isDateFilterable(w)).length;
+  const canAddManually = Boolean(onAddWidgetSpec);
+  const openAddWidget = () => (canAddManually ? setIsAddOpen(true) : onAddWidget?.());
+
   // Sync mode from prop
-  useEffect(() => { setInternalMode(modeProp); }, [modeProp]);
+  useEffect(() => { if (modeProp) setInternalMode(modeProp); }, [modeProp]);
 
   // ── Presentation mode: fullscreen toggle ─────────────────────────────────────
   const togglePresentationMode = useCallback(() => {
@@ -394,7 +430,7 @@ export function DashboardCanvas({
           const el = document.getElementById(`widget-${id}`);
           el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }}
-        onAddWidget={() => onAddWidget?.()}
+        onAddWidget={openAddWidget}
         onAskAboutDashboard={() => onPromptChip?.(`Analyze this dashboard and give me insights about the data.`)}
         onTogglePresentationMode={togglePresentationMode}
         onBrowseTemplates={() => setIsTemplateModalOpen(true)}
@@ -510,6 +546,20 @@ export function DashboardCanvas({
           >
             <IconEdit size={13} />
           </button>
+          {canAddManually && mode === 'edit' && (
+            <>
+              <div className="w-px h-3.5 bg-white/10 mx-0.5" />
+              <button
+                type="button"
+                onClick={openAddWidget}
+                title="Add a widget"
+                aria-label="Add a widget"
+                className="px-2 py-1 rounded-lg text-[11px] font-semibold text-[#EA8069] hover:bg-[#EA8069]/10 transition-colors cursor-pointer"
+              >
+                + Widget
+              </button>
+            </>
+          )}
         </div>
       </div>
       )}
@@ -518,16 +568,32 @@ export function DashboardCanvas({
       {widgetCapReached && !isPresentationMode && (
         <div className="flex items-center justify-between rounded-2xl border border-dashed border-[#EA8069]/40 bg-[#EA8069]/5 px-4 py-3">
           <span className="text-xs font-mono text-[#91867E]">
-            Free plan · {widgetCapLimit}/{widgetCapLimit} widgets — You&apos;ve filled your first dashboard
+            Widget limit reached · {widgetCapLimit}/{widgetCapLimit} on your plan
           </span>
           <a
             href="/billing"
             className="text-xs font-medium text-[#EA8069] hover:underline flex items-center gap-1"
           >
-            Upgrade to Premium
+            Upgrade for more
             <IconArrowUpRight size={12} />
           </a>
         </div>
+      )}
+
+      {/* ─── Global date range ──────────────────────────────────────────── */}
+      {widgets.length > 0 && !isPresentationMode && (
+        <GlobalFilterBar value={dateFilter} onChange={updateDateFilter} affected={filterableCount} total={widgets.length} />
+      )}
+
+      {/* ─── Manual widget picker ───────────────────────────────────────── */}
+      {onAddWidgetSpec && (
+        <AddWidgetModal
+          open={isAddOpen}
+          onClose={() => setIsAddOpen(false)}
+          projectId={projectId}
+          onAdd={(spec) => onAddWidgetSpec(spec as unknown as WidgetSpec)}
+          disabledReason={widgetCapReached ? `Your plan allows ${widgetCapLimit} widgets. Upgrade to add more.` : undefined}
+        />
       )}
 
       {/* ─── Active Filter Bus Strip ────────────────────────────────────── */}
@@ -966,7 +1032,7 @@ export function DashboardCanvas({
       {/* ─── LIVE WIDGETS GRID CANVAS ────────────────────────────────────── */}
       {widgets.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {widgets.map((widget, idx) => {
+          {displayWidgets.map((widget, idx) => {
             const isWide =
               widget.span === 2 ||
               widget.type === 'line_chart' ||
@@ -984,8 +1050,35 @@ export function DashboardCanvas({
             return (
               <div
                 key={widget.id}
-                className={isWide ? 'col-span-1 md:col-span-2' : 'col-span-1'}
+                className={`${isWide ? 'col-span-1 md:col-span-2' : 'col-span-1'} ${
+                  mode === 'edit' && dragIndex !== null && overIndex === idx && dragIndex !== idx ? 'ring-2 ring-[#EA8069] rounded-2xl' : ''
+                } ${mode === 'edit' && dragIndex === idx ? 'opacity-50' : ''}`}
+                draggable={mode === 'edit' && Boolean(onMoveWidget)}
+                onDragStart={(e) => {
+                  if (mode !== 'edit' || !onMoveWidget) return;
+                  setDragIndex(idx);
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', widget.id); // Firefox needs data to start a drag
+                }}
+                onDragOver={(e) => {
+                  if (dragIndex === null) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (overIndex !== idx) setOverIndex(idx);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const move = dragIndex === null ? null : moveIndex(dragIndex, idx, widgets.length);
+                  if (move) onMoveWidget?.(move.from, move.to);
+                  setDragIndex(null);
+                  setOverIndex(null);
+                }}
+                onDragEnd={() => {
+                  setDragIndex(null);
+                  setOverIndex(null);
+                }}
               >
+                <WidgetErrorBoundary title={widget.title}>
                 <SandboxedWidgetRenderer
                   widget={widget}
                   activeFilter={activeFilter}
@@ -1016,6 +1109,7 @@ export function DashboardCanvas({
                   isFirst={idx === 0}
                   isLast={idx === widgets.length - 1}
                 />
+                </WidgetErrorBoundary>
               </div>
             );
           })}
@@ -1408,7 +1502,7 @@ export function DashboardCanvas({
                             setIsTemplateModalOpen(false);
                           }, 1200);
                         } catch (err: any) {
-                          alert(err?.message || 'Failed to save template');
+                          toast.error(err?.message || 'Failed to save template');
                         } finally {
                           setIsSavingTemplate(false);
                         }

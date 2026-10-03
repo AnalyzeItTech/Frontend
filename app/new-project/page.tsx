@@ -123,6 +123,7 @@ function NewProjectContent() {
   // ─── Generative Canvas & Proposal State ─────────────────────────────────────
   const [currentLayout, setCurrentLayout] = useState<{ widgets: WidgetSpec[] }>({ widgets: [] });
   const [layoutVersion, setLayoutVersion] = useState<number>(1);
+  const [widgetCap, setWidgetCap] = useState<number>(12);
   const [updatedBy, setUpdatedBy] = useState<string>('agent');
   const [isLayoutInitialLoading, setIsLayoutInitialLoading] = useState<boolean>(false);
   const [proposals, setProposals] = useState<Map<string, ManagedProposal>>(new Map());
@@ -149,7 +150,11 @@ function NewProjectContent() {
     const cu = getStoredUser();
     setUser(cu);
     void getEntitlements()
-      .then((snap) => setAdsFree(Boolean(snap.ads_free)))
+      .then((snap) => {
+        setAdsFree(Boolean(snap.ads_free));
+        const cap = Number(snap.dashboard_widget_caps);
+        if (Number.isFinite(cap) && cap > 0) setWidgetCap(cap);
+      })
       .catch(() => setAdsFree(true));
 
     if (urlProjectId) {
@@ -551,7 +556,7 @@ function NewProjectContent() {
         showToast(`Rebased & applied "${pTitle}" onto canvas (v${res.version})`);
       }
     } catch (err: any) {
-      alert(`Rebase failed: ${err.message}`);
+      showToast(`Rebase failed: ${err.message}`);
     }
   }, [conflictState, showToast]);
 
@@ -734,6 +739,40 @@ function NewProjectContent() {
       });
     },
     [layoutVersion, projectId, isIncognito]
+  );
+
+  /** Manual add from the widget picker. Live-bound widgets are refreshed once saved so they show real data. */
+  const handleAddWidgetSpec = useCallback(
+    async (spec: WidgetSpec) => {
+      if (currentLayout.widgets.length >= widgetCap) {
+        showToast(`Your plan allows ${widgetCap} widgets. Upgrade to add more.`);
+        return;
+      }
+      const nextWidgets = [...currentLayout.widgets, spec];
+      setLayoutHistory((hist) => [
+        ...hist.slice(-20),
+        {
+          id: `snap_${Date.now()}`,
+          version: layoutVersion,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          actionSummary: `Added "${spec.title || 'widget'}"`,
+          widgets: currentLayout.widgets,
+        },
+      ]);
+      setCurrentLayout((prev) => ({ ...prev, widgets: [...prev.widgets, spec] }));
+      showToast(`Added "${spec.title || 'widget'}"`, spec.title);
+      if (projectId && !isIncognito) {
+        try {
+          const res = await updateProjectLayout(projectId, layoutVersion, { widgets: nextWidgets }, 'user');
+          if (res?.version) setLayoutVersion(res.version);
+          if (spec.binding) await handleWidgetAction(spec.id, 'refresh');
+        } catch (err) {
+          console.warn('Failed to persist added widget:', err);
+          showToast('Added locally — sync failed; refresh may remove the widget');
+        }
+      }
+    },
+    [currentLayout.widgets, widgetCap, layoutVersion, projectId, isIncognito, showToast, handleWidgetAction]
   );
 
   const handleToggleWidgetWidth = useCallback(
@@ -1086,7 +1125,7 @@ function NewProjectContent() {
 
   const handleFileUpload = () => {
     if (!projectId) {
-      window.alert('Create or open a project before importing data.');
+      showToast('Create or open a project before importing data.');
       return;
     }
     fileInputRef.current?.click();
@@ -1828,6 +1867,9 @@ function NewProjectContent() {
             onRefine={handleRefineWidget}
             onMoveWidget={handleMoveWidget}
             onToggleWidgetWidth={handleToggleWidgetWidth}
+            onAddWidgetSpec={handleAddWidgetSpec}
+            widgetCapReached={currentLayout.widgets.length >= widgetCap}
+            widgetCapLimit={widgetCap}
             onUndo={handleUndo}
             lastActionToast={actionToast}
             onDismissToast={() => setActionToast(null)}

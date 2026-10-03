@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../ui/Toast';
+import { useConfirm } from '../ui/ConfirmDialog';
 import { motion } from 'motion/react';
 import {
   IconComponents,
@@ -31,6 +33,8 @@ interface ModulePipelineViewProps {
 }
 
 export function ModulePipelineView({ projectId, onRefreshLayout }: ModulePipelineViewProps) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [library, setLibrary] = useState<ModuleTemplate[]>([]);
   const [pipeline, setPipeline] = useState<ProjectPipeline>({
     project_id: projectId,
@@ -68,20 +72,20 @@ export function ModulePipelineView({ projectId, onRefreshLayout }: ModulePipelin
       await loadData();
       if (onRefreshLayout) onRefreshLayout();
     } catch (err: any) {
-      alert(err.message || 'Failed to install module');
+      toast.error(err.message || 'Failed to install module');
     } finally {
       setInstallingId(null);
     }
   };
 
   const handleUninstall = async (instanceId: string, moduleName: string) => {
-    if (!confirm(`Uninstall ${moduleName} from project pipeline?`)) return;
+    if (!(await confirm({ title: `Uninstall ${moduleName}?`, message: 'It will be removed from this project\'s pipeline.', confirmLabel: 'Uninstall', danger: true }))) return;
     try {
       await uninstallProjectModule(projectId, instanceId);
       await loadData();
       if (onRefreshLayout) onRefreshLayout();
     } catch (err: any) {
-      alert(err.message || 'Failed to uninstall module');
+      toast.error(err.message || 'Failed to uninstall module');
     }
   };
 
