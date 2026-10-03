@@ -224,59 +224,83 @@ export function reorder(items, from, to) {
 }
 
 // ─── Widget catalog (manual "Add widget") ───────────────────────────────────
+// Only widgets whose content the user types themselves. Charts and tables need real data, so they come
+// from a data source (see objectTableWidget) rather than invented samples: the renderer refuses sample data.
 
-const SAMPLE_NOTE = 'Sample data: replace with your own';
+const clean = (v) => (typeof v === 'string' ? v.trim() : v);
 
 export const WIDGET_CATALOG = [
   {
     type: 'metric_card',
     label: 'Metric',
-    description: 'A single headline number',
-    build: (id) => ({ id, type: 'metric_card', component: 'metric_card', title: 'New metric', label: 'Metric', value: '0', delta: '', trend: 'flat', span: 1 }),
-  },
-  {
-    type: 'line_chart',
-    label: 'Line chart',
-    description: 'A trend over time',
-    build: (id) => ({ id, type: 'line_chart', component: 'line_chart', title: 'Trend', series: [{ x: '2025-01-01', y: 10 }, { x: '2025-01-02', y: 14 }, { x: '2025-01-03', y: 12 }, { x: '2025-01-04', y: 18 }], freshness: SAMPLE_NOTE, span: 2 }),
-  },
-  {
-    type: 'bar_chart',
-    label: 'Bar chart',
-    description: 'Compare categories',
-    build: (id) => ({ id, type: 'bar_chart', component: 'bar_chart', title: 'Comparison', series: [{ label: 'A', y: 12 }, { label: 'B', y: 19 }, { label: 'C', y: 7 }], freshness: SAMPLE_NOTE, span: 1 }),
-  },
-  {
-    type: 'table',
-    label: 'Table',
-    description: 'Rows and columns',
-    build: (id) => ({ id, type: 'table', component: 'table', title: 'Table', columns: ['Name', 'Value'], rows: [['Example', 1]], freshness: SAMPLE_NOTE, span: 2 }),
-  },
-  {
-    type: 'donut_chart',
-    label: 'Donut chart',
-    description: 'Share of a whole',
-    build: (id) => ({ id, type: 'donut_chart', component: 'donut_chart', title: 'Breakdown', data: [{ label: 'A', value: 60 }, { label: 'B', value: 30 }, { label: 'C', value: 10 }], freshness: SAMPLE_NOTE, span: 1 }),
+    description: 'A single headline number you enter',
+    fields: [
+      { key: 'label', label: 'Label', kind: 'text', required: true, placeholder: 'Monthly revenue' },
+      { key: 'value', label: 'Value', kind: 'text', required: true, placeholder: '$48,200' },
+      { key: 'delta', label: 'Change (optional)', kind: 'text', placeholder: '+4.2%' },
+      { key: 'trend', label: 'Direction', kind: 'select', options: ['flat', 'up', 'down'], default: 'flat' },
+    ],
+    build: (id, v) => ({ id, type: 'metric_card', component: 'metric_card', title: clean(v.label), label: clean(v.label), value: clean(v.value), delta: clean(v.delta) || '', trend: v.trend || 'flat', span: 1 }),
   },
   {
     type: 'progress_ring',
     label: 'Progress ring',
     description: 'Progress toward a goal',
-    build: (id) => ({ id, type: 'progress_ring', component: 'progress_ring', title: 'Goal', label: 'Goal', percent: 50, sublabel: 'Set your target', span: 1 }),
+    fields: [
+      { key: 'label', label: 'Goal', kind: 'text', required: true, placeholder: 'Q3 target' },
+      { key: 'percent', label: 'Percent complete (0-100)', kind: 'number', required: true, min: 0, max: 100 },
+      { key: 'sublabel', label: 'Detail (optional)', kind: 'text', placeholder: '$850K of $1.0M' },
+    ],
+    build: (id, v) => ({ id, type: 'progress_ring', component: 'progress_ring', title: clean(v.label), label: clean(v.label), percent: Number(v.percent), sublabel: clean(v.sublabel) || '', span: 1 }),
   },
   {
     type: 'text_block',
     label: 'Note',
     description: 'Commentary or a summary',
-    build: (id) => ({ id, type: 'text_block', component: 'text_block', title: 'Notes', heading: 'Notes', body: 'Write your takeaways here.', variant: 'insight', span: 1 }),
+    fields: [
+      { key: 'heading', label: 'Heading', kind: 'text', required: true, placeholder: 'Key takeaway' },
+      { key: 'body', label: 'Text', kind: 'textarea', required: true },
+      { key: 'variant', label: 'Style', kind: 'select', options: ['insight', 'summary', 'warning'], default: 'insight' },
+    ],
+    build: (id, v) => ({ id, type: 'text_block', component: 'text_block', title: clean(v.heading), heading: clean(v.heading), body: clean(v.body), variant: v.variant || 'insight', span: 1 }),
   },
   {
     type: 'alert_banner',
     label: 'Alert banner',
     description: 'Call out something important',
-    build: (id) => ({ id, type: 'alert_banner', component: 'alert_banner', title: 'Heads up', message: 'Describe what needs attention.', severity: 'warning', span: 2 }),
+    fields: [
+      { key: 'message', label: 'Message', kind: 'textarea', required: true },
+      { key: 'severity', label: 'Severity', kind: 'select', options: ['info', 'warning', 'error', 'success'], default: 'warning' },
+    ],
+    build: (id, v) => ({ id, type: 'alert_banner', component: 'alert_banner', title: 'Alert', message: clean(v.message), severity: v.severity || 'warning', span: 2 }),
   },
 ];
+
+/** Defaults for a catalog entry's form (select fields start on their default). */
+export function formDefaults(entry) {
+  const out = {};
+  for (const f of entry.fields) out[f.key] = f.default ?? '';
+  return out;
+}
+
+/** {key: message} for every invalid field; empty object means the form can be submitted. */
+export function validateWidgetForm(entry, values) {
+  const errors = {};
+  for (const f of entry.fields) {
+    const raw = values[f.key];
+    const text = typeof raw === 'string' ? raw.trim() : raw;
+    if (f.required && (text === '' || text === undefined || text === null)) {
+      errors[f.key] = `${f.label.replace(/ \(.*\)$/, '')} is required`;
+      continue;
+    }
+    if (f.kind === 'number' && text !== '' && text !== undefined) {
+      const n = Number(text);
+      if (!Number.isFinite(n)) errors[f.key] = `${f.label.replace(/ \(.*\)$/, '')} must be a number`;
+      else if ((f.min !== undefined && n < f.min) || (f.max !== undefined && n > f.max)) errors[f.key] = `Must be between ${f.min} and ${f.max}`;
+    }
+  }
+  return errors;
+}
 
 /** A table widget fed live from a custom object (refreshed via the object_records binding). */
 export function objectTableWidget(id, projectId, objectApiName, label) {

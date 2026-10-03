@@ -3,7 +3,11 @@ export interface Table { columns: string[]; rows: unknown[][] }
 export interface DateRange { from: Date | null; to: Date | null }
 export interface DateFilterState { preset: string; from: string; to: string }
 export const DATE_PRESETS: { id: string; label: string }[];
-export const WIDGET_CATALOG: { type: string; label: string; description: string; build: (id: string) => WidgetLike }[];
+export interface CatalogField { key: string; label: string; kind: 'text' | 'textarea' | 'number' | 'select'; required?: boolean; placeholder?: string; options?: string[]; default?: string; min?: number; max?: number }
+export interface CatalogEntry { type: string; label: string; description: string; fields: CatalogField[]; build: (id: string, values: Record<string, any>) => WidgetLike }
+export const WIDGET_CATALOG: CatalogEntry[];
+export function formDefaults(entry: CatalogEntry): Record<string, string>;
+export function validateWidgetForm(entry: CatalogEntry, values: Record<string, any>): Record<string, string>;
 export function extractTable(widget: unknown): Table | null;
 export function tableToCsv(columns: unknown[], rows: unknown[][]): string;
 export function csvFilename(title?: string, fallback?: string): string;

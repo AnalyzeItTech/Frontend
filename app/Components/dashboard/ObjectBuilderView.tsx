@@ -162,6 +162,12 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [busy, setBusy] = useState<'import' | 'export' | 'bulk' | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  // A single click opens the detail dialog, but a double-click (inline edit) must not: wait out the second click.
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPendingOpen = () => {
+    if (openTimer.current) clearTimeout(openTimer.current);
+    openTimer.current = null;
+  };
   const schemaPanelRef = useRef<HTMLDivElement>(null);
   const newRecPanelRef = useRef<HTMLDivElement>(null);
   const detailPanelRef = useRef<HTMLDivElement>(null);
@@ -682,6 +688,16 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
     saveHidden(typeof window !== 'undefined' ? window.localStorage : undefined, projectId, selectedSchema.id, next);
   };
 
+  const scheduleOpenDetail = (r: ObjectRecord) => {
+    cancelPendingOpen();
+    openTimer.current = setTimeout(() => {
+      openTimer.current = null;
+      openRecordDetail(r);
+    }, 230);
+  };
+
+  useEffect(() => cancelPendingOpen, []);
+
   const shownFields = visibleFields(selectedSchema?.fields || [], hiddenCols) as ObjectField[];
   const visibleIds = records.map((r) => r.id);
   const sel = selectionState(selectedIds, visibleIds);
@@ -1086,7 +1102,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                               key={r.id}
                               tabIndex={0}
                               aria-selected={isSel}
-                              onClick={() => !showTrash && openRecordDetail(r)}
+                              onClick={() => !showTrash && scheduleOpenDetail(r)}
                               onKeyDown={(e) => {
                                 if (e.target !== e.currentTarget) return;
                                 if (e.key === 'Enter' && !showTrash) openRecordDetail(r);
@@ -1117,11 +1133,13 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
                                   <td
                                     key={f.api_name}
                                     className="py-2.5 px-3 text-neutral-900 dark:text-neutral-200"
-                                    onDoubleClick={editable ? (e) => { e.stopPropagation(); setEditingCell({ id: r.id, field: f.api_name }); } : undefined}
+                                    onDoubleClick={editable ? (e) => { e.stopPropagation(); cancelPendingOpen(); setEditingCell({ id: r.id, field: f.api_name }); } : undefined}
                                     title={editable ? 'Double-click to edit' : undefined}
                                   >
                                     {editing ? (
-                                      <InlineEditor field={f} value={val} onCommit={(v) => commitInline(r, f, v)} onCancel={() => setEditingCell(null)} />
+                                      <div onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+                                        <InlineEditor field={f} value={val} onCommit={(v) => commitInline(r, f, v)} onCancel={() => setEditingCell(null)} />
+                                      </div>
                                     ) : (
                                       <div className="flex items-center gap-1.5">
                                         {(f.type === 'lookup' || f.type === 'relation') && val ? (

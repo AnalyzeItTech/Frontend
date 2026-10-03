@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  WIDGET_CATALOG, applyDateRange, csvFilename, extractTable, inRange, isDateFilterable, loadDateFilter, moveIndex,
-  newWidgetId, objectTableWidget, parseDate, reorder, resolveDateRange, saveDateFilter, tableToCsv,
+  WIDGET_CATALOG, applyDateRange, csvFilename, extractTable, formDefaults, inRange, isDateFilterable, loadDateFilter, moveIndex,
+  newWidgetId, objectTableWidget, parseDate, reorder, resolveDateRange, saveDateFilter, tableToCsv, validateWidgetForm,
 } from './dashboardTools.mjs';
 
 test('extractTable handles table, object rows, data, series and multi-series widgets', () => {
@@ -119,20 +119,44 @@ test('moveIndex / reorder validate indices and do not mutate', () => {
   assert.equal(reorder(items, 1, 1), items);
 });
 
-test('catalog entries build well-formed specs with unique ids and honest sample labelling', () => {
+test('catalog only offers widgets whose content the user types (no invented sample data)', () => {
   const ids = new Set();
   for (const entry of WIDGET_CATALOG) {
-    const w = entry.build(`id_${entry.type}`);
+    const values = {};
+    for (const f of entry.fields) values[f.key] = f.kind === 'number' ? '50' : f.options ? f.options[0] : 'text';
+    const w = entry.build(`id_${entry.type}`, values);
     ids.add(w.id);
     assert.equal(w.type, entry.type);
     assert.equal(w.component, entry.type);
     assert.ok(w.title);
-    if (Array.isArray(w.series) || Array.isArray(w.data) || Array.isArray(w.rows)) {
-      assert.match(w.freshness, /sample data/i, `${entry.type} sample data must be labelled`);
-    }
+    for (const key of ['series', 'data', 'rows']) assert.equal(w[key], undefined, `${entry.type} must not ship ${key}`);
   }
   assert.equal(ids.size, WIDGET_CATALOG.length);
-  assert.ok(WIDGET_CATALOG.length >= 6);
+  assert.deepEqual(WIDGET_CATALOG.map((e) => e.type), ['metric_card', 'progress_ring', 'text_block', 'alert_banner']);
+});
+
+test('catalog builders trim input and coerce numbers', () => {
+  const metric = WIDGET_CATALOG.find((e) => e.type === 'metric_card');
+  const w = metric.build('m1', { label: '  Revenue ', value: ' $5 ', delta: '', trend: 'up' });
+  assert.deepEqual([w.title, w.label, w.value, w.delta, w.trend], ['Revenue', 'Revenue', '$5', '', 'up']);
+  const ring = WIDGET_CATALOG.find((e) => e.type === 'progress_ring').build('r1', { label: 'Goal', percent: '42', sublabel: '' });
+  assert.equal(ring.percent, 42);
+});
+
+test('validateWidgetForm reports missing, non-numeric and out-of-range values', () => {
+  const ring = WIDGET_CATALOG.find((e) => e.type === 'progress_ring');
+  assert.deepEqual(validateWidgetForm(ring, { label: 'G', percent: '40' }), {});
+  assert.match(validateWidgetForm(ring, { label: '', percent: '40' }).label, /required/);
+  assert.match(validateWidgetForm(ring, { label: 'G', percent: 'abc' }).percent, /number/);
+  assert.match(validateWidgetForm(ring, { label: 'G', percent: '140' }).percent, /between 0 and 100/);
+  assert.match(validateWidgetForm(ring, { label: 'G', percent: '' }).percent, /required/);
+  const note = WIDGET_CATALOG.find((e) => e.type === 'text_block');
+  assert.deepEqual(Object.keys(validateWidgetForm(note, { heading: ' ', body: '' })).sort(), ['body', 'heading']);
+});
+
+test('formDefaults starts selects on their default and the rest empty', () => {
+  const metric = WIDGET_CATALOG.find((e) => e.type === 'metric_card');
+  assert.deepEqual(formDefaults(metric), { label: '', value: '', delta: '', trend: 'flat' });
 });
 
 test('objectTableWidget binds to object records for live refresh', () => {
