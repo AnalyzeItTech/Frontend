@@ -20,6 +20,7 @@ import { PlaceContextCard } from '../Components/map/PlaceContextCard';
 import { EventDetailCard } from '../Components/map/EventDetailCard';
 import { getProjects } from '../lib/chatApi';
 import { pickScopedProject } from '../lib/projectHome.mjs';
+import { GlobeAsk } from '../Components/globe/GlobeAsk';
 import { GlobeCanvas } from '../Components/globe/GlobeCanvas';
 import { QueuedFlyToast } from '../Components/globe/QueuedFlyToast';
 import { GLOBE_HUBS } from '../Components/globe/sourceCatalog';
@@ -1097,6 +1098,7 @@ function GlobePageInner() {
         />
 
         <aside className="flex min-w-0 flex-col overflow-hidden border-l border-[var(--border)] bg-[var(--surface)]">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {!selected && !selectedEvent && !loading && !error ? (
             <div className="flex flex-1 flex-col items-start justify-center gap-3 p-5">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EA8069]/12 text-[#EA8069]">
@@ -1201,6 +1203,12 @@ function GlobePageInner() {
               </div>
             </>
           )}
+          </div>
+          <GlobeAsk
+            state={{ selected, compare, layers, layerCounts, days }}
+            projectId={projectId || requestedProject || undefined}
+            onFly={(p) => goTo(p.lat, p.lon, { name: p.name })}
+          />
         </aside>
       </div>
     </AppShell>
