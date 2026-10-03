@@ -1,3 +1,5 @@
+import type * as GeoJSON from 'geojson';
+
 export function pinDiameter(point: { kind: string; tier?: string }): number;
 export function isLayerKind(kind: string): boolean;
 export function sourcePinFeatures(

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react';
+import type * as GeoJSON from 'geojson';
 import { loadMapConfig } from './mapConfig';
 import { sameKeySet } from './facingSet.mjs';
 import { isLayerKind, selectedSourceId, sourcePinFeatures } from './sourcePinsGl.mjs';
