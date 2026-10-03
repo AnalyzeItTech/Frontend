@@ -140,9 +140,9 @@ export default function ProductsPage() {
           digital access (no physical shipping)
         </a>
         {' · '}
-        <a href="/#pricing" className="text-[#E3836C] hover:underline">
+        <Link href="/#pricing" className="text-[#E3836C] hover:underline">
           homepage pricing
-        </a>
+        </Link>
         .
       </p>
     </LegalLayout>

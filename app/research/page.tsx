@@ -897,7 +897,7 @@ function ChatInner() {
           .filter((m) => m.role === 'user' || m.role === 'assistant')
           .map((m) => ({ role: m.role, content: m.content || '' }));
 
-        let scopedProjectId = projectId;
+        const scopedProjectId = projectId;
 
         // Clear chips once the request is about to leave — restore on hard failure.
         chipsSnapshot = pendingAttachments;
