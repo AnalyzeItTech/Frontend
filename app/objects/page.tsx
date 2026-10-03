@@ -10,6 +10,7 @@ import { AppShell } from '../Components/app/AppShell';
 import { PageTitle } from '../Components/app/PageTitle';
 import { WorkspaceStatus } from '../Components/app/WorkspaceStatus';
 import Link from 'next/link';
+import { SampleDataBanner, StarterKits } from '../Components/starter/StarterKits';
 import { IconArrowRight, IconBraces, IconPlus } from '@tabler/icons-react';
 
 const LOAD_TIMEOUT_MS = 12000;
@@ -18,6 +19,7 @@ function ObjectsPageInner() {
   const params = useSearchParams();
   const requested = params.get('project') || params.get('projectId') || '';
   const [projectId, setProjectId] = useState<string>('');
+  const [kitVersion, setKitVersion] = useState(0);
   const [status, setStatus] = useState<'loading' | 'empty' | 'error' | 'content'>('loading');
   const [errorBody, setErrorBody] = useState<string | undefined>();
 
@@ -91,7 +93,18 @@ function ObjectsPageInner() {
       >
         <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
-            {projectId ? <ObjectBuilderView projectId={projectId} initialObject={params.get('object') || undefined} /> : null}
+            {projectId ? (
+              <div className="mb-5 space-y-3">
+                <SampleDataBanner projectId={projectId} refreshKey={kitVersion} onRemoved={() => setKitVersion((n) => n + 1)} />
+                <details className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] p-3">
+                  <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)]">Start from a starter kit</summary>
+                  <div className="mt-3">
+                    <StarterKits projectId={projectId} onApplied={() => setKitVersion((n) => n + 1)} />
+                  </div>
+                </details>
+              </div>
+            ) : null}
+            {projectId ? <ObjectBuilderView key={kitVersion} projectId={projectId} initialObject={params.get('object') || undefined} /> : null}
           </div>
           <aside className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-6">
             <div className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--coral)]/12 text-[var(--coral)]"><IconBraces size={22} /></div>

@@ -65,6 +65,7 @@ import { buildDesignExport, downloadDesignExport } from '../lib/designExport';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 import { LayoutSwitcher } from '../Components/dashboard/LayoutSwitcher';
 import { ModulePipelineView } from '../Components/dashboard/ModulePipelineView';
+import { SampleDataBanner, StarterKits } from '../Components/starter/StarterKits';
 import {
   DASHBOARD_EMPTY,
   RESEARCH_STARTERS,
@@ -93,6 +94,7 @@ export default function DashboardPage() {
 
   // ─── Active Scoped Project & Generative Canvas State ─────────────────────────
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [kitRefresh, setKitRefresh] = useState(0);
   const [activeProjectName, setActiveProjectName] = useState<string>('Workspace Canvas');
   const [layoutVersion, setLayoutVersion] = useState<number>(1);
   const [updatedBy, setUpdatedBy] = useState<string>('system');
@@ -935,6 +937,11 @@ export default function DashboardPage() {
         <main className="flex-1 min-h-0 overflow-y-auto p-6 lg:p-10 space-y-8 chat-scroll">
 
           {/* ─── TAB: DASHBOARD CANVAS ─── */}
+          {studioTab === 'canvas' && activeProjectId ? (
+            <div className="mb-4">
+              <SampleDataBanner projectId={activeProjectId} refreshKey={kitRefresh} onRemoved={refreshActiveProjectLayout} />
+            </div>
+          ) : null}
           {studioTab === 'canvas' && (
             <>
               {isLoadingProjects ? (
@@ -1072,6 +1079,17 @@ export default function DashboardPage() {
                       {DASHBOARD_EMPTY.sampleLabel}
                     </button>
                   </div>
+                  {activeProjectId ? (
+                    <div className="mt-8 border-t border-[var(--border)] pt-6">
+                      <StarterKits
+                        projectId={activeProjectId}
+                        onApplied={() => {
+                          setKitRefresh((n) => n + 1);
+                          void refreshActiveProjectLayout();
+                        }}
+                      />
+                    </div>
+                  ) : null}
                   <p className="mt-4 text-[11px] text-[var(--text-muted)]">{DASHBOARD_EMPTY.freeNote}</p>
                 </section>
               )}
