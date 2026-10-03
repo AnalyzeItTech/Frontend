@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconCurrentLocation,
   IconLayersSubtract,
@@ -18,6 +18,8 @@ import { AppShell } from '../Components/app/AppShell';
 import { useTheme } from '../Components/ui/ThemeProvider';
 import { PlaceContextCard } from '../Components/map/PlaceContextCard';
 import { EventDetailCard } from '../Components/map/EventDetailCard';
+import { getProjects } from '../lib/chatApi';
+import { pickScopedProject } from '../lib/projectHome.mjs';
 import { GlobeCanvas } from '../Components/globe/GlobeCanvas';
 import { QueuedFlyToast } from '../Components/globe/QueuedFlyToast';
 import { GLOBE_HUBS } from '../Components/globe/sourceCatalog';
@@ -39,6 +41,7 @@ import { useGlobe } from '../Components/globe/useGlobe';
 import type { SourcePoint } from '../Components/globe/types';
 import {
   fetchGlobeEvents,
+  fetchProjectGlobePoints,
   fetchPlaceContext,
   searchPlaces,
   type GeoSearchHit,
@@ -59,7 +62,8 @@ type LayerId =
   | 'markets'
   | 'iss'
   | 'space_weather'
-  | 'elevation';
+  | 'elevation'
+  | 'my_data';
 
 const RAIL_KEY = 'analyzeit_globe_rails';
 const LEFT_DEFAULT = 280;
@@ -99,6 +103,7 @@ const LAYERS: { id: LayerId; label: string; hint: string; color: string; coverag
   { id: 'iss', label: 'Satellites', hint: 'ISS + selected Celestrak sats — not a full catalog', color: '#f43f5e', coverage: 'limited' },
   { id: 'space_weather', label: 'Space Weather', hint: 'NOAA SWPC alerts · scales · flares', color: '#14b8a6', coverage: 'complete' },
   { id: 'elevation', label: 'Elevation', hint: 'Meters above sea level at hubs — sampled', color: '#78716c', coverage: 'sample' },
+  { id: 'my_data', label: 'My data', hint: 'Your project’s records with a location — lat/lon fields or place names', color: '#e8896a', coverage: 'complete' },
   { id: 'markets', label: 'Markets', hint: 'Live equity indices at hubs — sampled', color: '#8b5cf6', coverage: 'sample' },
 ];
 /** Live layers: this page is the only caller of geo context/events. Poll on LIVE_LAYER_POLL_MS — never in rAF. */
@@ -159,7 +164,7 @@ function kpis(ctx: PlaceContext | null | undefined) {
   ];
 }
 
-export default function GlobePage() {
+function GlobePageInner() {
   const router = useRouter();
   const { theme } = useTheme();
   const globePageStage = globeStage({
@@ -207,12 +212,18 @@ export default function GlobePage() {
     iss: false,
     space_weather: false,
     elevation: false,
+    my_data: false,
   });
   const [layerCounts, setLayerCounts] = useState<Partial<Record<LayerId, number>>>({});
   const [layerHealth, setLayerHealth] = useState<
     Partial<Record<LayerId, { status: string; message?: string | null }>>
   >({});
   const [layersLoading, setLayersLoading] = useState(false);
+  const requestedProject = useSearchParams().get('project') || '';
+  const [projectId, setProjectId] = useState('');
+  /** Bumped while the server is still geocoding place names, so the layer fills in without waiting for the poll. */
+  const [myDataTick, setMyDataTick] = useState(0);
+  const myDataTimer = useRef<number | null>(null);
   const [days, setDays] = useState(7);
   const [cursor, setCursor] = useState(1); // replay position inside the window; 1 = live
   const [playing, setPlaying] = useState(false);
@@ -242,6 +253,25 @@ export default function GlobePage() {
     );
   }, [layerFilter]);
 
+  useEffect(() => () => {
+    if (myDataTimer.current) window.clearTimeout(myDataTimer.current);
+  }, []);
+
+  useEffect(() => {
+    if (!layers.my_data || projectId) return;
+    let cancelled = false;
+    getProjects()
+      .then((rows) => {
+        if (cancelled) return;
+        const picked = pickScopedProject(rows, requestedProject);
+        if (picked.status !== 'missing' && picked.projectId) setProjectId(picked.projectId);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [layers.my_data, projectId, requestedProject]);
+
   useEffect(() => {
     setShowCatalog(Boolean(layers.catalog));
   }, [layers.catalog, setShowCatalog]);
@@ -261,6 +291,7 @@ export default function GlobePage() {
         'iss',
         'space_weather',
         'elevation',
+        'my_data',
       ] as LayerId[]
     ).filter((id) => layers[id]);
 
@@ -286,6 +317,27 @@ export default function GlobePage() {
         // One request per layer. A slow layer must not blank the others.
         const payloads = await Promise.all(
           liveIds.map(async (id) => {
+            if (id === 'my_data') {
+              if (!projectId) return { id, aborted: false as const, payload: { fetchError: 'Opening your project…' } };
+              try {
+                const mine = await fetchProjectGlobePoints(projectId, ac.signal);
+                if (mine.pending > 0 && !ac.signal.aborted) {
+                  if (myDataTimer.current) window.clearTimeout(myDataTimer.current);
+                  myDataTimer.current = window.setTimeout(() => setMyDataTick((n) => n + 1), 4000);
+                }
+                const noLocation = mine.objects.length > 0 && mine.objects.every((o) => o.mode === null);
+                return {
+                  id,
+                  aborted: false as const,
+                  payload: noLocation
+                    ? { error: 'None of your objects has a location field (latitude/longitude, city or country).' }
+                    : { events: mine.points },
+                };
+              } catch (err) {
+                if (ac.signal.aborted) return { id, aborted: true as const, payload: null };
+                return { id, aborted: false as const, payload: { fetchError: err instanceof Error ? err.message : 'Could not load your data' } };
+              }
+            }
             try {
               const data = await fetchGlobeEvents({
                 layers: [id],
@@ -339,7 +391,7 @@ export default function GlobePage() {
       pollAbortRef.current?.abort();
       window.clearInterval(timer);
     };
-  }, [layers, days, setOverlayPoints, setOverlayPaths]);
+  }, [layers, days, projectId, myDataTick, setOverlayPoints, setOverlayPaths]);
 
   // A new time window must not merge with cached events from the old one.
   useEffect(() => {
@@ -1152,5 +1204,15 @@ export default function GlobePage() {
         </aside>
       </div>
     </AppShell>
+  );
+}
+
+
+export default function GlobePage() {
+  // useSearchParams (project scope for "My data") needs a Suspense boundary at build time.
+  return (
+    <Suspense fallback={null}>
+      <GlobePageInner />
+    </Suspense>
   );
 }

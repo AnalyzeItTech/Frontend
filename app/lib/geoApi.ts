@@ -1,3 +1,4 @@
+import { getAuthHeaders } from './auth';
 /** Browser calls same-origin Next proxies so CORS / wrong API host cannot break Globe. */
 const GEO_CONTEXT_URL = '/api/geo/context';
 const GEO_SEARCH_URL = '/api/geo/search';
@@ -532,4 +533,45 @@ export async function fetchGlobeEvents(opts?: {
     throw new Error(detail || `Globe events failed (${res.status})`);
   }
   return res.json();
+}
+
+export interface ProjectGlobePoint {
+  id: string;
+  lat: number;
+  lon: number;
+  label: string;
+  object: string;
+  object_label?: string;
+  record_id: string;
+  place?: string | null;
+  meta?: Record<string, string | number | boolean>;
+}
+
+export interface ProjectGlobeData {
+  points: ProjectGlobePoint[];
+  objects: Array<{ api_name: string; label: string; mode: 'latlon' | 'place' | null; placed: number; unplaced: number }>;
+  unplaced: number;
+  /** Places still waiting to be geocoded; ask again shortly and they fill in. */
+  pending: number;
+}
+
+/** The signed-in user's own project records that can be placed on the globe. */
+export async function fetchProjectGlobePoints(projectId: string, signal?: AbortSignal): Promise<ProjectGlobeData> {
+  const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const res = await fetch(`${base}/v1/projects/${encodeURIComponent(projectId)}/globe/points`, {
+    headers: getAuthHeaders(),
+    cache: 'no-store',
+    signal,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(typeof body?.detail === 'string' ? body.detail : `Your data could not be loaded (${res.status})`);
+  }
+  const data = await res.json();
+  return {
+    points: Array.isArray(data.points) ? data.points : [],
+    objects: Array.isArray(data.objects) ? data.objects : [],
+    unplaced: Number(data.unplaced) || 0,
+    pending: Number(data.pending) || 0,
+  };
 }

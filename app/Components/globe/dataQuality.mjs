@@ -202,6 +202,8 @@ export function strongestRows(points, limit = 8) {
   const groups = new Map();
   for (const point of points || []) {
     if (!point || point.kind === 'hub' || point.kind === 'archive') continue;
+    // A user's own records have no shared magnitude; ranking them as '0' would be noise.
+    if (point.host === 'my_data') continue;
     const metric = metricOfPoint(point);
     if (!metric) continue;
     const list = groups.get(metric.key) || [];

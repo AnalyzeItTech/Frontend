@@ -59,6 +59,7 @@ export function EventDetailCard({
   const meta = point.meta || {};
   const isFlight = point.host === 'flights';
   const isSat = point.host === 'iss' || meta.type === 'satellite' || meta.type === 'iss';
+  const isMyData = point.host === 'my_data';
   const isSpaceWeather =
     point.host === 'space_weather' || meta.type === 'space_weather';
 
@@ -117,6 +118,11 @@ export function EventDetailCard({
     if (meta.issued) rows.push(['Issued', String(meta.issued)]);
     if (meta.message) rows.push(['Message', String(meta.message).slice(0, 280)]);
     if (meta.place) rows.push(['Marker', String(meta.place)]);
+  } else if (isMyData) {
+    for (const [k, v] of Object.entries(meta)) {
+      if (k.startsWith('f:') && v !== null && v !== undefined && v !== '') rows.push([k.slice(2), String(v)]);
+    }
+    if (meta.place && String(meta.place) !== point.label) rows.push(['Located as', String(meta.place)]);
   } else {
     if (meta.place && String(meta.place) !== point.label) rows.push(['Place', String(meta.place)]);
     if (meta.mag != null && Number.isFinite(Number(meta.mag))) {
@@ -168,7 +174,7 @@ export function EventDetailCard({
       <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-            {isFlight ? 'Aircraft' : isSat ? 'Satellite' : isSpaceWeather ? 'Space weather' : 'Event'}
+            {isFlight ? 'Aircraft' : isSat ? 'Satellite' : isSpaceWeather ? 'Space weather' : isMyData ? `Your data · ${meta.object_label ?? 'record'}` : 'Event'}
           </p>
           <h2 className="truncate font-serif text-lg text-[var(--text-primary)]">{point.label}</h2>
         </div>
@@ -210,7 +216,9 @@ export function EventDetailCard({
       <p className="border-t border-[var(--border)] px-4 py-2 text-[11px] text-[var(--text-muted)]">
         {isFlight
           ? 'Live ADS-B / OpenSky position — origin & destination need a separate schedule API.'
-          : 'Live overlay — not a place lookup. Markers stay on the map while you inspect.'}
+          : isMyData
+            ? 'From your project. Places given by name are geocoded approximately (city or country level).'
+            : 'Live overlay — not a place lookup. Markers stay on the map while you inspect.'}
       </p>
     </div>
   );

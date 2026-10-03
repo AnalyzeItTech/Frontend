@@ -8,6 +8,16 @@
 import { eventCoordinates, pathCoordinates } from './dataQuality.mjs';
 
 /**
+ * Record fields of a user's own point, flattened to `f:<Label>` keys so the detail card can list them.
+ * @param {Record<string, any>} ev
+ */
+export function myDataMeta(ev) {
+  const out = { object_label: ev.object_label || ev.object, record_id: ev.record_id };
+  for (const [k, v] of Object.entries(ev.meta || {})) out[`f:${k}`] = v;
+  return out;
+}
+
+/**
  * Map API events for one layer into SourcePoints. Does not accept place context.
  * @param {string} layerId
  * @param {Array<Record<string, any>>} events
@@ -33,7 +43,9 @@ export function mapLayerEventsToPoints(layerId, events, opts = {}) {
       host,
       pulse: opts.pulseMag != null && mag != null && mag >= opts.pulseMag,
       showLabel:
-        host === 'iss'
+        host === 'my_data'
+          ? (events || []).length <= 40 // a labelled forest of 1,000 customer pins is unreadable
+          : host === 'iss'
           ? ev.type === 'iss' || Boolean(ev.norad_id === 25544)
           : host !== 'flights',
       category: ev.category,
@@ -90,6 +102,7 @@ export function mapLayerEventsToPoints(layerId, events, opts = {}) {
         elevation_m: ev.elevation_m,
         date: ev.date,
         tsunami: ev.tsunami,
+        ...(layerId === 'my_data' ? myDataMeta(ev) : {}),
       },
     });
   }
@@ -132,6 +145,7 @@ export function buildLiveOverlays(enabledLayers, layerPayloads) {
   push('iss', layerPayloads?.iss?.events, { host: 'iss' });
   push('space_weather', layerPayloads?.space_weather?.events, { host: 'space_weather' });
   push('elevation', layerPayloads?.elevation?.events, { host: 'elevation' });
+  push('my_data', layerPayloads?.my_data?.events, { host: 'my_data' });
 
   if (enabledLayers?.iss) {
     const coordinates = pathCoordinates(layerPayloads?.iss?.path || []);

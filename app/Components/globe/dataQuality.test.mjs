@@ -185,3 +185,11 @@ describe('mini globe pins', () => {
     assert.equal(full.length, 4);
   });
 });
+
+describe('strongestRows ignores a user’s own records', () => {
+  it('does not rank my_data pins', async () => {
+    const { strongestRows } = await import('./dataQuality.mjs');
+    const out = strongestRows([{ id: 'm1', host: 'my_data', kind: 'event', label: 'Acme', meta: {} }], 8);
+    assert.deepEqual(out.rows, []);
+  });
+});

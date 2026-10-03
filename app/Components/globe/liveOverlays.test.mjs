@@ -165,3 +165,30 @@ describe('bug #7 — source invariants in globe/page.tsx', () => {
     assert.doesNotMatch(pageSource, /OpenSky\/ADS-B/);
   });
 });
+
+describe('my_data layer (the user’s own project records)', () => {
+  const events = [
+    { id: 'mydata:site:1', lat: 48.85, lon: 2.35, label: 'HQ', object: 'site', object_label: 'Site', record_id: 'r1', meta: { Name: 'HQ', Staff: 12 } },
+    { id: 'mydata:site:2', lat: 19.07, lon: 72.87, label: 'Mumbai office', object: 'site', record_id: 'r2', meta: {} },
+  ];
+
+  it('maps records to pins carrying their fields for the detail card', () => {
+    const { points, counts } = buildLiveOverlays({ my_data: true }, { my_data: { events } });
+    assert.equal(counts.my_data, 2);
+    assert.equal(points[0].host, 'my_data');
+    assert.equal(points[0].meta['f:Staff'], 12);
+    assert.equal(points[0].meta.object_label, 'Site');
+    assert.equal(points[0].meta.record_id, 'r1');
+  });
+
+  it('draws nothing while the layer is off', () => {
+    const { points } = buildLiveOverlays({ my_data: false }, { my_data: { events } });
+    assert.equal(points.length, 0);
+  });
+
+  it('drops text labels once there are too many pins to read', () => {
+    const many = Array.from({ length: 41 }, (_, i) => ({ id: `m${i}`, lat: i % 80, lon: i % 170, label: `P${i}`, meta: {} }));
+    const { points } = buildLiveOverlays({ my_data: true }, { my_data: { events: many } });
+    assert.ok(points.every((p) => p.showLabel === false));
+  });
+});
