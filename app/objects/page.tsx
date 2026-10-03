@@ -91,7 +91,7 @@ function ObjectsPageInner() {
       >
         <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
-            {projectId ? <ObjectBuilderView projectId={projectId} /> : null}
+            {projectId ? <ObjectBuilderView projectId={projectId} initialObject={params.get('object') || undefined} /> : null}
           </div>
           <aside className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-6">
             <div className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--coral)]/12 text-[var(--coral)]"><IconBraces size={22} /></div>

@@ -84,6 +84,8 @@ import {
 
 interface ObjectBuilderViewProps {
   projectId: string;
+  /** api_name of the object to open first (e.g. linked from Connectors). */
+  initialObject?: string;
 }
 
 const FIELD_TYPES: Array<{ value: ObjectField['type']; label: string; icon: React.ReactNode }> = [
@@ -98,7 +100,7 @@ const FIELD_TYPES: Array<{ value: ObjectField['type']; label: string; icon: Reac
   { value: 'lookup', label: 'Relation (Lookup)', icon: <IconLink className="w-4 h-4 text-[var(--coral)]" /> },
 ];
 
-export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
+export function ObjectBuilderView({ projectId, initialObject }: ObjectBuilderViewProps) {
   const [schemas, setSchemas] = useState<ObjectSchema[]>([]);
   const [selectedSchema, setSelectedSchema] = useState<ObjectSchema | null>(null);
   const [records, setRecords] = useState<ObjectRecord[]>([]);
@@ -179,7 +181,7 @@ export function ObjectBuilderView({ projectId }: ObjectBuilderViewProps) {
       const data = await fetchObjectSchemas(projectId);
       setSchemas(data);
       if (data.length > 0 && (!selectedSchema || !data.some((s) => s.id === selectedSchema.id))) {
-        setSelectedSchema(data[0]);
+        setSelectedSchema((initialObject && data.find((s) => s.api_name === initialObject)) || data[0]);
       }
     } catch (err) {
       console.error('Failed to load schemas:', err);

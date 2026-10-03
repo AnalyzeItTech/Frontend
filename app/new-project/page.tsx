@@ -53,6 +53,10 @@ import {
 } from '../lib/chatApi';
 import { getStoredUser, type UserProfile } from '../lib/auth';
 import { getEntitlements } from '../lib/billingApi';
+import { PermissionRequestCard, type PermissionDecision } from '../Components/chat/PermissionRequestCard';
+import { DataChangeCard, type DataChangeStatus } from '../Components/chat/DataChangeCard';
+import { decideDataChange, setAgentAccess } from '../lib/agentAccessApi';
+import { explainApplyError, type ChangeProposal } from '../lib/dataChange.mjs';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
 import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
 import {
@@ -91,6 +95,8 @@ interface Message {
   }>;
   streaming?: boolean;
   proposalActionId?: string;
+  permission?: { project_id: string; decision: PermissionDecision; busy?: boolean; error?: string };
+  dataChange?: { action_id: string; project_id: string; proposal: ChangeProposal; status: DataChangeStatus; error?: string };
 }
 
 function NewProjectContent() {
@@ -943,6 +949,32 @@ function NewProjectContent() {
       }
 
       // ── Generative UI: Handle ui_proposal Stream Event ────────────────────
+      if (event.event === 'permission_request') {
+        const pid = typeof event.payload.project_id === 'string' ? event.payload.project_id : '';
+        if (pid) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantId ? { ...m, permission: { project_id: pid, decision: null } } : m))
+          );
+        }
+        return;
+      }
+
+      if (event.event === 'ui_proposal' && event.payload.action === 'object_mutation' && event.payload.proposal) {
+        const actionId = typeof event.payload.action_id === 'string' ? event.payload.action_id : '';
+        const pid = typeof event.payload.project_id === 'string' ? event.payload.project_id : '';
+        if (actionId && pid) {
+          const proposal = event.payload.proposal as ChangeProposal;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, dataChange: { action_id: actionId, project_id: pid, proposal, status: 'pending' as DataChangeStatus } }
+                : m
+            )
+          );
+        }
+        return;
+      }
+
       if (event.event === 'ui_proposal') {
         const payload = event.payload as unknown as UIProposalPayload;
         const actionId = payload.action_id || `act-${Date.now()}`;
@@ -1120,6 +1152,46 @@ function NewProjectContent() {
       setIsThinking(false);
       setActiveTools([]);
       setStreamStatus('');
+    }
+  };
+
+  const patchMessage = (id: string, patch: (m: Message) => Message) =>
+    setMessages((prev) => prev.map((m) => (m.id === id ? patch(m) : m)));
+
+  /** Remember the choice for the project; on Allow, re-ask the question that triggered the prompt. */
+  const decidePermission = async (msgId: string, allow: boolean) => {
+    const idx = messages.findIndex((m) => m.id === msgId);
+    const req = messages[idx]?.permission;
+    if (!req) return;
+    patchMessage(msgId, (m) => ({ ...m, permission: { ...req, busy: true, error: undefined } }));
+    try {
+      await setAgentAccess(req.project_id, { default: allow ? 'allow' : 'deny' });
+      patchMessage(msgId, (m) => ({ ...m, permission: { ...req, busy: false, decision: allow ? 'allow' : 'deny' } }));
+      if (allow) {
+        const question = [...messages.slice(0, idx)].reverse().find((m) => m.sender === 'user')?.content;
+        if (question) void handleSendMessage(question);
+      }
+    } catch (err) {
+      patchMessage(msgId, (m) => ({
+        ...m,
+        permission: { ...req, busy: false, error: err instanceof Error ? err.message : 'Could not save your choice' },
+      }));
+    }
+  };
+
+  const decideChange = async (msgId: string, approve: boolean) => {
+    const change = messages.find((m) => m.id === msgId)?.dataChange;
+    if (!change) return;
+    patchMessage(msgId, (m) => ({ ...m, dataChange: { ...change, status: 'applying', error: undefined } }));
+    try {
+      await decideDataChange(change.project_id, change.action_id, approve);
+      patchMessage(msgId, (m) => ({ ...m, dataChange: { ...change, status: approve ? 'applied' : 'rejected' } }));
+    } catch (err) {
+      const status = (err as { status?: number }).status ?? 0;
+      patchMessage(msgId, (m) => ({
+        ...m,
+        dataChange: { ...change, status: 'error', error: explainApplyError(status, err instanceof Error ? err.message : undefined) },
+      }));
     }
   };
 
@@ -1484,6 +1556,28 @@ function NewProjectContent() {
                     )}
 
                     {/* ─── Inline Generative UI Proposal Confirmation Banner ─── */}
+                    {msg.permission && (
+                      <PermissionRequestCard
+                        projectId={msg.permission.project_id}
+                        decision={msg.permission.decision}
+                        busy={Boolean(msg.permission.busy)}
+                        error={msg.permission.error}
+                        onAllow={() => void decidePermission(msg.id, true)}
+                        onDeny={() => void decidePermission(msg.id, false)}
+                      />
+                    )}
+
+                    {msg.dataChange && (
+                      <DataChangeCard
+                        projectId={msg.dataChange.project_id}
+                        proposal={msg.dataChange.proposal}
+                        status={msg.dataChange.status}
+                        error={msg.dataChange.error}
+                        onApprove={() => void decideChange(msg.id, true)}
+                        onReject={() => void decideChange(msg.id, false)}
+                      />
+                    )}
+
                     {inlineProposal && (() => {
                       const isMulti = Array.isArray(inlineProposal.widgets) && inlineProposal.widgets.length > 0;
                       const pType =

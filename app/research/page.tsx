@@ -46,6 +46,10 @@ import {
   type ContextWallSignal,
 } from '../lib/contextWall.mjs';
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
+import { PermissionRequestCard, type PermissionDecision } from '../Components/chat/PermissionRequestCard';
+import { DataChangeCard, type DataChangeStatus } from '../Components/chat/DataChangeCard';
+import { decideDataChange, setAgentAccess } from '../lib/agentAccessApi';
+import { explainApplyError, type ChangeProposal } from '../lib/dataChange.mjs';
 import { AdSlot, AD_LOAD_TIMEOUT_MS, isAdPlacementConfigured } from '../Components/ads/AdSlot';
 import { shouldShowPostRunAd } from '../lib/adCadence';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
@@ -120,6 +124,10 @@ interface ChatMessage {
   suggestions?: string[];
   widget?: WidgetSpec;
   proposal?: { action_id: string; project_id?: string };
+  /** The assistant needs the user's one-time decision on reading this project's data. */
+  permission?: { project_id: string; decision: PermissionDecision; busy?: boolean; error?: string };
+  /** A data change the assistant proposed; applied only after the user approves. */
+  dataChange?: { action_id: string; project_id: string; proposal: ChangeProposal; status: DataChangeStatus; error?: string };
   streaming?: boolean;
   status?: string;
   /** 0-token tool fast-path — never label as AI-written */
@@ -1231,6 +1239,32 @@ function ChatInner() {
               return;
             }
 
+            if (event.event === 'permission_request') {
+              const pid = typeof event.payload.project_id === 'string' ? event.payload.project_id : '';
+              if (pid) {
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === assistantId ? { ...m, permission: { project_id: pid, decision: null } } : m)),
+                );
+              }
+              return;
+            }
+
+            if (event.event === 'ui_proposal' && event.payload.action === 'object_mutation' && event.payload.proposal) {
+              const actionId = typeof event.payload.action_id === 'string' ? event.payload.action_id : '';
+              const pid = typeof event.payload.project_id === 'string' ? event.payload.project_id : '';
+              if (actionId && pid) {
+                const proposal = event.payload.proposal as ChangeProposal;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, dataChange: { action_id: actionId, project_id: pid, proposal, status: 'pending' as DataChangeStatus } }
+                      : m,
+                  ),
+                );
+              }
+              return;
+            }
+
             if (event.event === 'ui_proposal') {
               const candidate = event.payload.widget_spec;
               if (candidate && typeof candidate === 'object') {
@@ -1463,6 +1497,46 @@ function ChatInner() {
 
   const prompts = composerMode === 'research' ? RESEARCH_PROMPTS : CHAT_PROMPTS;
   const latestProposal = [...messages].reverse().find((m) => m.widget)?.widget;
+  const patchMessage = (id: string, patch: (m: ChatMessage) => ChatMessage) =>
+    setMessages((prev) => prev.map((m) => (m.id === id ? patch(m) : m)));
+
+  /** Remember the user's choice for the project; on Allow, re-ask the question that triggered the prompt. */
+  const decidePermission = async (msgId: string, allow: boolean) => {
+    const idx = messages.findIndex((m) => m.id === msgId);
+    const req = messages[idx]?.permission;
+    if (!req) return;
+    patchMessage(msgId, (m) => ({ ...m, permission: { ...req, busy: true, error: undefined } }));
+    try {
+      await setAgentAccess(req.project_id, { default: allow ? 'allow' : 'deny' });
+      patchMessage(msgId, (m) => ({ ...m, permission: { ...req, busy: false, decision: allow ? 'allow' : 'deny' } }));
+      if (allow) {
+        const question = [...messages.slice(0, idx)].reverse().find((m) => m.role === 'user')?.content;
+        if (question) void sendMessage(question);
+      }
+    } catch (err) {
+      patchMessage(msgId, (m) => ({
+        ...m,
+        permission: { ...req, busy: false, error: err instanceof Error ? err.message : 'Could not save your choice' },
+      }));
+    }
+  };
+
+  const decideChange = async (msgId: string, approve: boolean) => {
+    const change = messages.find((m) => m.id === msgId)?.dataChange;
+    if (!change) return;
+    patchMessage(msgId, (m) => ({ ...m, dataChange: { ...change, status: 'applying', error: undefined } }));
+    try {
+      await decideDataChange(change.project_id, change.action_id, approve);
+      patchMessage(msgId, (m) => ({ ...m, dataChange: { ...change, status: approve ? 'applied' : 'rejected' } }));
+    } catch (err) {
+      const status = (err as { status?: number }).status ?? 0;
+      patchMessage(msgId, (m) => ({
+        ...m,
+        dataChange: { ...change, status: 'error', error: explainApplyError(status, err instanceof Error ? err.message : undefined) },
+      }));
+    }
+  };
+
   const latestProposalMeta = [...messages].reverse().find((m) => m.proposal)?.proposal;
 
   return (
@@ -1815,6 +1889,28 @@ function ChatInner() {
                             </div>
                           )}
                         </div>
+                      )}
+
+                      {!isUser && msg.permission && (
+                        <PermissionRequestCard
+                          projectId={msg.permission.project_id}
+                          decision={msg.permission.decision}
+                          busy={Boolean(msg.permission.busy)}
+                          error={msg.permission.error}
+                          onAllow={() => void decidePermission(msg.id, true)}
+                          onDeny={() => void decidePermission(msg.id, false)}
+                        />
+                      )}
+
+                      {!isUser && msg.dataChange && (
+                        <DataChangeCard
+                          projectId={msg.dataChange.project_id}
+                          proposal={msg.dataChange.proposal}
+                          status={msg.dataChange.status}
+                          error={msg.dataChange.error}
+                          onApprove={() => void decideChange(msg.id, true)}
+                          onReject={() => void decideChange(msg.id, false)}
+                        />
                       )}
 
                       {!isUser && !msg.streaming && msg.charts?.map((c, ci) => <ChartCard key={ci} chart={c} />)}

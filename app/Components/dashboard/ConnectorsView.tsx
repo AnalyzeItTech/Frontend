@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../ui/Toast';
+import { AgentAccessPanel } from './AgentAccessPanel';
+import { SyncedDataLinks } from './SyncedDataLinks';
 import { useConfirm } from '../ui/ConfirmDialog';
 import {
   IconPlugConnected,
@@ -305,6 +307,8 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
 
   return (
     <div className="flex flex-col gap-6 w-full">
+      <AgentAccessPanel projectId={projectId} />
+      <SyncedDataLinks projectId={projectId} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-white/10">
         <div>
           <h2 className="text-xl font-bold text-neutral-900 dark:text-white flex items-center gap-2.5">
