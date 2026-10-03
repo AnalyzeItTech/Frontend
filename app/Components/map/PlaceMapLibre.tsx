@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react';
 import { loadMapConfig } from './mapConfig';
 import { sameKeySet } from './facingSet.mjs';
+import { isLayerKind, selectedSourceId, sourcePinFeatures } from './sourcePinsGl.mjs';
 import Map, { Marker, Source, Layer, type MapRef } from 'react-map-gl/maplibre';
 import type { CircleLayerSpecification, HeatmapLayerSpecification, LineLayerSpecification, Map as MapLibreMap, StyleSpecification, SymbolLayerSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -456,7 +457,16 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
       lngLat: { lng: number; lat: number };
       features?: Array<{ properties?: Record<string, unknown> | null }>;
     }) => {
-      const props = event.features?.[0]?.properties as
+      // Topmost feature wins, except that among overlapping source pins a hub beats a catalog dot: the dots sit
+      // close to the hubs and the hit areas overlap.
+      const feats = event.features || [];
+      const top = feats[0];
+      const topKind = top?.properties?.kind;
+      const pick =
+        top && (topKind === 'hub' || topKind === 'archive')
+          ? feats.find((f) => f.properties?.kind === 'hub') ?? top
+          : top;
+      const props = pick?.properties as
         | { id?: string; kind?: string; label?: string; host?: string }
         | undefined;
       if (props?.id) {
@@ -681,10 +691,15 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
       }
       const c = map.getCenter();
       const next = new Set<string>();
-      for (const hub of GLOBE_HUBS) {
-        if (isFrontFacing(c.lat, c.lng, hub.lat, hub.lon)) next.add(`hub:${hub.name}`);
+      // Hubs and catalog sources of the full globe live in a map layer, which the globe projection hides on the
+      // far side by itself; only the remaining DOM markers need this culling.
+      if (variant !== 'full') {
+        for (const hub of GLOBE_HUBS) {
+          if (isFrontFacing(c.lat, c.lng, hub.lat, hub.lon)) next.add(`hub:${hub.name}`);
+        }
       }
       for (const p of sourcePoints) {
+        if (variant === 'full' && isLayerKind(p.kind)) continue;
         if (isFrontFacing(c.lat, c.lng, p.lat, p.lon)) next.add(p.id);
       }
       for (const p of comparePlaces) {
@@ -704,7 +719,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
       map.off('move', throttled);
       map.off('moveend', onMoveEnd);
     };
-  }, [comparePlaces, getMap, mapInstance, mapProjection, selected, sourcePoints]);
+  }, [comparePlaces, getMap, mapInstance, mapProjection, selected, sourcePoints, variant]);
 
   const isFacing = useCallback(
     (key: string) => frontKeys == null || frontKeys.has(key),
@@ -777,6 +792,58 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
       },
     }),
     [],
+  );
+
+  const sourcePinGeoJson = useMemo(
+    () => (variant === 'full' ? sourcePinFeatures(GLOBE_HUBS, sourcePoints) : null),
+    [sourcePoints, variant],
+  );
+  const selectedPinId = useMemo(
+    () => selectedSourceId(selected, _activeHub, sourcePoints),
+    [selected, _activeHub, sourcePoints],
+  );
+
+  // Same look as the old DOM pins: hub coral, catalog tan, white ring. A transparent larger circle makes the tiny
+  // catalog dots (5-7 px) easy to hit.
+  const sourcePinLayer = useMemo(
+    (): CircleLayerSpecification => ({
+      id: 'globe-source-pins',
+      type: 'circle',
+      source: 'globe-source-pins',
+      paint: {
+        'circle-radius': ['get', 'r'],
+        'circle-color': ['match', ['get', 'kind'], 'hub', '#e3836c', '#c4a28a'],
+        'circle-stroke-width': ['match', ['get', 'kind'], 'hub', 1.5, 1],
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-opacity': 0.92,
+      },
+    }),
+    [],
+  );
+  const sourceHitLayer = useMemo(
+    (): CircleLayerSpecification => ({
+      id: 'globe-source-hit',
+      type: 'circle',
+      source: 'globe-source-pins',
+      paint: { 'circle-radius': 9, 'circle-color': '#000000', 'circle-opacity': 0 },
+    }),
+    [],
+  );
+  const sourceSelectedLayer = useMemo(
+    (): CircleLayerSpecification => ({
+      id: 'globe-source-selected',
+      type: 'circle',
+      source: 'globe-source-pins',
+      filter: ['==', ['get', 'id'], selectedPinId ?? ''],
+      paint: {
+        'circle-radius': ['+', ['get', 'r'], 3.5],
+        'circle-color': '#e3836c',
+        'circle-opacity': 0.28,
+        'circle-stroke-width': 1.5,
+        'circle-stroke-color': '#e3836c',
+      },
+    }),
+    [selectedPinId],
   );
 
   const liveFlightLayer = useMemo(
@@ -927,7 +994,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
         }}
         attributionControl={hideChrome ? false : { compact: true }}
         interactive={interactive}
-        interactiveLayerIds={variant === 'full' ? ['globe-live-events', 'globe-live-flights'] : undefined}
+        interactiveLayerIds={variant === 'full' ? ['globe-live-events', 'globe-live-flights', 'globe-source-hit'] : undefined}
         dragPan={interactive}
         dragRotate={interactive}
         scrollZoom={interactive}
@@ -992,6 +1059,14 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
           </Source>
         ) : null}
 
+        {sourcePinGeoJson && sourcePinGeoJson.features.length > 0 ? (
+          <Source id="globe-source-pins" type="geojson" data={sourcePinGeoJson}>
+            <Layer {...sourceHitLayer} />
+            <Layer {...sourcePinLayer} />
+            <Layer {...sourceSelectedLayer} />
+          </Source>
+        ) : null}
+
         {variant === 'full' && dataView === 'pins' && liveEventGeoJson.features.length > 0 ? (
           <Source id="globe-live-events" type="geojson" data={liveEventGeoJson}>
             <Layer {...liveEventLayer} />
@@ -1005,40 +1080,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
           </Source>
         ) : null}
 
-        {variant === 'full'
-          ? GLOBE_HUBS.map((hub) => {
-              const key = `hub:${hub.name}`;
-              const facing = isFacing(key);
-              return (
-                <Marker
-                  key={hub.name}
-                  longitude={hub.lon}
-                  latitude={hub.lat}
-                  anchor="center"
-                  style={{
-                    pointerEvents: facing ? 'auto' : 'none',
-                    opacity: facing ? 1 : 0,
-                  }}
-                  onClick={(e) => {
-                    e.originalEvent.stopPropagation();
-                    if (!facing) return;
-                    onHubSelect?.(hub);
-                  }}
-                >
-                  <SourcePin
-                    point={{
-                      id: key,
-                      lat: hub.lat,
-                      lon: hub.lon,
-                      label: hub.name,
-                      kind: 'hub',
-                    }}
-                    selected={_activeHub === hub.name}
-                  />
-                </Marker>
-              );
-            })
-          : null}
+        {/* Hub pins: see the 'globe-source-pins' map layer above (full variant). */}
 
         {dataView === 'bars'
           ? barPoints.map(({ point, w }) => {
@@ -1075,6 +1117,7 @@ export const PlaceMapLibre = forwardRef<GlobeMapHandle, PlaceMapLibreProps>(func
           .filter(
             (p) =>
               p.kind !== 'hub' &&
+              !(variant === 'full' && isLayerKind(p.kind)) &&
               (dataView === 'pins' || p.kind !== 'event') &&
               !(variant === 'full' && dataView === 'pins' && p.kind === 'event'),
           )
