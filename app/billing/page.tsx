@@ -175,7 +175,7 @@ export default function BillingPage() {
     setError(null);
     try {
       const session: CheckoutSession = await startCheckout(reviewPlan, CHECKOUT_COUNTRY);
-      if (!isValidMoney(session.amount) || !session.order_id) {
+      if (!isValidMoney(session.amount) || (!session.order_id && !session.subscription_id)) {
         throw new Error('Server returned an invalid checkout. Razorpay was not opened.');
       }
       const outcome = await openRazorpayCheckout(session);
@@ -192,6 +192,7 @@ export default function BillingPage() {
     }
   };
 
+  const recurring = Boolean(quote?.plans.premium.recurring || quote?.plans.premium_plus.recurring);
   const premiumAmt = planAmount(quote, 'premium');
   const plusAmt = planAmount(quote, 'premium_plus');
   const premiumCcy = planCurrency(quote, 'premium');
@@ -202,8 +203,17 @@ export default function BillingPage() {
       <div className="mx-auto max-w-2xl space-y-6">
         <PageTitle title="Billing" />
         <p className="text-sm text-[var(--text-muted,#6B6155)]">
-          Paid plans are charged in <strong className="font-medium text-[var(--text,#3A342D)]">INR via Razorpay</strong>.
-          USD amounts are for reference only — same story as{' '}
+          {recurring ? (
+            <>
+              Paid plans are <strong className="font-medium text-[var(--text,#3A342D)]">monthly subscriptions via Razorpay</strong>:
+              they renew automatically until you cancel, and you keep access until the end of the period you paid for. See{' '}
+            </>
+          ) : (
+            <>
+              Paid plans are charged in <strong className="font-medium text-[var(--text,#3A342D)]">INR via Razorpay</strong>.
+              USD amounts are for reference only — same story as{' '}
+            </>
+          )}
           <Link href="/#pricing" className="underline underline-offset-2 hover:text-[#C45A42]">
             marketing pricing
           </Link>
@@ -326,7 +336,7 @@ export default function BillingPage() {
           <Link href="/#pricing" className="underline underline-offset-2 hover:text-[#C45A42]">
             pricing section
           </Link>
-          . You will confirm the charge in-app before Razorpay opens.
+          . You will confirm the charge in-app before Razorpay opens{recurring ? ', and you can cancel any time' : ''}.
         </p>
       </div>
 
@@ -344,6 +354,7 @@ export default function BillingPage() {
               </h2>
               <p className="text-sm text-[var(--text-muted,#6B6155)]">
                 Confirm details before opening Razorpay. Nothing is charged until you finish in the Razorpay window.
+                {recurring ? ' This renews monthly until you cancel.' : ''}
               </p>
             </div>
             <dl className="space-y-2 text-sm">

@@ -71,13 +71,19 @@ export type CheckoutSession = {
   amount_usd?: number;
   currency?: string;
   country?: string | null;
-  order_id: string;
+  /** One-time checkout (used until a subscription plan is configured for the tier). */
+  order_id?: string | null;
+  /** Recurring checkout: Razorpay Subscriptions. */
+  subscription_id?: string;
+  kind?: 'subscription';
+  period?: string | null;
   key_id?: string;
 };
 
 type RazorpaySuccess = {
   razorpay_payment_id: string;
-  razorpay_order_id: string;
+  razorpay_order_id?: string;
+  razorpay_subscription_id?: string;
   razorpay_signature: string;
 };
 
@@ -95,8 +101,8 @@ declare global {
 export type BillingQuote = {
   country?: string | null;
   plans: {
-    premium: { amount: number; amount_usd: number; currency: string; amount_display: string };
-    premium_plus: { amount: number; amount_usd: number; currency: string; amount_display: string };
+    premium: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean };
+    premium_plus: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean };
   };
 };
 
@@ -178,17 +184,19 @@ export async function openRazorpayCheckout(session: CheckoutSession): Promise<'p
   await loadRazorpayScript();
   const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || session.key_id;
   if (!key) throw new Error('Razorpay is not configured');
-  if (!session.order_id) throw new Error('Missing Razorpay order');
+  if (!session.order_id && !session.subscription_id) throw new Error('Missing Razorpay order');
   if (!window.Razorpay) throw new Error('Razorpay checkout failed to load');
   const Razorpay = window.Razorpay;
+  // A subscription checkout is identified by subscription_id alone (the plan fixes amount and currency).
+  const target = session.subscription_id
+    ? { subscription_id: session.subscription_id }
+    : { order_id: session.order_id, amount: session.amount_paise, currency: session.currency || 'INR' };
   return new Promise((resolve, reject) => {
     const checkout = new Razorpay({
       key,
-      order_id: session.order_id,
-      amount: session.amount_paise,
-      currency: session.currency || 'INR',
+      ...target,
       name: 'AnalyzeIt',
-      description: session.plan,
+      description: session.subscription_id ? `${session.plan} (renews monthly)` : session.plan,
       handler: async (response: RazorpaySuccess) => {
         try {
           await verifyRazorpayPayment(response);

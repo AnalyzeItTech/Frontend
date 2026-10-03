@@ -82,6 +82,24 @@ function ProfileInner() {
     ? { ...entitlements, tier: String(entitlements.tier || tier) }
     : null;
   const monthUsage = profileMonthUsage(parseLlmQuota(quotaSnap), tier);
+
+  const periodEndRaw = entitlements?.current_period_end;
+  const periodEnd = typeof periodEndRaw === 'string' ? new Date(periodEndRaw) : null;
+  const periodEndLabel = periodEnd && !Number.isNaN(periodEnd.getTime()) ? periodEnd.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : null;
+  const subStatus = String(entitlements?.subscription_status ?? '');
+  const alreadyCancelled = subStatus === 'canceled';
+  const renewal =
+    subStatus === 'past_due'
+      ? 'Your last payment failed. Please update your payment method to keep your plan.'
+      : alreadyCancelled
+        ? periodEndLabel
+          ? `Cancelled. You keep your plan until ${periodEndLabel}.`
+          : 'Cancelled.'
+        : entitlements?.auto_renew && periodEndLabel
+          ? `Renews automatically on ${periodEndLabel}.`
+          : periodEndLabel
+            ? `Plan active until ${periodEndLabel}.`
+            : null;
   const tierName = profileTierName(tier);
   const initials = profileInitials(user?.name, user?.email);
   const usageHeading = monthUsage.periodLabel
@@ -255,6 +273,12 @@ function ProfileInner() {
 
               <RetentionMeter />
 
+              {isPaidPlan(tier) && renewal ? (
+                <p className="text-xs text-[var(--text-muted)]" data-testid="renewal-note">
+                  {renewal}
+                </p>
+              ) : null}
+
               <div className="flex flex-wrap gap-3">
                 {monthUsage.showUpgrade ? (
                   <Link href="/billing" className="btn-primary text-xs">
@@ -265,7 +289,7 @@ function ProfileInner() {
                     View plans
                   </Link>
                 ) : null}
-                {isPaidPlan(tier) ? (
+                {isPaidPlan(tier) && !alreadyCancelled ? (
                     <button
                       type="button"
                       disabled={busy}
