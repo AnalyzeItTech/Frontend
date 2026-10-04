@@ -65,6 +65,7 @@ export interface DataSourceBinding {
     | 'custom_api'
     | 'sql_query'
     | 'object_records'
+    | 'object_aggregate'
     | 'globe_layers';
   params: Record<string, unknown>;
   refresh_interval_sec?: number;

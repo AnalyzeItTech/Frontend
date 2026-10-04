@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppShell } from '../Components/app/AppShell';
 import { PageTitle } from '../Components/app/PageTitle';
 import Link from 'next/link';
@@ -34,6 +34,7 @@ import {
 } from '@tabler/icons-react';
 import {
   getProjectLayout,
+  refreshWidgetData,
   getProjects,
   getProjectById,
   createProject,
@@ -46,6 +47,7 @@ import {
   type WidgetSpec,
   type ProjectSummary,
 } from '../lib/chatApi';
+import { staleLiveWidgets } from '../lib/refreshOnOpen.mjs';
 import {
   canonicalAppOrigin,
   classifySlugFailure,
@@ -94,6 +96,8 @@ export default function DashboardPage() {
 
   // ─── Active Scoped Project & Generative Canvas State ─────────────────────────
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const activeProjectIdRef = useRef<string | null>(null);
+  activeProjectIdRef.current = activeProjectId;
   const [kitRefresh, setKitRefresh] = useState(0);
   const [activeProjectName, setActiveProjectName] = useState<string>('Workspace Canvas');
   const [layoutVersion, setLayoutVersion] = useState<number>(1);
@@ -261,6 +265,7 @@ export default function DashboardPage() {
               setCurrentLayout(layoutData.layout_json);
               setLayoutVersion(layoutData.version);
               setUpdatedBy(layoutData.updated_by || 'system');
+              void refreshLiveWidgetsOnOpen(target.id, layoutData.layout_json.widgets as WidgetSpec[]);
             } else {
               setCurrentLayout({ widgets: [] });
             }
@@ -291,6 +296,31 @@ export default function DashboardPage() {
   }, [loadKey]);
 
   // ─── Switch Active Project ──────────────────────────────────────────────────
+  // Opening a dashboard re-reads live object widgets (zero model tokens). Sequential: each refresh rewrites the layout.
+  const refreshLiveWidgetsOnOpen = async (projectId: string, widgets: WidgetSpec[]) => {
+    const ids = staleLiveWidgets(widgets, Date.now());
+    if (!ids.length) return;
+    let changed = false;
+    for (const id of ids) {
+      try {
+        const res = await refreshWidgetData(projectId, id);
+        if (res.ok) changed = true;
+      } catch {
+        // keep the widget's last data
+      }
+    }
+    if (!changed) return;
+    try {
+      const fresh = await getProjectLayout(projectId);
+      if (fresh?.layout_json?.widgets && activeProjectIdRef.current === projectId) {
+        setCurrentLayout(fresh.layout_json);
+        setLayoutVersion(fresh.version);
+      }
+    } catch {
+      // layout stays as loaded
+    }
+  };
+
   const handleSelectProject = async (proj: ProjectSummary) => {
     setActiveProjectId(proj.id);
     setActiveProjectName(proj.name);
@@ -301,6 +331,7 @@ export default function DashboardPage() {
         setCurrentLayout(layoutData.layout_json);
         setLayoutVersion(layoutData.version);
         setUpdatedBy(layoutData.updated_by || 'user');
+        void refreshLiveWidgetsOnOpen(proj.id, layoutData.layout_json.widgets as WidgetSpec[]);
       } else {
         setCurrentLayout({ widgets: [] });
         setLayoutVersion(layoutData?.version || 1);
