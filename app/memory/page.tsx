@@ -70,15 +70,14 @@ export default function MemoryPage() {
     }
   };
 
-  const pct = warn.stored ?? warn.hot;
+  const pct = warn.stored;
 
   return (
     <AppShell active="profile">
       <div className="mx-auto max-w-3xl space-y-6">
         <PageTitle title="Memory" />
         <p className="text-sm text-[var(--text-muted)]">
-          Stored is everything we keep. Searchable is the part used for instant recall. Older items move out of
-          searchable automatically and are never deleted without you.
+          Everything you add is kept and used when you ask. Nothing is deleted without you.
         </p>
         <RetentionMeter key={meterKey} />
         {pct ? (
@@ -125,8 +124,7 @@ export default function MemoryPage() {
                     {r.kind ?? 'source'} · {r.tokens.toLocaleString()} tokens
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">
-                    {r.tier_state ?? 'cold'}
-                    {r.created_at ? ` · ${new Date(r.created_at).toLocaleDateString()}` : ''}
+                    {r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}
                     {r.pinned ? ' · pinned' : ''}
                   </p>
                 </div>

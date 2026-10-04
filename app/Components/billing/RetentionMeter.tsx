@@ -31,22 +31,16 @@ export function RetentionMeter() {
 
   if (!usage) return null;
   const storedCap = usage.caps.retention_total_tokens || 1;
-  const hotCap = usage.caps.retention_hot_tokens || 1;
   const storedPct = Math.min(100, Math.round((usage.total_tokens / storedCap) * 100));
-  const hotPct = Math.min(100, Math.round((usage.hot_tokens / hotCap) * 100));
 
   return (
     <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)]/70 px-4 py-3">
       <p className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">Memory</p>
       <p className="mt-1 text-sm text-[var(--text-primary)]">
-        Stored {compact(usage.total_tokens)} / {compact(storedCap)}
-        <span className="text-[var(--text-muted)]"> · searchable {compact(usage.hot_tokens)} / {compact(hotCap)}</span>
+        {compact(usage.total_tokens)} / {compact(storedCap)} used
       </p>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--surface)]" role="progressbar" aria-valuenow={storedPct} aria-valuemin={0} aria-valuemax={100} aria-label="Stored memory">
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--surface)]" role="progressbar" aria-valuenow={storedPct} aria-valuemin={0} aria-valuemax={100} aria-label="Memory used">
         <div className="h-full rounded-full bg-[#8FA98F]" style={{ width: `${storedPct}%` }} />
-      </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--surface)]" aria-hidden="true">
-        <div className="h-full rounded-full bg-[#6E8CA0]" style={{ width: `${hotPct}%` }} />
       </div>
       <a href="/memory" className="mt-2 inline-block text-xs underline underline-offset-2">Manage memory</a>
       {!usage.writes_allowed ? (
