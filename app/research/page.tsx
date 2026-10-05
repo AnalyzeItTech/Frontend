@@ -19,7 +19,7 @@ import {
   IconCheck,
   IconPlayerStop,
 } from '@tabler/icons-react';
-import { getStoredToken, getStoredUser } from '../lib/auth';
+import { getAuthHeaders, getStoredToken, getStoredUser } from '../lib/auth';
 import { claimAdExtend, getEntitlements, getModels, startAdExtendChallenge } from '../lib/billingApi';
 import { formatLlmRunsLeft, isLlmMonthlyQuotaError, parseLlmQuota, type LlmQuota } from '../lib/llmQuota';
 import {
@@ -703,15 +703,20 @@ function ChatInner() {
       const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const res = await fetch(`${base}/v1/shares`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'AnalyzeIt result', text, run_id: shareRunId || '' }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ title: 'AnalyzeIt result', text, run_id: shareRunId || '', expires_in_days: 30 }),
       });
+      if (res.status === 409) {
+        const body = (await res.json().catch(() => ({}))) as { detail?: { message?: string } };
+        setError(body.detail?.message || 'This answer cannot be shared.');
+        return;
+      }
       if (!res.ok) throw new Error('share failed');
       const data = (await res.json()) as { path?: string };
       const url = `${window.location.origin}${data.path || ''}`;
       await navigator.clipboard.writeText(url);
       setError(null);
-      setDashStatus('Share link copied.');
+      setDashStatus('Report link copied. It works for 30 days; you can turn it off from Profile.');
     } catch {
       setError('Could not create a share link.');
     }
