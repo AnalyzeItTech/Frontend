@@ -6,6 +6,10 @@ const API_V1 = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/v1
 export type MemorySource = {
   id: string;
   kind: string | null;
+  /** The file or connector name, when the source has one. */
+  title?: string | null;
+  /** "Uploaded file", "Connected data", "Past conversation"… */
+  kind_label?: string | null;
   project_id: string | null;
   tokens: number;
   tier_state: string | null;

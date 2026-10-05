@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '../Components/app/AppShell';
 import { PageTitle } from '../Components/app/PageTitle';
 import { RetentionMeter } from '../Components/billing/RetentionMeter';
+import { describeSource } from '../lib/memorySourceRow.mjs';
 import { fetchEmbeddedSources, fetchEmbeddingJob, type EmbeddingJob } from '../lib/embeddingsApi';
 import {
   deleteMemorySource,
@@ -105,7 +106,7 @@ export default function MemoryPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Filter by source type"
+            placeholder="Search your sources"
             aria-label="Filter sources"
             className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm"
           />
@@ -117,16 +118,13 @@ export default function MemoryPage() {
           {rows.length === 0 ? (
             <li className="p-4 text-sm text-[var(--text-muted)]">No stored sources yet.</li>
           ) : (
-            rows.map((r) => (
+            rows.map((r) => {
+              const d = describeSource(r);
+              return (
               <li key={r.id} className="flex items-center justify-between gap-3 p-4 text-sm">
                 <div className="min-w-0">
-                  <p className="truncate text-[var(--text-primary)]">
-                    {r.kind ?? 'source'} · {r.tokens.toLocaleString()} tokens
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    {r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}
-                    {r.pinned ? ' · pinned' : ''}
-                  </p>
+                  <p className="truncate text-[var(--text-primary)]" title={d.heading}>{d.heading}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{d.detail}</p>
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <button type="button" className="btn-ghost text-xs" onClick={() => run(() => pinMemorySource(r.id, !r.pinned))}>
@@ -136,7 +134,7 @@ export default function MemoryPage() {
                     type="button"
                     className="btn-ghost text-xs text-[#9B4D3B]"
                     onClick={() => {
-                      if (window.confirm('Delete this source and its vectors? Tokens are refunded.')) {
+                      if (window.confirm(`Delete "${d.heading}"? It is removed from your memory and from any chat answer that cited it. Its tokens are refunded.`)) {
                         void run(() => deleteMemorySource(r.id));
                       }
                     }}
@@ -145,7 +143,8 @@ export default function MemoryPage() {
                   </button>
                 </div>
               </li>
-            ))
+              );
+            })
           )}
         </ul>
       </div>
