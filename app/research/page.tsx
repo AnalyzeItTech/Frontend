@@ -56,6 +56,7 @@ import { SessionStartAd } from '../Components/ads/SessionStartAd';
 import { ChartCard, type ChartSpec } from '../Components/research/ChartCard';
 import { SuggestionChips } from '../Components/research/SuggestionChips';
 import { parseExtras } from '../lib/chatExtras.mjs';
+import { memoryToolStatus, queueStatus } from '../lib/runStatus.mjs';
 import { globeLinkForPlaces } from '../Components/globe/scene.mjs';
 import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
 import {
@@ -973,6 +974,12 @@ function ChatInner() {
               return;
             }
 
+            if (event.event === 'queued') {
+              const waiting = queueStatus(event.payload);
+              setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, status: waiting } : m)));
+              return;
+            }
+
             if (event.event === 'thinking') {
               const text = typeof event.payload?.text === 'string' ? event.payload.text : '';
               if (text) {
@@ -1009,10 +1016,11 @@ function ChatInner() {
                     name: hint || undefined,
                   });
                 }
+                const memoryStatus = memoryToolStatus(name, args);
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
-                      ? { ...m, status: hint ? `Looking up ${hint}…` : `Calling ${name}…` }
+                      ? { ...m, status: memoryStatus ?? (hint ? `Looking up ${hint}…` : `Calling ${name}…`) }
                       : m,
                   ),
                 );
