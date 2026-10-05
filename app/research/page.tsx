@@ -9,7 +9,6 @@ import {
   IconCopy,
   IconFile,
   IconLayoutDashboard,
-  IconMessageDots,
   IconPlus,
   IconSearch,
   IconSend,
@@ -82,6 +81,8 @@ import {
   uploadChatAttachment,
   type ChatAttachment,
 } from '../lib/attachmentsApi';
+import { ComposerModeControl } from '../Components/research/ComposerModeControl';
+import { ResearchEmptyState } from '../Components/research/ResearchEmptyState';
 import { SourceChips, type ResearchSource } from '../Components/research/SourceChips';
 import { AppShell } from '../Components/app/AppShell';
 import { ChatMiniGlobe } from '../Components/globe/ChatMiniGlobe';
@@ -339,8 +340,6 @@ function ChatInner() {
   const router = useRouter();
   const { isIncognito } = useTheme();
   const { beginChatRun, ingestChatRun } = useGlobe();
-  const user = getStoredUser();
-  const firstName = user?.name?.split(' ')[0] || 'there';
 
   const [composerMode, setComposerMode] = useState<ComposerMode>('chat');
   const [modelSizeMax, setModelSizeMax] = useState<ModelSize>('small');
@@ -1653,33 +1652,7 @@ function ChatInner() {
               {/* User stays on the trailing edge; the reply sits on the opposite side of the globe. */}
               <div className="flex w-full flex-col gap-4">
               {messages.length === 0 && (
-                <div className="flex min-h-[min(28rem,70%)] flex-col justify-center py-6 sm:py-10">
-                  <div className="app-card space-y-5 bg-[var(--surface)]/92 p-6 shadow-lg backdrop-blur-md sm:p-8">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-card,14px)] bg-[var(--coral,#EA8069)]/12 text-[var(--coral,#EA8069)]">
-                      <IconMessageDots size={22} />
-                    </div>
-                    <div className="space-y-2">
-                      <h1 className="font-serif text-[28px] leading-[1.15] tracking-tight text-[var(--text,#3A342D)] dark:text-[var(--text-primary)]">
-                        Ask what your data already knows
-                      </h1>
-                      <p className="text-sm leading-relaxed text-[var(--text-muted,#81786F)]">
-                        Hi {firstName}. Chat for a quiet read of the numbers. Switch to Research when you need live sources.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      {prompts.map((prompt) => (
-                        <button
-                          key={prompt}
-                          type="button"
-                          onClick={() => void sendMessage(prompt)}
-                          className="rounded-full border border-[var(--coral,#EA8069)]/35 bg-[var(--coral,#EA8069)]/10 px-3.5 py-2 text-left text-xs font-medium text-[var(--coral-dark,#C96551)] transition-colors hover:bg-[var(--coral,#EA8069)]/18"
-                        >
-                          {prompt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <ResearchEmptyState prompts={prompts} onPick={(prompt) => void sendMessage(prompt)} />
               )}
 
               {messages.map((msg, msgIndex) => {
@@ -2060,50 +2033,8 @@ function ChatInner() {
             {/* Composer — pinned to the bottom of the chat column */}
             <div className="relative z-10 shrink-0 border-t border-[var(--border)]/70 bg-[var(--bg)]/70 px-3 py-3 backdrop-blur-md sm:px-6">
               <div className="mx-auto max-w-3xl space-y-2">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div
-                    role="tablist"
-                    aria-label="Conversation mode"
-                    className="inline-flex min-h-8 items-center rounded-full border border-[var(--border)] bg-[var(--surface,#FFFCF8)] p-0.5 shadow-sm"
-                  >
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={composerMode === 'chat'}
-                      onClick={() => setComposerMode('chat')}
-                      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium transition-colors ${
-                        composerMode === 'chat'
-                          ? 'bg-[var(--coral,#EA8069)] text-white'
-                          : 'text-[var(--text-muted,#81786F)] hover:text-[var(--text,#3A342D)]'
-                      }`}
-                    >
-                      <IconMessageDots size={14} />
-                      Chat
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={composerMode === 'research'}
-                      onClick={() => setComposerMode('research')}
-                      title="Research uses live web and geo tools"
-                      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium transition-colors ${
-                        composerMode === 'research'
-                          ? 'bg-[var(--coral,#EA8069)] text-white'
-                          : 'text-[var(--text-muted,#81786F)] hover:text-[var(--text,#3A342D)]'
-                      }`}
-                    >
-                      <IconSearch size={14} />
-                      Research
-                    </button>
-                    <Link
-                      href="/globe"
-                      role="tab"
-                      className="inline-flex min-h-8 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium text-[var(--text-muted,#81786F)] hover:text-[var(--text,#3A342D)]"
-                    >
-                      <IconWorld size={14} />
-                      Globe
-                    </Link>
-                  </div>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <ComposerModeControl mode={composerMode} onMode={setComposerMode} />
                   <span
                     title="Message frequency hints prepared in your browser before send"
                     className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface,#FFFCF8)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-muted,#81786F)]"
