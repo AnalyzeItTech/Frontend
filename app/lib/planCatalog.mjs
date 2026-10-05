@@ -21,7 +21,7 @@ export const PLAN_FEATURES = {
   premium: [
     'Everything in Free',
     'Better model · 10M tokens a month',
-    // Paid tiers: no AI-runs bullet. Do not invent Unlimited or a run count (Backend llm_runs_per_month is 0).
+    // Paid tiers: no AI-runs bullet. Do not invent a run count (Backend llm_runs_per_month is 0).
     '15 projects · 30 widgets · 3 running at once',
     memory(
       CONTEXT_RETENTION_TOKENS.premium,
@@ -33,7 +33,7 @@ export const PLAN_FEATURES = {
   premium_plus: [
     'Everything in Premium',
     'Large model · 50M tokens a month',
-    // Paid tiers: no AI-runs bullet. Do not invent Unlimited or a run count (Backend llm_runs_per_month is 0).
+    // Paid tiers: no AI-runs bullet. Do not invent a run count (Backend llm_runs_per_month is 0).
     '50 projects · 10 running at once',
     memory(
       CONTEXT_RETENTION_TOKENS.premium_plus,
