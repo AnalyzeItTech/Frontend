@@ -11,7 +11,7 @@ export default function CookiesPage() {
     <LegalLayout title="Cookie Policy" updated="September 11, 2026">
       <p>
         This policy describes cookies and similar technologies (local storage, session storage)
-        used on analyzeit.ai and the AnalyzeIt application.
+        used on analyzeit.in and the AnalyzeIt application.
       </p>
 
       <LegalSection title="1. Essential storage">
