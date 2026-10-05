@@ -1162,9 +1162,7 @@ function ChatInner() {
                     return {
                       ...m,
                       rlmSteps,
-                      status: `Recursive inspect · depth ${step.depth}${
-                        step.spanLabel ? ` · ${step.spanLabel}` : ''
-                      }…`,
+                      status: `Reading the document${step.spanLabel ? ` · ${step.spanLabel}` : ''}…`,
                     };
                   }),
                 );

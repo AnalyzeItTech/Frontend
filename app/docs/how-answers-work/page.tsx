@@ -35,6 +35,15 @@ export default function Page() {
         in that project’s AI data access settings, and you can turn that off at any time.
       </p>
 
+      <h2>Long documents</h2>
+      <p>
+        If you paste a long document and ask about it, Free keeps the most relevant excerpts and answers from those. On Premium and VIP,
+        AnalyzeIt reads the document one section at a time: a small model notes what each section says about your question, and the
+        answer is written from those notes. Premium reads about 150,000 characters this way and VIP about 300,000. If your document is
+        longer, the most relevant sections (plus the first and last) are read and the answer says that parts were not read. You can watch
+        each section being read as it happens.
+      </p>
+
       <h2>Sources and citations</h2>
       <p>
         Answers from live tools and the web list their sources. Answers built from your stored notes and files show a{' '}

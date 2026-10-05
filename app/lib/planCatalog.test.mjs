@@ -48,3 +48,12 @@ describe('priceLabel and priceNote', () => {
     assert.equal(priceNote({ currency: 'INR', amount: 1815 }, 19), 'INR per month via Razorpay · $19 USD reference');
   });
 });
+
+describe('deep read is described the way it works', () => {
+  it('Premium and VIP read long pasted documents, with the real sizes; Free does not claim it', () => {
+    assert.ok(PLAN_FEATURES.premium.some((f) => f.includes('section by section') && f.includes('150,000')));
+    assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.includes('section by section') && f.includes('300,000')));
+    assert.ok(!PLAN_FEATURES.free.some((f) => /section|deep/i.test(f)));
+    assert.ok(!JSON.stringify(PLAN_FEATURES).match(/recursive|RLM|orchestrated/i));
+  });
+});

@@ -5,6 +5,7 @@ export const CHANGELOG = [
   {
     date: '2026-10-05',
     items: [
+      { title: 'Long documents are read section by section', body: 'On Premium and VIP, a long pasted document is read one section at a time instead of being cut to a few excerpts, and the answer says how much was read. Premium reads about 150,000 characters, VIP about 300,000. You can watch each section being read.' },
       { title: 'Try it without signing up', body: 'A public demo answers weather, currency, stock and math questions with no account. Tool answers are labelled “From tools · 0 tokens” and show their source.' },
       { title: 'Plans described once', body: 'The home page, Products and Billing now read plan features and prices from one place. Prices in rupees are whole rupees, and the top plan is called VIP everywhere.' },
       { title: 'Plain service-down message', body: 'When AnalyzeIt cannot be reached, the message now says what happened (the service may be waking up) instead of blaming demand.' },
