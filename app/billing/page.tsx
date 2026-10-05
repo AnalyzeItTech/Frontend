@@ -17,7 +17,7 @@ import {
   type BillingQuote,
   type CheckoutSession,
 } from '../lib/billingApi';
-import { CONTEXT_RETENTION_TOKENS, formatContextRetention } from '../lib/contextWall.mjs';
+import { PLAN_FEATURES, PLAN_NAMES, USD_REFERENCE } from '../lib/planCatalog.mjs';
 import { RetentionMeter } from '../Components/billing/RetentionMeter';
 
 type PlanId = 'premium' | 'premium_plus';
@@ -26,32 +26,8 @@ const PLAN_COPY: Record<
   PlanId,
   { name: string; usdList: number; cadence: string; perks: string[] }
 > = {
-  premium: {
-    name: 'Premium',
-    usdList: 19,
-    cadence: 'Billed monthly',
-    perks: [
-      'Better model + 3× daily tokens',
-      '15 projects · 30 widgets',
-      '10M tokens/month usage',
-      `${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium)} context retention (memory)`,
-      'Ad-free · personal dashboard link',
-      '30-day artifact retention',
-    ],
-  },
-  premium_plus: {
-    name: 'VIP',
-    usdList: 49,
-    cadence: 'Billed monthly',
-    perks: [
-      'Large model + 6× daily tokens',
-      '10 concurrent projects · 90-day artifacts',
-      '50M tokens/month usage',
-      `${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium_plus)} context retention (memory) · account-wide memory`,
-      'Ad-free · personal dashboard link',
-      'Priority queue when the agent is busy',
-    ],
-  },
+  premium: { name: PLAN_NAMES.premium, usdList: USD_REFERENCE.premium, cadence: 'Billed monthly', perks: PLAN_FEATURES.premium.slice(1) },
+  premium_plus: { name: PLAN_NAMES.premium_plus, usdList: USD_REFERENCE.premium_plus, cadence: 'Billed monthly', perks: PLAN_FEATURES.premium_plus.slice(1) },
 };
 
 /** Razorpay charges INR; USD is reference only (matches marketing /#pricing). */

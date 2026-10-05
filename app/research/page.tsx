@@ -2275,7 +2275,7 @@ function ChatInner() {
                         ? 'Free plan: Small only — upgrade for Medium/Large'
                         : modelSizeMax === 'medium'
                           ? 'Premium: Small or Medium'
-                          : 'Premium+: Small, Medium, or Large'
+                          : 'VIP: Small, Medium, or Large'
                     }
                     className="h-10 max-w-[11rem] shrink-0 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-3 text-xs font-medium text-[var(--text-secondary)] outline-none hover:bg-[var(--surface)] disabled:opacity-50"
                   >

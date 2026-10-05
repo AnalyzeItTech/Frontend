@@ -6,9 +6,13 @@ const API_V1 = `${API_BASE}/v1`;
 
 export const AUTH_REQUEST_TIMEOUT_MS = 15000;
 
+/** Said when the service cannot be reached. It describes what happened (the service may be starting up), not an invented cause. */
+export const SERVICE_UNAVAILABLE_MESSAGE =
+  'We could not reach AnalyzeIt just now. The service may still be waking up: please try again in a few seconds.';
+
 /** Backend unreachable, suspended, or returned a non-JSON page (e.g. Render 503 HTML). */
 export class ApiUnavailableError extends Error {
-  constructor(message = 'We are seeing a large number of people right now because of high demand. Please try again in a little while.') {
+  constructor(message = SERVICE_UNAVAILABLE_MESSAGE) {
     super(message);
     this.name = 'ApiUnavailableError';
   }

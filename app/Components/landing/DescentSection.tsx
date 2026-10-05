@@ -23,17 +23,17 @@ const HIGHLIGHTS: IslandHighlight[] = [
     name: 'Reports Engine',
     category: 'Executive digest',
     tagline:
-      'Automated weekly narratives delivered where you already work, without the spreadsheet scramble.',
+      'Weekly narratives written for you, without the spreadsheet scramble. Delivery outside the app is rolling out.',
     align: 'left',
     detail: {
       category: 'REPORTS ENGINE',
       title: 'Automated Executive Narratives',
-      subtitle: 'Living summaries delivered to Slack, Notion & Email',
+      subtitle: 'Living summaries you can read in the app. Email, Slack and Notion delivery are rolling out.',
       narrative:
         'Replaces tedious spreadsheet assembly with continuous metric tracing that surfaces core business variance in plain sentences.',
       metrics: [
         { label: 'Format', value: 'Narrative Digest' },
-        { label: 'Delivery', value: 'Slack & Email' },
+        { label: 'Delivery', value: 'In app · email rolling out' },
       ],
       steps: [
         'Connects to data warehouses and billing streams in read-only mode',
@@ -43,7 +43,7 @@ const HIGHLIGHTS: IslandHighlight[] = [
     },
     specs: [
       { label: 'Provenance', value: 'Cited metrics' },
-      { label: 'Delivery', value: 'Slack & Email' },
+      { label: 'Delivery', value: 'In app · email rolling out' },
     ],
   },
   {

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { loaderExpired, loaderProgress, loaderStatus, skipVisible } from '../../lib/loaderProgress.mjs';
 
 interface LoadingScreenProps {
   onComplete: () => void;
@@ -8,50 +9,46 @@ interface LoadingScreenProps {
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
   const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState('INITIALIZING SCENE');
+  const [elapsed, setElapsed] = useState(0);
   const [isHiding, setIsHiding] = useState(false);
+  const doneRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      onComplete();
-      return;
-    }
-    // Dynamic smooth progress progression with stabilization
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        let inc = Math.random() * 3.5 + 1.5;
-        if (prev > 65) inc = Math.random() * 2.2 + 0.8;
-        if (prev > 88) inc = Math.random() * 1.2 + 0.4;
-        const next = Math.min(prev + inc, 100);
-
-        if (next < 30) setStatus('CALIBRATING ATMOSPHERE');
-        else if (next < 60) setStatus('PREPARING ISLANDS');
-        else if (next < 90) setStatus('CONNECTING DATA FLOWS');
-        else setStatus('EXPERIENCE READY');
-
-        return next;
-      });
-    }, 35);
-
-    return () => clearInterval(interval);
+  const finish = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    setIsHiding(true);
+    window.setTimeout(() => onCompleteRef.current(), 400);
   }, []);
 
   useEffect(() => {
-    if (progress === 100) {
-      // 700ms stabilization buffer before smooth fade-out
-      const timer = setTimeout(() => {
-        setIsHiding(true);
-        setTimeout(() => {
-          onComplete();
-        }, 600);
-      }, 600);
-      return () => clearTimeout(timer);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      doneRef.current = true;
+      onCompleteRef.current();
+      return;
     }
-  }, [progress, onComplete]);
+    // Progress is a function of elapsed time, not of how many ticks ran: a heavy scene can block timers for seconds,
+    // and a tick counter would sit at 0% until it ended. The loader also expires on its own and can be skipped.
+    const started = Date.now();
+    const tick = () => {
+      const ms = Date.now() - started;
+      setElapsed(ms);
+      setProgress(loaderProgress(ms));
+      if (loaderExpired(ms) || loaderProgress(ms) >= 100) finish();
+    };
+    const interval = window.setInterval(tick, 50);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') finish();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [finish]);
+
+  const status = loaderStatus(progress);
 
   // Radius = 100, circumference = 2 * PI * 100 = 628.3
   const radius = 100;
@@ -108,6 +105,15 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
         <div className="text-[11px] font-mono tracking-widest text-[#4A4238]/50 dark:text-[#91867E] uppercase">
           AnalyzeIt · Analytics, made calm
         </div>
+        {skipVisible(elapsed) ? (
+          <button
+            type="button"
+            onClick={finish}
+            className="mt-3 rounded-full border border-[#4A4238]/20 px-4 py-1.5 text-xs font-mono uppercase tracking-widest text-[#4A4238]/70 hover:border-[#E3836C] hover:text-[#C45A42] dark:text-[#C5B9AE]"
+          >
+            Skip intro
+          </button>
+        ) : null}
       </div>
     </div>
   );

@@ -72,9 +72,9 @@ const CAPABILITIES: Capability[] = [
     category: 'Capability 05 · Deep context',
     headline: 'Deep analysis over large corpora — orchestrated, not stuffed.',
     body:
-      'Free stays focused; Premium compresses; Premium+ runs recursive inspect over an external store (RLM-style) with frequency encoding — not “we paste a billion tokens into one API call.”',
+      'Free stays focused; Premium compresses long inputs; VIP reads long documents step by step from a stored copy instead of pasting everything into one model call.',
     callout: 'Deep · orchestrated',
-    calloutDesc: 'budget / mode chips as stream events land',
+    calloutDesc: 'shows how much it read as it works',
     bullets: [
       'Tiered modes: focused, compressed, and deep recursive inspect',
       'Client “Prepared on device” hints before the request leaves the browser',

@@ -29,9 +29,9 @@ export const metadata: Metadata = {
     "AnalyzeIt",
     "analyzeit.in",
     "analytics workspace",
-    "business intelligence",
     "data chat",
-    "3D metrics",
+    "ask your data",
+    "live data tools",
   ],
   authors: [{ name: SITE_NAME, url: SITE_URL }],
   alternates: {
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: `${SITE_NAME} — ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
   },
