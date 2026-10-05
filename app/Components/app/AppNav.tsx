@@ -31,6 +31,7 @@ export type AppNavId =
   | 'dashboard'
   | 'connectors'
   | 'objects'
+  | 'memory'
   | 'billing'
   | 'profile'
   | 'project';
