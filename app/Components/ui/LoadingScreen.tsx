@@ -1,70 +1,117 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { loaderExpired, loaderProgress, loaderStatus, skipVisible } from '../../lib/loaderProgress.mjs';
+import {
+  LOADER_MAX_MS,
+  LOADER_STALL_MS,
+  loaderShouldDismiss,
+  loaderStatus,
+  skipVisible,
+} from '../../lib/loaderProgress.mjs';
 
 interface LoadingScreenProps {
   onComplete: () => void;
+  /** Last scene progress event. Null means the scene has not reported yet. */
+  progress?: number | null;
+  sceneReady?: boolean;
+  staticFallback?: boolean;
 }
 
-export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
-  const [progress, setProgress] = useState(0);
+export const LoadingScreen: React.FC<LoadingScreenProps> = ({
+  onComplete,
+  progress = null,
+  sceneReady = false,
+  staticFallback = false,
+}) => {
   const [elapsed, setElapsed] = useState(0);
-  const [isHiding, setIsHiding] = useState(false);
   const doneRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
+  const progressRef = useRef(progress);
+  const positiveRef = useRef(false);
 
-  const finish = useCallback(() => {
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+    progressRef.current = progress;
+    if (progress != null && progress > 0) positiveRef.current = true;
+  }, [onComplete, progress]);
+
+  const finish = useCallback((reason: string) => {
     if (doneRef.current) return;
     doneRef.current = true;
-    setIsHiding(true);
-    window.setTimeout(() => onCompleteRef.current(), 400);
+    if (typeof window !== 'undefined') {
+      window.__ANALYZIT_SCENE_SKIP__ = window.__ANALYZIT_SCENE_SKIP__ || reason;
+      document.documentElement.classList.add('scene-skipped');
+    }
+    onCompleteRef.current();
   }, []);
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      doneRef.current = true;
-      onCompleteRef.current();
+    if (sceneReady) finish('ready');
+    else if (staticFallback) finish('fallback');
+  }, [sceneReady, staticFallback, finish]);
+
+  useEffect(() => {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (
+      loaderShouldDismiss({
+        elapsedMs: 0,
+        progress: progressRef.current,
+        reducedMotion: reduced,
+        sceneReady: false,
+        positiveProgressSeen: positiveRef.current,
+      })
+    ) {
+      finish(reduced ? 'reduced-motion' : 'stall');
       return;
     }
-    // Progress is a function of elapsed time, not of how many ticks ran: a heavy scene can block timers for seconds,
-    // and a tick counter would sit at 0% until it ended. The loader also expires on its own and can be skipped.
+
     const started = Date.now();
     const tick = () => {
       const ms = Date.now() - started;
       setElapsed(ms);
-      setProgress(loaderProgress(ms));
-      if (loaderExpired(ms) || loaderProgress(ms) >= 100) finish();
+      const value = progressRef.current;
+      if (
+        loaderShouldDismiss({
+          elapsedMs: ms,
+          progress: value,
+          reducedMotion: false,
+          sceneReady: false,
+          positiveProgressSeen: positiveRef.current || (value != null && value > 0),
+        })
+      ) {
+        finish(ms >= LOADER_MAX_MS ? 'cap' : 'stall');
+      }
     };
-    const interval = window.setInterval(tick, 50);
+
+    const interval = window.setInterval(tick, 100);
+    const stallTimer = window.setTimeout(tick, LOADER_STALL_MS);
+    const capTimer = window.setTimeout(tick, LOADER_MAX_MS);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') finish();
+      if (e.key === 'Escape') finish('skip');
     };
     window.addEventListener('keydown', onKey);
     return () => {
       window.clearInterval(interval);
+      window.clearTimeout(stallTimer);
+      window.clearTimeout(capTimer);
       window.removeEventListener('keydown', onKey);
     };
   }, [finish]);
 
-  const status = loaderStatus(progress);
+  const shown = progress == null ? 0 : progress;
+  const status = loaderStatus(shown);
 
-  // Radius = 100, circumference = 2 * PI * 100 = 628.3
   const radius = 100;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
+  const strokeDashoffset = circumference - (shown / 100) * circumference;
 
   return (
     <div
       id="v3d-loader"
-      className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#F3EDE4] dark:bg-[#171514] transition-opacity duration-600 ${
-        isHiding ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
-      }`}
+      className="pointer-events-auto fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#F3EDE4] opacity-100 dark:bg-[#171514]"
     >
-      {/* SVG Circular Progress Ring + Centered 3D Rotating Logo */}
-      <div className="relative w-64 h-64 flex items-center justify-center mb-6">
-        <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 240 240">
+      <div className="relative mb-6 flex h-64 w-64 items-center justify-center">
+        <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 240 240">
           <circle
             cx="120"
             cy="120"
@@ -87,34 +134,38 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onComplete }) => {
           />
         </svg>
 
-        {/* 3D Rotating Geometric Logo Prism */}
-        <div className="relative w-20 h-20 flex items-center justify-center animate-v3d-rotate z-10">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#E3836C] via-[#E8C4A0] to-[#B8A9C9] shadow-lg shadow-[#E3836C]/30 transform rotate-45 animate-pulse" />
-          <div className="absolute w-7 h-7 rounded-lg bg-[#F3EDE4] dark:bg-[#211E1C] transform rotate-12" />
+        <div className="animate-v3d-rotate relative z-10 flex h-20 w-20 items-center justify-center">
+          <div className="h-14 w-14 rotate-45 animate-pulse rounded-2xl bg-gradient-to-tr from-[#E3836C] via-[#E8C4A0] to-[#B8A9C9] shadow-lg shadow-[#E3836C]/30" />
+          <div className="absolute h-7 w-7 rotate-12 rounded-lg bg-[#F3EDE4] dark:bg-[#211E1C]" />
         </div>
       </div>
 
-      {/* Status & Counter */}
-      <div className="text-center space-y-2">
-        <div className="text-xs font-mono tracking-[0.25em] uppercase text-[#E3836C] animate-v3d-pulse">
+      <div className="space-y-2 text-center">
+        <div className="animate-v3d-pulse font-mono text-xs tracking-[0.25em] text-[#E3836C] uppercase">
           {status}
         </div>
-        <div className="font-serif text-3xl md:text-4xl text-[#4A4238] dark:text-[#F4EDE5] font-normal tracking-tight">
-          {Math.floor(progress)}%
+        <div
+          id="scene-loader-progress"
+          data-progress={shown}
+          className="font-serif text-3xl font-normal tracking-tight text-[#4A4238] md:text-4xl dark:text-[#F4EDE5]"
+        >
+          {Math.floor(shown)}%
         </div>
-        <div className="text-[11px] font-mono tracking-widest text-[#4A4238]/50 dark:text-[#91867E] uppercase">
+        <div className="font-mono text-[11px] tracking-widest text-[#4A4238]/50 uppercase dark:text-[#91867E]">
           AnalyzeIt · Analytics, made calm
         </div>
-        {skipVisible(elapsed) ? (
-          <button
-            type="button"
-            onClick={finish}
-            className="mt-3 rounded-full border border-[#4A4238]/20 px-4 py-1.5 text-xs font-mono uppercase tracking-widest text-[#4A4238]/70 hover:border-[#E3836C] hover:text-[#C45A42] dark:text-[#C5B9AE]"
-          >
-            Skip intro
-          </button>
-        ) : null}
       </div>
+
+      {skipVisible(elapsed) ? (
+        <button
+          id="scene-skip"
+          type="button"
+          onClick={() => finish('skip')}
+          className="fixed right-5 bottom-5 z-[100000] inline-flex min-h-11 items-center rounded-full border border-[#4A4238]/20 bg-[#F3EDE4]/95 px-4 py-1.5 font-mono text-xs tracking-widest text-[#4A4238]/80 uppercase shadow-sm hover:border-[#E3836C] hover:text-[#C45A42] dark:bg-[#211E1C]/95 dark:text-[#C5B9AE]"
+        >
+          Skip
+        </button>
+      ) : null}
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import { LandingExperience } from './Components/landing/LandingExperience';
+import { loaderBootScript } from './lib/loaderProgress.mjs';
 import { HeroSection } from './Components/landing/HeroSection';
 import { DescentSection } from './Components/landing/DescentSection';
 import { CapabilitiesSection } from './Components/landing/CapabilitiesSection';
@@ -12,23 +13,26 @@ import { Footer } from './Components/landing/Footer';
 
 export default function Home() {
   return (
-    <LandingExperience>
-      <main className="relative z-10">
-        <HeroSection />
-        <DescentSection />
-        <div className="relative z-10 bg-[#F3EDE4] dark:bg-[#171514] text-[#4A4238] dark:text-[#F4EDE5] shadow-2xl transition-colors duration-500">
-          <CapabilitiesSection />
-          <HowItWorksSection />
-          <ComparisonSection />
-          <UseCasesSection />
-          <PricingTeaserSection />
-          <FAQSection />
-          <div className="relative bg-transparent">
-            <ClosingCTASection />
+    <>
+      <LandingExperience>
+        <main className="relative z-10">
+          <HeroSection />
+          <DescentSection />
+          <div className="relative z-10 bg-[#F3EDE4] dark:bg-[#171514] text-[#4A4238] dark:text-[#F4EDE5] shadow-2xl transition-colors duration-500">
+            <CapabilitiesSection />
+            <HowItWorksSection />
+            <ComparisonSection />
+            <UseCasesSection />
+            <PricingTeaserSection />
+            <FAQSection />
+            <div className="relative bg-transparent">
+              <ClosingCTASection />
+            </div>
+            <Footer />
           </div>
-          <Footer />
-        </div>
-      </main>
-    </LandingExperience>
+        </main>
+      </LandingExperience>
+      <script dangerouslySetInnerHTML={{ __html: loaderBootScript() }} />
+    </>
   );
 }

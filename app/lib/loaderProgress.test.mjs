@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
 import { describe, it } from 'node:test';
 
-import { LOADER_DURATION_MS, LOADER_MAX_MS, LOADER_SKIP_AFTER_MS, loaderExpired, loaderProgress, loaderStatus, skipVisible } from './loaderProgress.mjs';
+import {
+  LOADER_DURATION_MS,
+  LOADER_MAX_MS,
+  LOADER_SKIP_AFTER_MS,
+  LOADER_STALL_MS,
+  hashId,
+  loaderBootScript,
+  loaderExpired,
+  loaderProgress,
+  loaderShouldDismiss,
+  loaderStatus,
+  skipVisible,
+} from './loaderProgress.mjs';
 
 describe('loaderProgress', () => {
   it('starts at 0 and reaches exactly 100', () => {
@@ -40,5 +53,149 @@ describe('the loader can never trap a visitor', () => {
     assert.equal(loaderStatus(45), 'PREPARING ISLANDS');
     assert.equal(loaderStatus(75), 'CONNECTING DATA FLOWS');
     assert.equal(loaderStatus(100), 'EXPERIENCE READY');
+  });
+  it('shows Skip within a second of the loader appearing', () => {
+    assert.ok(LOADER_SKIP_AFTER_MS <= 1000);
+    assert.equal(skipVisible(0), true);
+    assert.equal(skipVisible(1000), true);
+  });
+});
+
+describe('loader fail-open timing', () => {
+  it('skips immediately when the visitor prefers reduced motion', () => {
+    assert.equal(loaderShouldDismiss({ elapsedMs: 0, progress: null, reducedMotion: true }), true);
+    assert.equal(loaderShouldDismiss({ elapsedMs: 0, progress: 0, reducedMotion: true }), true);
+  });
+
+  it('auto-skips when progress stays at 0% or never arrives for 3s', () => {
+    assert.equal(LOADER_STALL_MS, 3000);
+    for (const progress of [null, 0]) {
+      assert.equal(loaderShouldDismiss({ elapsedMs: 2999, progress }), false, String(progress));
+      assert.equal(loaderShouldDismiss({ elapsedMs: 3000, progress }), true, String(progress));
+    }
+  });
+
+  it('does not treat a moving scene as a stall, and still caps it at 8s', () => {
+    assert.equal(LOADER_MAX_MS, 8000);
+    assert.equal(loaderShouldDismiss({ elapsedMs: 3000, progress: 12 }), false);
+    assert.equal(loaderShouldDismiss({ elapsedMs: 7999, progress: 40, positiveProgressSeen: true }), false);
+    assert.equal(loaderShouldDismiss({ elapsedMs: 8000, progress: 40, positiveProgressSeen: true }), true);
+    assert.equal(loaderExpired(7999), false);
+    assert.equal(loaderExpired(8000), true);
+  });
+
+  it('dismisses as soon as the scene is actually ready', () => {
+    assert.equal(loaderShouldDismiss({ elapsedMs: 200, progress: 100, sceneReady: true }), true);
+  });
+
+  it('ignores junk clocks unless reduced motion or readiness already decided', () => {
+    assert.equal(loaderShouldDismiss({ elapsedMs: Number.NaN, progress: null }), false);
+    assert.equal(loaderShouldDismiss(null), false);
+  });
+});
+
+describe('hash targets after a skip', () => {
+  it('reads in-page ids and ignores empty hashes', () => {
+    assert.equal(hashId('#pricing'), 'pricing');
+    assert.equal(hashId('#how-it-works'), 'how-it-works');
+    assert.equal(hashId(''), '');
+    assert.equal(hashId('#'), '');
+    assert.equal(hashId('pricing'), '');
+  });
+});
+
+describe('loader boot script', () => {
+  function boot(options = {}) {
+    const timers = [];
+    const contentClasses = new Set(['opacity-0', 'pointer-events-none']);
+    const htmlClasses = new Set();
+    const scrolled = [];
+    const clicks = [];
+    const keys = [];
+    const attrs = { 'data-progress': options.progress ?? '0' };
+    const loaderAttrs = {};
+    const html = {
+      classList: { add(name) { htmlClasses.add(name); } },
+      dataset: {},
+    };
+    const document = {
+      documentElement: html,
+      getElementById(id) {
+        if (id === 'v3d-loader') {
+          return {
+            getAttribute: (name) => (name in loaderAttrs ? loaderAttrs[name] : null),
+            setAttribute: (name, value) => { loaderAttrs[name] = String(value); },
+          };
+        }
+        if (id === 'scene-skip') return { addEventListener: (_type, fn) => clicks.push(fn) };
+        if (id === 'scene-loader-progress') {
+          return { getAttribute: (name) => (name in attrs ? attrs[name] : null) };
+        }
+        if (id === 'landing-content') {
+          return {
+            classList: {
+              remove(...names) { names.forEach((name) => contentClasses.delete(name)); },
+              add(...names) { names.forEach((name) => contentClasses.add(name)); },
+            },
+          };
+        }
+        if (id === 'pricing') return { scrollIntoView: (opts) => scrolled.push(opts) };
+        return null;
+      },
+      addEventListener(type, fn) { if (type === 'keydown') keys.push(fn); },
+    };
+    const sandbox = {
+      document,
+      location: { hash: options.hash ?? '' },
+      decodeURIComponent,
+      isFinite,
+      Number,
+      timers,
+      now: 5_000,
+      Date: { now() { return sandbox.now; } },
+      setTimeout(fn, ms) { timers.push({ fn, ms }); return timers.length; },
+      window: {
+        document,
+        matchMedia: () => ({ matches: Boolean(options.reduced) }),
+      },
+    };
+    vm.runInNewContext(loaderBootScript(), sandbox);
+    return { sandbox, timers, contentClasses, htmlClasses, scrolled, clicks, keys, loaderAttrs, html };
+  }
+
+  it('skips reduced-motion visitors before any timer', () => {
+    const env = boot({ reduced: true, hash: '#pricing' });
+    assert.equal(env.sandbox.window.__ANALYZIT_SCENE_SKIP__, 'reduced-motion');
+    assert.equal(env.timers.length, 0);
+    assert.equal(env.htmlClasses.has('scene-skipped'), true);
+    assert.equal('sceneLoader' in env.html.dataset, false);
+    assert.equal(env.contentClasses.has('opacity-0'), false);
+    assert.equal(env.contentClasses.has('opacity-100'), true);
+    assert.equal(env.scrolled.length, 1);
+  });
+
+  it('arms a 3s stall and an 8s cap, and Skip works immediately', () => {
+    const env = boot({ hash: '#pricing' });
+    assert.deepEqual(env.timers.map((timer) => timer.ms).sort((a, b) => a - b), [LOADER_STALL_MS, LOADER_MAX_MS]);
+    assert.equal(env.html.dataset.sceneLoader, '1');
+    env.clicks[0]();
+    assert.equal(env.sandbox.window.__ANALYZIT_SCENE_SKIP__, 'skip');
+    assert.equal(env.scrolled.length, 1);
+    assert.equal(env.contentClasses.has('pointer-events-none'), false);
+  });
+
+  it('auto-skips a 0% stall at 3s and still force-opens a slow scene at 8s', () => {
+    const stalled = boot({ progress: '0' });
+    stalled.sandbox.now += LOADER_STALL_MS;
+    stalled.timers.find((timer) => timer.ms === LOADER_STALL_MS).fn();
+    assert.equal(stalled.sandbox.window.__ANALYZIT_SCENE_SKIP__, 'stall');
+
+    const moving = boot({ progress: '12' });
+    moving.sandbox.now += LOADER_STALL_MS;
+    moving.timers.find((timer) => timer.ms === LOADER_STALL_MS).fn();
+    assert.equal(moving.sandbox.window.__ANALYZIT_SCENE_SKIP__, undefined);
+    moving.sandbox.now += LOADER_MAX_MS - LOADER_STALL_MS;
+    moving.timers.find((timer) => timer.ms === LOADER_MAX_MS).fn();
+    assert.equal(moving.sandbox.window.__ANALYZIT_SCENE_SKIP__, 'cap');
   });
 });

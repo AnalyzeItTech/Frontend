@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Opening the dev server as 127.0.0.1 is cross-origin to Next's default host check,
+  // which blocks the HMR socket and leaves the client unhydrated.
+  allowedDevOrigins: ['127.0.0.1'],
   // Public AdSense IDs — set via env at build time; no hardcoded publisher fallback.
   env: {
     ...(process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, MutableRefObject } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useState, useEffect, useRef, useSyncExternalStore, MutableRefObject } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import { SkyDome } from './SkyDome';
@@ -14,47 +14,86 @@ interface SceneCanvasProps {
   scrollProgressRef: MutableRefObject<number>;
   isLoaded?: boolean;
   isCanvasVisible?: boolean;
+  /** Real scene progress. 0 = mounted, >0 = WebGL context, 100 = first frame. */
+  onProgress?: (value: number) => void;
+}
+
+function subscribeClient() {
+  return () => {};
+}
+
+/** True only after hydration, so the server render stays the static backdrop. */
+function useClientOnly() {
+  return useSyncExternalStore(subscribeClient, () => true, () => false);
+}
+
+/** Fires once the crystal's scene has produced a frame. Does not resize it. */
+function ReportFirstFrame({ onReady }: { onReady: () => void }) {
+  const sent = useRef(false);
+  useFrame(() => {
+    if (sent.current) return;
+    sent.current = true;
+    onReady();
+  });
+  return null;
 }
 
 export const SceneCanvas: React.FC<SceneCanvasProps> = ({
   scrollProgressRef,
   isLoaded = true,
   isCanvasVisible = true,
+  onProgress,
 }) => {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useClientOnly();
   const [isCapable, setIsCapable] = useState(true);
+  const [frameReady, setFrameReady] = useState(false);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const clearColor = isDark ? '#171514' : '#F3EDE4';
+  const onProgressRef = useRef(onProgress);
 
   useEffect(() => {
-    setMounted(true);
+    onProgressRef.current = onProgress;
+  }, [onProgress]);
 
+  useEffect(() => {
+    let capable = true;
     try {
       const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const lowCores = navigator.hardwareConcurrency && navigator.hardwareConcurrency < 2;
+      const lowCores = navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency < 2;
       const canvas = document.createElement('canvas');
       const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-
-      if (prefersReduced || lowCores || !gl) {
-        setIsCapable(false);
-      }
+      if (prefersReduced || lowCores || !gl) capable = false;
     } catch {
-      setIsCapable(true);
+      capable = true;
     }
+    // Report capability on the next turn so this effect does not setState in its body
+    // when the probe result matches the default (capable machines).
+    if (!capable) {
+      const id = window.setTimeout(() => setIsCapable(false), 0);
+      return () => window.clearTimeout(id);
+    }
+    onProgressRef.current?.(0);
   }, []);
 
-  if (!mounted || !isCapable) {
-    return (
-      <div className="fixed inset-0 w-full h-full z-0 bg-gradient-to-b from-[#B8A9C9] via-[#E8C4A0] to-[#F3EDE4] dark:from-[#211B19] dark:via-[#29211E] dark:to-[#171514] pointer-events-none" />
-    );
-  }
+  const handleContext = () => {
+    onProgressRef.current?.(12);
+  };
+
+  const handleFrame = () => {
+    setFrameReady(true);
+    onProgressRef.current?.(100);
+  };
+
+  // Keep the static backdrop (rendered by the page) until the crystal has actually drawn.
+  // The canvas clear color is flat cream; showing it early leaves a half-empty hero.
+  if (!mounted || !isCapable) return null;
 
   return (
     <div
       id="playcanvas-wrapper"
-      className={`fixed inset-0 w-full h-full z-0 pointer-events-none transition-opacity duration-500 ${
-        isCanvasVisible ? 'opacity-100' : 'opacity-0'
+      className={`pointer-events-none fixed inset-0 z-0 h-full w-full transition-opacity duration-500 ${
+        frameReady && isCanvasVisible ? 'opacity-100' : 'opacity-0'
       }`}
       style={{ background: clearColor }}
     >
@@ -71,8 +110,10 @@ export const SceneCanvas: React.FC<SceneCanvasProps> = ({
         onCreated={({ gl, scene }) => {
           gl.setClearColor(new THREE.Color(clearColor), 1);
           scene.background = new THREE.Color(clearColor);
+          handleContext();
         }}
       >
+        <ReportFirstFrame onReady={handleFrame} />
         <color attach="background" args={[clearColor]} />
         <fog attach="fog" args={[isDark ? FOG_COLORS.dark : FOG_COLORS.light, 12, 42]} />
 
