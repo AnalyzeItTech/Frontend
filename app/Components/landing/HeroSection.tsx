@@ -41,7 +41,7 @@ export const HeroSection: React.FC = () => {
             ].map(([label, q]) => (
               <Link
                 key={label}
-                href={`/research?q=${encodeURIComponent(q)}`}
+                href={`/demo?q=${encodeURIComponent(q)}`}
                 className="rounded-full border border-[#4A4238]/15 dark:border-[#3A3430] bg-[#FFF7F1]/80 dark:bg-[#211E1C] px-3 py-1.5 text-xs text-[#322C28] dark:text-[#F4EDE5] hover:border-[#E3836C]"
               >
                 {label}
@@ -55,6 +55,12 @@ export const HeroSection: React.FC = () => {
               className="inline-flex items-center justify-center px-8 py-4 rounded-full bg-[#E3836C] hover:bg-[#ED967F] active:bg-[#C96F5A] text-[#FFF7F1] font-medium text-base transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 whitespace-nowrap"
             >
               Start exploring free
+            </Link>
+            <Link
+              href="/demo"
+              className="inline-flex items-center gap-1.5 min-h-11 px-4 py-3 text-sm font-medium text-[#C45A42] dark:text-[#EBA58F] underline underline-offset-4 hover:text-[#322C28] dark:hover:text-[#F4EDE5] transition-colors"
+            >
+              <span>Try it without signing up</span>
             </Link>
             <a
               href="#capabilities"

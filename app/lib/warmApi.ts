@@ -8,8 +8,9 @@ const KEY = 'analyzeit_warm_at';
  * Tell Backend A the agent will be needed soon, so it wakes up in the background. Fire and forget: it never blocks the page,
  * never shows an error, does nothing for signed-out visitors, and asks at most once every few minutes per tab.
  */
-export function warmAgent(): void {
-  if (typeof window === 'undefined' || !getStoredToken()) return;
+export function warmAgent(options: { guest?: boolean } = {}): void {
+  // Signed-out visitors only warm from the public demo, where a question is about to be asked.
+  if (typeof window === 'undefined' || (!getStoredToken() && !options.guest)) return;
   const now = Date.now();
   let last: number | null = null;
   try {
