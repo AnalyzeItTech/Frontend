@@ -68,3 +68,16 @@ describe('the changelog', () => {
     assert.ok(CHANGELOG.some((e) => e.items.some((i) => i.rollingOut)), 'memory is still rolling out and the log must say so');
   });
 });
+
+describe('contact addresses', () => {
+  it('all use the product domain (analyzeit.in), never a second one', () => {
+    const hits = [];
+    for (const file of files(path.join(root, 'app'))) {
+      const text = fs.readFileSync(file, 'utf8');
+      for (const m of text.matchAll(/[A-Za-z0-9._-]+@analyzeit\.([a-z]+)/g)) {
+        if (m[1] !== 'in') hits.push(`${path.relative(root, file)}: ${m[0]}`);
+      }
+    }
+    assert.deepEqual(hits, []);
+  });
+});

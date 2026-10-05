@@ -11,10 +11,10 @@ export const GSTIN: string | null = null;
 export const PHONE: string | null = '+91 8433475698';
 
 export const EMAIL = {
-  support: 'hello@analyzeit.ai',
-  privacy: 'privacy@analyzeit.ai',
-  security: 'security@analyzeit.ai',
-  legal: 'legal@analyzeit.ai',
+  support: 'hello@analyzeit.in',
+  privacy: 'privacy@analyzeit.in',
+  security: 'security@analyzeit.in',
+  legal: 'legal@analyzeit.in',
 } as const;
 
 export const LEGAL_UPDATED = 'September 11, 2026';

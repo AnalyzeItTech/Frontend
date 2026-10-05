@@ -47,8 +47,8 @@ export default function DpaPage() {
         <p>
           We remain responsible for subprocessors we engage. A current list is available on request
           at{' '}
-          <a href="mailto:privacy@analyzeit.ai" className="text-[#E3836C] hover:underline">
-            privacy@analyzeit.ai
+          <a href="mailto:privacy@analyzeit.in" className="text-[#E3836C] hover:underline">
+            privacy@analyzeit.in
           </a>
           .
         </p>

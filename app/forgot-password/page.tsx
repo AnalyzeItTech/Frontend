@@ -22,8 +22,8 @@ export default function ForgotPasswordPage() {
         </ul>
         <p className="pt-2">
           Write to{' '}
-          <a href="mailto:hello@analyzeit.ai?subject=Password%20reset" className="text-[#E3836C] hover:underline">
-            hello@analyzeit.ai
+          <a href="mailto:hello@analyzeit.in?subject=Password%20reset" className="text-[#E3836C] hover:underline">
+            hello@analyzeit.in
           </a>
           .
         </p>
