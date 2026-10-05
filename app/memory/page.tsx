@@ -72,7 +72,7 @@ export default function MemoryPage() {
   const pct = warn.stored;
 
   return (
-    <AppShell active="profile">
+    <AppShell active="memory">
       <div className="mx-auto max-w-3xl space-y-6">
         <PageTitle title="What AnalyzeIt remembers" />
         <p className="text-sm text-[var(--text-muted)]">

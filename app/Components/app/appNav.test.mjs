@@ -45,6 +45,17 @@ describe('shared app nav contract', () => {
     assert.equal(MARKETING_SECTION_LINKS.some((link) => link.id === 'dashboard'), false);
   });
 
+  it('surfaces Memory in authenticated app chrome', () => {
+    const ids = APP_NAV_LINKS.map((link) => link.id);
+    const memory = APP_NAV_LINKS.find((link) => link.id === 'memory');
+    assert.ok(memory);
+    assert.equal(memory.href, '/memory');
+    assert.equal(memory.label, 'Memory');
+    assert.ok(ids.indexOf('objects') < ids.indexOf('memory'));
+    assert.ok(ids.indexOf('memory') < ids.indexOf('billing'));
+    assert.equal(isAppLinkActive('memory', 'memory'), true);
+  });
+
   it('treats research as the Chat item', () => {
     assert.equal(resolveActiveNav('research'), 'chat');
     assert.equal(isAppLinkActive('chat', 'research'), true);

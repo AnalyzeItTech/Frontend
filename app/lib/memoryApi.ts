@@ -27,8 +27,12 @@ async function fail(res: Response, fallback: string): Promise<never> {
   throw new Error(parseApiFailure(res.status, body).message || fallback);
 }
 
-export async function listMemorySources(q = ''): Promise<MemorySource[]> {
-  const res = await fetch(`${API_V1}/retention/sources?q=${encodeURIComponent(q)}`, { headers: getAuthHeaders() });
+export async function listMemorySources(q = '', limit?: number): Promise<MemorySource[]> {
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (limit != null && limit > 0) params.set('limit', String(limit));
+  const qs = params.toString();
+  const res = await fetch(`${API_V1}/retention/sources${qs ? `?${qs}` : ''}`, { headers: getAuthHeaders() });
   if (!res.ok) return fail(res, 'Could not load memory sources');
   return (await res.json()).sources as MemorySource[];
 }
