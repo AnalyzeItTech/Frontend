@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LegalLayout } from '../Components/legal/LegalLayout';
+import { loadMarketingQuote } from '../lib/marketingQuote.mjs';
 import { ProductsPlans } from './ProductsPlans';
 
 export const metadata: Metadata = {
@@ -8,7 +9,12 @@ export const metadata: Metadata = {
   description: 'AnalyzeIt plans: Free, Premium and VIP, billed monthly in INR via Razorpay. USD amounts are for reference; the exact INR price is confirmed at checkout.',
 };
 
-export default function ProductsPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function ProductsPage() {
+  // Same India quote the homepage renders. Seed it here so the HTML is whole rupees,
+  // not the USD-only fallback shown before the browser fetch returns.
+  const quote = await loadMarketingQuote();
   return (
     <LegalLayout
       title="Fair pricing for quiet research."
@@ -18,7 +24,7 @@ export default function ProductsPage() {
       quietOperator
       subtitle="Paid plans are billed monthly in INR via Razorpay. The USD figure is a reference; the exact INR price is confirmed at checkout."
     >
-      <ProductsPlans />
+      <ProductsPlans initialQuote={quote} />
 
       <p>
         Hit a Free limit mid-research? Upgrade from Billing after sign-in — your work stays;

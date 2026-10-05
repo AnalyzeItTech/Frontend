@@ -2,57 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getBillingQuote, type BillingQuote } from '../../lib/billingApi';
-import { PLAN_FEATURES, PLAN_NAMES, PLAN_TAGLINES, USD_REFERENCE, priceLabel, priceNote } from '../../lib/planCatalog.mjs';
+import { getBillingQuote } from '../../lib/billingApi';
+import { presentPlans, type MarketingQuote } from '../../lib/planCatalog.mjs';
 
-type TierCard = {
-  name: string;
-  planId?: 'premium' | 'premium_plus';
-  price: string;
-  period: string;
-  currencyNote: string;
-  tagline: string;
-  popular?: boolean;
-  features: string[];
-  cta: string;
-  href: string;
-};
+const CTA = { free: 'Create a free account', premium: 'Sign in to upgrade', premium_plus: 'Sign in to go VIP' } as const;
+const HREF = { free: '/login?tab=register', premium: '/login?next=/billing', premium_plus: '/login?next=/billing' } as const;
 
-const FREE_TIER: TierCard = {
-  name: PLAN_NAMES.free,
-  price: '₹0',
-  period: '/mo',
-  currencyNote: 'No charge',
-  tagline: PLAN_TAGLINES.free,
-  features: PLAN_FEATURES.free,
-  cta: 'Create a free account',
-  href: '/login?tab=register',
-};
-
-const PAID_BASE: Omit<TierCard, 'price' | 'currencyNote'>[] = [
-  {
-    name: PLAN_NAMES.premium,
-    planId: 'premium',
-    period: '/mo',
-    tagline: PLAN_TAGLINES.premium,
-    popular: true,
-    features: [...PLAN_FEATURES.premium, 'Monthly billing after you sign in'],
-    cta: 'Sign in to upgrade',
-    href: '/login?next=/billing',
-  },
-  {
-    name: PLAN_NAMES.premium_plus,
-    planId: 'premium_plus',
-    period: '/mo',
-    tagline: PLAN_TAGLINES.premium_plus,
-    features: [...PLAN_FEATURES.premium_plus, 'Monthly billing after you sign in'],
-    cta: 'Sign in to go VIP',
-    href: '/login?next=/billing',
-  },
-];
-
-export const PricingTeaserSection: React.FC = () => {
-  const [quote, setQuote] = useState<BillingQuote | null>(null);
+export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> = ({ initialQuote = null }) => {
+  const [quote, setQuote] = useState<MarketingQuote>(initialQuote ?? null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +19,7 @@ export const PricingTeaserSection: React.FC = () => {
         const q = await getBillingQuote('IN');
         if (!cancelled) setQuote(q);
       } catch {
-        if (!cancelled) setQuote(null);
+        // Keep the quote already on screen. Dropping it would show USD after INR was known.
       }
     })();
     return () => {
@@ -70,18 +27,14 @@ export const PricingTeaserSection: React.FC = () => {
     };
   }, []);
 
-  const tiers: TierCard[] = [
-    FREE_TIER,
-    ...PAID_BASE.map((base) => {
-      const fallbackUsd = base.planId ? USD_REFERENCE[base.planId] : 0;
-      const row = base.planId ? quote?.plans?.[base.planId] : undefined;
-      return {
-        ...base,
-        price: priceLabel(row, fallbackUsd),
-        currencyNote: priceNote(row, fallbackUsd),
-      };
-    }),
-  ];
+  const tiers = presentPlans(quote).map((plan) => ({
+    ...plan,
+    period: '/mo',
+    popular: plan.id === 'premium',
+    features: plan.id === 'free' ? plan.features : [...plan.features, 'Monthly billing after you sign in'],
+    cta: CTA[plan.id],
+    href: HREF[plan.id],
+  }));
 
   return (
     <section
@@ -125,7 +78,7 @@ export const PricingTeaserSection: React.FC = () => {
               <span className="font-serif text-4xl text-[#322C28] dark:text-[#F4EDE5]">{tier.price}</span>
               <span className="text-sm text-[#5C534A] dark:text-[#C5B9AE]">{tier.period}</span>
             </div>
-            <p className="text-xs text-[#5C534A] dark:text-[#C5B9AE] mb-6 leading-relaxed">{tier.currencyNote}</p>
+            <p className="text-xs text-[#5C534A] dark:text-[#C5B9AE] mb-6 leading-relaxed">{tier.note}</p>
             <ul className="space-y-2.5 mb-8 flex-1">
               {tier.features.map((feature) => (
                 <li key={feature} className="text-sm text-[#3F3830] dark:text-[#C5B9AE] flex gap-2">

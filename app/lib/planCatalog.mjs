@@ -65,3 +65,27 @@ export function priceNote(row, usdFallback) {
   if (!row || !Number.isFinite(n)) return `Shown in USD for now. Your live INR price appears at checkout (about $${usdFallback}).`;
   return `${row.currency || 'INR'} per month via Razorpay · $${usdFallback} USD reference`;
 }
+
+const PLAN_IDS = ['free', 'premium', 'premium_plus'];
+
+/**
+ * Price line and note for Free, Premium and VIP from one quote.
+ * Home and /products both render this, so Premium cannot show a USD-only fallback
+ * on one page while the other shows whole rupees. USD stays in the note as a reference.
+ * With no quote row, paid plans use the USD reference — a rupee figure is never invented.
+ * @param {{ plans?: Record<string, { currency?: string, amount?: number | string | null }> } | null | undefined} quote
+ */
+export function presentPlans(quote) {
+  return PLAN_IDS.map((id) => {
+    const usd = USD_REFERENCE[id];
+    const row = id === 'free' ? { currency: 'INR', amount: 0 } : quote?.plans?.[id];
+    return {
+      id,
+      name: PLAN_NAMES[id],
+      tagline: PLAN_TAGLINES[id],
+      features: PLAN_FEATURES[id],
+      price: priceLabel(row, usd),
+      note: priceNote(row, usd),
+    };
+  });
+}
