@@ -108,6 +108,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   return (
     <div
       id="v3d-loader"
+      suppressHydrationWarning
       className="pointer-events-auto fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#F3EDE4] opacity-100 dark:bg-[#171514]"
     >
       <div className="relative mb-6 flex h-64 w-64 items-center justify-center">

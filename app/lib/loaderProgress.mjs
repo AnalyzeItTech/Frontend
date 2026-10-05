@@ -122,9 +122,10 @@ export function loaderBootScript() {
     }
     function boot() {
       var loader = document.getElementById('v3d-loader');
-      if (!loader || loader.getAttribute('data-armed') === '1') return;
-      loader.setAttribute('data-armed', '1');
-      if (document.documentElement.dataset) document.documentElement.dataset.sceneLoader = '1';
+      if (!loader || window.__ANALYZIT_LOADER_ARMED__) return;
+      // Do not write attributes onto the React loader node here. That mismatched
+      // hydration. A window flag is enough to arm the timers once.
+      window.__ANALYZIT_LOADER_ARMED__ = 1;
       var started = Date.now();
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         dismiss('reduced-motion');

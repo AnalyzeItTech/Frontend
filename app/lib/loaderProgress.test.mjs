@@ -177,7 +177,8 @@ describe('loader boot script', () => {
   it('arms a 3s stall and an 8s cap, and Skip works immediately', () => {
     const env = boot({ hash: '#pricing' });
     assert.deepEqual(env.timers.map((timer) => timer.ms).sort((a, b) => a - b), [LOADER_STALL_MS, LOADER_MAX_MS]);
-    assert.equal(env.html.dataset.sceneLoader, '1');
+    assert.equal(env.sandbox.window.__ANALYZIT_LOADER_ARMED__, 1);
+    assert.equal(env.loaderAttrs['data-armed'], undefined);
     env.clicks[0]();
     assert.equal(env.sandbox.window.__ANALYZIT_SCENE_SKIP__, 'skip');
     assert.equal(env.scrolled.length, 1);

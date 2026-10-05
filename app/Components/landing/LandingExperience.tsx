@@ -228,6 +228,7 @@ export function LandingExperience({ children }: { children: React.ReactNode }) {
       <LandingProgressContext.Provider value={contextValue}>
         <div
           id="landing-content"
+          suppressHydrationWarning
           className={`relative z-10 transition-opacity duration-500 ${
             isLoading ? 'pointer-events-none opacity-0' : 'opacity-100'
           }`}
