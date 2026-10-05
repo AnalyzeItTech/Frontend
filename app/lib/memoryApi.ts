@@ -15,6 +15,11 @@ export type MemorySource = {
   tier_state: string | null;
   pinned: boolean;
   created_at: string | null;
+  cite_count?: number;
+  last_cited_at?: string | null;
+  /** "full": every passage searchable by meaning; "summary": summary + exact words only; null: unknown (older source). */
+  search_level?: 'full' | 'summary' | null;
+  state?: string | null;
 };
 
 async function fail(res: Response, fallback: string): Promise<never> {
@@ -60,4 +65,20 @@ export async function exportMemory(): Promise<void> {
   a.download = 'memory-export.zip';
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export async function renameMemorySource(id: string, title: string): Promise<string | null> {
+  const res = await fetch(`${API_V1}/retention/sources/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  });
+  if (!res.ok) return fail(res, 'Could not rename the source');
+  return (await res.json()).title ?? null;
+}
+
+export async function previewMemorySource(id: string): Promise<{ preview: string; truncated: boolean; chunks: number }> {
+  const res = await fetch(`${API_V1}/retention/sources/${encodeURIComponent(id)}/preview`, { headers: getAuthHeaders() });
+  if (!res.ok) return fail(res, 'Could not load the stored text');
+  return res.json();
 }
