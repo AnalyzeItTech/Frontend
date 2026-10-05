@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchAdminWhoami } from '../lib/feedbackApi';
 import { getAuthHeaders, getStoredToken } from '../lib/auth';
+import { RolloutChecklist, type Readiness } from '../Components/ops/RolloutChecklist';
 
 type Labeled = { value?: unknown; provenance?: string; note?: string };
 type Section = 'economics' | 'users' | 'feedback' | 'health' | 'research' | 'content' | 'audit' | 'retention';
@@ -107,6 +108,7 @@ export default function OpsPage() {
     setError('');
     const q = name === 'economics' || name === 'research' ? `?window=${windowKey}` : '';
     const res = await fetch(`/api/ops/${name === 'retention' ? 'retention/overview' : name}${q}`, { headers: getAuthHeaders() });
+    const readinessRes = name === 'retention' ? await fetch('/api/ops/retention/readiness', { headers: getAuthHeaders() }).catch(() => null) : null;
     setBusy(false);
     if (res.status === 401) {
       router.replace('/login?next=/ops');
@@ -117,7 +119,8 @@ export default function OpsPage() {
       setError(body.detail || 'Request failed');
       return;
     }
-    setData(body);
+    const readiness = readinessRes && readinessRes.ok ? await readinessRes.json().catch(() => null) : null;
+    setData(name === 'retention' && readiness ? { ...body, readiness } : body);
   }
 
   async function post(path: string, body: unknown) {
@@ -697,6 +700,13 @@ function RetentionOps({ data, onFlag, onKill }: {
           {paused ? 'Resume ingest' : 'Kill switch: pause ingest'}
         </button>
       </div>
+      {data.readiness ? (
+        <RolloutChecklist
+          readiness={data.readiness as Readiness}
+          rules={flags as Record<string, { enabled?: boolean; tiers?: string[]; percent?: number | null; allow_users?: string[]; deny_users?: string[] }>}
+          onFlag={onFlag}
+        />
+      ) : null}
       <section>
         <h2 className="mb-2 font-medium">Flags</h2>
         <div className="space-y-2">
@@ -704,7 +714,7 @@ function RetentionOps({ data, onFlag, onKill }: {
             <div key={name} className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--border)] p-2">
               <span className="w-28 font-mono">{name}</span>
               <span>{r.enabled ? 'on' : 'off'}{r.percent != null ? ` · ${r.percent}%` : ''}{r.tiers?.length ? ` · ${r.tiers.join(',')}` : ''}{r.source === 'env' ? ' · env default' : ''}</span>
-              <button type="button" className="rounded border border-[var(--border)] px-2" onClick={() => onFlag(name, { ...r, enabled: !r.enabled })}>{r.enabled ? 'Turn off' : 'Turn on (all)'}</button>
+              <button type="button" className="rounded border border-[var(--border)] px-2" onClick={() => onFlag(name, { ...r, enabled: !r.enabled })}>{r.enabled ? 'Turn off' : 'Turn on for everyone'}</button>
               <input className="w-16 rounded border border-[var(--border)] px-1" placeholder="%" value={pct[name] || ''} onChange={(e) => setPct({ ...pct, [name]: e.target.value })} />
               <button type="button" className="rounded border border-[var(--border)] px-2" onClick={() => onFlag(name, { enabled: true, tiers: r.tiers || [], percent: Number(pct[name] || 0) })}>Set %</button>
             </div>
