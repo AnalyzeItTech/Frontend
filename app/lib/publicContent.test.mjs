@@ -24,6 +24,9 @@ const BANNED = [
   [/real-time 3D/i, 'overclaim'],
   [/high-leverage/i, 'jargon'],
   [/\bunlimited memory\b/i, 'memory has plan limits'],
+  [/\bunlimited AI runs\b/i, 'AI runs are plan-limited; no unlimited claim'],
+  [/\bunlimited LLM\b/i, 'LLM runs are plan-limited; no unlimited claim'],
+  [/no size limit beyond your memory plan/i, 'cite real memory caps'],
   [/Slack & Email/, 'Slack and email delivery are rolling out'],
 ];
 

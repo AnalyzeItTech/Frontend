@@ -34,7 +34,7 @@ function resolvePeriod(snap: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
-/** Backend A: null / <=0 llm_runs_per_month means unlimited (Premium+). */
+/** Backend A: null / <=0 llm_runs_per_month means no separate run ceiling (Premium/VIP; token budget still applies). */
 function resolveUnlimited(snap: Record<string, unknown>, tier: string): boolean {
   if (snap.llm_runs_unlimited === true) return true;
   if ('llm_runs_per_month' in snap) {
@@ -53,7 +53,7 @@ function resolveUnlimited(snap: Record<string, unknown>, tier: string): boolean 
 
 /**
  * Backend A / Overseer fields on entitlements snapshot:
- * llm_runs_per_month (null = unlimited), llm_runs_limit (alias),
+ * llm_runs_per_month (null/<=0 = no separate run ceiling), llm_runs_limit (alias),
  * llm_runs_used, llm_runs_remaining, llm_runs_month,
  * optional llm_runs_unlimited / near_cap / exhausted
  *
@@ -148,7 +148,7 @@ export function parseLlmQuota(snap: Record<string, unknown> | null | undefined):
 }
 
 export function formatLlmRunsLeft(quota: LlmQuota): string {
-  if (quota.unlimited) return 'Unlimited LLM runs';
+  if (quota.unlimited) return 'No separate run ceiling';
   if (quota.unit === 'tokens') {
     if (quota.exhausted) return 'Daily free token budget used';
     const left = quota.remaining ?? 0;

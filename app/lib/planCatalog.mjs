@@ -1,7 +1,7 @@
 // One description of what each plan includes, used by the home page, /products and Billing so they cannot drift apart.
 // Numbers come from the Backend tier table (entitlements.py); change them there and here together.
 
-import { CONTEXT_RETENTION_TOKENS, formatContextRetention } from './contextWall.mjs';
+import { CONTEXT_RETENTION_TOKENS, RETENTION_HOT_TOKENS, formatContextRetention } from './contextWall.mjs';
 
 export const USD_REFERENCE = { free: 0, premium: 19, premium_plus: 49 };
 
@@ -20,18 +20,25 @@ export const PLAN_FEATURES = {
   ],
   premium: [
     'Everything in Free',
-    'Better model · 10M tokens a month',
-    'Unlimited AI runs',
+    'Better model · AI runs included · 10M tokens/mo',
+    // No separate llm_runs_per_month ceiling on paid tiers (Backend 0). Do not invent a run count.
     '15 projects · 30 widgets · 3 running at once',
-    memory(CONTEXT_RETENTION_TOKENS.premium, ' · 30-day artifacts'),
+    memory(
+      CONTEXT_RETENTION_TOKENS.premium,
+      ` · ${formatContextRetention(RETENTION_HOT_TOKENS.premium)} hot-searchable · 30-day artifacts`,
+    ),
     'Reads long pasted documents section by section (about 150,000 characters)',
     'Ad-free · personal link: yourname.analyzeit.in',
   ],
   premium_plus: [
     'Everything in Premium',
-    'Large model · 50M tokens a month',
+    'Large model · AI runs included · 50M tokens/mo',
+    // No separate llm_runs_per_month ceiling on paid tiers (Backend 0). Do not invent a run count.
     '50 projects · 10 running at once',
-    memory(CONTEXT_RETENTION_TOKENS.premium_plus, ' · searched across all your projects'),
+    memory(
+      CONTEXT_RETENTION_TOKENS.premium_plus,
+      ` · ${formatContextRetention(RETENTION_HOT_TOKENS.premium_plus)} hot-searchable · searched across all your projects`,
+    ),
     '90-day artifacts',
     'Priority when the agent is busy',
     'Reads long pasted documents section by section (about 300,000 characters)',

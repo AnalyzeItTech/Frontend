@@ -33,6 +33,16 @@ export const CONTEXT_RETENTION_TOKENS = {
   premium_plus: 1_000_000_000,
 };
 
+/**
+ * Instantly meaning-searchable subset of retained tokens (Backend retention_hot_tokens).
+ * Free: hot = total. Premium/VIP keep more on disk than is hot-searchable.
+ */
+export const RETENTION_HOT_TOKENS = {
+  free: 10_000_000,
+  premium: 25_000_000,
+  premium_plus: 50_000_000,
+};
+
 /** Free retention ceiling. Copy only — the client does not enforce a cap. */
 export const FREE_CLIENT_CONTEXT_LIMIT = CONTEXT_RETENTION_TOKENS.free;
 

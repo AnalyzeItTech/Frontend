@@ -28,13 +28,22 @@ describe('the plan catalogue', () => {
   it('states real limits, not multipliers that contradict each other', () => {
     assert.ok(PLAN_FEATURES.free.some((f) => f.includes('50,000 tokens a month')));
     assert.ok(!JSON.stringify(PLAN_FEATURES).match(/\d×/), 'no "3×" / "6×" multipliers');
-    assert.ok(PLAN_FEATURES.premium.some((f) => f.includes('10M tokens a month')));
-    assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.includes('50M tokens a month')));
+    assert.ok(PLAN_FEATURES.premium.some((f) => f.includes('10M tokens/mo')));
+    assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.includes('50M tokens/mo')));
   });
   it('lists memory per plan using the same figures as the entitlement table', () => {
     assert.ok(PLAN_FEATURES.free.some((f) => f.startsWith('10M tokens of memory')));
     assert.ok(PLAN_FEATURES.premium.some((f) => f.startsWith('500M tokens of memory')));
     assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.startsWith('1B tokens of memory')));
+    assert.ok(PLAN_FEATURES.premium.some((f) => f.includes('25M hot-searchable')));
+    assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.includes('50M hot-searchable')));
+  });
+  it('does not claim unlimited AI runs or invent Premium/VIP run counts', () => {
+    const text = JSON.stringify(PLAN_FEATURES);
+    assert.doesNotMatch(text, /unlimited/i);
+    assert.ok(PLAN_FEATURES.premium.some((f) => f.includes('AI runs included') && f.includes('10M tokens/mo')));
+    assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.includes('AI runs included') && f.includes('50M tokens/mo')));
+    assert.ok(PLAN_FEATURES.free.some((f) => f.includes('40 AI runs a month')));
   });
   it('does not sell Slack, Notion or email digests', () => {
     assert.ok(!/slack|notion|digest/i.test(JSON.stringify(PLAN_FEATURES)));

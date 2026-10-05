@@ -219,7 +219,7 @@ function ProfileInner() {
                       <>
                         {monthUsage.used?.toLocaleString()}
                         <span className="ml-2 align-middle font-sans text-sm font-medium text-[var(--text-muted)]">
-                          Unlimited
+                          No run ceiling
                         </span>
                       </>
                     ) : (
