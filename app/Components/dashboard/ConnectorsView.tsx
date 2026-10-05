@@ -727,9 +727,11 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
                           ? 'OAuth 2.0 · read-only'
                           : p.authMode === 'catalog'
                             ? 'Online dataset'
-                            : p.authMode === 'connection'
-                              ? 'Read-only SQL'
-                              : 'OAuth 2.0'}
+                            : (p.id === 'stripe' || p.id === 'salesforce') && setup.connection && !setup.oauth
+                              ? 'API key'
+                              : p.authMode === 'connection'
+                                ? 'Read-only SQL'
+                                : 'OAuth 2.0'}
                       </span>
                     </div>
                   </div>
@@ -768,7 +770,7 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
                       <span className="font-mono text-[var(--text-primary)] text-right">
                         {activeConn.last_sync_at
                           ? new Date(activeConn.last_sync_at).toLocaleString()
-                          : 'Not synced yet'}
+                          : 'No sync time reported'}
                       </span>
                     </div>
                     {activeConn.data_mode ? (
