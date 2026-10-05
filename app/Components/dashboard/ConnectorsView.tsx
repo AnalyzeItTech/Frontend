@@ -38,9 +38,10 @@ import {
   availableConnectorIds,
   connectionForProvider,
   connectorSetupState,
+  dataModeLabel,
   providerLabel,
   readSyncResult,
-  syncFailurePhase,
+  syncFailureView,
   type ConnectorCallback,
   type SyncResultView,
 } from '../../lib/connectorState.mjs';
@@ -119,9 +120,30 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
     }
   };
 
+  const callbackProvider = notice?.kind === 'success' ? notice.provider || 'connected' : '';
+
   useEffect(() => {
     loadData();
   }, [projectId]);
+
+  // OAuth returns to /connectors?connected=google_drive. Refetch the project
+  // connector rows so the new Drive connection is the one just saved.
+  useEffect(() => {
+    if (!projectId || !callbackProvider) return;
+    let cancelled = false;
+    fetchProjectConnectors(projectId, { strict: true })
+      .then((rows) => {
+        if (!cancelled) setConnectors(rows);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Couldn’t refresh connectors.');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, callbackProvider]);
 
   const handleConnectOAuth = async (provider: string) => {
     setAuthorizeErrors((prev) => ({ ...prev, [provider]: '' }));
@@ -222,33 +244,19 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
       return next;
     });
     try {
-      const result = await syncConnector(connectorId);
-      const parsed = readSyncResult(result);
-      const preview = result && typeof result === 'object' && (result as { data_mode?: string }).data_mode === 'preview';
-      const withPhase = parsed.phase === 'unknown' && parsed.counts.length > 0
-        ? { ...parsed, phase: 'succeeded' as const }
-        : preview && parsed.phase === 'unknown'
-          ? {
-              ...parsed,
-              phase: 'skipped' as const,
-              message: parsed.message || 'Live provider pull is not available yet. Credentials stay in the vault.',
-            }
-          : parsed;
-      setSyncReports((prev) => ({ ...prev, [connectorId]: withPhase }));
-      if (withPhase.phase === 'skipped') {
-        toast.toast(withPhase.message || 'Sync was skipped.');
-      } else if (withPhase.phase === 'failed') {
-        toast.error(withPhase.message || 'Sync failed.');
+      const parsed = readSyncResult(await syncConnector(connectorId));
+      setSyncReports((prev) => ({ ...prev, [connectorId]: parsed }));
+      if (parsed.toast) {
+        if (parsed.phase === 'failed' || parsed.ingestStatus === 'failed') toast.error(parsed.toast);
+        else toast.toast(parsed.toast);
       }
       await loadData();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Sync failed';
-      const phase = syncFailurePhase(message);
-      setSyncReports((prev) => ({
-        ...prev,
-        [connectorId]: { phase, counts: [], message },
-      }));
-      if (phase === 'failed') toast.error(message);
+      const failure = syncFailureView(message);
+      setSyncReports((prev) => ({ ...prev, [connectorId]: failure }));
+      if (failure.phase === 'failed') toast.error(failure.toast || message);
+      else toast.toast(failure.toast || message);
     } finally {
       setSyncingId(null);
     }
@@ -773,19 +781,13 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
                           : 'No sync time reported'}
                       </span>
                     </div>
-                    {activeConn.data_mode ? (
+                    {dataModeLabel(activeConn.data_mode) ? (
                       <div className="flex items-center justify-between gap-3 text-[var(--text-muted)]">
                         <span className="flex items-center gap-1">
                           <IconDatabase className="w-3.5 h-3.5" /> Data mode
                         </span>
                         <span className="font-mono text-[var(--text-primary)]">
-                          {activeConn.data_mode === 'live_readonly'
-                            ? 'Live read-only'
-                            : activeConn.data_mode === 'seed_demo'
-                              ? 'Sample fixtures'
-                              : activeConn.data_mode === 'preview'
-                                ? 'Preview'
-                                : activeConn.data_mode}
+                          {dataModeLabel(activeConn.data_mode)}
                         </span>
                       </div>
                     ) : null}
@@ -804,19 +806,16 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
                     )}
                     {(isSyncing || syncReport) && (
                       <div role="status" className="mt-1 border-t border-[var(--border)] pt-2 text-[var(--text-secondary)]">
-                        <p>
-                          {isSyncing
-                            ? 'Sync in progress'
-                            : syncReport?.phase === 'succeeded'
-                              ? 'Sync finished'
-                              : syncReport?.phase === 'failed'
-                                ? (syncReport.message || 'Sync failed')
-                                : syncReport?.phase === 'in_progress'
-                                  ? (syncReport.message || 'Sync is still running')
-                                  : syncReport?.phase === 'skipped'
-                                    ? (syncReport.message || 'Sync was skipped')
-                                    : (syncReport?.message || 'Sync returned')}
-                        </p>
+                        <p>{isSyncing ? 'Sync in progress' : (syncReport?.headline || 'Sync returned.')}</p>
+                        {!isSyncing && syncReport?.note && syncReport.note !== syncReport.headline ? (
+                          <p className="mt-1">{syncReport.note}</p>
+                        ) : null}
+                        {!isSyncing && syncReport?.dataMode ? (
+                          <p className="mt-1">Data mode: {dataModeLabel(syncReport.dataMode)}</p>
+                        ) : null}
+                        {!isSyncing && syncReport?.truncated ? (
+                          <p className="mt-1">This listing was truncated, so it does not include every file.</p>
+                        ) : null}
                         {syncReport && syncReport.counts.length > 0 ? (
                           <ul className="mt-1 space-y-0.5">
                             {syncReport.counts.map((count) => (
@@ -826,8 +825,13 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
                               </li>
                             ))}
                           </ul>
-                        ) : !isSyncing && syncReport?.phase === 'succeeded' ? (
-                          <p className="mt-1 text-[var(--text-muted)]">The server did not return any counts.</p>
+                        ) : null}
+                        {!isSyncing && syncReport && (syncReport.phase === 'failed' || syncReport.ingestStatus === 'failed') && syncReport.errors.length > 0 ? (
+                          <ul className="mt-1 space-y-0.5 text-[var(--danger)]">
+                            {syncReport.errors.map((error) => (
+                              <li key={error}>{error}</li>
+                            ))}
+                          </ul>
                         ) : null}
                       </div>
                     )}

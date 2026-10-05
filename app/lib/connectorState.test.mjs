@@ -12,11 +12,13 @@ import {
   availableConnectorIds,
   connectionForProvider,
   connectorSetupState,
+  dataModeLabel,
   googleDriveAuthorizeBody,
   oauthRedirectUrl,
   readConnectorCallback,
   readSyncResult,
   syncFailurePhase,
+  syncFailureView,
 } from './connectorState.mjs';
 
 const LIVE_DRIVE = {
@@ -131,12 +133,13 @@ test('authorize body is project_id only', () => {
   assert.throws(() => googleDriveAuthorizeBody(''), /project is required/i);
 });
 
-test('oauth redirect accepts https auth_url and rejects anything else', () => {
-  assert.equal(oauthRedirectUrl({ auth_url: 'https://accounts.google.com/o/oauth2/v2/auth?x=1' }), 'https://accounts.google.com/o/oauth2/v2/auth?x=1');
-  assert.equal(oauthRedirectUrl({ url: 'https://accounts.google.com/o/oauth2/v2/auth' }), 'https://accounts.google.com/o/oauth2/v2/auth');
-  assert.equal(oauthRedirectUrl({ auth_url: 'http://accounts.google.com/o/oauth2/v2/auth' }), null);
-  assert.equal(oauthRedirectUrl({ auth_url: 'javascript:alert(1)' }), null);
-  assert.equal(oauthRedirectUrl({}), null);
+test('authorize 200 opens only auth_url', () => {
+  const body = { auth_url: 'https://accounts.google.com/o/oauth2/v2/auth?state=abc', state: 'abc' };
+  assert.equal(oauthRedirectUrl(body), 'https://accounts.google.com/o/oauth2/v2/auth?state=abc');
+  assert.equal(oauthRedirectUrl({ url: 'https://accounts.google.com/o/oauth2/v2/auth', state: 'abc' }), null);
+  assert.equal(oauthRedirectUrl({ auth_url: 'http://accounts.google.com/o/oauth2/v2/auth', state: 'abc' }), null);
+  assert.equal(oauthRedirectUrl({ auth_url: 'javascript:alert(1)', state: 'abc' }), null);
+  assert.equal(oauthRedirectUrl({ state: 'abc' }), null);
   assert.equal(oauthRedirectUrl(null), null);
 });
 
@@ -171,45 +174,125 @@ test('a bare OAuth code on /connectors is an error, not a success', () => {
   assert.doesNotMatch(result.message, /4\/0A/);
 });
 
-test('sync succeeded shows the counts the server returned, including zero', () => {
+const DRIVE_RUN = {
+  status: 'completed',
+  objects_synced: { file: 4 },
+  files_seen: 12,
+  files_written: 4,
+  files_replaced: 1,
+  files_skipped_binary: 2,
+  files_skipped_too_large: 0,
+  truncated: true,
+  ingest_status: 'written',
+  ingest_skipped_reason: null,
+  note: 'Drive listing finished.',
+  data_mode: 'live_readonly',
+  errors: [],
+};
+
+test('a completed sync-run uses only the Drive count fields', () => {
   const result = readSyncResult({
-    status: 'succeeded',
-    counts: { files: 12, docs: 3, sheets: 0, slides: 1 },
+    ...DRIVE_RUN,
+    counts: { files: 99, docs: 3 },
+    stats: { slides: 8 },
+    files_synced: 7,
+    updated: 6,
   });
-  assert.equal(result.phase, 'succeeded');
+  assert.equal(result.phase, 'completed');
+  assert.equal(result.ingestStatus, 'written');
+  assert.equal(result.dataMode, 'live_readonly');
+  assert.equal(result.truncated, true);
+  assert.equal(result.toast, 'Drive listing finished.');
+  assert.match(result.headline, /added to memory/);
   assert.deepEqual(result.counts.map((count) => [count.key, count.value]), [
-    ['files', 12],
-    ['docs', 3],
-    ['sheets', 0],
-    ['slides', 1],
+    ['files_seen', 12],
+    ['files_written', 4],
+    ['files_replaced', 1],
+    ['objects_synced.file', 4],
+    ['files_skipped_binary', 2],
+    ['files_skipped_too_large', 0],
   ]);
 });
 
-test('sync in progress and failed keep their phase and do not invent counts', () => {
-  const running = readSyncResult({ status: 'in_progress', note: 'Walking Drive' });
-  assert.equal(running.phase, 'in_progress');
-  assert.deepEqual(running.counts, []);
-  assert.equal(running.message, 'Walking Drive');
-
-  const failed = readSyncResult({ status: 'failed', message: 'Drive quota exceeded', counts: { failed: 2 } });
-  assert.equal(failed.phase, 'failed');
-  assert.equal(failed.message, 'Drive quota exceeded');
-  assert.deepEqual(failed.counts, [{ key: 'failed', label: 'Failed', value: 2 }]);
-
-  const empty = readSyncResult({ status: 'succeeded' });
-  assert.equal(empty.phase, 'succeeded');
-  assert.deepEqual(empty.counts, []);
+test('there is no top-level skipped status; ingest_status carries that', () => {
+  const result = readSyncResult({ status: 'skipped', note: 'not a real phase', files_seen: 3 });
+  assert.equal(result.phase, 'unknown');
+  assert.equal(result.ingestStatus, null);
+  assert.equal(result.counts[0].key, 'files_seen');
 });
 
-test('top-level count fields are read when there is no counts object', () => {
-  const result = readSyncResult({ status: 'success', files_synced: 4, updated: 1, duration_ms: 90 });
-  assert.equal(result.phase, 'succeeded');
-  assert.deepEqual(result.counts.map((count) => count.key), ['files_synced', 'updated']);
+test('non-canary accounts list files but do not claim they were added to memory', () => {
+  const result = readSyncResult({
+    status: 'completed',
+    ingest_status: 'skipped',
+    ingest_skipped_reason: 'retention_flags_off',
+    files_seen: 9,
+    files_written: 0,
+    objects_synced: { file: 0 },
+    data_mode: 'preview',
+    note: 'Files were analyzed and added to memory.',
+    truncated: false,
+  });
+  assert.equal(result.phase, 'completed');
+  assert.equal(result.ingestStatus, 'skipped');
+  assert.match(result.headline, /nothing was added to memory/i);
+  assert.match(result.headline, /isn't enabled/i);
+  assert.equal(result.note, null);
+  assert.equal(result.toast, result.headline);
+  assert.equal(result.dataMode, 'preview');
+  assert.equal(dataModeLabel(result.dataMode), 'Preview');
+  assert.equal(dataModeLabel('live_readonly'), 'Live read-only');
+});
+
+test('paused, partial, and blocked ingestion are said plainly', () => {
+  const paused = readSyncResult({
+    status: 'completed',
+    ingest_status: 'skipped',
+    ingest_skipped_reason: 'ingest_paused',
+    note: 'Hold on.',
+  });
+  assert.match(paused.headline, /Ingestion is paused/);
+  assert.equal(paused.toast, 'Hold on.');
+  assert.doesNotMatch(paused.headline, /added to memory yet because ingestion isn't enabled/);
+
+  const partial = readSyncResult({ status: 'completed', ingest_status: 'partial', note: 'Part way.' });
+  assert.match(partial.headline, /Some listed files were added to memory/);
+
+  const blocked = readSyncResult({ status: 'completed', ingest_status: 'blocked' });
+  assert.match(blocked.headline, /Ingestion is blocked/);
+  assert.doesNotMatch(blocked.headline, /were analyzed/);
+});
+
+test('a failed listing is HTTP-shaped as status failed and shows errors briefly', () => {
+  const result = readSyncResult({
+    status: 'failed',
+    ingest_status: 'failed',
+    files_seen: 2,
+    note: 'Could not list the folder.',
+    errors: ['quota exceeded', { message: 'file abc denied' }, 'third', 'fourth'],
+    data_mode: 'live_readonly',
+  });
+  assert.equal(result.phase, 'failed');
+  assert.equal(result.toast, 'Could not list the folder.');
+  assert.match(result.headline, /listing failed/i);
+  assert.match(result.headline, /Nothing was added to memory/);
+  assert.doesNotMatch(result.headline, /were added to memory|were analyzed/);
+  assert.deepEqual(result.errors, ['quota exceeded', 'file abc denied', 'third']);
+  assert.equal(result.counts[0].value, 2);
+});
+
+test('written ingestion may say files were added to memory', () => {
+  const result = readSyncResult({ ...DRIVE_RUN, note: '' });
+  assert.match(result.headline, /added to memory/);
+  assert.equal(result.toast, result.headline);
 });
 
 test('sync HTTP conflict that is already running is in progress', () => {
   assert.equal(syncFailurePhase('Sync already in progress'), 'in_progress');
   assert.equal(syncFailurePhase('Connector not found'), 'failed');
+  assert.equal(syncFailureView('Sync already in progress').phase, 'in_progress');
+  assert.deepEqual(syncFailureView('Sync already in progress').counts, []);
+  assert.equal(syncFailureView('Connector not found').phase, 'failed');
 });
 
 test('Google Drive authorize does not send redirect_uri', () => {
@@ -220,6 +303,8 @@ test('Google Drive authorize does not send redirect_uri', () => {
   assert.ok(start > 0);
   assert.match(branch, /authorizeGoogleDrive\(projectId\)/);
   assert.doesNotMatch(branch, /redirect_uri|redirectUri|\/dashboard/);
+  assert.match(view, /callbackProvider/);
+  assert.match(view, /fetchProjectConnectors\(projectId, \{ strict: true \}\)/);
 
   const api = fs.readFileSync(path.join(root, 'app/lib/customObjectsApi.ts'), 'utf8');
   const fn = api.slice(api.indexOf('export async function authorizeGoogleDrive'), api.indexOf('export async function fetchProjectConnectors'));

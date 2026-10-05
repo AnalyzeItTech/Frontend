@@ -17,10 +17,21 @@ export type SyncCount = {
   value: number;
 };
 
+export type SyncPhase = 'completed' | 'failed' | 'in_progress' | 'unknown';
+
+export type IngestStatus = 'written' | 'partial' | 'unchanged' | 'failed' | 'blocked' | 'skipped';
+
 export type SyncResultView = {
-  phase: 'in_progress' | 'failed' | 'succeeded' | 'skipped' | 'unknown';
+  phase: SyncPhase;
+  ingestStatus: IngestStatus | null;
+  ingestSkippedReason: string | null;
   counts: SyncCount[];
-  message: string | null;
+  truncated: boolean;
+  dataMode: 'live_readonly' | 'preview' | null;
+  note: string | null;
+  headline: string | null;
+  toast: string | null;
+  errors: string[];
 };
 
 export function connectorSetupState(entry: {
@@ -43,6 +54,8 @@ export function providerLabel(id?: string | null): string;
 
 export function googleDriveAuthorizeBody(projectId?: string | null): { project_id: string };
 
+export function dataModeLabel(mode?: string | null): string | null;
+
 export function oauthRedirectUrl(body: unknown): string | null;
 
 export function readConnectorCallback(
@@ -56,6 +69,8 @@ export function readConnectorCallback(
 export function readSyncResult(body: unknown): SyncResultView;
 
 export function syncFailurePhase(message?: string | null): 'in_progress' | 'failed';
+
+export function syncFailureView(message?: string | null): SyncResultView;
 
 export function connectionForProvider<T extends { id?: string; provider?: string; status?: string }>(
   connectors: T[] | null | undefined,

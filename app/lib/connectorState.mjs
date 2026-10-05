@@ -4,38 +4,24 @@
  * GET /v1/connectors/available is the source of what can be offered.
  * A connector is connectable only when that payload says it is configured.
  * `status: "not_configured"` (Drive app env missing) stays unavailable.
- * Live Backend A (version 71bc330efbe6) reports a ready Drive row as
- * `status: "available"` plus `oauth_configured: true`. `configured` is accepted
- * as the same ready state in case PR #49's branch uses that word.
+ * Live Backend A (069004b) reports a ready Drive row as `status: "available"`
+ * plus `oauth_configured: true`. `configured` is the same ready state.
+ *
+ * POST /v1/connectors/{id}/sync returns the sync-run document itself:
+ * status is `completed` or `failed` (HTTP 200 either way). Ingest outcome is
+ * `ingest_status`, not a top-level `skipped`.
  */
 
 const READY_STATUSES = new Set(['configured', 'available', 'ready']);
 const UNAVAILABLE_STATUSES = new Set(['not_configured', 'unconfigured', 'unavailable']);
 
-const IN_PROGRESS = new Set(['in_progress', 'running', 'pending', 'started', 'syncing', 'queued']);
-const FAILED = new Set(['failed', 'error', 'failure']);
-const SUCCEEDED = new Set(['succeeded', 'success', 'completed', 'complete', 'ok', 'done']);
+const INGEST_STATUSES = new Set(['written', 'partial', 'unchanged', 'failed', 'blocked', 'skipped']);
 
-const COUNT_LABELS = {
-  files: 'Files',
-  files_synced: 'Files synced',
-  file_count: 'Files',
-  synced: 'Synced',
-  created: 'Created',
-  updated: 'Updated',
-  skipped: 'Skipped',
-  failed: 'Failed',
-  errors: 'Errors',
-  docs: 'Docs',
-  documents: 'Documents',
-  sheets: 'Sheets',
-  slides: 'Slides',
-  records: 'Records',
-  imported: 'Imported',
-  unchanged: 'Unchanged',
-  folders: 'Folders',
-  exported: 'Exported',
-};
+const COUNT_FIELDS = [
+  ['files_seen', 'Files seen'],
+  ['files_written', 'Files written'],
+  ['files_replaced', 'Files replaced'],
+];
 
 const CALLBACK_ERROR_KEYS = ['error_description', 'connector_error', 'oauth_error', 'connected_error', 'error'];
 
@@ -43,11 +29,25 @@ function text(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function labelFor(key) {
-  if (COUNT_LABELS[key]) return COUNT_LABELS[key];
-  return key
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+function finiteNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function skippedCountLabel(key) {
+  if (key === 'files_skipped') return 'Files skipped';
+  const suffix = key.slice('files_skipped_'.length).replace(/[_-]+/g, ' ');
+  return suffix ? `Files skipped · ${suffix}` : 'Files skipped';
+}
+
+/** Plain label for the two data modes the sync-run document sends. */
+export function dataModeLabel(mode) {
+  if (mode === 'live_readonly') return 'Live read-only';
+  if (mode === 'preview') return 'Preview';
+  return null;
+}
+
+function claimsMemory(value) {
+  return /analy[sz]ed|added to memory|into memory|in your memory|saved to memory/i.test(value || '');
 }
 
 function unavailableReason(entry) {
@@ -160,13 +160,14 @@ export function googleDriveAuthorizeBody(projectId) {
   return { project_id: id };
 }
 
-/** HTTPS OAuth URL from an authorize response. Anything else is a failure, not a redirect. */
+/**
+ * Authorize 200 is only {auth_url, state}. Open auth_url.
+ * redirect_uri is ignored by the server and is not sent.
+ */
 export function oauthRedirectUrl(body) {
   if (!body || typeof body !== 'object') return null;
-  for (const key of ['auth_url', 'authorization_url', 'oauth_url', 'url', 'redirect_url']) {
-    const value = body[key];
-    if (typeof value === 'string' && /^https:\/\//i.test(value.trim())) return value.trim();
-  }
+  const value = body.auth_url;
+  if (typeof value === 'string' && /^https:\/\//i.test(value.trim())) return value.trim();
   return null;
 }
 
@@ -227,54 +228,107 @@ export function readConnectorCallback(source) {
   return { kind: 'none', provider: null, message: '' };
 }
 
-function countBag(body) {
-  if (!body || typeof body !== 'object') return null;
-  for (const key of ['counts', 'stats', 'sync_counts']) {
-    const value = body[key];
-    if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+function emptySyncResult() {
+  return {
+    phase: 'unknown',
+    ingestStatus: null,
+    ingestSkippedReason: null,
+    counts: [],
+    truncated: false,
+    dataMode: null,
+    note: null,
+    headline: null,
+    toast: null,
+    errors: [],
+  };
+}
+
+function ingestHeadline(phase, ingestStatus, reason) {
+  if (phase === 'failed') return 'The Drive listing failed. Nothing was added to memory.';
+  if (reason === 'ingest_paused') {
+    return 'Ingestion is paused. Nothing was added to memory.';
   }
-  if (body.result && typeof body.result === 'object') {
-    for (const key of ['counts', 'stats', 'sync_counts']) {
-      const value = body.result[key];
-      if (value && typeof value === 'object' && !Array.isArray(value)) return value;
-    }
+  if (ingestStatus === 'skipped' && reason === 'retention_flags_off') {
+    return "Files were listed, but nothing was added to memory yet because ingestion isn't enabled for this account.";
   }
+  if (ingestStatus === 'written') return 'Listed files were added to memory.';
+  if (ingestStatus === 'partial') return 'Some listed files were added to memory. The rest were not.';
+  if (ingestStatus === 'blocked') return 'Ingestion is blocked. Nothing was added to memory.';
+  if (ingestStatus === 'unchanged') return 'Nothing new was added to memory.';
+  if (ingestStatus === 'failed') return 'Ingestion failed. Nothing was added to memory.';
+  if (ingestStatus === 'skipped') return 'Files were listed. Nothing was added to memory.';
+  if (phase === 'completed') return 'Sync completed.';
   return null;
 }
 
-function pushCount(out, seen, key, value) {
-  if (seen.has(key)) return;
-  if (typeof value !== 'number' || !Number.isFinite(value)) return;
-  seen.add(key);
-  out.push({ key, label: labelFor(key), value });
+function syncCounts(body) {
+  const counts = [];
+  for (const [key, label] of COUNT_FIELDS) {
+    const value = finiteNumber(body[key]);
+    if (value != null) counts.push({ key, label, value });
+  }
+  const objects = body.objects_synced;
+  if (objects && typeof objects === 'object' && !Array.isArray(objects)) {
+    const files = finiteNumber(objects.file);
+    if (files != null) counts.push({ key: 'objects_synced.file', label: 'Files synced', value: files });
+  }
+  const skippedKeys = Object.keys(body)
+    .filter((key) => key === 'files_skipped' || key.startsWith('files_skipped_'))
+    .sort();
+  for (const key of skippedKeys) {
+    const value = finiteNumber(body[key]);
+    if (value != null) counts.push({ key, label: skippedCountLabel(key), value });
+  }
+  return counts;
+}
+
+function syncErrors(body) {
+  if (!Array.isArray(body.errors)) return [];
+  const errors = [];
+  for (const item of body.errors) {
+    let message = '';
+    if (typeof item === 'string') message = text(item);
+    else if (item && typeof item === 'object') message = text(item.message || item.detail || item.error);
+    if (!message) continue;
+    errors.push(message.slice(0, 180));
+    if (errors.length >= 3) break;
+  }
+  return errors;
 }
 
 /**
- * Sync POST body → phase + the numeric counts the server actually returned.
- * Missing counts stay missing. Zero is shown only when the server sent zero.
- * phase: 'in_progress' | 'failed' | 'succeeded' | 'skipped' | 'unknown'
+ * Sync-run document from POST /v1/connectors/{id}/sync.
+ * Counts are only files_seen, files_written, files_replaced, objects_synced.file,
+ * and files_skipped_* . A counts/stats wrapper is ignored.
+ * phase: 'completed' | 'failed' | 'unknown'
  */
 export function readSyncResult(body) {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    return { phase: 'unknown', counts: [], message: null };
-  }
-  const status = text(body.status || body.sync_status || body.state).toLowerCase();
-  let phase = 'unknown';
-  if (IN_PROGRESS.has(status) || body.in_progress === true) phase = 'in_progress';
-  else if (FAILED.has(status) || body.ok === false) phase = 'failed';
-  else if (status === 'skipped') phase = 'skipped';
-  else if (SUCCEEDED.has(status) || body.ok === true) phase = 'succeeded';
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return emptySyncResult();
 
-  const counts = [];
-  const seen = new Set();
-  const bag = countBag(body);
-  if (bag) {
-    for (const [key, value] of Object.entries(bag)) pushCount(counts, seen, key, value);
-  }
-  for (const key of Object.keys(COUNT_LABELS)) pushCount(counts, seen, key, body[key]);
+  const status = text(body.status).toLowerCase();
+  const phase = status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : 'unknown';
+  const ingestRaw = text(body.ingest_status).toLowerCase();
+  const ingestStatus = INGEST_STATUSES.has(ingestRaw) ? ingestRaw : null;
+  const reasonRaw = body.ingest_skipped_reason;
+  const ingestSkippedReason = reasonRaw == null || text(reasonRaw) === '' ? null : text(reasonRaw);
+  const dataMode = body.data_mode === 'live_readonly' || body.data_mode === 'preview' ? body.data_mode : null;
+  const rawNote = text(body.note);
+  const memoryAllowed = ingestStatus === 'written' || ingestStatus === 'partial';
+  const note = rawNote && (memoryAllowed || !claimsMemory(rawNote)) ? rawNote : null;
+  const headline = ingestHeadline(phase, ingestStatus, ingestSkippedReason);
 
-  const message = text(body.note) || text(body.message) || text(body.error) || (typeof body.detail === 'string' ? text(body.detail) : '') || null;
-  return { phase, counts, message };
+  return {
+    phase,
+    ingestStatus,
+    ingestSkippedReason,
+    counts: syncCounts(body),
+    truncated: body.truncated === true,
+    dataMode,
+    note,
+    headline,
+    toast: note || headline,
+    errors: syncErrors(body),
+  };
 }
 
 /** HTTP failure while syncing. "Already in progress" is not a failed sync. */
@@ -282,6 +336,26 @@ export function syncFailurePhase(message) {
   const value = text(message);
   if (/in progress|already syncing|sync already|still running|still syncing/i.test(value)) return 'in_progress';
   return 'failed';
+}
+
+/** Card state when the sync request itself failed (not an HTTP 200 sync-run). */
+export function syncFailureView(message) {
+  const phase = syncFailurePhase(message);
+  const headline = phase === 'in_progress'
+    ? (text(message) || 'Sync is still running.')
+    : (text(message) || 'Sync failed. Nothing was added to memory.');
+  return {
+    phase,
+    ingestStatus: null,
+    ingestSkippedReason: null,
+    counts: [],
+    truncated: false,
+    dataMode: null,
+    note: null,
+    headline,
+    toast: headline,
+    errors: [],
+  };
 }
 
 /** Active project connector for a provider, ignoring rows the server marked disconnected. */
