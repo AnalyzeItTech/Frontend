@@ -57,6 +57,8 @@ import { ChartCard, type ChartSpec } from '../Components/research/ChartCard';
 import { SuggestionChips } from '../Components/research/SuggestionChips';
 import { parseExtras } from '../lib/chatExtras.mjs';
 import { memoryToolStatus, queueStatus } from '../lib/runStatus.mjs';
+import { normalizeMemorySources, type MemoryCitation } from '../lib/memoryCitations.mjs';
+import { MemoryCitations } from '../Components/research/MemoryCitations';
 import { globeLinkForPlaces } from '../Components/globe/scene.mjs';
 import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
 import {
@@ -118,6 +120,8 @@ interface ChatMessage {
   mode?: ComposerMode;
   attachments?: Array<{ attachment_id: string; filename: string }>;
   sources?: ResearchSource[];
+  /** Stored notes the answer was built from ("From your notes"). */
+  memoryCitations?: MemoryCitation[];
   /** Structured extras from the Model: charts from real data and context-aware follow-ups. */
   charts?: ChartSpec[];
   /** Real places the answer is about, for 'Open on globe'. */
@@ -1349,6 +1353,7 @@ function ChatInner() {
                       ? ''
                       : streamed || 'No written answer came back.',
                     sources: resolvedSources,
+                    memoryCitations: normalizeMemorySources(response.memorySources),
                     charts: extras.charts as ChartSpec[],
                     places: extras.places,
                     suggestions: extras.suggestions,
@@ -1861,6 +1866,9 @@ function ChatInner() {
 
                       {!isUser && msg.sources && msg.sources.length > 0 && (
                         <SourceChips sources={msg.sources} />
+                      )}
+                      {!isUser && msg.memoryCitations && msg.memoryCitations.length > 0 && (
+                        <MemoryCitations citations={msg.memoryCitations} />
                       )}
 
                       {!isUser && msg.widget && (
