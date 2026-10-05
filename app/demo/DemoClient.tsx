@@ -10,7 +10,7 @@ import { warmAgent } from '../lib/warmApi';
 type Turn = { question: string; result?: DemoResult; failure?: { kind: string; message: string } };
 
 /** Ask a weather, currency, stock or math question with no account. The answer comes from a live tool, not a model. */
-export function DemoClient() {
+export function DemoClient({ preset }: { preset?: string } = {}) {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [slow, setSlow] = useState(false);
@@ -21,11 +21,12 @@ export function DemoClient() {
   const startedFromLink = useRef(false);
   useEffect(() => {
     // A shared or hero link like /demo?q=Weather in Mumbai asks that question straight away (once).
-    const preset = new URLSearchParams(window.location.search).get('q')?.slice(0, 240).trim();
-    if (preset && !startedFromLink.current) {
+    const fromLink = new URLSearchParams(window.location.search).get('q')?.slice(0, 240).trim();
+    const start = fromLink || preset?.trim();
+    if (start && !startedFromLink.current) {
       startedFromLink.current = true;
-      setInput(preset);
-      void ask(preset);
+      setInput(start);
+      void ask(start);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
