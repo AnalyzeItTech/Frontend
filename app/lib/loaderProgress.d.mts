@@ -14,4 +14,6 @@ export function loaderShouldDismiss(state?: {
   positiveProgressSeen?: boolean;
 }): boolean;
 export function hashId(hash: string): string;
+export const LANDING_NAV_OFFSET_PX: number;
+export function landingHashScrollTop(absoluteTop: number, offsetPx?: number): number;
 export function loaderBootScript(): string;

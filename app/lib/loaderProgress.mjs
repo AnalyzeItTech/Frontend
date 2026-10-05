@@ -71,6 +71,21 @@ export function hashId(hash) {
 }
 
 /**
+ * Fixed floating nav (~96px) + breathing room. Matches
+ * scroll-mt-[calc(var(--nav-h,96px)+16px)] on landing sections.
+ */
+export const LANDING_NAV_OFFSET_PX = 112;
+
+/** Window Y so a section's absolute top sits just under the fixed nav. */
+export function landingHashScrollTop(absoluteTop, offsetPx = LANDING_NAV_OFFSET_PX) {
+  const top = Number(absoluteTop);
+  const offset = Number(offsetPx);
+  if (!Number.isFinite(top)) return 0;
+  const pad = Number.isFinite(offset) ? offset : LANDING_NAV_OFFSET_PX;
+  return Math.max(0, top - pad);
+}
+
+/**
  * Inline boot script for the homepage. It runs from the server HTML, before the
  * client bundle hydrates, so Skip / reduced-motion / the 3s stall / the 8s cap
  * still fire when the scene chunk is slow to download or evaluate.
@@ -98,7 +113,11 @@ export function loaderBootScript() {
       var id;
       try { id = decodeURIComponent(hash.slice(1)); } catch (e) { return; }
       var el = id && document.getElementById(id);
-      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'auto', block: 'start' });
+      if (!el) return;
+      var abs = el.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0);
+      var top = Math.max(0, abs - ${LANDING_NAV_OFFSET_PX});
+      window.scrollTo(0, top);
+      window.__ANALYZIT_HASH_SCROLLED__ = id;
     }
     function dismiss(reason) {
       if (window.__ANALYZIT_SCENE_SKIP__) return;
@@ -126,6 +145,15 @@ export function loaderBootScript() {
       // Do not write attributes onto the React loader node here. That mismatched
       // hydration. A window flag is enough to arm the timers once.
       window.__ANALYZIT_LOADER_ARMED__ = 1;
+      // Hold the page at the top while the overlay is up so a cold /#pricing
+      // visit is not scrolled underneath Skip, then applied again later.
+      try {
+        if (window.history && 'scrollRestoration' in window.history) {
+          window.history.scrollRestoration = 'manual';
+        }
+      } catch (e) {}
+      window.scrollTo(0, 0);
+      if (document.documentElement.dataset) document.documentElement.dataset.sceneLoader = '1';
       var started = Date.now();
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         dismiss('reduced-motion');

@@ -3,11 +3,13 @@ import vm from 'node:vm';
 import { describe, it } from 'node:test';
 
 import {
+  LANDING_NAV_OFFSET_PX,
   LOADER_DURATION_MS,
   LOADER_MAX_MS,
   LOADER_SKIP_AFTER_MS,
   LOADER_STALL_MS,
   hashId,
+  landingHashScrollTop,
   loaderBootScript,
   loaderExpired,
   loaderProgress,
@@ -102,6 +104,14 @@ describe('hash targets after a skip', () => {
     assert.equal(hashId('#'), '');
     assert.equal(hashId('pricing'), '');
   });
+
+  it('places the section under the fixed nav, never above the page', () => {
+    assert.equal(LANDING_NAV_OFFSET_PX, 112);
+    assert.equal(landingHashScrollTop(2000), 2000 - 112);
+    assert.equal(landingHashScrollTop(50), 0);
+    assert.equal(landingHashScrollTop(112), 0);
+    assert.equal(landingHashScrollTop(Number.NaN), 0);
+  });
 });
 
 describe('loader boot script', () => {
@@ -110,6 +120,7 @@ describe('loader boot script', () => {
     const contentClasses = new Set(['opacity-0', 'pointer-events-none']);
     const htmlClasses = new Set();
     const scrolled = [];
+    const windowScrolls = [];
     const clicks = [];
     const keys = [];
     const attrs = { 'data-progress': options.progress ?? '0' };
@@ -117,7 +128,9 @@ describe('loader boot script', () => {
     const html = {
       classList: { add(name) { htmlClasses.add(name); } },
       dataset: {},
+      scrollTop: 0,
     };
+    const pricingTop = options.pricingTop ?? 2000;
     const document = {
       documentElement: html,
       getElementById(id) {
@@ -139,7 +152,12 @@ describe('loader boot script', () => {
             },
           };
         }
-        if (id === 'pricing') return { scrollIntoView: (opts) => scrolled.push(opts) };
+        if (id === 'pricing') {
+          return {
+            getBoundingClientRect: () => ({ top: pricingTop - (sandbox.window.pageYOffset || 0) }),
+            scrollIntoView: (opts) => scrolled.push(opts),
+          };
+        }
         return null;
       },
       addEventListener(type, fn) { if (type === 'keydown') keys.push(fn); },
@@ -150,39 +168,58 @@ describe('loader boot script', () => {
       decodeURIComponent,
       isFinite,
       Number,
+      Math,
       timers,
       now: 5_000,
       Date: { now() { return sandbox.now; } },
       setTimeout(fn, ms) { timers.push({ fn, ms }); return timers.length; },
       window: {
         document,
+        pageYOffset: 0,
+        history: { scrollRestoration: 'auto' },
         matchMedia: () => ({ matches: Boolean(options.reduced) }),
+        scrollTo(...args) {
+          windowScrolls.push(args);
+          if (typeof args[0] === 'number') sandbox.window.pageYOffset = args[1] ?? args[0];
+          else if (args[0] && typeof args[0] === 'object') sandbox.window.pageYOffset = args[0].top ?? 0;
+        },
       },
     };
+    // Boot script calls window.scrollTo and also bare scrollTo in some engines — mirror it.
+    sandbox.scrollTo = (...args) => sandbox.window.scrollTo(...args);
     vm.runInNewContext(loaderBootScript(), sandbox);
-    return { sandbox, timers, contentClasses, htmlClasses, scrolled, clicks, keys, loaderAttrs, html };
+    return { sandbox, timers, contentClasses, htmlClasses, scrolled, windowScrolls, clicks, keys, loaderAttrs, html };
   }
 
   it('skips reduced-motion visitors before any timer', () => {
-    const env = boot({ reduced: true, hash: '#pricing' });
+    const env = boot({ reduced: true, hash: '#pricing', pricingTop: 2000 });
     assert.equal(env.sandbox.window.__ANALYZIT_SCENE_SKIP__, 'reduced-motion');
     assert.equal(env.timers.length, 0);
     assert.equal(env.htmlClasses.has('scene-skipped'), true);
     assert.equal('sceneLoader' in env.html.dataset, false);
     assert.equal(env.contentClasses.has('opacity-0'), false);
     assert.equal(env.contentClasses.has('opacity-100'), true);
-    assert.equal(env.scrolled.length, 1);
+    // Offset-aware window.scrollTo — pricing cards sit under the fixed nav.
+    assert.ok(env.windowScrolls.length >= 1);
+    const last = env.windowScrolls[env.windowScrolls.length - 1];
+    assert.deepEqual(last, [0, 2000 - LANDING_NAV_OFFSET_PX]);
+    assert.equal(env.sandbox.window.__ANALYZIT_HASH_SCROLLED__, 'pricing');
   });
 
   it('arms a 3s stall and an 8s cap, and Skip works immediately', () => {
-    const env = boot({ hash: '#pricing' });
+    const env = boot({ hash: '#pricing', pricingTop: 1800 });
     assert.deepEqual(env.timers.map((timer) => timer.ms).sort((a, b) => a - b), [LOADER_STALL_MS, LOADER_MAX_MS]);
     assert.equal(env.sandbox.window.__ANALYZIT_LOADER_ARMED__, 1);
     assert.equal(env.loaderAttrs['data-armed'], undefined);
+    // While armed, the page is pinned at the top (no /#pricing under the overlay).
+    assert.equal(env.html.dataset.sceneLoader, '1');
+    assert.equal(env.sandbox.window.history.scrollRestoration, 'manual');
     env.clicks[0]();
     assert.equal(env.sandbox.window.__ANALYZIT_SCENE_SKIP__, 'skip');
-    assert.equal(env.scrolled.length, 1);
     assert.equal(env.contentClasses.has('pointer-events-none'), false);
+    const last = env.windowScrolls[env.windowScrolls.length - 1];
+    assert.deepEqual(last, [0, 1800 - LANDING_NAV_OFFSET_PX]);
+    assert.equal(env.sandbox.window.__ANALYZIT_HASH_SCROLLED__, 'pricing');
   });
 
   it('auto-skips a 0% stall at 3s and still force-opens a slow scene at 8s', () => {

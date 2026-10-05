@@ -1242,6 +1242,14 @@ details > summary::-webkit-details-marker {
   border: 2px solid #fff;
 }
 
+/* While the intro loader / Skip overlay is up, do not apply /#hash underneath it. */
+html[data-scene-loader="1"],
+html[data-scene-loader="1"] body {
+  overflow: hidden !important;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
 /* Homepage scene loader: the boot script toggles this before React hydrates. */
 html.scene-skipped #v3d-loader {
   display: none !important;

@@ -6,6 +6,8 @@ import dynamic from 'next/dynamic';
 declare global {
   interface Window {
     __ANALYZIT_SCENE_SKIP__?: string;
+    __ANALYZIT_HASH_SCROLLED__?: string;
+    __ANALYZIT_LENIS__?: { scrollTo: (target: number | string, opts?: Record<string, unknown>) => void } | null;
   }
 }
 import { Navbar } from './Navbar';
@@ -13,7 +15,7 @@ import { InspectDrawer, DrawerDetail } from './InspectDrawer';
 import { LandingProgressContext } from './LandingProgressContext';
 import { LoadingScreen } from '../ui/LoadingScreen';
 import { SceneBackdrop } from './SceneBackdrop';
-import { hashId } from '../../lib/loaderProgress.mjs';
+import { hashId, LANDING_NAV_OFFSET_PX, landingHashScrollTop } from '../../lib/loaderProgress.mjs';
 
 const SceneCanvas = dynamic(
   () => import('../3d/SceneCanvas').then((mod) => mod.SceneCanvas),
@@ -54,12 +56,23 @@ function readBootSkip() {
 function scrollToHash() {
   const id = hashId(window.location.hash);
   if (!id) return;
-  document.getElementById(id)?.scrollIntoView({ behavior: 'auto', block: 'start' });
+  // Skip if boot/Lenis already landed on this id (avoid a second jump past the section).
+  if (window.__ANALYZIT_HASH_SCROLLED__ === id) return;
+  const el = document.getElementById(id);
+  if (!el) return;
+  const absTop = el.getBoundingClientRect().top + (window.scrollY || window.pageYOffset || 0);
+  const top = landingHashScrollTop(absTop, LANDING_NAV_OFFSET_PX);
+  const lenis = window.__ANALYZIT_LENIS__;
+  if (lenis && typeof lenis.scrollTo === 'function') {
+    lenis.scrollTo(top, { immediate: true, force: true });
+  } else {
+    window.scrollTo({ top, left: 0, behavior: 'auto' });
+  }
+  window.__ANALYZIT_HASH_SCROLLED__ = id;
 }
 
 export function LandingExperience({ children }: { children: React.ReactNode }) {
   const [dismissed, setDismissed] = useState(false);
-  const [showSkip, setShowSkip] = useState(true);
   const [isCanvasVisible, setIsCanvasVisible] = useState(true);
   const [allowScene, setAllowScene] = useState(false);
   const [sceneProgress, setSceneProgress] = useState<number | null>(null);
@@ -94,7 +107,18 @@ export function LandingExperience({ children }: { children: React.ReactNode }) {
     }
     delete root.dataset.sceneLoader;
     root.classList.add('scene-skipped');
-    scrollToHash();
+    // Wait for the overlay unlock + content opacity before applying /#pricing,
+    // so Lenis/layout see the real section positions.
+    let cancelled = false;
+    const outer = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (!cancelled) scrollToHash();
+      });
+    });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(outer);
+    };
   }, [isLoading]);
 
   useEffect(() => {
@@ -128,7 +152,6 @@ export function LandingExperience({ children }: { children: React.ReactNode }) {
     if (isLoading) return;
 
     let ticking = false;
-    let lastSkip = true;
     let lastVisible = true;
 
     const compute = () => {
@@ -146,12 +169,6 @@ export function LandingExperience({ children }: { children: React.ReactNode }) {
         scrollProgressRef.current = Math.min(Math.max(-rect.top / travel, 0), 1);
       } else {
         scrollProgressRef.current = 0;
-      }
-
-      const nextSkip = scrollProgressRef.current < 0.98;
-      if (nextSkip !== lastSkip) {
-        lastSkip = nextSkip;
-        setShowSkip(nextSkip);
       }
 
       const isPastDescent = capabilitiesEl
@@ -209,19 +226,6 @@ export function LandingExperience({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {!isLoading && showSkip && (
-        <a
-          href="#capabilities"
-          className="pointer-events-auto fixed right-5 bottom-5 z-30 inline-flex min-h-11 items-center rounded-full bg-[#322C28] px-4 text-sm font-medium text-[#FFF7F1] shadow-lg xl:right-8"
-          onClick={(e) => {
-            e.preventDefault();
-            const el = document.getElementById('capabilities');
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }}
-        >
-          Skip animation
-        </a>
-      )}
 
       <InspectDrawer detail={inspectedDetail} onClose={() => setInspectedDetail(null)} />
 
