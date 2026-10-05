@@ -16,10 +16,10 @@ declare global {
   }
 }
 
-function applyLandingHash(lenis: Lenis | null) {
+function applyLandingHash(lenis: Lenis | null, opts?: { force?: boolean }) {
   const id = hashId(window.location.hash);
   if (!id) return;
-  if (window.__ANALYZIT_HASH_SCROLLED__ === id) return;
+  if (!opts?.force && window.__ANALYZIT_HASH_SCROLLED__ === id) return;
   const el = document.getElementById(id);
   if (!el) return;
   const absTop = el.getBoundingClientRect().top + (window.scrollY || window.pageYOffset || 0);
@@ -89,10 +89,17 @@ export const SmoothScrollProvider: React.FC<{ children: React.ReactNode }> = ({ 
         animId = requestAnimationFrame(raf);
       };
       animId = requestAnimationFrame(raf);
-      // After loader unlock, wait two frames so section layout (and scroll-mt) is real.
+      // After loader unlock, wait two frames so section layout (and scroll-mt) is real,
+      // then one settle remeasure (fonts / late pricing quote) for short viewports.
       hashRaf = window.requestAnimationFrame(() => {
         hashRaf = window.requestAnimationFrame(() => {
-          if (lenis && root.dataset.sceneLoader !== '1') applyLandingHash(lenis);
+          if (!lenis || root.dataset.sceneLoader === '1') return;
+          applyLandingHash(lenis, { force: true });
+          window.setTimeout(() => {
+            if (lenis && root.dataset.sceneLoader !== '1') {
+              applyLandingHash(lenis, { force: true });
+            }
+          }, 160);
         });
       });
     };

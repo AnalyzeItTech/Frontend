@@ -161,6 +161,7 @@ describe('loader boot script', () => {
         return null;
       },
       addEventListener(type, fn) { if (type === 'keydown') keys.push(fn); },
+      dispatchEvent(_event) { return true; },
     };
     const sandbox = {
       document,
@@ -169,6 +170,7 @@ describe('loader boot script', () => {
       isFinite,
       Number,
       Math,
+      Event: class Event { constructor(type) { this.type = type; } },
       timers,
       now: 5_000,
       Date: { now() { return sandbox.now; } },

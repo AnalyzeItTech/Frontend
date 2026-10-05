@@ -106,8 +106,12 @@ export function loaderBootScript() {
       window.__ANALYZIT_SCENE_SKIP__ = window.__ANALYZIT_SCENE_SKIP__ || reason;
       document.documentElement.classList.add('scene-skipped');
       if (document.documentElement.dataset) delete document.documentElement.dataset.sceneLoader;
+      try { document.dispatchEvent(new Event('analyzit-scene-skip')); } catch (e) {}
     }
     function scrollHash() {
+      // Best-effort only (pre-hydrate). React clears __ANALYZIT_HASH_SCROLLED__
+      // on loader unlock and re-measures after layout settle so /#pricing lands
+      // on the Free/Premium/VIP cards, not the footer.
       var hash = (location && location.hash) || '';
       if (!hash || hash.length < 2 || hash.charAt(0) !== '#') return;
       var id;

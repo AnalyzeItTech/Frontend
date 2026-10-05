@@ -1254,6 +1254,10 @@ html[data-scene-loader="1"] body {
 html.scene-skipped #v3d-loader {
   display: none !important;
 }
+/* Belt-and-suspenders: never leave a floating Skip over the hero. */
+html.scene-skipped #scene-skip {
+  display: none !important;
+}
 html.scene-skipped #landing-content {
   opacity: 1 !important;
   pointer-events: auto !important;

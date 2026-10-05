@@ -7,7 +7,7 @@ declare global {
   interface Window {
     __ANALYZIT_SCENE_SKIP__?: string;
     __ANALYZIT_HASH_SCROLLED__?: string;
-    __ANALYZIT_LENIS__?: { scrollTo: (target: number | string, opts?: Record<string, unknown>) => void } | null;
+    // __ANALYZIT_LENIS__ is declared once in SmoothScrollProvider (Lenis | null).
   }
 }
 import { Navbar } from './Navbar';
@@ -22,8 +22,15 @@ const SceneCanvas = dynamic(
   { ssr: false }
 );
 
-function subscribeClient() {
-  return () => {};
+function subscribeClient(onStoreChange: () => void) {
+  if (typeof window === 'undefined') return () => {};
+  const onSkip = () => onStoreChange();
+  document.addEventListener('analyzit-scene-skip', onSkip);
+  // Boot may have already dismissed before hydrate.
+  if (window.__ANALYZIT_SCENE_SKIP__) {
+    queueMicrotask(onStoreChange);
+  }
+  return () => document.removeEventListener('analyzit-scene-skip', onSkip);
 }
 
 type SceneMode = 'pending' | 'reduced' | 'fallback' | 'webgl';
@@ -53,22 +60,25 @@ function readBootSkip() {
   return window.__ANALYZIT_SCENE_SKIP__ ?? '';
 }
 
-function scrollToHash() {
+type LenisLike = { scrollTo: (target: number | string, opts?: Record<string, unknown>) => void };
+
+function scrollToHash(opts?: { force?: boolean }) {
   const id = hashId(window.location.hash);
-  if (!id) return;
-  // Skip if boot/Lenis already landed on this id (avoid a second jump past the section).
-  if (window.__ANALYZIT_HASH_SCROLLED__ === id) return;
+  if (!id) return false;
+  // Without force, skip if we already claimed this hash for this navigation.
+  if (!opts?.force && window.__ANALYZIT_HASH_SCROLLED__ === id) return false;
   const el = document.getElementById(id);
-  if (!el) return;
+  if (!el) return false;
   const absTop = el.getBoundingClientRect().top + (window.scrollY || window.pageYOffset || 0);
   const top = landingHashScrollTop(absTop, LANDING_NAV_OFFSET_PX);
-  const lenis = window.__ANALYZIT_LENIS__;
+  const lenis = (window as Window & { __ANALYZIT_LENIS__?: LenisLike | null }).__ANALYZIT_LENIS__;
   if (lenis && typeof lenis.scrollTo === 'function') {
     lenis.scrollTo(top, { immediate: true, force: true });
   } else {
     window.scrollTo({ top, left: 0, behavior: 'auto' });
   }
   window.__ANALYZIT_HASH_SCROLLED__ = id;
+  return true;
 }
 
 export function LandingExperience({ children }: { children: React.ReactNode }) {
@@ -107,17 +117,28 @@ export function LandingExperience({ children }: { children: React.ReactNode }) {
     }
     delete root.dataset.sceneLoader;
     root.classList.add('scene-skipped');
-    // Wait for the overlay unlock + content opacity before applying /#pricing,
-    // so Lenis/layout see the real section positions.
+    // Boot may have scrolled while body was height-locked (loader). Clear that
+    // claim and re-apply /#pricing after unlock + one layout settle.
+    const pendingId = hashId(window.location.hash);
+    if (pendingId && window.__ANALYZIT_HASH_SCROLLED__ === pendingId) {
+      window.__ANALYZIT_HASH_SCROLLED__ = undefined;
+    }
     let cancelled = false;
+    let settleTimer = 0;
     const outer = window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        if (!cancelled) scrollToHash();
+        if (cancelled) return;
+        scrollToHash({ force: true });
+        // One settle pass (fonts / hero / pricing quote) — same hash only.
+        settleTimer = window.setTimeout(() => {
+          if (!cancelled) scrollToHash({ force: true });
+        }, 160);
       });
     });
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(outer);
+      if (settleTimer) window.clearTimeout(settleTimer);
     };
   }, [isLoading]);
 
