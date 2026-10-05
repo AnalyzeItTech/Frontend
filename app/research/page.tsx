@@ -54,6 +54,9 @@ import { shouldShowPostRunAd } from '../lib/adCadence';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
 import { ChartCard, type ChartSpec } from '../Components/research/ChartCard';
 import { SuggestionChips } from '../Components/research/SuggestionChips';
+import { FindingCards } from '../Components/research/FindingCards';
+import { RunSteps } from '../Components/research/RunSteps';
+import { discoveryStatus, isDiscoveryRoute, parseFindings, reduceSteps, withoutFindingList, type ParsedFindings, type RunStep } from '../lib/findings.mjs';
 import { parseExtras } from '../lib/chatExtras.mjs';
 import { memoryToolStatus, queueStatus } from '../lib/runStatus.mjs';
 import { historyTurns } from '../lib/historyTurns.mjs';
@@ -130,6 +133,10 @@ interface ChatMessage {
   /** Real places the answer is about, for 'Open on globe'. */
   places?: Array<{ name: string; lat: number; lon: number }>;
   suggestions?: string[];
+  /** Discovery: what stood out in the user's data, as cards with charts and the working. */
+  findings?: ParsedFindings | null;
+  /** Discovery: the live step list while it runs. */
+  steps?: RunStep[];
   widget?: WidgetSpec;
   proposal?: { action_id: string; project_id?: string };
   /** The assistant needs the user's one-time decision on reading this project's data. */
@@ -848,6 +855,8 @@ function ChatInner() {
       let proposalMeta: { action_id: string; project_id?: string } | undefined;
       let sources: ResearchSource[] = [];
       let extras = parseExtras(null) as ReturnType<typeof parseExtras>;
+      let findingsData: ParsedFindings | null = null;
+      let discoverySteps: RunStep[] = [];
       let streamed = '';
       let hintTools: string[] = [];
       let zeroTokenTool: string | null = null;
@@ -968,7 +977,9 @@ function ChatInner() {
               const fromRoute = parseZeroTokenTool(reason) || parseZeroTokenTool(routeField);
               if (fromRoute) zeroTokenTool = fromRoute;
               const nextMode = event.payload?.response_mode === 'report' ? 'report' : 'chat';
-              const ztStatus = zeroTokenTool
+              const ztStatus = isDiscoveryRoute(reason)
+                ? 'Looking through your data…'
+                : zeroTokenTool
                 ? `Looking up via ${labelZeroTokenTool(zeroTokenTool)}…`
                 : nextMode === 'report'
                   ? 'Generating report…'
@@ -1025,7 +1036,7 @@ function ChatInner() {
                     name: hint || undefined,
                   });
                 }
-                const memoryStatus = memoryToolStatus(name, args);
+                const memoryStatus = name === 'data_discovery' ? 'Looking through your data…' : memoryToolStatus(name, args);
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
@@ -1058,6 +1069,14 @@ function ChatInner() {
                   ),
                 );
               }
+              return;
+            }
+
+            if (event.event === 'tool_progress' && event.payload?.tool === 'data_discovery') {
+              discoverySteps = reduceSteps(discoverySteps, event.payload);
+              const stepsNow = discoverySteps;
+              const statusNow = discoveryStatus(event.payload);
+              setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, status: statusNow, steps: stepsNow } : m)));
               return;
             }
 
@@ -1203,6 +1222,7 @@ function ChatInner() {
             if (event.event === 'final') {
               const finalPayload = (event.payload || {}) as Record<string, unknown>;
               extras = parseExtras(finalPayload);
+              findingsData = parseFindings(finalPayload.findings);
               const usage = finalPayload.usage as Record<string, unknown> | undefined;
               if (usage) {
                 const fromUsage = parseContextBudget({
@@ -1360,6 +1380,8 @@ function ChatInner() {
                     charts: extras.charts as ChartSpec[],
                     places: extras.places,
                     suggestions: extras.suggestions,
+                    findings: findingsData,
+                    steps: undefined,
                     widget: widget || m.widget,
                     proposal: proposalMeta || m.proposal,
                     streaming: false,
@@ -1676,7 +1698,7 @@ function ChatInner() {
                           ? isIncognito
                             ? 'rounded-2xl rounded-tr-md border border-violet-400/40 bg-violet-50/95 px-4 py-3 text-sm text-violet-950 shadow-sm backdrop-blur-md dark:border-violet-400/30 dark:bg-violet-950/70 dark:text-violet-50'
                             : 'rounded-2xl rounded-tr-md border border-[var(--border)] bg-[var(--surface)]/95 px-4 py-3 text-sm text-[var(--text-primary)] shadow-sm backdrop-blur-md'
-                          : 'app-card max-w-full bg-[var(--surface)]/92 px-4 py-3 text-sm shadow-sm backdrop-blur-md'
+                          : `app-card max-w-full bg-[var(--surface)]/92 px-4 py-3 text-sm shadow-sm backdrop-blur-md${msg.findings ? ' w-full' : ''}`
                       }`}
                     >
                       {!isUser && msg.mode === 'research' && (
@@ -1765,7 +1787,7 @@ function ChatInner() {
                         ) : isUser ? (
                           <p className="whitespace-pre-wrap">{msg.content}</p>
                         ) : msg.content ? (
-                          <ChatMarkdown text={msg.content} />
+                          <ChatMarkdown text={msg.findings && !msg.streaming ? withoutFindingList(msg.content) : msg.content} />
                         ) : msg.streaming || msg.softFail ? null : (
                           <ChatMarkdown text="…" />
                         )}
@@ -1837,9 +1859,10 @@ function ChatInner() {
                         </button>
                       ) : null}
 
-                      {!isUser && msg.status && msg.streaming && (
+                      {!isUser && msg.status && msg.streaming && !msg.steps?.length && (
                         <p className="text-[11px] font-mono text-[var(--text-muted)]">{msg.status}</p>
                       )}
+                      {!isUser && msg.streaming && msg.steps?.length ? <RunSteps steps={msg.steps} /> : null}
 
                       {!isUser && msg.sources && msg.sources.length > 0 && (
                         <SourceChips sources={msg.sources} />
@@ -1906,6 +1929,9 @@ function ChatInner() {
                         />
                       )}
 
+                      {!isUser && !msg.streaming && msg.findings ? (
+                        <FindingCards data={msg.findings} disabled={isStreaming} onAsk={(q) => void sendMessage(q)} />
+                      ) : null}
                       {!isUser && !msg.streaming && msg.charts?.map((c, ci) => <ChartCard key={ci} chart={c} />)}
                       {!isUser && !msg.streaming && msg.places?.length ? (
                         <button
@@ -1917,7 +1943,7 @@ function ChatInner() {
                           Open {msg.places.length === 1 ? msg.places[0].name : `${msg.places.length} places`} on the globe
                         </button>
                       ) : null}
-                      {!isUser && !msg.streaming && msgIndex === messages.length - 1 && msg.suggestions?.length ? (
+                      {!isUser && !msg.streaming && !msg.findings && msgIndex === messages.length - 1 && msg.suggestions?.length ? (
                         <SuggestionChips
                           suggestions={msg.suggestions}
                           disabled={isStreaming}
