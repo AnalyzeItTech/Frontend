@@ -70,15 +70,15 @@ const CAPABILITIES: Capability[] = [
   {
     id: 'deep-context',
     category: 'Capability 05 · Deep context',
-    headline: 'Deep analysis over large corpora — orchestrated, not stuffed.',
+    headline: 'Long documents, read section by section.',
     body:
-      'Free stays focused; Premium compresses long inputs; VIP reads long documents step by step from a stored copy instead of pasting everything into one model call.',
-    callout: 'Deep · orchestrated',
-    calloutDesc: 'shows how much it read as it works',
+      'Paste a long document and ask a question. On Premium and VIP, AnalyzeIt reads the document one section at a time, notes what each section says about your question, and answers from those notes. Free keeps the most relevant excerpts.',
+    callout: 'Deep read',
+    calloutDesc: 'you see each section being read',
     bullets: [
-      'Tiered modes: focused, compressed, and deep recursive inspect',
-      'Client “Prepared on device” hints before the request leaves the browser',
-      'Honest framing — orchestrated context, not a magic single-call window',
+      'Premium reads about 150,000 characters; VIP about 300,000',
+      'Longer than that: the most relevant sections are read, and the answer says what was not',
+      'Your stored files are searched separately, with no size limit beyond your memory plan',
     ],
   },
   {

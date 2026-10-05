@@ -24,6 +24,7 @@ export const PLAN_FEATURES = {
     'Unlimited AI runs',
     '15 projects · 30 widgets · 3 running at once',
     memory(CONTEXT_RETENTION_TOKENS.premium, ' · 30-day artifacts'),
+    'Reads long pasted documents section by section (about 150,000 characters)',
     'Ad-free · personal link: yourname.analyzeit.in',
   ],
   premium_plus: [
@@ -33,7 +34,7 @@ export const PLAN_FEATURES = {
     memory(CONTEXT_RETENTION_TOKENS.premium_plus, ' · searched across all your projects'),
     '90-day artifacts',
     'Priority when the agent is busy',
-    'Deeper multi-step reading for long documents',
+    'Reads long pasted documents section by section (about 300,000 characters)',
   ],
 };
 
