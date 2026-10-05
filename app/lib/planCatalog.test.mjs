@@ -28,8 +28,8 @@ describe('the plan catalogue', () => {
   it('states real limits, not multipliers that contradict each other', () => {
     assert.ok(PLAN_FEATURES.free.some((f) => f.includes('50,000 tokens a month')));
     assert.ok(!JSON.stringify(PLAN_FEATURES).match(/\d×/), 'no "3×" / "6×" multipliers');
-    assert.ok(PLAN_FEATURES.premium.some((f) => f.includes('10M tokens/mo')));
-    assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.includes('50M tokens/mo')));
+    assert.ok(PLAN_FEATURES.premium.some((f) => f.includes('10M tokens a month')));
+    assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.includes('50M tokens a month')));
   });
   it('lists memory per plan using the same figures as the entitlement table', () => {
     assert.ok(PLAN_FEATURES.free.some((f) => f.startsWith('10M tokens of memory')));
@@ -41,8 +41,9 @@ describe('the plan catalogue', () => {
   it('does not claim unlimited AI runs or invent Premium/VIP run counts', () => {
     const text = JSON.stringify(PLAN_FEATURES);
     assert.doesNotMatch(text, /unlimited/i);
-    assert.ok(PLAN_FEATURES.premium.some((f) => f.includes('AI runs included') && f.includes('10M tokens/mo')));
-    assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.includes('AI runs included') && f.includes('50M tokens/mo')));
+    // Paid tiers: drop the AI-runs bullet entirely (no Unlimited, no invented count, no token-cap substitute).
+    assert.ok(!PLAN_FEATURES.premium.some((f) => /AI runs/i.test(f)));
+    assert.ok(!PLAN_FEATURES.premium_plus.some((f) => /AI runs/i.test(f)));
     assert.ok(PLAN_FEATURES.free.some((f) => f.includes('40 AI runs a month')));
   });
   it('does not sell Slack, Notion or email digests', () => {
