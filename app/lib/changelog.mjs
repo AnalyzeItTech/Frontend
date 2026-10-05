@@ -5,6 +5,7 @@ export const CHANGELOG = [
   {
     date: '2026-10-05',
     items: [
+      { title: 'Connect Google Drive', body: 'The connectors page can connect Google Drive when the server says it is configured, then sync and show the counts that come back. If Drive is not configured, the card says so and does not offer Connect.' },
       { title: 'Premium on Products matches the homepage', body: 'The Products page shows Premium in whole rupees, the same figure as the homepage. The dollar amount is only a reference.' },
       { title: 'Long documents are read section by section', body: 'On Premium and VIP, a long pasted document is read one section at a time instead of being cut to a few excerpts, and the answer says how much was read. Premium reads about 150,000 characters, VIP about 300,000. You can watch each section being read.' },
       { title: 'Try it without signing up', body: 'A public demo answers weather, currency, stock and math questions with no account. Tool answers are labelled “From tools · 0 tokens” and show their source.' },
