@@ -3,6 +3,7 @@ import { AUTH_COOKIE, SESSION_COOKIE, decideHostRequest, publicHost } from './ap
 
 const PROTECTED_PREFIXES = [
   '/dashboard',
+  '/research', // signed-out visitors are sent to sign in at once (no "Checking account…" flash); /demo is the public way to try it
   '/globe',
   '/connectors',
   '/objects',
