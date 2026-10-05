@@ -47,8 +47,8 @@ export default function AcceptableUsePage() {
       <LegalSection title="4. Contact">
         <p>
           Report abuse to{' '}
-          <a href="mailto:hello@analyzeit.ai" className="text-[#E3836C] hover:underline">
-            hello@analyzeit.ai
+          <a href="mailto:hello@analyzeit.in" className="text-[#E3836C] hover:underline">
+            hello@analyzeit.in
           </a>
           .
         </p>

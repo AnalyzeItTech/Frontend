@@ -18,10 +18,10 @@ export default function ContactPage() {
 
       <div className="grid sm:grid-cols-2 gap-4">
         {[
-          { label: 'Support', email: 'hello@analyzeit.ai', note: 'Accounts, billing, and product help' },
-          { label: 'Privacy', email: 'privacy@analyzeit.ai', note: 'Data requests and this policy' },
-          { label: 'Security', email: 'security@analyzeit.ai', note: 'Vulnerability reports' },
-          { label: 'Legal', email: 'legal@analyzeit.ai', note: 'Terms, DPA, and contracts' },
+          { label: 'Support', email: 'hello@analyzeit.in', note: 'Accounts, billing, and product help' },
+          { label: 'Privacy', email: 'privacy@analyzeit.in', note: 'Data requests and this policy' },
+          { label: 'Security', email: 'security@analyzeit.in', note: 'Vulnerability reports' },
+          { label: 'Legal', email: 'legal@analyzeit.in', note: 'Terms, DPA, and contracts' },
         ].map((item) => (
           <a
             key={item.email}

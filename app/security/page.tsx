@@ -61,8 +61,8 @@ export default function SecurityPage() {
       <LegalSection title="6. Reporting issues">
         <p>
           If you discover a vulnerability, email{' '}
-          <a href="mailto:security@analyzeit.ai" className="text-[#E3836C] hover:underline">
-            security@analyzeit.ai
+          <a href="mailto:security@analyzeit.in" className="text-[#E3836C] hover:underline">
+            security@analyzeit.in
           </a>
           . Please do not publicly disclose an issue until we have had a reasonable chance to
           investigate and fix it.
