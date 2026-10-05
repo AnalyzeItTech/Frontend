@@ -140,6 +140,11 @@
   --error: #C45B4A;
   --info: #79A8DF;
 
+  /* Discovery finding cards: one accent plus grey. Contrast on --surface: accent 5.25:1, soft text 5.9:1, neutral marks 3.3:1. */
+  --finding-accent: #B5472F;
+  --finding-soft: #6A6158;
+  --finding-neutral: #948B82;
+
   --background: #F5EEE5;
   --foreground: #3A342D;
   --card: #FFFCF8;
@@ -181,6 +186,11 @@
   --warning: #D98F3F;
   --error: #EF6C6C;
   --info: #79A8DF;
+
+  /* Discovery finding cards (dark): accent 6.7:1, soft text 6.9:1, neutral marks 4.8:1 on --surface. */
+  --finding-accent: #EA8069;
+  --finding-soft: #9AA1AE;
+  --finding-neutral: #7C8493;
   --danger: #C45B4A;
 
   --background: #0B0D10;
