@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ApiUnavailableError, clearAuthSession, fetchMe, getStoredToken } from '../../lib/auth';
+import { ApiUnavailableError, SERVICE_UNAVAILABLE_MESSAGE, clearAuthSession, fetchMe, getStoredToken } from '../../lib/auth';
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -37,7 +37,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
         setUnavailable(
           err instanceof ApiUnavailableError
             ? err.message
-            : 'We are seeing a large number of people right now because of high demand. Please try again in a little while.',
+            : SERVICE_UNAVAILABLE_MESSAGE,
         );
       }
     }

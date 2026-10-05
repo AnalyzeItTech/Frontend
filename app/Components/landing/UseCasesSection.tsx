@@ -17,7 +17,7 @@ const USE_CASES: UseCase[] = [
     role: 'Analysts & Data Teams',
     tagline: 'Skip the repetitive queries, keep the interesting work.',
     detail:
-      'Let routine ad-hoc questions answer themselves automatically so you can focus on high-leverage architectural and strategic projects.',
+      'Let routine one-off questions answer themselves, with the sources shown, so your time goes to the work that needs a person.',
   },
   {
     role: 'Operations & Growth',

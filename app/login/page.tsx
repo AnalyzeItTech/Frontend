@@ -16,7 +16,7 @@ import {
   IconCheck,
   IconAlertCircle,
 } from '@tabler/icons-react';
-import { ApiUnavailableError, clearAuthSession, confirmAuthSession, fetchMe, getStoredToken, login, register, safeNextPath } from '../lib/auth';
+import { ApiUnavailableError, SERVICE_UNAVAILABLE_MESSAGE, clearAuthSession, confirmAuthSession, fetchMe, getStoredToken, login, register, safeNextPath } from '../lib/auth';
 import { GoogleSignInButton } from '../Components/auth/GoogleSignInButton';
 import { GitHubSignInButton } from '../Components/auth/GitHubSignInButton';
 
@@ -501,7 +501,7 @@ function LoginInner() {
         setSessionError(
           err instanceof ApiUnavailableError
             ? err.message
-            : 'We are seeing a large number of people right now because of high demand. Please try again in a little while.',
+            : SERVICE_UNAVAILABLE_MESSAGE,
         );
       } finally {
         if (!cancelled) setChecking(false);

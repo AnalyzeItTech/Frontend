@@ -3,11 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getBillingQuote, type BillingQuote } from '../../lib/billingApi';
-import { CONTEXT_RETENTION_TOKENS, formatContextRetention } from '../../lib/contextWall.mjs';
-
-const FREE_RETENTION = `${formatContextRetention(CONTEXT_RETENTION_TOKENS.free)} context retention (memory)`;
-const PREMIUM_RETENTION = `${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium)} context retention (memory)`;
-const VIP_RETENTION = `${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium_plus)} context retention (memory) · account-wide memory`;
+import { PLAN_FEATURES, PLAN_NAMES, PLAN_TAGLINES, USD_REFERENCE, priceLabel, priceNote } from '../../lib/planCatalog.mjs';
 
 type TierCard = {
   name: string;
@@ -23,94 +19,37 @@ type TierCard = {
 };
 
 const FREE_TIER: TierCard = {
-  name: 'Free',
+  name: PLAN_NAMES.free,
   price: '₹0',
   period: '/mo',
-  currencyNote: 'INR · billed as ₹0',
-  tagline:
-    'Personal research after you create an account. Enough to run the ask → tools → answer loop.',
-  features: [
-    'Requires an AnalyzeIt account',
-    'Core Chat + research loop',
-    '3 projects · 12 widgets',
-    '1× daily tokens · smaller model',
-    'Sponsored units after research runs',
-    '7-day artifact retention',
-    '50,000 tokens/month usage',
-    FREE_RETENTION,
-  ],
+  currencyNote: 'No charge',
+  tagline: PLAN_TAGLINES.free,
+  features: PLAN_FEATURES.free,
   cta: 'Create a free account',
   href: '/login?tab=register',
 };
 
 const PAID_BASE: Omit<TierCard, 'price' | 'currencyNote'>[] = [
   {
-    name: 'Premium',
+    name: PLAN_NAMES.premium,
     planId: 'premium',
     period: '/mo',
-    tagline: 'Deeper runs: better model, 3× tokens, ad-free research.',
+    tagline: PLAN_TAGLINES.premium,
     popular: true,
-    features: [
-      'Everything in Free',
-      'Better model + 3× tokens',
-      '15 projects · 30 widgets',
-      '10M tokens/month usage',
-      PREMIUM_RETENTION,
-      'Ad-free research',
-      'Personal link: yourname.analyzeit.in',
-      '30-day artifact retention',
-      'Monthly billing after you sign in',
-    ],
+    features: [...PLAN_FEATURES.premium, 'Monthly billing after you sign in'],
     cta: 'Sign in to upgrade',
     href: '/login?next=/billing',
   },
   {
-    name: 'VIP',
+    name: PLAN_NAMES.premium_plus,
     planId: 'premium_plus',
     period: '/mo',
-    tagline:
-      'Heaviest research: 6× tokens, deep orchestrated context, priority when the agent is busy.',
-    features: [
-      'Everything in Premium',
-      '6× tokens · large model',
-      '50M tokens/month usage',
-      '10 concurrent projects · 90-day artifacts',
-      VIP_RETENTION,
-      'Ad-free + personal dashboard link',
-      'Deep · orchestrated context (RLM-style inspect)',
-      'Priority queue when the agent is busy',
-      'Monthly billing after you sign in',
-    ],
+    tagline: PLAN_TAGLINES.premium_plus,
+    features: [...PLAN_FEATURES.premium_plus, 'Monthly billing after you sign in'],
     cta: 'Sign in to go VIP',
     href: '/login?next=/billing',
   },
 ];
-
-function displayAmount(row: BillingQuote['plans']['premium'] | undefined, fallbackUsd: number): string {
-  if (!row || row.amount == null || !Number.isFinite(Number(row.amount))) {
-    return `$${fallbackUsd}`;
-  }
-  if (typeof row.amount_display === 'string' && row.amount_display.trim()) {
-    return row.amount_display.trim();
-  }
-  const ccy = row.currency || 'INR';
-  const n = Number(row.amount);
-  if (ccy === 'INR') {
-    return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  }
-  return `${ccy} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function currencyNote(row: BillingQuote['plans']['premium'] | undefined, fallbackUsd: number): string {
-  if (!row || row.amount == null || !Number.isFinite(Number(row.amount))) {
-    return `USD reference · live INR on Billing after sign-in (≈$${fallbackUsd})`;
-  }
-  const usd =
-    row.amount_usd != null && Number.isFinite(row.amount_usd)
-      ? ` · $${row.amount_usd} USD reference`
-      : ` · $${fallbackUsd} USD reference`;
-  return `${row.currency || 'INR'} via Razorpay${usd}`;
-}
 
 export const PricingTeaserSection: React.FC = () => {
   const [quote, setQuote] = useState<BillingQuote | null>(null);
@@ -134,12 +73,12 @@ export const PricingTeaserSection: React.FC = () => {
   const tiers: TierCard[] = [
     FREE_TIER,
     ...PAID_BASE.map((base) => {
-      const fallbackUsd = base.planId === 'premium_plus' ? 49 : 19;
+      const fallbackUsd = base.planId ? USD_REFERENCE[base.planId] : 0;
       const row = base.planId ? quote?.plans?.[base.planId] : undefined;
       return {
         ...base,
-        price: displayAmount(row, fallbackUsd),
-        currencyNote: currencyNote(row, fallbackUsd),
+        price: priceLabel(row, fallbackUsd),
+        currencyNote: priceNote(row, fallbackUsd),
       };
     }),
   ];
@@ -158,9 +97,8 @@ export const PricingTeaserSection: React.FC = () => {
           Fair pricing for quiet research.
         </h2>
         <p className="text-base text-[#3F3830] dark:text-[#E6DCD2]">
-          Chat, dashboards, Globe, and connectors need an account. Paid plans billed monthly in INR
-          via Razorpay. USD is reference only — live INR quote at checkout. Amounts below match live
-          Billing quotes.
+          Chat, dashboards, Globe, and connectors need an account. Paid plans are billed monthly in INR
+          via Razorpay; the USD figure is a reference, and the exact INR price is confirmed at checkout.
         </p>
       </div>
 
@@ -176,7 +114,7 @@ export const PricingTeaserSection: React.FC = () => {
           >
             {tier.popular && (
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] font-medium uppercase tracking-wider px-2.5 py-1 rounded-full bg-[#E3836C] text-white">
-                Most used
+                Recommended
               </span>
             )}
             <div className="space-y-1 mb-6">
