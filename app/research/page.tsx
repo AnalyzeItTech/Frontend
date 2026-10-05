@@ -57,6 +57,7 @@ import { ChartCard, type ChartSpec } from '../Components/research/ChartCard';
 import { SuggestionChips } from '../Components/research/SuggestionChips';
 import { parseExtras } from '../lib/chatExtras.mjs';
 import { memoryToolStatus, queueStatus } from '../lib/runStatus.mjs';
+import { historyTurns } from '../lib/historyTurns.mjs';
 import { useWarmAgent } from '../lib/useWarmAgent';
 import { normalizeMemorySources, type MemoryCitation } from '../lib/memoryCitations.mjs';
 import { MemoryCitations } from '../Components/research/MemoryCitations';
@@ -908,9 +909,7 @@ function ChatInner() {
 
       let chipsSnapshot: ChatAttachment[] = [];
       try {
-        const history = messages
-          .filter((m) => m.role === 'user' || m.role === 'assistant')
-          .map((m) => ({ role: m.role, content: m.content || '' }));
+        const history = historyTurns(messages);
 
         const scopedProjectId = projectId;
 
