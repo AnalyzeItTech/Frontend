@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useWarmAgent } from '../lib/useWarmAgent';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconCurrentLocation,
@@ -174,6 +175,7 @@ function kpis(ctx: PlaceContext | null | undefined) {
 }
 
 function GlobePageInner() {
+  useWarmAgent(); // Ask the globe uses the agent: wake it while the globe loads
   const router = useRouter();
   const { theme } = useTheme();
   const globePageStage = globeStage({

@@ -57,6 +57,7 @@ import { ChartCard, type ChartSpec } from '../Components/research/ChartCard';
 import { SuggestionChips } from '../Components/research/SuggestionChips';
 import { parseExtras } from '../lib/chatExtras.mjs';
 import { memoryToolStatus, queueStatus } from '../lib/runStatus.mjs';
+import { useWarmAgent } from '../lib/useWarmAgent';
 import { normalizeMemorySources, type MemoryCitation } from '../lib/memoryCitations.mjs';
 import { MemoryCitations } from '../Components/research/MemoryCitations';
 import { globeLinkForPlaces } from '../Components/globe/scene.mjs';
@@ -372,6 +373,7 @@ function ChatInner() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  useWarmAgent();
   useEffect(() => {
     if (runId) sessionStorage.setItem('analyzeit_last_run_id', runId);
   }, [runId]);
