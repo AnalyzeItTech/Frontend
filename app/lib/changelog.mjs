@@ -11,7 +11,7 @@ export const CHANGELOG = [
       { title: 'Faster first question', body: 'Opening Research or the globe quietly wakes the agent, so the first question after a quiet spell waits less.' },
       { title: 'Intro that cannot trap you', body: 'The homepage intro finishes on its own within a few seconds and can be skipped.' },
       { title: 'Social preview image', body: 'Links to AnalyzeIt now show a proper preview card.' },
-      { title: 'Calculator ignores ranges and dates', body: '“Pages 12-15” or “2026-10-05” is no longer treated as subtraction unless you ask for a calculation.', rollingOut: true },
+      { title: 'Calculator ignores ranges and dates', body: '“Pages 12-15” or “2026-10-05” is no longer treated as subtraction unless you ask for a calculation.' },
     ],
   },
   {
@@ -21,7 +21,7 @@ export const CHANGELOG = [
       { title: 'Answers cite your notes', body: 'Answers built from stored notes show a “From your notes” chip naming the source and the passage used.', rollingOut: true },
       { title: 'Exact-word recall across a large library', body: 'Names, ids and error codes are found anywhere in your stored sources, not only in the part searched by meaning. Tested with a user at the full 1 billion token plan size.', rollingOut: true },
       { title: 'Plan limits that are enforced', body: 'Projects running at once, priority when the agent is busy and how many memory results an answer can use now follow your plan.' },
-      { title: 'Artifact lifetime follows your plan', body: 'Exported files and their links will last 7, 30 or 90 days depending on your plan (they currently last 24 hours for everyone).', rollingOut: true },
+      { title: 'Artifact lifetime follows your plan', body: 'Exported files and their links now last 7, 30 or 90 days depending on your plan (they used to last 24 hours for everyone).' },
       { title: 'Models run on Azure', body: 'All AI models are served from Azure AI Foundry.' },
     ],
   },
