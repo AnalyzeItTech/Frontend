@@ -531,6 +531,8 @@ export async function streamChat(options: ChatOptions): Promise<{
     contribution?: number;
     verified?: boolean;
   }>;
+  /** Raw stored-memory citations from the final event; clean with normalizeMemorySources. */
+  memorySources: unknown[];
 }> {
   const storedUser = getStoredUser();
   const effectiveUserId = options.userId || (storedUser ? storedUser.id : undefined);
@@ -623,6 +625,8 @@ export async function streamChat(options: ChatOptions): Promise<{
     verified?: boolean;
   }> = [];
 
+  let memorySources: unknown[] = [];
+
   const parseTextPayload = (raw: unknown): string => {
     if (typeof raw === 'string') return raw;
     if (Array.isArray(raw)) {
@@ -697,6 +701,7 @@ export async function streamChat(options: ChatOptions): Promise<{
             verified?: boolean;
           }>) || [];
           sources.push(...srcs);
+          if (Array.isArray(event.payload.memory_sources)) memorySources = event.payload.memory_sources as unknown[];
         }
         if (event.event === 'error' && !contextSoftFail) {
           streamError = streamErrorMessage(event.payload);
@@ -708,7 +713,7 @@ export async function streamChat(options: ChatOptions): Promise<{
   }
 
   if (contextSoftFail) {
-    return { runId: resolvedRunId, projectId: resolvedProjectId, finalText, artifacts, sources };
+    return { runId: resolvedRunId, projectId: resolvedProjectId, finalText, artifacts, sources, memorySources };
   }
 
   if (hardContext && !finalText) {
@@ -745,7 +750,7 @@ export async function streamChat(options: ChatOptions): Promise<{
     throw new Error(streamError);
   }
 
-  return { runId: resolvedRunId, projectId: resolvedProjectId, finalText, artifacts, sources };
+  return { runId: resolvedRunId, projectId: resolvedProjectId, finalText, artifacts, sources, memorySources };
 }
 
 export function getArtifactUrl(artifactId: string): string {
