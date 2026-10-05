@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IconMessageDots, IconSearch, IconWorld } from '@tabler/icons-react';
 import { getStoredToken } from '../../lib/auth';
 import {
@@ -9,6 +9,7 @@ import {
   GLOBE_SIGN_IN_LINE,
   globeSegmentResult,
   moveComposerSegment,
+  researchComposerFocus,
   type ComposerSegment,
 } from '../../lib/composerMode.mjs';
 
@@ -36,15 +37,54 @@ export function ComposerModeControl({
   onMode: (mode: 'chat' | 'research') => void;
 }) {
   const refs = useRef<Array<HTMLButtonElement | HTMLAnchorElement | null>>([]);
+  const rovingRef = useRef<ComposerSegment | null>(null);
+  const modeRef = useRef(mode);
   const [globeGated, setGlobeGated] = useState(false);
   const [roving, setRoving] = useState<ComposerSegment | null>(null);
-  const tabStop: ComposerSegment = roving ?? mode;
+  const { tabStop } = researchComposerFocus(mode, roving);
+
+  const rememberRoving = (next: ComposerSegment | null) => {
+    rovingRef.current = next;
+    setRoving(next);
+  };
+
+  const focusSelectedMode = () => {
+    const selected = researchComposerFocus(modeRef.current, null, { entered: true }).tabStop;
+    const index = COMPOSER_SEGMENTS.indexOf(selected);
+    refs.current[index]?.focus();
+  };
 
   const selectMode = (next: 'chat' | 'research') => {
-    setRoving(null);
+    rememberRoving(null);
     setGlobeGated(false);
     onMode(next);
   };
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  useEffect(() => {
+    const moveFocusOffGlobe = () => {
+      if (rovingRef.current === 'globe') return;
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active.getAttribute('data-segment') === 'globe') {
+        focusSelectedMode();
+      }
+    };
+    const onReturn = () => {
+      rememberRoving(null);
+      moveFocusOffGlobe();
+    };
+    const frame = window.requestAnimationFrame(moveFocusOffGlobe);
+    window.addEventListener('pageshow', onReturn);
+    window.addEventListener('popstate', onReturn);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('pageshow', onReturn);
+      window.removeEventListener('popstate', onReturn);
+    };
+  }, []);
 
   const gateGlobe = () => {
     const result = globeSegmentResult(Boolean(getStoredToken()));
@@ -66,7 +106,7 @@ export function ComposerModeControl({
     if (nextIndex != null) {
       event.preventDefault();
       const next = COMPOSER_SEGMENTS[nextIndex];
-      setRoving(next === 'globe' ? 'globe' : null);
+      rememberRoving(next === 'globe' ? 'globe' : null);
       refs.current[nextIndex]?.focus();
       if (next === 'chat' || next === 'research') selectMode(next);
       return;
@@ -106,7 +146,11 @@ export function ComposerModeControl({
                 href="/globe"
                 {...shared}
                 onClick={(event) => {
-                  if (gateGlobe()) event.preventDefault();
+                  if (gateGlobe()) {
+                    event.preventDefault();
+                    return;
+                  }
+                  rememberRoving(null);
                 }}
               >
                 <Icon size={14} aria-hidden />

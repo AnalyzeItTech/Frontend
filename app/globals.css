@@ -719,7 +719,7 @@ textarea:focus-visible {
   line-height: 1.35;
   min-height: 2.75rem;
   padding: 0.5rem 0.9rem;
-  text-align: left;
+  text-align: center;
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 

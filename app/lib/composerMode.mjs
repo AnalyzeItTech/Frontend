@@ -37,3 +37,19 @@ export function globeSegmentResult(hasSession) {
   if (hasSession) return { kind: 'navigate', href: '/globe' };
   return { kind: 'gate', message: GLOBE_SIGN_IN_LINE };
 }
+
+/**
+ * What /research should show. Globe is a destination, never the selected mode.
+ * Arrowing onto Globe may hold the tab stop for that visit. Entering Research
+ * again — a fresh load or back from /globe — drops that stop.
+ *
+ * @param {string | null | undefined} mode
+ * @param {string | null | undefined} roving
+ * @param {{ entered?: boolean }} [options]
+ * @returns {{ mode: 'chat' | 'research', tabStop: 'chat' | 'research' | 'globe' }}
+ */
+export function researchComposerFocus(mode, roving, options = {}) {
+  const selected = mode === 'research' ? 'research' : 'chat';
+  if (options.entered || roving !== 'globe') return { mode: selected, tabStop: selected };
+  return { mode: selected, tabStop: 'globe' };
+}

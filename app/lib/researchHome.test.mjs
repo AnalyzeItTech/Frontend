@@ -15,6 +15,7 @@ import {
   RESEARCH_EMPTY_TITLE,
   globeSegmentResult,
   moveComposerSegment,
+  researchComposerFocus,
 } from './composerMode.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -56,6 +57,34 @@ describe('globe segment', () => {
   });
 });
 
+describe('returning to Research from Globe', () => {
+  it('selects Chat or Research and drops a leftover Globe tab stop', () => {
+    assert.deepEqual(researchComposerFocus('chat', 'globe', { entered: true }), {
+      mode: 'chat',
+      tabStop: 'chat',
+    });
+    assert.deepEqual(researchComposerFocus('research', 'globe', { entered: true }), {
+      mode: 'research',
+      tabStop: 'research',
+    });
+    assert.deepEqual(researchComposerFocus('globe', 'globe', { entered: true }), {
+      mode: 'chat',
+      tabStop: 'chat',
+    });
+    assert.deepEqual(researchComposerFocus(null, 'globe', { entered: true }), {
+      mode: 'chat',
+      tabStop: 'chat',
+    });
+    assert.equal(researchComposerFocus('research', 'globe', { entered: true }).tabStop === 'globe', false);
+  });
+
+  it('keeps the Globe tab stop only while arrowing on this visit', () => {
+    assert.deepEqual(researchComposerFocus('chat', 'globe'), { mode: 'chat', tabStop: 'globe' });
+    assert.deepEqual(researchComposerFocus('research', null), { mode: 'research', tabStop: 'research' });
+    assert.deepEqual(researchComposerFocus('chat', 'chat'), { mode: 'chat', tabStop: 'chat' });
+  });
+});
+
 describe('research page wiring', () => {
   it('keeps the send path and mounts the empty state and mode control', () => {
     const page = read('app/research/page.tsx');
@@ -78,6 +107,8 @@ describe('research page wiring', () => {
     assert.match(control, /aria-selected/);
     assert.match(control, /aria-orientation="horizontal"/);
     assert.match(control, /moveComposerSegment/);
+    assert.match(control, /researchComposerFocus/);
+    assert.match(control, /pageshow/);
     assert.match(control, /GLOBE_SIGN_IN_LINE/);
     assert.match(control, /href="\/globe"/);
   });
