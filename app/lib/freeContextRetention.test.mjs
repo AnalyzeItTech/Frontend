@@ -44,20 +44,21 @@ describe('Free context retention listing', () => {
     assert.match(CONTEXT_UPGRADE_COPY.body, /Premium context retention \(memory\) is 500M/);
     assert.match(CONTEXT_UPGRADE_COPY.body, /VIP is 1B/);
 
+    // Every pricing surface reads plans from the one catalogue, and the catalogue reads the retention table.
     for (const rel of [
       'app/Components/landing/PricingTeaserSection.tsx',
       'app/billing/page.tsx',
-      'app/products/page.tsx',
+      'app/products/ProductsPlans.tsx',
     ]) {
       const text = read(rel);
-      assert.match(text, /CONTEXT_RETENTION_TOKENS/);
-      assert.match(text, /formatContextRetention/);
+      assert.match(text, /planCatalog\.mjs/, `${rel} must use the shared plan catalogue`);
       assert.doesNotMatch(text, /250M context retention/);
     }
-    const pricing = read('app/Components/landing/PricingTeaserSection.tsx');
-    assert.match(pricing, /CONTEXT_RETENTION_TOKENS\.free/);
-    assert.match(pricing, /CONTEXT_RETENTION_TOKENS\.premium/);
-    assert.match(pricing, /CONTEXT_RETENTION_TOKENS\.premium_plus/);
+    const catalogue = read('app/lib/planCatalog.mjs');
+    assert.match(catalogue, /CONTEXT_RETENTION_TOKENS\.free/);
+    assert.match(catalogue, /CONTEXT_RETENTION_TOKENS\.premium\b/);
+    assert.match(catalogue, /CONTEXT_RETENTION_TOKENS\.premium_plus/);
+    assert.match(catalogue, /formatContextRetention/);
   });
 
   it('does not advertise 250M retention or a 20,000-character Free wall', () => {
