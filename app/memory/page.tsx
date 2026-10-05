@@ -5,14 +5,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '../Components/app/AppShell';
 import { PageTitle } from '../Components/app/PageTitle';
 import { RetentionMeter } from '../Components/billing/RetentionMeter';
-import { describeSource } from '../lib/memorySourceRow.mjs';
+import { MemorySourceRow } from '../Components/memory/MemorySourceRow';
 import { fetchEmbeddedSources, fetchEmbeddingJob, type EmbeddingJob } from '../lib/embeddingsApi';
 import {
-  deleteMemorySource,
   exportMemory,
   getMemoryWarnings,
   listMemorySources,
-  pinMemorySource,
   type MemorySource,
 } from '../lib/memoryApi';
 
@@ -76,9 +74,9 @@ export default function MemoryPage() {
   return (
     <AppShell active="profile">
       <div className="mx-auto max-w-3xl space-y-6">
-        <PageTitle title="Memory" />
+        <PageTitle title="What AnalyzeIt remembers" />
         <p className="text-sm text-[var(--text-muted)]">
-          Everything you add is kept and used when you ask. Nothing is deleted without you.
+          Everything you add is kept and used when you ask. Rename a source so you recognise it, see what was stored, and delete anything you do not want kept. Nothing is deleted without you.
         </p>
         <RetentionMeter key={meterKey} />
         {pct ? (
@@ -118,33 +116,7 @@ export default function MemoryPage() {
           {rows.length === 0 ? (
             <li className="p-4 text-sm text-[var(--text-muted)]">No stored sources yet.</li>
           ) : (
-            rows.map((r) => {
-              const d = describeSource(r);
-              return (
-              <li key={r.id} className="flex items-center justify-between gap-3 p-4 text-sm">
-                <div className="min-w-0">
-                  <p className="truncate text-[var(--text-primary)]" title={d.heading}>{d.heading}</p>
-                  <p className="text-xs text-[var(--text-muted)]">{d.detail}</p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <button type="button" className="btn-ghost text-xs" onClick={() => run(() => pinMemorySource(r.id, !r.pinned))}>
-                    {r.pinned ? 'Unpin' : 'Pin'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-ghost text-xs text-[#9B4D3B]"
-                    onClick={() => {
-                      if (window.confirm(`Delete "${d.heading}"? It is removed from your memory and from any chat answer that cited it. Its tokens are refunded.`)) {
-                        void run(() => deleteMemorySource(r.id));
-                      }
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </li>
-              );
-            })
+            rows.map((r) => <MemorySourceRow key={r.id} row={r} onChanged={() => void load()} onError={setError} />)
           )}
         </ul>
       </div>
