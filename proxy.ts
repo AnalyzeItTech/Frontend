@@ -73,6 +73,8 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/',
+    '/digest/:path*',
+    '/digest',
     '/login',
     '/login/:path*',
     '/auth/:path*',
