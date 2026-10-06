@@ -10,22 +10,33 @@ export interface Finding {
   confidence: string; confidenceLabel: string; confidenceTone: Tone; confidenceNote: string; strength: number; visual: Visual | null;
   figures: Array<{ label: string; value: string; n: number | null; note: string }>; sql: string; followups: string[];
   source: { table: string; origin: 'project' | 'online'; url: string };
+  provenance: { host: string; publisher: string; publisherLabel: string; fetchedAt: string; latest: string | null } | null;
+}
+export interface FindingsScope {
+  mode: 'project' | 'online';
+  sources: Array<{ table: string; title: string; url: string; host: string; publisher: string; publisherLabel: string; fetchedAt: string; latest: string | null; rowsLoaded: number; rowsTotal: number | null; notes: string[] }>;
+  account: string[];
 }
 export interface ParsedFindings {
   findings: Finding[];
   checked: { analyses: number; queries: number; byKind: Record<string, number>; tables: Array<{ name: string; rows: number; total: number }> };
   partial: Array<{ table: string; loaded: number; total: number }>;
   notes: string[];
+  scope: FindingsScope;
 }
 export interface RunStep { id: string; label: string; state: 'pending' | 'running' | 'done'; detail: string }
 export const MAX_FINDINGS: number; export const MAX_POINTS: number; export const MAX_BARS: number; export const MAX_SCATTER: number; export const MAX_FIGURES: number;
 export const STEP_DEFS: Array<{ id: string; label: string }>;
+export const STEP_DEFS_ONLINE: Array<{ id: string; label: string }>;
 export function safeUrl(u: unknown): string;
 export function parseVisual(v: unknown): Visual | null;
 export function parseFindings(payload: unknown): ParsedFindings | null;
 export function confidenceMeta(c: string): { label: string; tone: Tone };
 export function checkedLine(parsed: ParsedFindings | null): string;
 export function breakdownLine(parsed: ParsedFindings | null): string;
+export function onlineNotice(parsed: ParsedFindings | null): string;
+export function provenanceLine(f: Finding | null | undefined): string;
+export function sourceLines(src: FindingsScope['sources'][number] | null | undefined): string[];
 export function partialLine(parsed: ParsedFindings | null): string;
 export function formatNumber(v: number | null | undefined, format?: 'number' | 'percent'): string;
 export function formatPeriod(label: unknown): string;
