@@ -67,16 +67,27 @@ describe('the landing page', () => {
     assert.ok(!fs.existsSync(path.join(root, 'app/Components/ui/LoadingScreen.tsx')));
     assert.doesNotMatch(read('app/Components/landing/HeroSection.tsx') + exp, /CALIBRATING/i);
   });
-  it('leads with a real answer, saved from a real run on public data', () => {
-    assert.match(read('app/Components/landing/HeroSection.tsx'), /<HeroAnswer \/>/);
+  it('names a pain for one kind of customer, and shows a real output on labelled sample data', () => {
+    const hero = read('app/Components/landing/HeroSection.tsx');
+    assert.match(hero, /<HeroAnswer \/>/);
+    assert.match(hero, /Razorpay/);
+    assert.match(hero, /failing/);
+    assert.doesNotMatch(hero, /Weather in Mumbai|AAPL|12 \* 30|globe|map-first/i, 'the hero is about one thing');
+    assert.match(read('app/page.tsx'), /<LeaksSection \/>/);
     const ex = JSON.parse(read('app/lib/fixtures/hero.example.json'));
     const parsed = parseFindings(ex.findings);
-    assert.ok(parsed && parsed.findings.length === 1);
-    assert.equal(parsed.findings[0].visual.type, 'forecast');
-    assert.match(ex.dataset, /public data/);          // the caption must say what the data is
-    assert.match(parsed.findings[0].title, /\d/);     // the figure comes from the run, not from hand-typed copy
+    assert.ok(parsed && parsed.findings.length === 2);
+    assert.ok(parsed.findings.every((f) => f.visual && /\d/.test(f.title)), 'the figures come from the run, not from hand-typed copy');
+    assert.match(ex.dataset, /sample data/);           // the caption must say it is not a real business
+    assert.match(ex.dataset, /not a real business/);
     const code = read('app/Components/landing/HeroAnswer.tsx').replace(/className="[^"]*"/g, '').replace(/import .*;/g, '');
     assert.doesNotMatch(code, /\d{2,}/, 'no figure is typed into the component');
+  });
+  it('compares itself honestly with uploading a file to a chatbot', () => {
+    const cmp = read('app/Components/landing/ComparisonSection.tsx');
+    assert.match(cmp, /chatbot/);
+    assert.doesNotMatch(cmp, /Place & context|billion tokens|Calm studio/);
+    assert.match(read('app/Components/landing/LeaksSection.tsx'), /never stores customer email, phone, card or UPI/);
   });
   it('does not feature things that are still rolling out, or claim what does not exist', () => {
     for (const f of ['HeroSection', 'DescentSection', 'CapabilitiesSection', 'PricingTeaserSection']) {

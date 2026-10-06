@@ -72,7 +72,7 @@ export const Navbar: React.FC = () => {
               onClick={() => scrollTo('comparison')}
               className="hover:text-[#C45A42] transition-colors cursor-pointer min-h-11 px-1"
             >
-              Why Calm
+              Why not a chatbot
             </button>
             <button
               type="button"
@@ -150,7 +150,7 @@ export const Navbar: React.FC = () => {
             onClick={() => scrollTo('comparison')}
             className="text-base text-[#403934] hover:text-[#E3836C] transition-colors"
           >
-            Why Calm
+            Why not a chatbot
           </button>
           <button
             type="button"

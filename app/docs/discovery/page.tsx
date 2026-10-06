@@ -41,6 +41,14 @@ export default function Page() {
         <Link href="/guides/find-what-changed-in-your-data">how to find what changed</Link>.
       </p>
 
+      <h2>Failure and refund rates</h2>
+      <p>
+        A status column (captured, failed, refunded, cancelled) hides the rate that matters. When a table has one, AnalyzeIt reads each problem outcome as a rate and looks
+        for two things: which group is out of line (for example one payment method failing far more than the others), and the date a rate jumped, traced to where it happened.
+        A rate is reported only when it rests on enough events, and the bar allows for every group and every split point it tried. The status column itself is never reported as
+        “explaining” its own rate, because that is true by definition.
+      </p>
+
       <h2>Forecasts</h2>
       <p>
         Ask “forecast revenue for the next quarter” (or for any number that has a date next to it in your data). AnalyzeIt builds one value per period, tries several simple methods, and uses the one

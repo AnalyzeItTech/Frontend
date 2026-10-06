@@ -8,6 +8,7 @@ import { useConfirm } from '../ui/ConfirmDialog';
 import {
   IconPlugConnected,
   IconBrandStripe,
+  IconCurrencyRupee,
   IconBrandGithub,
   IconCloud,
   IconRefresh,
@@ -40,6 +41,7 @@ type FormKind =
   | 'postgres'
   | 'sqlite'
   | 'stripe'
+  | 'razorpay'
   | 'salesforce'
   | 'kaggle'
   | 'huggingface'
@@ -66,6 +68,8 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
   const [pgPassword, setPgPassword] = useState('');
   const [sqlitePath, setSqlitePath] = useState('');
   const [stripeKey, setStripeKey] = useState('');
+  const [rzpKeyId, setRzpKeyId] = useState('');
+  const [rzpSecret, setRzpSecret] = useState('');
   const [sfInstance, setSfInstance] = useState('');
   const [sfToken, setSfToken] = useState('');
   const [sfUsername, setSfUsername] = useState('');
@@ -126,6 +130,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       };
     }
     if (form === 'stripe') return { api_key: stripeKey };
+    if (form === 'razorpay') return { key_id: rzpKeyId.trim(), key_secret: rzpSecret.trim() };
     if (form === 'salesforce') {
       if (sfAdvanced) {
         return {
@@ -167,6 +172,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       setEditingId(null);
       setPgPassword('');
       setStripeKey('');
+      setRzpSecret('');
       setSfToken('');
       setSfPassword('');
       setSfClientSecret('');
@@ -216,6 +222,12 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
     string,
     { name: string; icon: React.ReactNode; desc: string; authMode: AuthMode }
   > = {
+    razorpay: {
+      name: 'Razorpay',
+      icon: <IconCurrencyRupee className="w-6 h-6 text-[var(--coral)]" />,
+      desc: 'Read-only payments and refunds, kept current, so you can ask where payments fail and when it started. Customer email, phone, card and UPI details are never stored.',
+      authMode: 'connection',
+    },
     stripe: {
       name: 'Stripe Connect',
       icon: <IconBrandStripe className="w-6 h-6 text-[var(--coral)]" />,
@@ -269,9 +281,11 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
   const providerIds =
     available.length > 0
       ? available.map((a) => a.id as string)
-      : ['stripe', 'salesforce', 'github', 'postgres', 'sqlite', 'kaggle', 'huggingface', 'openml'];
+      : ['razorpay', 'stripe', 'salesforce', 'github', 'postgres', 'sqlite', 'kaggle', 'huggingface', 'openml'];
 
-  const allProviders = providerIds.map((id) => ({
+  // Razorpay first: it is the connection most of our users can actually use.
+  const orderedIds = [...providerIds].sort((a, b) => Number(b === 'razorpay') - Number(a === 'razorpay'));
+  const allProviders = orderedIds.map((id) => ({
     id,
     ...(PROVIDER_METAS[id] || {
       name: id,
@@ -293,7 +307,9 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       ? 'PostgreSQL'
       : form === 'sqlite'
         ? 'SQLite'
-        : form === 'stripe'
+        : form === 'razorpay'
+          ? 'Razorpay'
+          : form === 'stripe'
           ? 'Stripe'
           : form === 'salesforce'
             ? 'Salesforce'
@@ -403,6 +419,35 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                   className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
                   value={pgPassword}
                   onChange={(e) => setPgPassword(e.target.value)}
+                />
+              </label>
+            </div>
+          )}
+          {form === 'razorpay' && (
+            <div className="space-y-3">
+              <p className="text-xs text-[var(--text-muted)]">
+                In Razorpay, open Account &amp; Settings, then API Keys, and generate a key. Paste the key id and secret here. AnalyzeIt only reads payments and refunds, never
+                moves money, and never stores customer email, phone, card or UPI details. Start with a test-mode key if you want to look first.
+              </p>
+              <label className="block text-xs text-[var(--text-muted)]">
+                Key id (starts with rzp_live_ or rzp_test_)
+                <input
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                  value={rzpKeyId}
+                  onChange={(e) => setRzpKeyId(e.target.value)}
+                  placeholder="rzp_live_…"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </label>
+              <label className="block text-xs text-[var(--text-muted)]">
+                Key secret
+                <input
+                  type="password"
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                  value={rzpSecret}
+                  onChange={(e) => setRzpSecret(e.target.value)}
+                  autoComplete="off"
                 />
               </label>
             </div>

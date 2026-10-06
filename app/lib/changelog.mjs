@@ -5,6 +5,9 @@ export const CHANGELOG = [
   {
     date: '2026-10-06',
     items: [
+      { title: 'Razorpay connector', body: 'Connect Razorpay with a key id and secret (a test key works too). AnalyzeIt reads payments and refunds, read-only, and refreshes them when you ask if they are more than 15 minutes old. Customer email, phone, card and UPI details are never stored.' },
+      { title: 'Failure and refund rates, found for you', body: 'Ask “what is going wrong with my payments?”. AnalyzeIt compares failure and refund rates across payment method and bank, and finds the date a rate jumped and where it happened. It works on any file with a status column too.' },
+      { title: 'A clearer front page', body: 'The home page now leads with the problem it solves and a sample of the output, and no longer waits behind an intro animation.' },
       { title: 'What stands out in your data', body: 'Ask “what stands out?” and AnalyzeIt runs read-only checks across your tables and shows the few results that matter, each as a card with a plain title, a chart, what it means, a confidence label and the full working. It says how many checks ran and when only part of a large table could be read.' },
       { title: 'See the work as it happens', body: 'A live checklist shows each step of a discovery run (loading, profiling, checking, ranking) with real counts.' },
       { title: 'Public data from the internet', body: 'Paste a link or ask for public data on a topic. AnalyzeIt finds a table (a link, World Bank, open-data catalogues, web search), tidies it, runs the same checks, and shows the source, the download date and the newest period. It says plainly that the data has not been checked by us, and does not save online answers to your memory. Free can use a link or a World Bank indicator; Premium and VIP search further.' },

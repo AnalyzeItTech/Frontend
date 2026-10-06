@@ -5,16 +5,18 @@ import { parseFindings } from '../../lib/findings.mjs';
 import { FindingCards } from '../research/FindingCards';
 
 /**
- * A real answer, not a picture of one: the output AnalyzeIt produced for this question on a public dataset, drawn with the same card
- * the product uses. Nothing here is typed in by hand (the figures come from the saved run), and the caption says what the data is.
+ * A real output, not a picture of one: what AnalyzeIt produced for this question on sample data, drawn with the same card the product
+ * uses. Nothing here is typed in by hand (the figures come from the saved run), and the caption says plainly that the data is a sample.
  */
 export function HeroAnswer() {
-  const parsed = parseFindings(example.findings);
-  if (!parsed) return null;
+  const all = parseFindings(example.findings);
+  if (!all) return null;
+  // One card up here keeps the headline in view; the other finding is in the saved run and on the product page.
+  const parsed = { ...all, findings: all.findings.slice(0, 1) };
   return (
     <figure className="w-full max-w-xl lg:max-w-lg" aria-label="An example answer">
       <p className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-[#5C534A] dark:text-[#C5B9AE]">
-        <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-[#C45A42]" />A real answer
+        <span aria-hidden="true" className="inline-block h-1.5 w-1.5 rounded-full bg-[#C45A42]" />What you get
       </p>
       <div className="ml-auto mb-3 w-fit max-w-[90%] rounded-2xl rounded-br-md bg-[#322C28] px-4 py-2 text-sm text-[#FFF7F1] shadow-sm dark:bg-[#E3836C] dark:text-[#171514]">
         {example.question}
@@ -23,7 +25,7 @@ export function HeroAnswer() {
         <FindingCards data={parsed} />
       </div>
       <figcaption className="mt-2 text-xs leading-relaxed text-[#5C534A] dark:text-[#C5B9AE]">
-        Run on {example.dataset}. Open &ldquo;Show the working&rdquo; to see the exact figures and the query behind it.
+        This is {example.dataset}. Connect your own Razorpay account to see yours. Open &ldquo;Show the working&rdquo; on a card for the exact figures and the query behind it.
       </figcaption>
     </figure>
   );

@@ -1,296 +1,256 @@
 {
- "question": "Forecast passengers for the next year",
- "dataset": "Monthly airline passengers, January 1949 to December 1960 (the classic Box and Jenkins series, public data)",
+ "question": "What is going wrong with my payments?",
+ "dataset": "sample data: 6,000 made-up payments for a made-up shop, with a UPI problem planted to show what the output looks like. It is not a real business",
  "findings": {
   "version": 1,
   "findings": [
    {
     "id": "f1",
-    "kind": "forecast",
-    "kind_label": "Forecast",
-    "title": "Passengers is expected to be about 5,806 over the next 12 months",
-    "so_what": "When tested on 24 past forecasts it was typically off by about 8% a month, against about 18% for repeating the latest value. It assumes the future behaves like the past, so it cannot see a price change, a campaign or anything new.",
-    "headline": "Passengers total over the next 12 months: expected 5,806, 80% range 5,169 to 6,443 (method: log seasonal holt, tested on 24 past forecasts).",
+    "kind": "gap",
+    "kind_label": "Difference between groups",
+    "title": "Failed rate varies by method: upi 9.6% versus card 2.8%",
+    "so_what": "upi is about 3.4 times card.",
+    "headline": "Failed rate differs by method: upi is highest at 9.6%, card is lowest at 2.8% (238% apart).",
     "reasoning": [
-     "Passengers total over the next 12 months: expected 5,806, 80% range 5,169 to 6,443 (method: log seasonal holt, tested on 24 past forecasts).",
-     "Series: SUM(Passengers) per month, 144 periods."
+     "Based on 3,315 and 1,513 rows; the gap is about 10.1 standard errors, well beyond chance."
     ],
     "why": [
-     "Based on 144 months of history, from January 1949 to December 1960.",
-     "The method follows the recent percentage growth and repeats the cycle's usual ups and downs as a share of the level. It was chosen because it predicted the past best of 7 methods tried.",
-     "The yearly pattern was included, because there are at least two full cycles of history to learn it from."
+     "Based on 3,315 upi rows and 1,513 card rows.",
+     "Random sampling alone would almost never produce a gap this large."
     ],
-    "confidence": "likely",
-    "confidence_note": "In tests on past data it beat simply repeating the latest value, and its range held the real value about as often as it claims.",
+    "confidence": "strong",
+    "confidence_note": "Far larger than random ups and downs can explain.",
     "strength": 1.0,
     "visual": {
-     "type": "forecast",
-     "x": [
-      "1957-01",
-      "1957-02",
-      "1957-03",
-      "1957-04",
-      "1957-05",
-      "1957-06",
-      "1957-07",
-      "1957-08",
-      "1957-09",
-      "1957-10",
-      "1957-11",
-      "1957-12",
-      "1958-01",
-      "1958-02",
-      "1958-03",
-      "1958-04",
-      "1958-05",
-      "1958-06",
-      "1958-07",
-      "1958-08",
-      "1958-09",
-      "1958-10",
-      "1958-11",
-      "1958-12",
-      "1959-01",
-      "1959-02",
-      "1959-03",
-      "1959-04",
-      "1959-05",
-      "1959-06",
-      "1959-07",
-      "1959-08",
-      "1959-09",
-      "1959-10",
-      "1959-11",
-      "1959-12",
-      "1960-01",
-      "1960-02",
-      "1960-03",
-      "1960-04",
-      "1960-05",
-      "1960-06",
-      "1960-07",
-      "1960-08",
-      "1960-09",
-      "1960-10",
-      "1960-11",
-      "1960-12",
-      "1961-01",
-      "1961-02",
-      "1961-03",
-      "1961-04",
-      "1961-05",
-      "1961-06",
-      "1961-07",
-      "1961-08",
-      "1961-09",
-      "1961-10",
-      "1961-11",
-      "1961-12"
+     "type": "bars",
+     "items": [
+      {
+       "label": "upi",
+       "value": 0.0959,
+       "n": 3315,
+       "highlight": true
+      },
+      {
+       "label": "netbanking",
+       "value": 0.0528,
+       "n": 663,
+       "highlight": false
+      },
+      {
+       "label": "wallet",
+       "value": 0.0373,
+       "n": 509,
+       "highlight": false
+      },
+      {
+       "label": "card",
+       "value": 0.0284,
+       "n": 1513,
+       "highlight": true
+      }
      ],
-     "history": [
-      315.0,
-      301.0,
-      356.0,
-      348.0,
-      355.0,
-      422.0,
-      465.0,
-      467.0,
-      404.0,
-      347.0,
-      305.0,
-      336.0,
-      340.0,
-      318.0,
-      362.0,
-      348.0,
-      363.0,
-      435.0,
-      491.0,
-      505.0,
-      404.0,
-      359.0,
-      310.0,
-      337.0,
-      360.0,
-      342.0,
-      406.0,
-      396.0,
-      420.0,
-      472.0,
-      548.0,
-      559.0,
-      463.0,
-      407.0,
-      362.0,
-      405.0,
-      417.0,
-      391.0,
-      419.0,
-      461.0,
-      472.0,
-      535.0,
-      622.0,
-      606.0,
-      508.0,
-      461.0,
-      390.0,
-      432.0
-     ],
-     "forecast": [
-      440.1119,
-      427.8249,
-      488.5689,
-      473.6771,
-      475.696,
-      538.7684,
-      592.7868,
-      589.1244,
-      512.3725,
-      445.4217,
-      387.034,
-      434.4578
-     ],
-     "low": [
-      411.3249,
-      387.6942,
-      434.6443,
-      408.4266,
-      405.9861,
-      466.0297,
-      513.5307,
-      509.8684,
-      433.1165,
-      366.1656,
-      307.778,
-      355.2018
-     ],
-     "high": [
-      468.8988,
-      467.9555,
-      542.4936,
-      538.9276,
-      545.406,
-      611.5072,
-      672.0428,
-      668.3804,
-      591.6286,
-      524.6777,
-      466.29,
-      513.7138
-     ],
-     "y_label": "Passengers per month",
-     "format": "number"
+     "baseline": 0.0692,
+     "baseline_label": "Overall",
+     "format": "percent"
     },
     "figures": [
      {
-      "label": "January 1961",
-      "value": "440.11  (80% range 411.32 to 468.9)",
-      "n": null,
+      "label": "upi",
+      "value": "9.6%",
+      "n": 3315,
       "note": null
      },
      {
-      "label": "February 1961",
-      "value": "427.82  (80% range 387.69 to 467.96)",
-      "n": null,
+      "label": "netbanking",
+      "value": "5.3%",
+      "n": 663,
       "note": null
      },
      {
-      "label": "March 1961",
-      "value": "488.57  (80% range 434.64 to 542.49)",
-      "n": null,
+      "label": "wallet",
+      "value": "3.7%",
+      "n": 509,
       "note": null
      },
      {
-      "label": "April 1961",
-      "value": "473.68  (80% range 408.43 to 538.93)",
-      "n": null,
-      "note": null
-     },
-     {
-      "label": "May 1961",
-      "value": "475.7  (80% range 405.99 to 545.41)",
-      "n": null,
-      "note": null
-     },
-     {
-      "label": "June 1961",
-      "value": "538.77  (80% range 466.03 to 611.51)",
-      "n": null,
-      "note": null
-     },
-     {
-      "label": "July 1961",
-      "value": "592.79  (80% range 513.53 to 672.04)",
-      "n": null,
-      "note": null
-     },
-     {
-      "label": "August 1961",
-      "value": "589.12  (80% range 509.87 to 668.38)",
-      "n": null,
-      "note": null
-     },
-     {
-      "label": "September 1961",
-      "value": "512.37  (80% range 433.12 to 591.63)",
-      "n": null,
-      "note": null
-     },
-     {
-      "label": "October 1961",
-      "value": "445.42  (80% range 366.17 to 524.68)",
-      "n": null,
-      "note": null
-     },
-     {
-      "label": "November 1961",
-      "value": "387.03  (80% range 307.78 to 466.29)",
-      "n": null,
-      "note": null
-     },
-     {
-      "label": "December 1961",
-      "value": "434.46  (80% range 355.2 to 513.71)",
-      "n": null,
-      "note": null
-     },
-     {
-      "label": "Total over 12 months",
-      "value": "5,806  (80% range 5,169 to 6,443)",
-      "n": null,
-      "note": null
-     },
-     {
-      "label": "Typical miss in past tests",
-      "value": "8% per month",
-      "n": 24,
+      "label": "card",
+      "value": "2.8%",
+      "n": 1513,
       "note": null
      }
     ],
-    "sql": "SELECT strftime('%Y-%m', \"Month\") AS period, SUM(\"Passengers\") AS value, COUNT(*) AS records FROM \"airline_passengers\" WHERE \"Month\" IS NOT NULL AND \"Passengers\" IS NOT NULL GROUP BY period ORDER BY period",
+    "sql": "SELECT \"method\" AS grp, COUNT((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) AS n, AVG((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) AS mean, SUM((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)*(CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) AS sq, COUNT(CASE WHEN (CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END) > 0 THEN 1 END) AS npos, AVG(CASE WHEN (CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END) > 0 THEN ln((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) END) AS lmean, SUM(CASE WHEN (CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END) > 0 THEN ln((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END))*ln((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) END) AS lsq FROM \"payments\" WHERE (CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END) IS NOT NULL AND \"method\" IS NOT NULL GROUP BY grp HAVING COUNT((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) >= 10",
     "followups": [
-     "What changed in Passengers?",
-     "What stands out in my data?"
+     "Why is failed rate highest for method upi?"
     ],
     "source": {
-     "table": "airline_passengers",
+     "table": "payments",
+     "origin": "project"
+    },
+    "provenance": {}
+   },
+   {
+    "id": "f2",
+    "kind": "change",
+    "kind_label": "Sudden change",
+    "title": "Failed rate rose from 5.8% to 9.3% starting September 2026, almost all of it in method upi (7.4% to 14.4%)",
+    "so_what": "That is about 66 more failed rows than the earlier rate would have given, out of 1,904.",
+    "headline": "The failed rate rose from 5.8% to 9.3% starting September 2026, almost all of it in method upi (7.4% to 14.4%).",
+    "reasoning": [
+     "Before: 238 of 4,096 rows (5.8%). After: 177 of 1,904 rows (9.3%).",
+     "The best split point was searched among 9 possible ones, and the result still stands far beyond chance."
+    ],
+    "why": [
+     "4,096 rows before and 1,904 rows after.",
+     "A change this large and this lasting is very unlikely from random variation."
+    ],
+    "confidence": "check",
+    "confidence_note": "Probably real, but close to the edge of what chance can explain.",
+    "strength": 0.466,
+    "visual": {
+     "type": "line",
+     "x": [
+      "2026-01",
+      "2026-02",
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+      "2026-07",
+      "2026-08",
+      "2026-09",
+      "2026-10",
+      "2026-11",
+      "2026-12"
+     ],
+     "series": [
+      {
+       "name": "failed rate",
+       "values": [
+        0.0474,
+        0.0557,
+        0.0643,
+        0.0748,
+        0.0595,
+        0.0428,
+        0.0636,
+        0.0582,
+        0.0885,
+        0.0901,
+        0.1052,
+        0.0884
+       ],
+       "role": "main"
+      }
+     ],
+     "highlight": [
+      8
+     ],
+     "y_label": "failed rate",
+     "format": "percent"
+    },
+    "figures": [
+     {
+      "label": "January 2026",
+      "value": "4.7%",
+      "n": 527,
+      "note": null
+     },
+     {
+      "label": "February 2026",
+      "value": "5.6%",
+      "n": 503,
+      "note": null
+     },
+     {
+      "label": "March 2026",
+      "value": "6.4%",
+      "n": 529,
+      "note": null
+     },
+     {
+      "label": "April 2026",
+      "value": "7.5%",
+      "n": 508,
+      "note": null
+     },
+     {
+      "label": "May 2026",
+      "value": "6.0%",
+      "n": 487,
+      "note": null
+     },
+     {
+      "label": "June 2026",
+      "value": "4.3%",
+      "n": 537,
+      "note": null
+     },
+     {
+      "label": "July 2026",
+      "value": "6.4%",
+      "n": 472,
+      "note": null
+     },
+     {
+      "label": "August 2026",
+      "value": "5.8%",
+      "n": 533,
+      "note": null
+     },
+     {
+      "label": "September 2026",
+      "value": "8.8%",
+      "n": 452,
+      "note": null
+     },
+     {
+      "label": "October 2026",
+      "value": "9.0%",
+      "n": 477,
+      "note": null
+     },
+     {
+      "label": "November 2026",
+      "value": "10.5%",
+      "n": 466,
+      "note": null
+     },
+     {
+      "label": "December 2026",
+      "value": "8.8%",
+      "n": 509,
+      "note": null
+     }
+    ],
+    "sql": "SELECT strftime('%Y-%m', \"created_at\") AS period, COUNT((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) AS n, SUM((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) AS events FROM \"payments\" WHERE \"created_at\" IS NOT NULL AND (CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END) IS NOT NULL GROUP BY period ORDER BY period",
+    "followups": [
+     "What changed around September 2026?"
+    ],
+    "source": {
+     "table": "payments",
      "origin": "project"
     },
     "provenance": {}
    }
   ],
   "checked": {
-   "analyses": 7,
-   "queries": 3,
+   "analyses": 16,
+   "queries": 34,
    "by_kind": {
-    "forecast": 7
+    "change": 5,
+    "trend": 1,
+    "gap": 4,
+    "concentration": 2,
+    "outlier": 1,
+    "correlation": 2,
+    "quality": 1
    },
    "tables": [
     {
-     "name": "airline_passengers",
-     "rows": 144,
-     "total": 144
+     "name": "payments",
+     "rows": 6000,
+     "total": 6000
     }
    ]
   },
