@@ -5,6 +5,8 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import { CHANGELOG } from './changelog.mjs';
+import { GUIDES, readMinutes, wordCount } from './guides.mjs';
+import { LIVE_CASES } from './liveCases.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
 
@@ -17,7 +19,7 @@ function files(dir, acc = []) {
   return acc;
 }
 
-const PUBLIC_DIRS = ['app/docs', 'app/cases', 'app/changelog', 'app/demo', 'app/products'];
+const PUBLIC_DIRS = ['app/docs', 'app/cases', 'app/changelog', 'app/demo', 'app/products', 'app/guides'];
 const BANNED = [
   [/Premium\+/, 'the top plan is called VIP'],
   [/high demand/i, 'do not blame demand for an outage'],
@@ -53,6 +55,54 @@ describe('public pages', () => {
       assert.match(text, /title:\s*/, `${path.relative(root, file)} needs metadata`);
       assert.match(text, /description:\s*/, `${path.relative(root, file)} needs a description`);
     }
+  });
+});
+
+describe('live worked examples', () => {
+  it('have unique slugs, titles and queries, and search-sized metadata', () => {
+    for (const key of ['slug', 'title', 'question']) {
+      const values = LIVE_CASES.map((c) => c[key]);
+      assert.equal(new Set(values).size, values.length, `${key} must be unique`);
+    }
+    for (const c of LIVE_CASES) {
+      assert.match(c.slug, /^[a-z0-9-]+$/, c.slug);
+      assert.ok(c.title.length <= 70, `${c.slug}: title too long for a search result`);
+      assert.ok(c.description.length >= 80 && c.description.length <= 160, `${c.slug}: description length ${c.description.length}`);
+      assert.ok(c.related.length >= 2, `${c.slug} should link to other examples`);
+      assert.ok(c.related.every((r) => LIVE_CASES.some((o) => o.slug === r.slug)), `${c.slug}: related page missing`);
+    }
+  });
+  it('never put a figure that should come from the tool into the page text', () => {
+    // The numbers on these pages come from the live tool. The static text may only hold definitions, so it must contain no exchange
+    // rate, temperature or price (a digit followed by a currency or degree), apart from exact unit definitions.
+    for (const c of LIVE_CASES) {
+      const text = [c.subtitle, ...c.sections.flatMap((s) => s.p)].join(' ');
+      assert.doesNotMatch(text, /\d\s?°|₹\s?\d|\bINR\s?\d|=\s?\d+\.\d+\s?(INR|USD)/, `${c.slug}: hard-coded live figure`);
+    }
+  });
+  it('are all in the sitemap and have a page to render them', () => {
+    const sitemap = fs.readFileSync(path.join(root, 'app/sitemap.ts'), 'utf8');
+    assert.match(sitemap, /LIVE_CASES\.map/);
+    assert.ok(fs.existsSync(path.join(root, 'app/cases/[slug]/page.tsx')));
+  });
+});
+
+describe('guides', () => {
+  it('are complete, unique and long enough to be worth reading', () => {
+    assert.equal(new Set(GUIDES.map((g) => g.slug)).size, GUIDES.length);
+    for (const g of GUIDES) {
+      assert.match(g.published, /^\d{4}-\d{2}-\d{2}$/);
+      assert.ok(g.title.length <= 90 && g.description.length >= 80 && g.description.length <= 170, g.slug);
+      assert.ok(wordCount(g) >= 350, `${g.slug} is too thin`);
+      assert.ok(readMinutes(g) >= 1);
+      assert.ok(g.blocks.some((b) => b.h2), `${g.slug} needs headings`);
+      assert.ok(fs.existsSync(path.join(root, 'app', g.cta.href.replace(/^\//, ''), 'page.tsx')), `${g.slug}: cta target missing`);
+    }
+  });
+  it('make no claim we have retired, and give no invented statistics', () => {
+    const text = GUIDES.map((g) => JSON.stringify(g.blocks)).join(' ');
+    for (const [rx, why] of BANNED) assert.doesNotMatch(text, rx, why);
+    assert.doesNotMatch(text, /\b\d{1,3}(\.\d+)?\s?% of (businesses|companies|people|users)/i, 'a made-up statistic');
   });
 });
 

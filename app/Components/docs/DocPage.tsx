@@ -3,9 +3,11 @@ import { LegalLayout } from '../legal/LegalLayout';
 
 export const DOC_LINKS = [
   { href: '/docs/how-answers-work', label: 'How answers work' },
+  { href: '/docs/discovery', label: 'Discovery, online data and bulk edits' },
   { href: '/docs/plans', label: 'What each plan includes' },
   { href: '/docs/memory', label: 'Memory' },
   { href: '/docs/connectors', label: 'Connectors' },
+  { href: '/guides', label: 'Guides' },
   { href: '/changelog', label: 'Changelog' },
 ] as const;
 
