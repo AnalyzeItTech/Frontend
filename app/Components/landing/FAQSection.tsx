@@ -29,7 +29,7 @@ const FAQS: FAQItem[] = [
   {
     question: 'Can my whole team collaborate in one workspace?',
     answer:
-      'You can share a result or project with a link that you can switch off at any time. Full team workspaces are not available yet.',
+      'You can share a result or project with a link that you can switch off at any time.',
   },
 ];
 

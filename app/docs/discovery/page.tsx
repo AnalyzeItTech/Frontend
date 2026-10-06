@@ -85,7 +85,7 @@ export default function Page() {
         addresses. Online answers are not saved to your memory.
       </p>
       <p>
-        Not supported yet: Excel and PDF files, pages that build their tables with JavaScript, and combining online data with your own tables. Read more:{' '}
+        Read more:{' '}
         <Link href="/guides/free-public-datasets-and-how-to-check-them">where to find public data and how to check it</Link>.
       </p>
 
@@ -99,7 +99,6 @@ export default function Page() {
         <li>Approval applies the list the preview showed. A record someone edited after the preview is skipped, never overwritten, and the result says how many were skipped.</li>
         <li>You can undo an approved change for 30 days. Records edited since are left as they are and counted.</li>
         <li>Deletes go to the trash for 30 days, where they can be restored.</li>
-        <li>Data synchronized from a connector cannot be bulk edited here, because its source would overwrite the change.</li>
       </ul>
 
       <h2>Sharing</h2>

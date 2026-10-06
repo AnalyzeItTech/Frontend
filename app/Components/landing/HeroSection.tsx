@@ -40,10 +40,10 @@ export const HeroSection: React.FC = () => {
               Connect Razorpay free
             </Link>
             <Link
-              href="#leaks"
+              href="/case"
               className="inline-flex items-center gap-1.5 min-h-11 px-4 py-3 text-sm font-medium text-[#C45A42] dark:text-[#EBA58F] underline underline-offset-4 hover:text-[#322C28] dark:hover:text-[#F4EDE5] transition-colors"
             >
-              <span>What it finds</span>
+              <span>Watch a real run, no signup</span>
             </Link>
           </div>
 

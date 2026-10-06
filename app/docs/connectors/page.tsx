@@ -36,7 +36,7 @@ export default function Page() {
       </ul>
       <p>
         Ask “what is going wrong with my payments?” and AnalyzeIt compares failure and refund rates across method and bank and looks for the date a rate jumped. Read more in{' '}
-        <Link href="/docs/discovery">Discovery</Link>. Synced data cannot be bulk edited here, because its source would overwrite the change.
+        <Link href="/docs/discovery">Discovery</Link>.
       </p>
 
       <h2>You decide what the assistant can read</h2>
