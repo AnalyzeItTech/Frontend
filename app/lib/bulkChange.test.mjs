@@ -79,3 +79,13 @@ test('errors are explained plainly', () => {
   assert.equal(explainBulkError(500, 'Boom'), 'Boom');
   assert.equal(explainBulkError(500), 'The change could not be applied.');
 });
+
+test('both chat screens can show, approve and undo a bulk change', () => {
+  for (const file of ['../research/page.tsx', '../new-project/page.tsx']) {
+    const src = readFileSync(new URL(file, import.meta.url), 'utf8');
+    assert.match(src, /object_bulk_change/, file);
+    assert.match(src, /<BulkChangeCard/, file);
+    assert.match(src, /undoBulkChange/, file);
+    assert.match(src, /parseBulkProposal\(event\.payload\.proposal\)/, file);   // the proposal is validated before it is drawn
+  }
+});
