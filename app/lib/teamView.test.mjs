@@ -9,12 +9,9 @@ test('members are described as they are: invited people are not yet members', ()
   assert.equal(memberLine(null), '');
 });
 
-test('what a viewer can and cannot do is stated, and matches the server', () => {
+test('what a viewer can and cannot do is stated (the Backend tests enforce it)', () => {
   assert.ok(VIEWER_CAN.length >= 2 && VIEWER_CANNOT.some((t) => /Change or delete/.test(t)) && VIEWER_CANNOT.some((t) => /assistant/.test(t)));
-  // the promise is only as good as the server: these endpoints are the viewer ones in the Backend (kept in step by hand, checked in its tests)
-  const be = readFileSync(new URL('../../../Backend/app/routes.py', import.meta.url), 'utf8').toString();
-  assert.match(be, /async def require_project_viewer/);
-}, { skip: !process.env.CHECK_BACKEND_SOURCE });
+});
 
 test('errors are plain', () => {
   assert.match(inviteErrorMessage({ status: 404 }), /Only the owner/);
