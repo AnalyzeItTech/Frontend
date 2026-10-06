@@ -1,0 +1,126 @@
+{
+ "update": {
+  "type": "object_bulk_change",
+  "action": "update",
+  "api_name": "orders",
+  "project_id": "proj1",
+  "where": [
+   "status is open"
+  ],
+  "set": {
+   "status": "closed"
+  },
+  "matched": 3,
+  "will_change": 3,
+  "unchanged": 0,
+  "summary": [
+   {
+    "field": "status",
+    "after": "closed",
+    "from": [
+     {
+      "value": "open",
+      "count": 3
+     }
+    ]
+   }
+  ],
+  "sample": [
+   {
+    "id": "rec_5a88adcb3497",
+    "label": "Order 1001",
+    "changes": [
+     {
+      "field": "status",
+      "before": "open",
+      "after": "closed"
+     }
+    ]
+   },
+   {
+    "id": "rec_1d4b06f7f3f0",
+    "label": "Order 1002",
+    "changes": [
+     {
+      "field": "status",
+      "before": "open",
+      "after": "closed"
+     }
+    ]
+   },
+   {
+    "id": "rec_cd87e606bc5a",
+    "label": "Order 1004",
+    "changes": [
+     {
+      "field": "status",
+      "before": "open",
+      "after": "closed"
+     }
+    ]
+   }
+  ],
+  "undo_days": 30,
+  "preview_id": "bp_c362747b8c82456d"
+ },
+ "delete": {
+  "type": "object_bulk_change",
+  "action": "delete",
+  "api_name": "orders",
+  "project_id": "proj1",
+  "where": [
+   "amount is below 50"
+  ],
+  "set": {},
+  "matched": 2,
+  "will_change": 2,
+  "unchanged": 0,
+  "summary": [],
+  "sample": [
+   {
+    "id": "rec_83945a7b8cb8",
+    "label": "Order 1003",
+    "changes": [
+     {
+      "field": "name",
+      "before": "Order 1003",
+      "after": null
+     },
+     {
+      "field": "status",
+      "before": "pending",
+      "after": null
+     },
+     {
+      "field": "amount",
+      "before": 45,
+      "after": null
+     }
+    ]
+   },
+   {
+    "id": "rec_49d475a1ea52",
+    "label": "Order 1005",
+    "changes": [
+     {
+      "field": "name",
+      "before": "Order 1005",
+      "after": null
+     },
+     {
+      "field": "status",
+      "before": "closed",
+      "after": null
+     },
+     {
+      "field": "amount",
+      "before": 15,
+      "after": null
+     }
+    ]
+   }
+  ],
+  "undo_days": 30,
+  "preview_id": "bp_21d2e768ba674d66"
+ }
+}
