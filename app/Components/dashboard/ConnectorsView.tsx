@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from '../ui/Toast';
 import { AgentAccessPanel } from './AgentAccessPanel';
 import { DigestPanel } from './DigestPanel';
+import { TeamPanel } from './TeamPanel';
 import { SyncedDataLinks } from './SyncedDataLinks';
 import { useConfirm } from '../ui/ConfirmDialog';
 import {
@@ -326,6 +327,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
     <div className="flex flex-col gap-6 w-full">
       <AgentAccessPanel projectId={projectId} />
       <DigestPanel projectId={projectId} />
+      <TeamPanel projectId={projectId} />
       <SyncedDataLinks projectId={projectId} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-white/10">
         <div>

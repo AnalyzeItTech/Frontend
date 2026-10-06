@@ -20,6 +20,7 @@ export default function robots(): MetadataRoute.Robots {
         '/memory',
         '/embeddings',
         '/digest',
+        '/invite',
         '/api/',
       ],
     },
