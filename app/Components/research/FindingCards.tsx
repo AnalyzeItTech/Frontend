@@ -1,7 +1,7 @@
 'use client';
 
 import { useId } from 'react';
-import { breakdownLine, checkedLine, partialLine, type Finding, type ParsedFindings } from '../../lib/findings.mjs';
+import { breakdownLine, checkedLine, onlineNotice, partialLine, provenanceLine, sourceLines, type Finding, type FindingsScope, type ParsedFindings } from '../../lib/findings.mjs';
 import { FindingChart } from './FindingChart';
 
 /**
@@ -26,8 +26,8 @@ function ConfidencePill({ f }: { f: Finding }) {
   );
 }
 
-function Working({ f }: { f: Finding }) {
-  const hasAny = f.why.length || f.reasoning.length || f.figures.length || f.sql || f.confidenceNote;
+function Working({ f, source }: { f: Finding; source?: FindingsScope['sources'][number] }) {
+  const hasAny = f.why.length || f.reasoning.length || f.figures.length || f.sql || f.confidenceNote || source;
   if (!hasAny) return null;
   return (
     <details className="group rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs">
@@ -88,22 +88,38 @@ function Working({ f }: { f: Finding }) {
         ) : null}
         <section>
           <h5 className="mb-1 font-semibold">Where the data came from</h5>
-          <p style={{ color: 'var(--finding-soft)' }}>
-            {f.source.origin === 'online' ? (
-              <>
-                From the internet{f.source.url ? ': ' : '. '}
-                {f.source.url ? (
-                  <a href={f.source.url} target="_blank" rel="noopener noreferrer nofollow" className="underline">
+          {f.source.origin === 'online' ? (
+            <div style={{ color: 'var(--finding-soft)' }}>
+              <ul className="space-y-0.5">
+                {sourceLines(source).map((line, i) => (
+                  <li key={line} className={i === 0 ? 'font-medium text-[var(--text-primary)]' : ''}>
+                    {line}
+                  </li>
+                ))}
+              </ul>
+              {f.source.url ? (
+                <p className="mt-1">
+                  <a href={f.source.url} target="_blank" rel="noopener noreferrer nofollow" className="break-all underline">
                     {f.source.url}
                   </a>
-                ) : null}{' '}
-                We have not verified it.
-              </>
-            ) : (
-              <>Your table “{f.source.table}”. Nothing was changed; the analysis only read it.</>
-            )}
-          </p>
+                </p>
+              ) : null}
+              <p className="mt-1">From the internet; we have not verified it.</p>
+            </div>
+          ) : (
+            <p style={{ color: 'var(--finding-soft)' }}>Your table “{f.source.table}”. Nothing was changed; the analysis only read it.</p>
+          )}
         </section>
+        {source && source.notes.length ? (
+          <section>
+            <h5 className="mb-1 font-semibold">How the data was read</h5>
+            <ul className="list-disc space-y-1 pl-4">
+              {source.notes.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         {f.sql ? (
           <section>
             <h5 className="mb-1 font-semibold">The query that was run (read-only)</h5>
@@ -115,8 +131,9 @@ function Working({ f }: { f: Finding }) {
   );
 }
 
-function FindingCard({ f, onAsk, disabled }: { f: Finding; onAsk?: (q: string) => void; disabled?: boolean }) {
+function FindingCard({ f, source, onAsk, disabled }: { f: Finding; source?: FindingsScope['sources'][number]; onAsk?: (q: string) => void; disabled?: boolean }) {
   const id = useId();
+  const from = provenanceLine(f);
   return (
     <article className="app-card space-y-3 p-4" aria-labelledby={`${id}-t`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -130,6 +147,11 @@ function FindingCard({ f, onAsk, disabled }: { f: Finding; onAsk?: (q: string) =
       </h4>
       <FindingChart finding={f} />
       {f.soWhat ? <p className="text-sm text-[var(--text-primary)]">{f.soWhat}</p> : null}
+      {from ? (
+        <p className="text-xs" style={{ color: 'var(--finding-soft)' }}>
+          Source: {from}
+        </p>
+      ) : null}
       {f.followups.length && onAsk ? (
         <div className="flex flex-wrap gap-2" role="group" aria-label="Ask about this finding">
           {f.followups.map((q) => (
@@ -145,7 +167,7 @@ function FindingCard({ f, onAsk, disabled }: { f: Finding; onAsk?: (q: string) =
           ))}
         </div>
       ) : null}
-      <Working f={f} />
+      <Working f={f} source={source} />
     </article>
   );
 }
@@ -154,6 +176,7 @@ export function FindingCards({ data, onAsk, disabled }: { data: ParsedFindings; 
   const partial = partialLine(data);
   const line = checkedLine(data);
   const breakdown = breakdownLine(data);
+  const online = onlineNotice(data);
   return (
     <section aria-label="What stands out in your data" className="mt-3 space-y-3">
       <header>
@@ -164,13 +187,18 @@ export function FindingCards({ data, onAsk, disabled }: { data: ParsedFindings; 
           </p>
         ) : null}
       </header>
+      {online ? (
+        <p role="note" className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--text-primary)]">
+          {online}
+        </p>
+      ) : null}
       {partial ? (
         <p role="note" className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
           {partial}
         </p>
       ) : null}
       {data.findings.map((f) => (
-        <FindingCard key={f.id} f={f} onAsk={onAsk} disabled={disabled} />
+        <FindingCard key={f.id} f={f} source={data.scope.sources.find((s) => s.table === f.source.table)} onAsk={onAsk} disabled={disabled} />
       ))}
       {breakdown ? (
         <p className="text-xs" style={{ color: 'var(--finding-soft)' }}>

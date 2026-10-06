@@ -172,7 +172,41 @@ function parseFinding(raw, index) {
       origin: src.origin === 'online' ? 'online' : 'project',
       url: safeUrl(src.url),
     },
+    provenance: parseProvenance(raw.provenance),
   };
+}
+
+const PUBLISHERS = { government: 'government', international: 'international organisation', university: 'university', research: 'research or open-data platform', other: 'unrecognised publisher' };
+
+function parseProvenance(p) {
+  if (!p || typeof p !== 'object') return null;
+  const host = str(p.host, 80);
+  if (!host) return null;
+  return {
+    host,
+    publisher: PUBLISHERS[p.publisher] ? p.publisher : 'other',
+    publisherLabel: PUBLISHERS[p.publisher] || PUBLISHERS.other,
+    fetchedAt: str(p.fetched_at, 24),
+    latest: str(p.latest, 10) || null,
+  };
+}
+
+function parseScope(sc) {
+  const scope = sc && typeof sc === 'object' ? sc : {};
+  const sources = (Array.isArray(scope.sources) ? scope.sources : []).slice(0, 6).map((x) => ({
+    table: str(x?.table, 60),
+    title: str(x?.title, 120),
+    url: safeUrl(x?.url),
+    host: str(x?.host, 80),
+    publisher: PUBLISHERS[x?.publisher] ? x.publisher : 'other',
+    publisherLabel: PUBLISHERS[x?.publisher] || PUBLISHERS.other,
+    fetchedAt: str(x?.fetched_at, 24),
+    latest: str(x?.latest, 10) || null,
+    rowsLoaded: int(x?.rows_loaded) ?? 0,
+    rowsTotal: int(x?.rows_total),
+    notes: strList(x?.notes, 6, 240),
+  }));
+  return { mode: scope.mode === 'online' ? 'online' : 'project', sources, account: strList(scope.account, 6, 300) };
 }
 
 /** The `findings` object of a final payload, rebuilt from a whitelist. Null when absent, from a newer schema, or unusable. */
@@ -200,6 +234,7 @@ export function parseFindings(payload) {
         .map((t) => ({ name: str(t?.name, 60), rows: Math.max(0, int(t?.rows) ?? 0), total: Math.max(0, int(t?.total) ?? 0) }))
         .filter((t) => t.name),
     },
+    scope: parseScope(payload.scope),
     partial: (Array.isArray(payload.partial) ? payload.partial : [])
       .slice(0, 6)
       .filter((p) => Array.isArray(p) && Number.isInteger(p[1]) && Number.isInteger(p[2]))
@@ -246,6 +281,36 @@ export function breakdownLine(parsed) {
       return `${n} ${n === 1 ? l[0] : l[1]}`;
     });
   return parts.join(', ');
+}
+
+/** The notice above online findings: where the data came from and that nobody has checked it. Empty for the user's own data. */
+export function onlineNotice(parsed) {
+  if (!parsed || parsed.scope.mode !== 'online') return '';
+  const hosts = [...new Set(parsed.scope.sources.map((s) => s.host).filter(Boolean))];
+  return `This data comes from the internet${hosts.length ? ` (${hosts.slice(0, 3).join(', ')})` : ''} and has not been checked by us. Check anything important at the source.`;
+}
+
+/** "api.worldbank.org · international organisation · downloaded 5 Oct 2026", the small line on a card made from online data. */
+export function provenanceLine(f) {
+  const p = f?.provenance;
+  if (!p) return '';
+  const when = p.fetchedAt ? new Date(p.fetchedAt.length === 17 ? p.fetchedAt.replace('Z', ':00Z') : p.fetchedAt) : null;
+  const date = when && !Number.isNaN(+when) ? when.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '';
+  return [p.host, p.publisherLabel, date ? `downloaded ${date}` : ''].filter(Boolean).join(' · ');
+}
+
+/** The facts about one online source, as lines for the working panel: what it is, who publishes it, when it was fetched, how fresh it is. */
+export function sourceLines(src) {
+  if (!src) return [];
+  const when = src.fetchedAt ? new Date(src.fetchedAt.length === 17 ? src.fetchedAt.replace('Z', ':00Z') : src.fetchedAt) : null;
+  const date = when && !Number.isNaN(+when) ? when.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '';
+  const rows = src.rowsTotal && src.rowsTotal > src.rowsLoaded
+    ? `${src.rowsLoaded.toLocaleString('en-US')} of ${src.rowsTotal.toLocaleString('en-US')} rows read`
+    : src.rowsTotal === null && src.rowsLoaded
+      ? `the first ${src.rowsLoaded.toLocaleString('en-US')} rows read (the file is larger)`
+      : `${src.rowsLoaded.toLocaleString('en-US')} rows read`;
+  const newest = src.latest ? `Newest observation: ${src.latest.endsWith('-01-01') ? src.latest.slice(0, 4) : src.latest.slice(0, 7)}` : '';
+  return [src.title || src.host, `${src.host} · ${src.publisherLabel}`, date ? `Downloaded ${date}` : '', newest, rows].filter(Boolean);
 }
 
 export function partialLine(parsed) {
@@ -509,11 +574,35 @@ export const STEP_DEFS = [
   { id: 'write', label: 'Writing it up' },
 ];
 
+export const STEP_DEFS_ONLINE = [
+  { id: 'find', label: 'Finding the data' },
+  { id: 'fetch', label: 'Downloading it' },
+  { id: 'clean', label: 'Reading and cleaning it' },
+  { id: 'profile', label: 'Understanding the columns' },
+  { id: 'analyse', label: 'Looking for patterns' },
+  { id: 'rank', label: 'Picking what matters' },
+  { id: 'write', label: 'Writing it up' },
+];
+
+const ONLINE_ONLY = new Set(['find', 'fetch', 'clean']);
+const labelOf = (id) => (STEP_DEFS_ONLINE.find((s) => s.id === id) || STEP_DEFS.find((s) => s.id === id) || {}).label;
+
 function stepDetail(p) {
   const c = (n) => (Number.isFinite(n) ? n.toLocaleString('en-US') : '');
   switch (p.step) {
     case 'load':
       return p.state === 'done' && Number.isFinite(p.tables) ? `${c(p.tables)} table${p.tables === 1 ? '' : 's'}, ${c(p.rows)} rows` : '';
+    case 'find':
+      if (p.state === 'done') {
+        const hosts = Array.isArray(p.sources) ? p.sources.map((h) => str(h, 40)).filter(Boolean).slice(0, 3).join(', ') : '';
+        return Number.isFinite(p.candidates) ? `${c(p.candidates)} possible source${p.candidates === 1 ? '' : 's'}${hosts ? ` (${hosts})` : ''}` : '';
+      }
+      return '';
+    case 'fetch':
+      return str(p.host, 60) ? `${str(p.host, 60)}${Number.isFinite(p.total) && p.total > 0 ? ` (${c(Math.min(p.total, (p.done ?? 0) + 1))} of ${c(p.total)})` : ''}` : '';
+    case 'clean':
+      if (p.state === 'done') return Number.isFinite(p.tables) ? `${c(p.tables)} table${p.tables === 1 ? '' : 's'}, ${c(p.rows)} rows` : '';
+      return str(p.host, 60);
     case 'profile':
       if (p.state === 'done') return Number.isFinite(p.tables) ? `${c(p.tables)} table${p.tables === 1 ? '' : 's'} understood` : '';
       return str(p.table, 40) && Number.isFinite(p.rows) ? `${str(p.table, 40)}: ${c(p.rows)} rows, ${c(p.cols)} columns` : '';
@@ -530,8 +619,9 @@ function stepDetail(p) {
 
 /** Fold one `tool_progress` event of the discovery tool into the step list. Starting a step finishes the ones before it. */
 export function reduceSteps(prev, payload) {
-  const idx = STEP_DEFS.findIndex((s) => s.id === payload?.step);
-  const base = prev && prev.length ? prev : STEP_DEFS.map((s) => ({ ...s, state: 'pending', detail: '' }));
+  const online = payload?.mode === 'online' || ONLINE_ONLY.has(payload?.step);
+  const base = prev && prev.length ? prev : (online ? STEP_DEFS_ONLINE : STEP_DEFS).map((s) => ({ ...s, state: 'pending', detail: '' }));
+  const idx = base.findIndex((s) => s.id === payload?.step);
   if (idx < 0) return base;
   const done = payload.state === 'done';
   return base.map((s, i) => {
@@ -544,19 +634,25 @@ export function reduceSteps(prev, payload) {
 
 /** The one-line status while it runs. */
 export function discoveryStatus(payload) {
-  const i = STEP_DEFS.findIndex((s) => s.id === payload?.step);
-  if (i < 0) return 'Looking through your data…';
+  const label = labelOf(payload?.step);
+  if (!label) return payload?.mode === 'online' ? 'Looking for the data online…' : 'Looking through your data…';
   const detail = stepDetail(payload);
-  return detail ? `${STEP_DEFS[i].label}: ${detail}` : `${STEP_DEFS[i].label}…`;
+  return detail ? `${label}: ${detail}` : `${label}…`;
 }
 
 export function isDiscoveryRoute(reason) {
-  return typeof reason === 'string' && reason.startsWith('data_discovery');
+  return typeof reason === 'string' && (reason.startsWith('data_discovery') || reason.startsWith('online_discovery'));
 }
 
-/** The message text without its numbered 'What I found' list, for screens that draw the cards (copy and share keep the full text). */
+/** The message text without its numbered 'What I found' list, for screens that draw the cards (copy and share keep the full text). Anything
+ *  after the list, such as the sources and the caveat on online data, stays: those are not repeated by the cards. */
 export function withoutFindingList(text) {
   if (typeof text !== 'string') return '';
-  const i = text.indexOf('\n\n**What I found**\n');
-  return i >= 0 ? text.slice(0, i).trimEnd() : text;
+  // the caveat on online data is shown once, in the notice above the cards
+  const trimmed = text.replace(/\n\nThis data comes from the internet and has not been checked by us\.?\s*$/, '');
+  const start = trimmed.indexOf('\n\n**What I found**\n');
+  if (start < 0) return trimmed;
+  const rest = trimmed.slice(start + 2);
+  const next = rest.indexOf('\n\n', rest.indexOf('\n') + 1);
+  return (trimmed.slice(0, start) + (next >= 0 ? rest.slice(next) : '')).trimEnd();
 }

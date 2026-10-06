@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  withoutFindingList, breakdownLine, MAX_BARS, MAX_FINDINGS, MAX_POINTS, MAX_SCATTER, bandGeometry, barsGeometry, chartAlt, checkedLine, discoveryStatus, formatNumber, formatPeriod,
+  onlineNotice, provenanceLine, sourceLines, STEP_DEFS_ONLINE, withoutFindingList, breakdownLine, MAX_BARS, MAX_FINDINGS, MAX_POINTS, MAX_SCATTER, bandGeometry, barsGeometry, chartAlt, checkedLine, discoveryStatus, formatNumber, formatPeriod,
   isDiscoveryRoute, lineGeometry, meterGeometry, parseFindings, parseVisual, partialLine, reduceSteps, safeUrl, scatterGeometry, stepIndex,
 } from './findings.mjs';
 
 const sample = JSON.parse(readFileSync(new URL('./fixtures/findings.sample.json', import.meta.url), 'utf8'));
+const online = parseFindings(JSON.parse(readFileSync(new URL('./fixtures/findings.online.json', import.meta.url), 'utf8')));
 const parsed = parseFindings(sample);
 const byType = (t) => parsed.findings.find((f) => f.visual?.type === t);
 
@@ -238,4 +239,97 @@ test('the text drops its list when the cards show the same findings, and only th
   assert.equal(withoutFindingList(text), 'I ran 5 checks; 2 stood out.');
   assert.equal(withoutFindingList('plain answer'), 'plain answer');
   assert.equal(withoutFindingList(undefined), '');
+});
+
+test('an online payload carries its scope, sources and per-finding provenance', () => {
+  assert.equal(online.scope.mode, 'online');
+  assert.equal(online.scope.sources.length, 1);
+  const src = online.scope.sources[0];
+  assert.equal(src.host, 'api.worldbank.org');
+  assert.equal(src.publisherLabel, 'international organisation');
+  assert.equal(src.latest, '2022-01-01');
+  assert.ok(src.notes.some((n) => n.includes('one column per year')));
+  const f = online.findings[0];
+  assert.equal(f.source.origin, 'online');
+  assert.equal(f.provenance.host, 'api.worldbank.org');
+  assert.equal(f.confidence, 'likely'); // never "strong" for data nobody has verified
+  assert.equal(parsed.scope.mode, 'project'); // the user's own data has no source banner
+  assert.equal(parsed.findings[0].provenance, null);
+});
+
+test('the notice and the source line say where it came from and that it is unchecked', () => {
+  assert.equal(onlineNotice(online), 'This data comes from the internet (api.worldbank.org) and has not been checked by us. Check anything important at the source.');
+  assert.equal(onlineNotice(parsed), '');
+  assert.equal(onlineNotice(null), '');
+  assert.equal(provenanceLine(online.findings[0]), 'api.worldbank.org · international organisation · downloaded 5 Oct 2026');
+  assert.equal(provenanceLine(parsed.findings[0]), '');
+  assert.equal(provenanceLine(null), '');
+});
+
+test('source facts for the working panel', () => {
+  const base = online.scope.sources[0];
+  assert.deepEqual(sourceLines(base), ['GDP growth (annual %)', 'api.worldbank.org · international organisation', 'Downloaded 5 Oct 2026', 'Newest observation: 2022', '138 rows read']);
+  assert.ok(sourceLines({ ...base, rowsLoaded: 5000, rowsTotal: 9000 }).includes('5,000 of 9,000 rows read'));
+  assert.ok(sourceLines({ ...base, rowsLoaded: 5000, rowsTotal: null }).includes('the first 5,000 rows read (the file is larger)'));
+  assert.ok(sourceLines({ ...base, latest: '2024-03-01' }).includes('Newest observation: 2024-03'));
+  assert.deepEqual(sourceLines(null), []);
+  assert.ok(!sourceLines({ ...base, fetchedAt: 'garbage' }).some((l) => l.startsWith('Downloaded')));
+});
+
+test('hostile text in the scope is cleaned, odd publishers become unrecognised, links must be http(s)', () => {
+  const evil = { ...JSON.parse(readFileSync(new URL('./fixtures/findings.online.json', import.meta.url), 'utf8')) };
+  evil.scope.sources[0] = { ...evil.scope.sources[0], host: 'evil.example\u202e<b>x</b>', publisher: 'trusted-by-us', url: 'javascript:alert(1)', notes: ['n'.repeat(1000)] };
+  evil.scope.account = ['a'.repeat(1000)];
+  const p = parseFindings(evil);
+  const src = p.scope.sources[0];
+  assert.ok(!/[\u202e]/.test(src.host));
+  assert.equal(src.publisher, 'other');
+  assert.equal(src.publisherLabel, 'unrecognised publisher');
+  assert.equal(src.url, '');
+  assert.equal(src.notes[0].length, 240);
+  assert.equal(p.scope.account[0].length, 300);
+  assert.equal(parseFindings({ ...evil, scope: 'nope' }).scope.mode, 'project');
+  assert.equal(parseFindings({ ...evil, scope: { mode: 'weird', sources: 'x' } }).scope.sources.length, 0);
+});
+
+test('only the duplicate list is removed from the text: the sources and the caveat stay', () => {
+  const text = 'I found 1 table from api.worldbank.org.\n\n**What I found**\n1. A thing (likely)\n2. Another (likely)\n\n**Where this came from**\n- GDP growth (api.worldbank.org), downloaded 2026-10-05.\n\nThis data comes from the internet and has not been checked by us.';
+  const out = withoutFindingList(text);
+  assert.ok(!out.includes('A thing'));
+  assert.ok(out.startsWith('I found 1 table from api.worldbank.org.'));
+  assert.ok(out.includes('**Where this came from**'));
+  assert.ok(!out.includes('has not been checked by us.'));   // said once, in the notice above the cards
+  assert.equal(withoutFindingList('x\n\n**What I found**\n1. a'), 'x');
+  assert.equal(withoutFindingList('plain\n\nThis data comes from the internet and has not been checked by us.'), 'plain');
+});
+
+test('an online run shows its own steps, with real detail', () => {
+  let s = reduceSteps(undefined, { step: 'find', mode: 'online', state: 'running' });
+  assert.deepEqual(s.map((x) => x.id), STEP_DEFS_ONLINE.map((x) => x.id));
+  assert.equal(s[0].state, 'running');
+  s = reduceSteps(s, { step: 'find', mode: 'online', state: 'done', candidates: 6, sources: ['data.gov.au', 'open.canada.ca'] });
+  assert.equal(s[0].detail, '6 possible sources (data.gov.au, open.canada.ca)');
+  s = reduceSteps(s, { step: 'fetch', mode: 'online', state: 'running', done: 1, total: 5, host: 'data.example.org' });
+  assert.equal(s[0].state, 'done');
+  assert.equal(s[1].detail, 'data.example.org (2 of 5)');
+  s = reduceSteps(s, { step: 'clean', mode: 'online', state: 'done', tables: 2, rows: 4120 });
+  assert.equal(s[2].detail, '2 tables, 4,120 rows');
+  assert.equal(s[1].state, 'done');
+  s = reduceSteps(s, { step: 'profile', mode: 'online', state: 'running', detail: '2 tables' });
+  s = reduceSteps(s, { step: 'analyse', mode: 'online', state: 'running', done: 5, total: 20 });
+  assert.equal(s[4].detail, '5 of about 20 checks');
+  s = reduceSteps(s, { step: 'write', mode: 'online', state: 'running' });
+  assert.deepEqual(s.map((x) => x.state), ['done', 'done', 'done', 'done', 'done', 'pending', 'running'].map((x, i) => (i === 5 ? 'done' : x)));
+  assert.equal(discoveryStatus({ step: 'fetch', mode: 'online', host: 'a.org', done: 0, total: 3 }), 'Downloading it: a.org (1 of 3)');
+  assert.equal(discoveryStatus({ step: 'find', mode: 'online', state: 'running' }), 'Finding the data…');
+  assert.equal(discoveryStatus({ mode: 'online' }), 'Looking for the data online…');
+  assert.equal(discoveryStatus({}), 'Looking through your data…');
+  // the user's own data keeps its own list
+  assert.deepEqual(reduceSteps(undefined, { step: 'load', state: 'running' }).map((x) => x.id), ['load', 'profile', 'analyse', 'rank', 'write']);
+});
+
+test('the online route is recognised as a discovery route', () => {
+  assert.equal(isDiscoveryRoute('online_discovery:data_link'), true);
+  assert.equal(isDiscoveryRoute('online_discovery:public_data'), true);
+  assert.equal(isDiscoveryRoute('object_query:orders'), false);
 });
