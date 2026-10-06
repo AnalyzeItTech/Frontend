@@ -14,6 +14,7 @@ const PROTECTED_PREFIXES = [
   '/ops',
   '/memory',
   '/embeddings',
+  '/digest',
 ];
 
 // UI gate only: the API enforces real auth on every call. The AUTH_COOKIE flag is client-set,
