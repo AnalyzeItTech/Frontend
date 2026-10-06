@@ -7,6 +7,7 @@ import { describe, it } from 'node:test';
 import { CHANGELOG } from './changelog.mjs';
 import { GUIDES, readMinutes, wordCount } from './guides.mjs';
 import { LIVE_CASES } from './liveCases.mjs';
+import { parseFindings } from './findings.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
 
@@ -55,6 +56,33 @@ describe('public pages', () => {
       assert.match(text, /title:\s*/, `${path.relative(root, file)} needs metadata`);
       assert.match(text, /description:\s*/, `${path.relative(root, file)} needs a description`);
     }
+  });
+});
+
+describe('the landing page', () => {
+  const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
+  it('has no intro loader to wait behind', () => {
+    const exp = read('app/Components/landing/LandingExperience.tsx');
+    assert.doesNotMatch(exp, /LoadingScreen|isLoading|opacity-0/, 'content must be visible at once');
+    assert.ok(!fs.existsSync(path.join(root, 'app/Components/ui/LoadingScreen.tsx')));
+    assert.doesNotMatch(read('app/Components/landing/HeroSection.tsx') + exp, /CALIBRATING/i);
+  });
+  it('leads with a real answer, saved from a real run on public data', () => {
+    assert.match(read('app/Components/landing/HeroSection.tsx'), /<HeroAnswer \/>/);
+    const ex = JSON.parse(read('app/lib/fixtures/hero.example.json'));
+    const parsed = parseFindings(ex.findings);
+    assert.ok(parsed && parsed.findings.length === 1);
+    assert.equal(parsed.findings[0].visual.type, 'forecast');
+    assert.match(ex.dataset, /public data/);          // the caption must say what the data is
+    assert.match(parsed.findings[0].title, /\d/);     // the figure comes from the run, not from hand-typed copy
+    const code = read('app/Components/landing/HeroAnswer.tsx').replace(/className="[^"]*"/g, '').replace(/import .*;/g, '');
+    assert.doesNotMatch(code, /\d{2,}/, 'no figure is typed into the component');
+  });
+  it('does not feature things that are still rolling out, or claim what does not exist', () => {
+    for (const f of ['HeroSection', 'DescentSection', 'CapabilitiesSection', 'PricingTeaserSection']) {
+      assert.doesNotMatch(read(`app/Components/landing/${f}.tsx`), /rolling out|Slack|Notion/i, f);
+    }
+    assert.doesNotMatch(read('app/Components/landing/DescentSection.tsx'), /30-Day Rolling|Root Cause|Probabilistic|multi-metric graph/i);
   });
 });
 

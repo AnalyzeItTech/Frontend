@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { HeroAnswer } from './HeroAnswer';
 
 export const HeroSection: React.FC = () => {
   return (
@@ -17,21 +18,21 @@ export const HeroSection: React.FC = () => {
       <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-12 pointer-events-auto mt-auto pb-10">
         <div
           id="hero-card"
-          className="max-w-2xl space-y-6 rounded-3xl bg-[#F3EDE4]/90 dark:bg-[#171514]/88 backdrop-blur-md border border-[#4A4238]/10 dark:border-[#3A3430] p-6 sm:p-8 shadow-sm"
+          className="max-w-2xl lg:max-w-xl space-y-6 rounded-3xl bg-[#F3EDE4]/90 dark:bg-[#171514]/88 backdrop-blur-md border border-[#4A4238]/10 dark:border-[#3A3430] p-6 sm:p-8 shadow-sm"
         >
-          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight text-[#322C28] dark:text-[#F4EDE5] font-normal leading-[1.08]">
+          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl tracking-tight text-[#322C28] dark:text-[#F4EDE5] font-normal leading-[1.08]">
             <span className="block font-sans text-sm sm:text-base tracking-[0.28em] uppercase font-medium text-[#C45A42] dark:text-[#EBA58F] mb-4">
               AnalyzeIt
             </span>
-            See what your data <br className="hidden sm:inline" />
-            <em className="font-serif italic text-[#C45A42] dark:text-[#EBA58F]">already knows.</em>
+            Ask your data. <br className="hidden sm:inline" />
+            <em className="font-serif italic text-[#C45A42] dark:text-[#EBA58F]">Get the answer, the chart and the proof.</em>
           </h1>
 
           <p className="text-base md:text-lg text-[#3F3830] dark:text-[#E6DCD2] font-normal max-w-xl leading-relaxed">
-            Ask in plain words. Get tool-backed answers with visible provenance — narratives, forecasts, and map-first exploration, without dashboard busywork.
+            Ask in plain words. AnalyzeIt finds what stands out in your tables, forecasts a number with a range it has tested against your own past, and shows the working and the source behind every answer.
           </p>
 
-          <div className="flex flex-wrap gap-2 pt-1">
+          <div className="hidden sm:flex flex-wrap gap-2 pt-1">
             {[
               ['Weather in Mumbai', 'Weather in Mumbai'],
               ['AAPL stock price', 'AAPL stock price'],
@@ -64,16 +65,17 @@ export const HeroSection: React.FC = () => {
             </Link>
             <a
               href="#capabilities"
-              className="inline-flex items-center gap-1.5 min-h-11 px-4 py-3 text-sm font-medium text-[#322C28] dark:text-[#E6DCD2] hover:text-[#C45A42] transition-colors"
+              className="hidden sm:inline-flex items-center gap-1.5 min-h-11 px-4 py-3 text-sm font-medium text-[#322C28] dark:text-[#E6DCD2] hover:text-[#C45A42] transition-colors"
             >
               <span>Skip to product</span>
             </a>
           </div>
 
-          <p className="text-sm text-[#5C534A] dark:text-[#C5B9AE] font-normal max-w-xl leading-relaxed">
+          <p className="hidden sm:block text-sm text-[#5C534A] dark:text-[#C5B9AE] font-normal max-w-xl leading-relaxed">
             Simple calc, weather, FX, and stocks can resolve as From tools · 0 tokens — so you can see when a live tool answered, not a model.
           </p>
         </div>
+        <HeroAnswer />
       </div>
 
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-auto">

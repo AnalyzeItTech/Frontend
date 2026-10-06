@@ -1,0 +1,305 @@
+{
+ "question": "Forecast passengers for the next year",
+ "dataset": "Monthly airline passengers, January 1949 to December 1960 (the classic Box and Jenkins series, public data)",
+ "findings": {
+  "version": 1,
+  "findings": [
+   {
+    "id": "f1",
+    "kind": "forecast",
+    "kind_label": "Forecast",
+    "title": "Passengers is expected to be about 5,806 over the next 12 months",
+    "so_what": "When tested on 24 past forecasts it was typically off by about 8% a month, against about 18% for repeating the latest value. It assumes the future behaves like the past, so it cannot see a price change, a campaign or anything new.",
+    "headline": "Passengers total over the next 12 months: expected 5,806, 80% range 5,169 to 6,443 (method: log seasonal holt, tested on 24 past forecasts).",
+    "reasoning": [
+     "Passengers total over the next 12 months: expected 5,806, 80% range 5,169 to 6,443 (method: log seasonal holt, tested on 24 past forecasts).",
+     "Series: SUM(Passengers) per month, 144 periods."
+    ],
+    "why": [
+     "Based on 144 months of history, from January 1949 to December 1960.",
+     "The method follows the recent percentage growth and repeats the cycle's usual ups and downs as a share of the level. It was chosen because it predicted the past best of 7 methods tried.",
+     "The yearly pattern was included, because there are at least two full cycles of history to learn it from."
+    ],
+    "confidence": "likely",
+    "confidence_note": "In tests on past data it beat simply repeating the latest value, and its range held the real value about as often as it claims.",
+    "strength": 1.0,
+    "visual": {
+     "type": "forecast",
+     "x": [
+      "1957-01",
+      "1957-02",
+      "1957-03",
+      "1957-04",
+      "1957-05",
+      "1957-06",
+      "1957-07",
+      "1957-08",
+      "1957-09",
+      "1957-10",
+      "1957-11",
+      "1957-12",
+      "1958-01",
+      "1958-02",
+      "1958-03",
+      "1958-04",
+      "1958-05",
+      "1958-06",
+      "1958-07",
+      "1958-08",
+      "1958-09",
+      "1958-10",
+      "1958-11",
+      "1958-12",
+      "1959-01",
+      "1959-02",
+      "1959-03",
+      "1959-04",
+      "1959-05",
+      "1959-06",
+      "1959-07",
+      "1959-08",
+      "1959-09",
+      "1959-10",
+      "1959-11",
+      "1959-12",
+      "1960-01",
+      "1960-02",
+      "1960-03",
+      "1960-04",
+      "1960-05",
+      "1960-06",
+      "1960-07",
+      "1960-08",
+      "1960-09",
+      "1960-10",
+      "1960-11",
+      "1960-12",
+      "1961-01",
+      "1961-02",
+      "1961-03",
+      "1961-04",
+      "1961-05",
+      "1961-06",
+      "1961-07",
+      "1961-08",
+      "1961-09",
+      "1961-10",
+      "1961-11",
+      "1961-12"
+     ],
+     "history": [
+      315.0,
+      301.0,
+      356.0,
+      348.0,
+      355.0,
+      422.0,
+      465.0,
+      467.0,
+      404.0,
+      347.0,
+      305.0,
+      336.0,
+      340.0,
+      318.0,
+      362.0,
+      348.0,
+      363.0,
+      435.0,
+      491.0,
+      505.0,
+      404.0,
+      359.0,
+      310.0,
+      337.0,
+      360.0,
+      342.0,
+      406.0,
+      396.0,
+      420.0,
+      472.0,
+      548.0,
+      559.0,
+      463.0,
+      407.0,
+      362.0,
+      405.0,
+      417.0,
+      391.0,
+      419.0,
+      461.0,
+      472.0,
+      535.0,
+      622.0,
+      606.0,
+      508.0,
+      461.0,
+      390.0,
+      432.0
+     ],
+     "forecast": [
+      440.1119,
+      427.8249,
+      488.5689,
+      473.6771,
+      475.696,
+      538.7684,
+      592.7868,
+      589.1244,
+      512.3725,
+      445.4217,
+      387.034,
+      434.4578
+     ],
+     "low": [
+      411.3249,
+      387.6942,
+      434.6443,
+      408.4266,
+      405.9861,
+      466.0297,
+      513.5307,
+      509.8684,
+      433.1165,
+      366.1656,
+      307.778,
+      355.2018
+     ],
+     "high": [
+      468.8988,
+      467.9555,
+      542.4936,
+      538.9276,
+      545.406,
+      611.5072,
+      672.0428,
+      668.3804,
+      591.6286,
+      524.6777,
+      466.29,
+      513.7138
+     ],
+     "y_label": "Passengers per month",
+     "format": "number"
+    },
+    "figures": [
+     {
+      "label": "January 1961",
+      "value": "440.11  (80% range 411.32 to 468.9)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "February 1961",
+      "value": "427.82  (80% range 387.69 to 467.96)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "March 1961",
+      "value": "488.57  (80% range 434.64 to 542.49)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "April 1961",
+      "value": "473.68  (80% range 408.43 to 538.93)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "May 1961",
+      "value": "475.7  (80% range 405.99 to 545.41)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "June 1961",
+      "value": "538.77  (80% range 466.03 to 611.51)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "July 1961",
+      "value": "592.79  (80% range 513.53 to 672.04)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "August 1961",
+      "value": "589.12  (80% range 509.87 to 668.38)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "September 1961",
+      "value": "512.37  (80% range 433.12 to 591.63)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "October 1961",
+      "value": "445.42  (80% range 366.17 to 524.68)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "November 1961",
+      "value": "387.03  (80% range 307.78 to 466.29)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "December 1961",
+      "value": "434.46  (80% range 355.2 to 513.71)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "Total over 12 months",
+      "value": "5,806  (80% range 5,169 to 6,443)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "Typical miss in past tests",
+      "value": "8% per month",
+      "n": 24,
+      "note": null
+     }
+    ],
+    "sql": "SELECT strftime('%Y-%m', \"Month\") AS period, SUM(\"Passengers\") AS value, COUNT(*) AS records FROM \"airline_passengers\" WHERE \"Month\" IS NOT NULL AND \"Passengers\" IS NOT NULL GROUP BY period ORDER BY period",
+    "followups": [
+     "What changed in Passengers?",
+     "What stands out in my data?"
+    ],
+    "source": {
+     "table": "airline_passengers",
+     "origin": "project"
+    },
+    "provenance": {}
+   }
+  ],
+  "checked": {
+   "analyses": 7,
+   "queries": 3,
+   "by_kind": {
+    "forecast": 7
+   },
+   "tables": [
+    {
+     "name": "airline_passengers",
+     "rows": 144,
+     "total": 144
+    }
+   ]
+  },
+  "partial": [],
+  "notes": [],
+  "scope": {
+   "mode": "project",
+   "sources": [],
+   "account": []
+  }
+ }
+}
