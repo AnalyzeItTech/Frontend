@@ -696,7 +696,7 @@ export function discoveryStatus(payload) {
 }
 
 export function isDiscoveryRoute(reason) {
-  return typeof reason === 'string' && (reason.startsWith('data_discovery') || reason.startsWith('data_forecast') || reason.startsWith('online_discovery'));
+  return typeof reason === 'string' && (reason.startsWith('data_discovery') || reason.startsWith('data_forecast') || reason.startsWith('data_blend') || reason.startsWith('online_discovery'));
 }
 
 /** The message text without its numbered 'What I found' list, for screens that draw the cards (copy and share keep the full text). Anything

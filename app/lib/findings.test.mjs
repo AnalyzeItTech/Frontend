@@ -394,5 +394,6 @@ test('forecast text keeps the sentence and the caveats and drops the list the ca
 
 test('the forecast route is a discovery route, so its steps and cards show', () => {
   assert.equal(isDiscoveryRoute('data_forecast:orders'), true);
+  assert.equal(isDiscoveryRoute('data_blend:orders'), true);
   assert.equal(isDiscoveryRoute('object_query:orders'), false);
 });
