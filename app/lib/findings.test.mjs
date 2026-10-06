@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   onlineNotice, provenanceLine, sourceLines, STEP_DEFS_ONLINE, withoutFindingList, breakdownLine, MAX_BARS, MAX_FINDINGS, MAX_POINTS, MAX_SCATTER, bandGeometry, barsGeometry, chartAlt, checkedLine, discoveryStatus, formatNumber, formatPeriod,
-  isDiscoveryRoute, lineGeometry, meterGeometry, parseFindings, parseVisual, partialLine, reduceSteps, safeUrl, scatterGeometry, stepIndex,
+  isDiscoveryRoute, forecastGeometry, lineGeometry, meterGeometry, parseFindings, parseVisual, partialLine, reduceSteps, safeUrl, scatterGeometry, stepIndex,
 } from './findings.mjs';
 
 const sample = JSON.parse(readFileSync(new URL('./fixtures/findings.sample.json', import.meta.url), 'utf8'));
@@ -51,7 +51,7 @@ test('text from the data is plain, bounded and cannot carry markup or odd charac
   const p = parseFindings({ ...sample, findings: [evil] });
   const f = p.findings[0];
   assert.ok(!/[‮​\n]/.test(f.title));
-  assert.equal(f.soWhat.length, 220);
+  assert.equal(f.soWhat.length, 360);
   assert.equal(f.source.url, '');
   assert.equal(f.source.origin, 'online');
   assert.equal(safeUrl('https://data.gov/x.csv?a=1'), 'https://data.gov/x.csv?a=1');
@@ -331,5 +331,68 @@ test('an online run shows its own steps, with real detail', () => {
 test('the online route is recognised as a discovery route', () => {
   assert.equal(isDiscoveryRoute('online_discovery:data_link'), true);
   assert.equal(isDiscoveryRoute('online_discovery:public_data'), true);
+  assert.equal(isDiscoveryRoute('object_query:orders'), false);
+});
+
+// ---- forecasts ---------------------------------------------------------------------------------------------------------
+
+const fcFixture = JSON.parse(readFileSync(new URL('./fixtures/findings.forecast.json', import.meta.url), 'utf8'));
+const fcParsed = parseFindings(fcFixture.findings);
+const fcCard = fcParsed.findings[0];
+
+test('a real forecast payload parses: history, forecast and a range that brackets it', () => {
+  assert.equal(fcParsed.findings.length, 1);
+  assert.equal(fcCard.kind, 'forecast');
+  assert.equal(fcCard.kindLabel, 'Forecast');
+  assert.equal(fcCard.visual.type, 'forecast');
+  const v = fcCard.visual;
+  assert.equal(v.x.length, v.history.length + v.forecast.length);
+  assert.equal(v.forecast.length, 3);
+  v.forecast.forEach((f, i) => assert.ok(v.low[i] <= f && f <= v.high[i]));
+  assert.ok(/80% range/.test(fcCard.figures[0].value));
+  assert.ok(['likely', 'check'].includes(fcCard.confidence)); // a forecast is never "confirmed" or "strong"
+});
+
+test('forecast geometry joins the forecast to the last point and shades the range', () => {
+  const g = forecastGeometry(fcCard.visual, 600);
+  const v = fcCard.visual;
+  assert.equal(g.points.length, v.history.length + v.forecast.length);
+  assert.equal(g.points.filter((p) => p.future).length, 3);
+  assert.ok(g.forecastPath.startsWith(`M${g.points[v.history.length - 1].x.toFixed(1)}`)); // starts where the history ends
+  assert.ok(g.bandPath.endsWith('Z'));
+  assert.ok(g.splitX < g.points[g.points.length - 1].x);
+  for (const p of g.points) assert.ok(p.x >= g.plot.l - 0.1 && p.x <= g.plot.r + 0.1 && p.y >= g.plot.t - 0.1 && p.y <= g.plot.b + 0.1, `${p.i} inside the plot`);
+  const last = g.points[g.points.length - 1];
+  assert.ok(last.lowLabel && last.highLabel);
+});
+
+test('the forecast has a text alternative that says the range', () => {
+  const alt = chartAlt(fcCard);
+  assert.match(alt, /forecast for 3 more periods/);
+  assert.match(alt, /80% range of/);
+});
+
+test('a malformed forecast gives no chart instead of a broken one', () => {
+  const v = fcFixture.findings.findings[0].visual;
+  const bad = (patch) => parseVisual({ ...v, ...patch });
+  assert.ok(parseVisual(v));
+  assert.equal(bad({ low: v.low.slice(1) }), null); // lengths must agree
+  assert.equal(bad({ history: v.history.slice(0, 2) }), null);
+  assert.equal(bad({ forecast: [...v.forecast.slice(0, 2), NaN] }), null);
+  assert.equal(bad({ low: v.low.map((x) => x + 1e9) }), null); // the range must bracket the forecast
+  assert.equal(bad({ x: v.x.slice(1) }), null);
+  assert.equal(bad({ forecast: Array(60).fill(1), low: Array(60).fill(0), high: Array(60).fill(2) }), null); // capped, then it no longer lines up
+});
+
+test('forecast text keeps the sentence and the caveats and drops the list the card already shows', () => {
+  const shown = withoutFindingList(fcFixture.text);
+  assert.ok(shown.startsWith('Revenue is expected to be about'));
+  assert.ok(!shown.includes('**What the forecast says**'));
+  assert.ok(!/- (October|November|December) 2025/.test(shown));
+  assert.match(shown, /\*\*Worth knowing\*\*/);
+});
+
+test('the forecast route is a discovery route, so its steps and cards show', () => {
+  assert.equal(isDiscoveryRoute('data_forecast:orders'), true);
   assert.equal(isDiscoveryRoute('object_query:orders'), false);
 });

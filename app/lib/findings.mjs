@@ -10,8 +10,9 @@ export const MAX_POINTS = 72;
 export const MAX_BARS = 12;
 export const MAX_SCATTER = 150;
 export const MAX_FIGURES = 14;
+export const MAX_FORECAST = 24;
 
-const KINDS = new Set(['change', 'trend', 'gap', 'concentration', 'outlier', 'correlation', 'quality', 'seasonal', 'run']);
+const KINDS = new Set(['change', 'trend', 'gap', 'concentration', 'outlier', 'correlation', 'quality', 'seasonal', 'run', 'forecast']);
 const CONFIDENCE = {
   confirmed: { label: 'Confirmed in the data', tone: 'ok' },
   fact: { label: 'Confirmed in the data', tone: 'ok' },
@@ -30,6 +31,7 @@ const KIND_LABELS = {
   quality: 'Data quality',
   seasonal: 'Repeating pattern',
   run: 'Lasting shift',
+  forecast: 'Forecast',
 };
 
 const finite = (n) => typeof n === 'number' && Number.isFinite(n);
@@ -75,6 +77,20 @@ function parseLine(v) {
   if (!series.some((s) => s.role === 'main')) return null;
   const highlight = (Array.isArray(v.highlight) ? v.highlight : []).filter((i) => Number.isInteger(i) && i >= 0 && i < x.length).slice(0, 4);
   return { type: 'line', x, series, highlight, yLabel: str(v.y_label, 60), format: v.format === 'percent' ? 'percent' : 'number' };
+}
+
+function parseForecast(v) {
+  const list = (a, max) => (Array.isArray(a) ? a.slice(0, max).map(num) : []);
+  const forecast = list(v.forecast, MAX_FORECAST);
+  const low = list(v.low, MAX_FORECAST);
+  const high = list(v.high, MAX_FORECAST);
+  const history = list(v.history, MAX_POINTS);
+  const x = (Array.isArray(v.x) ? v.x.slice(0, MAX_POINTS + MAX_FORECAST) : []).map((s) => str(s, 24));
+  const n = forecast.length;
+  const all = [...forecast, ...low, ...high, ...history];
+  if (n < 1 || low.length !== n || high.length !== n || history.length < 3 || x.length !== history.length + n || all.some((q) => q === null)) return null;
+  if (low.some((l, i) => l > forecast[i] + 1e-9) || high.some((h, i) => h < forecast[i] - 1e-9)) return null;
+  return { type: 'forecast', x, history, forecast, low, high, yLabel: str(v.y_label, 60), format: v.format === 'percent' ? 'percent' : 'number' };
 }
 
 function parseBars(v) {
@@ -134,6 +150,8 @@ export function parseVisual(v) {
       return parseBand(v);
     case 'meter':
       return parseMeter(v);
+    case 'forecast':
+      return parseForecast(v);
     default:
       return null;
   }
@@ -151,7 +169,7 @@ function parseFinding(raw, index) {
     kind,
     kindLabel: str(raw.kind_label, 40) || KIND_LABELS[kind] || 'Finding',
     title,
-    soWhat: str(raw.so_what, 220),
+    soWhat: str(raw.so_what, 360),
     headline: str(raw.headline, 300),
     reasoning: strList(raw.reasoning, 6, 400),
     why: strList(raw.why, 4, 240),
@@ -421,6 +439,39 @@ export function lineGeometry(v, width, height = 190, pad = { l: 46, r: 14, t: 14
   };
 }
 
+/** History, then the forecast joined to its last point, with the 80% range as a shaded band. Index i runs over history then forecast. */
+export function forecastGeometry(v, width, height = 210, pad = { l: 46, r: 14, t: 14, b: 26 }) {
+  const nh = v.history.length;
+  const n = nh + v.forecast.length;
+  const plotW = Math.max(40, width - pad.l - pad.r);
+  const plotH = Math.max(40, height - pad.t - pad.b);
+  const { min: yMin, max: yMax, ticks } = axisFor(Math.min(...v.history, ...v.low), Math.max(...v.history, ...v.high), 4);
+  const X = (i) => pad.l + (i / (n - 1)) * plotW;
+  const Y = (val) => pad.t + (1 - (val - yMin) / (yMax - yMin || 1)) * plotH;
+  const hist = v.history.map((val, i) => ({ x: X(i), y: Y(val), i, v: val, future: false }));
+  const fut = v.forecast.map((val, j) => ({ x: X(nh + j), y: Y(val), i: nh + j, v: val, low: v.low[j], high: v.high[j], lowLabel: formatNumber(v.low[j], v.format), highLabel: formatNumber(v.high[j], v.format), future: true }));
+  const last = hist[nh - 1];
+  const upper = [last, ...fut.map((p, j) => ({ x: p.x, y: Y(v.high[j]) }))];
+  const lower = [last, ...fut.map((p, j) => ({ x: p.x, y: Y(v.low[j]) }))].reverse();
+  const poly = [...upper, ...lower].map((p, k) => `${k ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join('') + 'Z';
+  const maxLabels = Math.max(2, Math.floor(plotW / 62));
+  const step = Math.max(1, Math.ceil(n / maxLabels));
+  const xTicks = [];
+  for (let i = 0; i < n; i += step) xTicks.push({ x: X(i), label: formatPeriod(v.x[i]), i });
+  return {
+    width,
+    height,
+    plot: { l: pad.l, r: pad.l + plotW, t: pad.t, b: pad.t + plotH },
+    historyPath: linePath(hist),
+    forecastPath: linePath([last, ...fut]),
+    bandPath: poly,
+    splitX: last.x,
+    points: [...hist, ...fut].map((p) => ({ ...p, valueLabel: formatNumber(p.v, v.format), label: formatPeriod(v.x[p.i]) })),
+    xTicks,
+    yTicks: ticks.map((t) => ({ y: Y(t), label: formatNumber(t, v.format) })),
+  };
+}
+
 export function barsGeometry(v) {
   const max = Math.max(...v.items.map((i) => Math.abs(i.value)), v.baseline !== null ? Math.abs(v.baseline) : 0, Number.EPSILON);
   return {
@@ -534,6 +585,10 @@ export function chartAlt(f) {
       : '';
     return `Line chart of ${v.yLabel || main.name || 'values'} from ${formatPeriod(v.x[0])} to ${formatPeriod(v.x[v.x.length - 1])}.${marked} Highest ${formatNumber(hi.val, v.format)} in ${formatPeriod(v.x[hi.i])}, lowest ${formatNumber(lo.val, v.format)} in ${formatPeriod(v.x[lo.i])}.`;
   }
+  if (v.type === 'forecast') {
+    const j = v.forecast.length - 1;
+    return `Line chart of ${v.yLabel || 'values'} from ${formatPeriod(v.x[0])} to ${formatPeriod(v.x[v.history.length - 1])}, then a forecast for ${v.forecast.length} more period${v.forecast.length === 1 ? '' : 's'}. The last forecast, for ${formatPeriod(v.x[v.history.length + j])}, is about ${formatNumber(v.forecast[j], v.format)}, with an 80% range of ${formatNumber(v.low[j], v.format)} to ${formatNumber(v.high[j], v.format)}.`;
+  }
   if (v.type === 'bars') {
     const hi = v.items.reduce((a, b) => (b.value > a.value ? b : a));
     const lo = v.items.reduce((a, b) => (b.value < a.value ? b : a));
@@ -641,7 +696,7 @@ export function discoveryStatus(payload) {
 }
 
 export function isDiscoveryRoute(reason) {
-  return typeof reason === 'string' && (reason.startsWith('data_discovery') || reason.startsWith('online_discovery'));
+  return typeof reason === 'string' && (reason.startsWith('data_discovery') || reason.startsWith('data_forecast') || reason.startsWith('online_discovery'));
 }
 
 /** The message text without its numbered 'What I found' list, for screens that draw the cards (copy and share keep the full text). Anything
@@ -650,6 +705,9 @@ export function withoutFindingList(text) {
   if (typeof text !== 'string') return '';
   // the caveat on online data is shown once, in the notice above the cards
   const trimmed = text.replace(/\n\nThis data comes from the internet and has not been checked by us\.?\s*$/, '');
+  // a forecast's figures are in its card: leave the sentence about what it says and the caveats
+  const noFigures = trimmed.replace(/\n\n\*\*What the forecast says\*\*\n(?:- .*(?:\n|$))+/, '');
+  if (noFigures !== trimmed) return noFigures.trimEnd();
   const start = trimmed.indexOf('\n\n**What I found**\n');
   if (start < 0) return trimmed;
   const rest = trimmed.slice(start + 2);

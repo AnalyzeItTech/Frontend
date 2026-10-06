@@ -5,6 +5,7 @@ import {
   bandGeometry,
   barsGeometry,
   chartAlt,
+  forecastGeometry,
   formatNumber,
   formatPeriod,
   lineGeometry,
@@ -14,6 +15,7 @@ import {
   type BandVisual,
   type BarsVisual,
   type Finding,
+  type ForecastVisual,
   type LineVisual,
   type MeterVisual,
   type ScatterVisual,
@@ -287,6 +289,82 @@ function ScatterChart({ finding, v }: { finding: Finding; v: ScatterVisual }) {
   );
 }
 
+function ForecastChart({ finding, v }: { finding: Finding; v: ForecastVisual }) {
+  const [ref, width] = useWidth();
+  const g = forecastGeometry(v, width);
+  const nh = v.history.length;
+  const [active, setActive] = useState<number | null>(null);
+  const pos = active ?? g.points.length - 1;
+  const cur = g.points[Math.min(pos, g.points.length - 1)];
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+    e.preventDefault();
+    setActive(stepIndex(pos, e.key, g.points.length));
+  };
+  const alt = chartAlt(finding);
+  return (
+    <div ref={ref} className="w-full">
+      <div tabIndex={0} role="group" aria-label={`${alt} Use the arrow keys to step through the points.`} onKeyDown={onKey} className="rounded-md outline-offset-2">
+        <div className="flex items-baseline justify-between gap-2 px-1 text-xs" aria-live="polite" style={{ color: SOFT }}>
+          <span className="truncate">{v.yLabel}</span>
+          {cur ? (
+            <span className="shrink-0 tabular-nums text-[var(--text-primary)]">
+              {cur.label}: <b>{cur.valueLabel}</b>
+              {cur.future ? ` (80% range ${cur.lowLabel} to ${cur.highLabel})` : ''}
+            </span>
+          ) : null}
+        </div>
+        <svg width={g.width} height={g.height} viewBox={`0 0 ${g.width} ${g.height}`} role="img" aria-label={alt} className="block max-w-full">
+          {g.yTicks.map((t, i) => (
+            <g key={i}>
+              <line x1={g.plot.l} x2={g.plot.r} y1={t.y} y2={t.y} stroke="var(--border)" strokeWidth={1} />
+              <text x={g.plot.l - 6} y={t.y + 4} textAnchor="end" fontSize={11} fill={SOFT}>
+                {t.label}
+              </text>
+            </g>
+          ))}
+          {g.xTicks.map((t) => (
+            <text key={t.i} x={t.x} y={g.height - 6} textAnchor="middle" fontSize={11} fill={SOFT}>
+              {t.label}
+            </text>
+          ))}
+          <line x1={g.splitX} x2={g.splitX} y1={g.plot.t} y2={g.plot.b} stroke={NEUTRAL} strokeWidth={1} strokeDasharray="2 4" />
+          <path d={g.bandPath} fill={ACCENT} fillOpacity={0.16} stroke="none" />
+          <path d={g.historyPath} fill="none" stroke="var(--text-primary)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          <path d={g.forecastPath} fill="none" stroke={ACCENT} strokeWidth={2.2} strokeDasharray="6 4" strokeLinejoin="round" strokeLinecap="round" />
+          {g.points.filter((p) => p.i >= nh - 1 && p.i < nh).map((p) => (
+            <circle key={`h${p.i}`} cx={p.x} cy={p.y} r={2.6} fill="var(--text-primary)" />
+          ))}
+          {g.points.filter((p) => p.future).map((p) => (
+            <circle key={p.i} cx={p.x} cy={p.y} r={3.2} fill={ACCENT} stroke="var(--surface)" strokeWidth={1.5} />
+          ))}
+          {cur ? <circle cx={cur.x} cy={cur.y} r={5.5} fill="none" stroke="var(--text-primary)" strokeWidth={1.5} /> : null}
+        </svg>
+      </div>
+      <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: SOFT }}>
+        <li className="flex items-center gap-1.5">
+          <svg width="22" height="8" aria-hidden="true">
+            <line x1="0" x2="22" y1="4" y2="4" stroke="var(--text-primary)" strokeWidth={2} />
+          </svg>
+          What happened
+        </li>
+        <li className="flex items-center gap-1.5">
+          <svg width="22" height="8" aria-hidden="true">
+            <line x1="0" x2="22" y1="4" y2="4" stroke={ACCENT} strokeWidth={2.2} strokeDasharray="6 4" />
+          </svg>
+          Forecast
+        </li>
+        <li className="flex items-center gap-1.5">
+          <svg width="22" height="10" aria-hidden="true">
+            <rect x="0" y="1" width="22" height="8" fill={ACCENT} fillOpacity={0.3} />
+          </svg>
+          80% range
+        </li>
+      </ul>
+    </div>
+  );
+}
+
 export function FindingChart({ finding }: { finding: Finding }) {
   const v = finding.visual;
   if (!v) return null;
@@ -301,6 +379,8 @@ export function FindingChart({ finding }: { finding: Finding }) {
       return <BandChart finding={finding} v={v} />;
     case 'scatter':
       return <ScatterChart finding={finding} v={v} />;
+    case 'forecast':
+      return <ForecastChart finding={finding} v={v} />;
     default:
       return null;
   }

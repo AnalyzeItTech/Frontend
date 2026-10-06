@@ -4,7 +4,8 @@ export interface BarsVisual { type: 'bars'; items: Array<{ label: string; value:
 export interface ScatterVisual { type: 'scatter'; points: Array<[number, number]>; xLabel: string; yLabel: string; fit: Array<[number, number]> | null; r: number | null }
 export interface BandVisual { type: 'band'; low: number; high: number; center: number; values: Array<{ label: string; value: number; flag: boolean }>; format: 'number' | 'percent' }
 export interface MeterVisual { type: 'meter'; parts: Array<{ label: string; value: number; tone: 'ok' | 'warn' }>; total: number }
-export type Visual = LineVisual | BarsVisual | ScatterVisual | BandVisual | MeterVisual;
+export interface ForecastVisual { type: 'forecast'; x: string[]; history: number[]; forecast: number[]; low: number[]; high: number[]; yLabel: string; format: 'number' | 'percent' }
+export type Visual = LineVisual | BarsVisual | ScatterVisual | BandVisual | MeterVisual | ForecastVisual;
 export interface Finding {
   id: string; kind: string; kindLabel: string; title: string; soWhat: string; headline: string; reasoning: string[]; why: string[];
   confidence: string; confidenceLabel: string; confidenceTone: Tone; confidenceNote: string; strength: number; visual: Visual | null;
@@ -25,7 +26,7 @@ export interface ParsedFindings {
   scope: FindingsScope;
 }
 export interface RunStep { id: string; label: string; state: 'pending' | 'running' | 'done'; detail: string }
-export const MAX_FINDINGS: number; export const MAX_POINTS: number; export const MAX_BARS: number; export const MAX_SCATTER: number; export const MAX_FIGURES: number;
+export const MAX_FINDINGS: number; export const MAX_POINTS: number; export const MAX_BARS: number; export const MAX_SCATTER: number; export const MAX_FIGURES: number; export const MAX_FORECAST: number;
 export const STEP_DEFS: Array<{ id: string; label: string }>;
 export const STEP_DEFS_ONLINE: Array<{ id: string; label: string }>;
 export function safeUrl(u: unknown): string;
@@ -45,6 +46,11 @@ export function lineGeometry(v: LineVisual, width: number, height?: number, pad?
   series: Array<{ name: string; role: string; path: string; points: Array<{ x: number; y: number; i: number; v: number }> }>;
   xTicks: Array<{ x: number; label: string; i: number }>; yTicks: Array<{ y: number; label: string }>;
   highlight: Array<{ i: number; x: number; y: number; value: number; valueLabel: string; label: string }>;
+};
+export function forecastGeometry(v: ForecastVisual, width: number, height?: number, pad?: { l: number; r: number; t: number; b: number }): {
+  width: number; height: number; plot: { l: number; r: number; t: number; b: number }; historyPath: string; forecastPath: string; bandPath: string; splitX: number;
+  points: Array<{ x: number; y: number; i: number; v: number; future: boolean; valueLabel: string; label: string; low?: number; high?: number; lowLabel?: string; highLabel?: string }>;
+  xTicks: Array<{ x: number; label: string; i: number }>; yTicks: Array<{ y: number; label: string }>;
 };
 export function barsGeometry(v: BarsVisual): { rows: Array<{ label: string; value: number; valueLabel: string; n: number | null; highlight: boolean; pct: number }>; baselinePct: number | null; baselineLabel: string; baselineValue: string };
 export function meterGeometry(v: MeterVisual): { parts: Array<{ label: string; value: number; tone: 'ok' | 'warn'; pct: number; valueLabel: string }>; total: number };
