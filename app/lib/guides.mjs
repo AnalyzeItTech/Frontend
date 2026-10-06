@@ -127,6 +127,34 @@ export const GUIDES = [
     ],
     cta: { href: '/docs/discovery', label: 'How online data works' },
   },
+  {
+    slug: 'forecast-without-fooling-yourself',
+    title: 'How to forecast next quarter\u2019s numbers without fooling yourself',
+    description: 'A forecast is only worth having if it has been tested against the past. How to build a baseline, test methods, read a range and know when to say no.',
+    published: '2026-10-06',
+    blocks: [
+      { p: 'Most business forecasts are a line drawn through the last few points and a hope. A forecast earns trust only after it has been shown to work on data it had not seen. This guide is the short version of how to do that, by hand or with software.' },
+      { h2: '1. Start with the dull baseline' },
+      { p: 'The simplest forecast is "next period will be like the latest one". It is surprisingly hard to beat. Any method you use has to do better than it on past data, or you are adding complexity for nothing. If your fancy method cannot beat the baseline, report the baseline.' },
+      { h2: '2. Check for a cycle before you check for a trend' },
+      { p: 'If sales are always high in December, a straight line through October and November will miss it. Compare each period with the same period a year earlier. A repeating pattern needs at least two full cycles of history to be learned; with less, you cannot tell a cycle from a coincidence.' },
+      { h2: '3. Test it on the past, honestly' },
+      { p: 'Pretend it is two years ago. Using only the data up to that point, forecast the next few periods and compare with what really happened. Move forward one period and repeat. This is called a backtest, and it gives you two things: which method predicts best on your data, and how wrong it typically is. Never choose a method by how well it fits the data it was built from; a wiggly curve fits the past perfectly and predicts nothing.' },
+      { h2: '4. Give a range, and make it from real misses' },
+      { p: 'A single number invites false confidence. A range built from how far off the method has been in the backtest tells the reader what to plan for. If the range is wide, that is information: the series is hard to predict, and a plan should survive anything inside it.' },
+      { h2: '5. Clean the ends of the series' },
+      { ul: [
+        'A half-finished month at the end makes a total look like a collapse. Leave it out or wait for the month to close.',
+        'Missing periods in the middle distort a trend. Fill them openly or do not forecast.',
+        'Decide whether your number adds up (revenue, orders) or is a level (a rate, a price). Totals are forecast over the whole horizon; a level is forecast at a point in time.',
+      ] },
+      { h2: '6. Know when to say no' },
+      { p: 'With only a handful of periods, or with big gaps, or when the number is driven by one-off events, a forecast is a guess dressed as a result. The honest answer is "not enough history to test this". A forecast also cannot see what has not happened yet: a price change, a new competitor, a campaign. Treat it as "what happens if nothing changes".' },
+      { h2: 'In AnalyzeIt' },
+      { p: 'Ask "forecast revenue for the next quarter". AnalyzeIt builds the series from your data, tests several simple methods against the past, uses the one that predicted best, and shows the forecast with an 80% range on a chart. It tells you how its typical miss compares with simply repeating the latest value, says when it could not beat that, and declines when there is too little history or too many gaps, with the reason.' },
+    ],
+    cta: { href: '/docs/discovery', label: 'How forecasts work' },
+  },
 ];
 
 export function guide(slug) {

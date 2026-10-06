@@ -3,14 +3,14 @@ import Link from 'next/link';
 import { DocPage } from '../../Components/docs/DocPage';
 
 export const metadata: Metadata = {
-  title: 'Discovery, online data and bulk edits — AnalyzeIt',
-  description: 'How AnalyzeIt finds what stands out in your data, brings in public data with its source shown, and changes many records only after a preview you approve.',
+  title: 'Discovery, forecasts, online data and bulk edits — AnalyzeIt',
+  description: 'How AnalyzeIt finds what stands out in your data, forecasts a number with a tested range, brings in public data with its source shown, and changes many records only after a preview you approve.',
   alternates: { canonical: '/docs/discovery' },
 };
 
 export default function Page() {
   return (
-    <DocPage title="Discovery, online data and bulk edits" subtitle="What each one does, how sure it is, and what it will not do.">
+    <DocPage title="Discovery, forecasts, online data and bulk edits" subtitle="What each one does, how sure it is, and what it will not do.">
       <h2>Discovery: what stands out in your data</h2>
       <p>
         You often do not know the exact question. Ask “what stands out in my data?” and AnalyzeIt reads your tables, runs a set of read-only checks, and shows the few results that matter. The
@@ -39,6 +39,24 @@ export default function Page() {
         Read more in the guides:{' '}
         <Link href="/guides/real-change-or-random-noise">real change or random noise</Link> and{' '}
         <Link href="/guides/find-what-changed-in-your-data">how to find what changed</Link>.
+      </p>
+
+      <h2>Forecasts</h2>
+      <p>
+        Ask “forecast revenue for the next quarter” (or for any number that has a date next to it in your data). AnalyzeIt builds one value per period, tries several simple methods, and uses the one
+        that would have predicted the past best. It does not trust a method because it looks good on the data it was fitted to: each method is tested by pretending to be at earlier points in time,
+        forecasting what came next, and comparing with what really happened.
+      </p>
+      <ul>
+        <li>The result is a chart of what happened, the forecast, and an 80% range. The range comes from how wrong that method actually was in those tests.</li>
+        <li>It says how its typical miss compares with simply repeating the latest value. If it could not beat that, it says so and labels the forecast “Worth checking”.</li>
+        <li>A yearly pattern is included only when there are at least two full years of history.</li>
+        <li>A half-filled newest period is left out and said so; small gaps in the middle are filled and said so; large gaps, too little history or no date column get a clear reason instead of a line.</li>
+        <li>For a total (revenue, orders) the headline is the total over the period you asked for; for a level (a rate, a price) it is the value at the end.</li>
+      </ul>
+      <p>
+        A forecast assumes the future behaves like the past, so it cannot see a price change, a campaign or anything new. The wording is built from the figures, not written by a model.
+        Read more: <Link href="/guides/forecast-without-fooling-yourself">how to forecast without fooling yourself</Link>.
       </p>
 
       <h2>Online data</h2>
