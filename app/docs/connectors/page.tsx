@@ -4,7 +4,7 @@ import { DocPage } from '../../Components/docs/DocPage';
 
 export const metadata: Metadata = {
   title: 'Connectors: what you can connect — AnalyzeIt docs',
-  description: 'Which data sources AnalyzeIt can connect to today (Razorpay, Stripe, Salesforce, GitHub, SQL databases, public datasets), how access is controlled, and what is still rolling out.',
+  description: 'Which data sources AnalyzeIt can connect to today (Razorpay, Stripe, Salesforce, GitHub, SQL databases, public datasets), how access is controlled, the weekly digest, teammates, and what is still rolling out.',
   alternates: { canonical: '/docs/connectors' },
 };
 
@@ -49,10 +49,25 @@ export default function Page() {
         approval.
       </p>
 
+      <h2>Weekly digest</h2>
+      <p>
+        Turn on a weekly check of a project&apos;s data from the Connectors screen. Each week the same analysis that answers “what is going wrong?” (or “what stands out?”) runs on the
+        project&apos;s current data, with no language model, and is saved as a digest you can reopen. It only runs while the assistant is allowed to read the project&apos;s data.
+        You can also have it queued by email, or to a Slack incoming webhook. Email goes out once e-mail sending is switched on for the service; until then the digest is in the app.
+      </p>
+      <p>Live connectors such as Razorpay are also kept current on their own schedule, in addition to being refreshed when you ask a question.</p>
+
+      <h2>Teammates</h2>
+      <p>
+        Invite people by e-mail to view a project. They accept with the address the invitation was sent to. A teammate can see the project, its charts, objects and records and the weekly
+        digests. They cannot change anything, ask the assistant about the project, add files or connect accounts. You can remove a teammate, or withdraw an invitation, at any time.
+        Projects can also be shared by link.
+      </p>
+
       <h2>Still rolling out</h2>
       <ul>
-        <li>Delivery of reports by email, Slack and Notion. Reports are readable in the app today.</li>
-        <li>Team invites and shared workspaces. Project sharing links with role-aware redaction are available now.</li>
+        <li>Delivery of reports to Notion.</li>
+        <li>Teammates who can edit and not only view.</li>
       </ul>
       <p>
         Plans and limits are on <Link href="/docs/plans">What each plan includes</Link>. If a connector you need is missing,{' '}

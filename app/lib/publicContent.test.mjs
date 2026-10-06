@@ -48,7 +48,8 @@ describe('public pages', () => {
   it('talk about delivery honestly', () => {
     const text = fs.readFileSync(path.join(root, 'app/docs/connectors/page.tsx'), 'utf8');
     assert.match(text, /Still rolling out/);
-    assert.match(text, /email, Slack and Notion/);
+    assert.match(text, /Notion/);                       // what is not finished is named
+    assert.match(text, /e-mail sending is switched on/);  // and delivery is described as queued until it is on
   });
   it('every page has its own title and description', () => {
     for (const file of all.filter((f) => f.endsWith('page.tsx') && !f.includes('/products/'))) {

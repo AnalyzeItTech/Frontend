@@ -41,6 +41,12 @@ export default function Page() {
         <Link href="/guides/find-what-changed-in-your-data">how to find what changed</Link>.
       </p>
 
+      <h2>Patterns by weekday, hour and month</h2>
+      <p>
+        When a table has real dates, discovery also compares groups by weekday, by hour of the day and, with at least two full years of data, by month of the year. That is how it can
+        say that failures are higher on Sundays, or in the evening. These are only used to compare groups: they are never an axis, and a table with one reading a month gets no weekday.
+      </p>
+
       <h2>Failure and refund rates</h2>
       <p>
         A status column (captured, failed, refunded, cancelled) hides the rate that matters. When a table has one, AnalyzeIt reads each problem outcome as a rate and looks
@@ -61,17 +67,26 @@ export default function Page() {
         <li>A yearly pattern is included only when there are at least two full years of history.</li>
         <li>A half-filled newest period is left out and said so; small gaps in the middle are filled and said so; large gaps, too little history or no date column get a clear reason instead of a line.</li>
         <li>For a total (revenue, orders) the headline is the total over the period you asked for; for a level (a rate, a price) it is the value at the end.</li>
+        <li>Ask “forecast revenue by region” and you get the total plus a separately tested forecast for each of the biggest groups. A group with too little history is named and skipped.</li>
       </ul>
       <p>
         A forecast assumes the future behaves like the past, so it cannot see a price change, a campaign or anything new. The wording is built from the figures, not written by a model.
         Read more: <Link href="/guides/forecast-without-fooling-yourself">how to forecast without fooling yourself</Link>.
       </p>
 
+      <h2>Compare with a public series</h2>
+      <p>
+        Ask “does my revenue follow the dollar rate?” or “is it related to India&apos;s GDP growth?”. AnalyzeIt fetches the public series (European Central Bank exchange rates, or World Bank
+        indicators), lines it up with your numbers by month or year, and looks for a relationship. It compares changes from one period to the next, not levels, so two things that both climb
+        over the years are not called related. A shared busy season is removed, the memory in each series is allowed for, and it tries shifts (a rise in the rate may show in sales a month later)
+        and demands more evidence for having tried them. It needs at least 24 overlapping months, or 8 whole years, and says so when there is not enough. “No clear relationship” is a result too.
+        A link it finds is how the two move together, never proof that one causes the other.
+      </p>
+
       <h2>Online data</h2>
       <p>
         Paste a link to a data file, or ask for public data on a topic. AnalyzeIt finds the data, downloads a table, tidies it, and runs the same checks. It tries, in order: the link you gave,
-        World Bank indicators, open-data catalogues (Socrata and CKAN portals), web search, and, on VIP, links to data files found on the pages it opens. It reads CSV, JSON, GeoJSON, tables on web
-        pages and Google Sheets.
+        World Bank indicators, open-data catalogues (Socrata and CKAN portals), web search, and, on VIP, links to data files found on the pages it opens. It reads CSV, JSON, GeoJSON, Excel (.xlsx) files, tables in PDFs, tables on web pages (including the ones that pages build with JavaScript when the data comes with the page, or from a plain .json or .csv file the page loads) and Google Sheets.
       </p>
       <ul>
         <li>Free: a link you paste, or a World Bank indicator.</li>
@@ -87,6 +102,12 @@ export default function Page() {
       <p>
         Read more:{' '}
         <Link href="/guides/free-public-datasets-and-how-to-check-them">where to find public data and how to check it</Link>.
+      </p>
+
+      <h2>Watch a real run</h2>
+      <p>
+        <Link href="/case">/case</Link> runs a real case on public data with no account: it finds the data, downloads it, reads it, and shows the answer with its sources and the working, plus a link to keep for 30 days.
+        It is a few fixed cases, so nothing you type is ever fetched.
       </p>
 
       <h2>Changing many records</h2>

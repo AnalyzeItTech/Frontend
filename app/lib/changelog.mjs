@@ -3,6 +3,19 @@
 
 export const CHANGELOG = [
   {
+    date: '2026-10-07',
+    items: [
+      { title: 'Watch a real run, no account', body: 'Pick a public-data question at /case and watch AnalyzeIt find the data, download it and read it, then see the answer with its sources and the working. You get a link to keep for 30 days, and a way to try it on your own files.' },
+      { title: 'Compare your numbers with a public series', body: 'Ask “does my revenue follow the dollar rate?” or “is it related to India’s GDP growth?”. It compares changes, not levels, so a shared trend or busy season does not look like a link, and an honest “no clear relationship” is a result too.' },
+      { title: 'Patterns by weekday, hour and month', body: 'Discovery now compares groups by weekday, hour of the day and month of the year (with two full years), so it can say failures are higher on Sundays or in the evening.' },
+      { title: 'Forecasts by group', body: '“Forecast revenue by region” gives the total and a separately tested forecast for each of the biggest groups.' },
+      { title: 'Weekly digest', body: 'Turn on a weekly check of a project’s data. It is saved as a digest you can reopen, and can be queued by email or to a Slack webhook. Live connectors such as Razorpay now also stay current on their own schedule.' },
+      { title: 'Invite teammates to view a project', body: 'Invite people by e-mail. They can see the project, its records and its digests, and cannot change anything. You can remove them at any time.' },
+      { title: 'More kinds of public data', body: 'Online data now reads Excel (.xlsx) files, tables in PDFs, and pages that ship their data with the page or load it from a plain .json or .csv file. It also searches data.gov.uk again, and a second level of dataset pages on the same site.' },
+      { title: 'Bulk edits on every chat screen, and stopping means stopping', body: 'The preview, approve and undo card for bulk edits now works on the new-project chat too. Stopping a run now stops the analysis behind it.' },
+    ],
+  },
+  {
     date: '2026-10-06',
     items: [
       { title: 'Razorpay connector', body: 'Connect Razorpay with a key id and secret (a test key works too). AnalyzeIt reads payments and refunds, read-only, and refreshes them when you ask if they are more than 15 minutes old. Customer email, phone, card and UPI details are never stored.' },
