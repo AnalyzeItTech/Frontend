@@ -397,3 +397,17 @@ test('the forecast route is a discovery route, so its steps and cards show', () 
   assert.equal(isDiscoveryRoute('data_blend:orders'), true);
   assert.equal(isDiscoveryRoute('object_query:orders'), false);
 });
+
+
+// ---- Phase 1 math findings -------------------------------------------------------------------------------------------
+const mathSample = JSON.parse(readFileSync(new URL('./fixtures/findings.math.json', import.meta.url), 'utf8'));
+test('math sample run parses regression, forecast, and unwired what-if', () => {
+  const m = parseFindings(mathSample);
+  assert.equal(m.findings.length, 3);
+  assert.equal(m.findings[0].math.method, 'regression');
+  assert.equal(m.findings[1].math.method, 'forecast');
+  assert.equal(m.findings[2].math.mathStatus, 'unwired');
+  assert.equal(m.mathSteps.length, 3);
+  assert.ok(m.findings[0].visual?.type === 'scatter');
+  assert.ok(m.findings[1].visual?.type === 'forecast');
+});
