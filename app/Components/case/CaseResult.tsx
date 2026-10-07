@@ -54,7 +54,7 @@ export function CaseResult({
         </div>
       ) : null}
 
-      <FindingCards data={findings} />
+      <FindingCards data={findings} signedIn={false} />
 
       <section aria-label="Where the data came from" className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-4 text-sm">
         <h2 className="font-semibold text-[var(--text-primary)]">Sources</h2>
@@ -104,12 +104,14 @@ export function CaseResult({
         </section>
       ) : null}
 
-      <section aria-label="Next" className="rounded-2xl bg-[var(--surface-2)] p-5">
-        <h2 className="font-serif text-xl text-[var(--text-primary)]">Now try it on your own files</h2>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">Create a free account, attach a file or connect Razorpay, and ask the same kind of question about your data.</p>
+      <section aria-label="Continue" className="rounded-2xl bg-[var(--surface-2)] p-5">
+        <h2 className="font-serif text-xl text-[var(--text-primary)]">Continue in AnalyzeIt</h2>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          You can read every number, assumption, and chart here without an account. Sign in when you want to run the same kind of analysis on your own files.
+        </p>
         <div className="mt-3 flex flex-wrap gap-3">
           <Link href="/login?tab=register" className="btn-primary text-sm">
-            Attach your own files
+            Continue in AnalyzeIt
           </Link>
           <Link href="/case" className="btn-secondary text-sm">
             Run another case

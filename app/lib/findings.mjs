@@ -4,6 +4,7 @@
 // (React renders them as text nodes), numbers must be finite, every list is capped, and an unknown version means "no cards".
 
 import { niceTicks } from './chatExtras.mjs';
+import { buildMathSteps, parseMathBlock } from './mathFindings.mjs';
 
 export const MAX_FINDINGS = 8;
 export const MAX_POINTS = 72;
@@ -12,7 +13,7 @@ export const MAX_SCATTER = 150;
 export const MAX_FIGURES = 14;
 export const MAX_FORECAST = 24;
 
-const KINDS = new Set(['change', 'trend', 'gap', 'concentration', 'outlier', 'correlation', 'quality', 'seasonal', 'run', 'forecast']);
+const KINDS = new Set(['change', 'trend', 'gap', 'concentration', 'outlier', 'correlation', 'quality', 'seasonal', 'run', 'forecast', 'regression', 'what_if']);
 const CONFIDENCE = {
   confirmed: { label: 'Confirmed in the data', tone: 'ok' },
   fact: { label: 'Confirmed in the data', tone: 'ok' },
@@ -32,6 +33,8 @@ const KIND_LABELS = {
   seasonal: 'Repeating pattern',
   run: 'Lasting shift',
   forecast: 'Forecast',
+  regression: 'Regression',
+  what_if: 'What-if',
 };
 
 const finite = (n) => typeof n === 'number' && Number.isFinite(n);
@@ -191,6 +194,7 @@ function parseFinding(raw, index) {
       url: safeUrl(src.url),
     },
     provenance: parseProvenance(raw.provenance),
+    math: parseMathBlock(raw),
   };
 }
 
@@ -258,6 +262,7 @@ export function parseFindings(payload) {
       .filter((p) => Array.isArray(p) && Number.isInteger(p[1]) && Number.isInteger(p[2]))
       .map((p) => ({ table: str(p[0], 60), loaded: p[1], total: p[2] })),
     notes: strList(payload.notes, 4, 240),
+    mathSteps: buildMathSteps(payload.math_steps, findings),
   };
 }
 
@@ -286,6 +291,9 @@ const CHECK_LABELS = {
   quality: ['data-quality check', 'data-quality checks'],
   seasonal: ['repeating-pattern check', 'repeating-pattern checks'],
   run: ['lasting-shift check', 'lasting-shift checks'],
+  forecast: ['forecast', 'forecasts'],
+  regression: ['regression', 'regressions'],
+  what_if: ['what-if scenario', 'what-if scenarios'],
 };
 
 /** "6 changes over time, 2 trends, …": what was looked at, so 'nothing else stood out' means something. */

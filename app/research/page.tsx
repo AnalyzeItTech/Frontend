@@ -176,6 +176,12 @@ const ZERO_TOKEN_TOOL_LABELS: Record<string, string> = {
   calculator: 'calculator',
   currency_converter: 'FX',
   stock_lookup: 'stock',
+  linear_trend: 'Regression',
+  forecast_tool: 'Forecast',
+  forecasting_ml: 'Forecast',
+  arima: 'Forecast',
+  correlation: 'Correlation',
+  correlation_finder: 'Correlation',
 };
 
 function contentDeniesWebSearch(content: string | undefined): boolean {
@@ -1995,7 +2001,7 @@ function ChatInner() {
                       )}
 
                       {!isUser && !msg.streaming && msg.findings ? (
-                        <FindingCards data={msg.findings} disabled={isStreaming} onAsk={(q) => void sendMessage(q)} />
+                        <FindingCards data={msg.findings} disabled={isStreaming} signedIn onAsk={(q) => void sendMessage(q)} />
                       ) : null}
                       {!isUser && !msg.streaming && msg.charts?.map((c, ci) => <ChartCard key={ci} chart={c} />)}
                       {!isUser && !msg.streaming && msg.places?.length ? (
