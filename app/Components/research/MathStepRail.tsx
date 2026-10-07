@@ -3,7 +3,7 @@
 import { mathStepStatusLabel, type MathStep } from '../../lib/mathFindings.mjs';
 
 /**
- * In-run math step rail: ordinal + plain method name + Running/Done/Failed.
+ * In-run math step rail: ordinal + plain method name + Running/Done/Failed/Not wired yet.
  * Same column as findings — not a separate IDE. Click scrolls/highlights the finding card.
  */
 export function MathStepRail({
@@ -43,7 +43,12 @@ export function MathStepRail({
                 <span
                   className="shrink-0 font-mono text-[10px] uppercase tracking-wide"
                   style={{
-                    color: s.state === 'done' ? 'var(--success, #4A7C59)' : s.state === 'failed' || s.state === 'unwired' ? 'var(--warning, #B45309)' : 'var(--finding-soft)',
+                    color:
+                      s.state === 'done'
+                        ? 'var(--success, #4A7C59)'
+                        : s.state === 'failed'
+                          ? 'var(--warning, #B45309)'
+                          : 'var(--finding-soft)', // running + unwired stay muted — not a failure
                   }}
                 >
                   {status}

@@ -4,7 +4,7 @@ export interface BarsVisual { type: 'bars'; items: Array<{ label: string; value:
 export interface ScatterVisual { type: 'scatter'; points: Array<[number, number]>; xLabel: string; yLabel: string; fit: Array<[number, number]> | null; r: number | null }
 export interface BandVisual { type: 'band'; low: number; high: number; center: number; values: Array<{ label: string; value: number; flag: boolean }>; format: 'number' | 'percent' }
 export interface MeterVisual { type: 'meter'; parts: Array<{ label: string; value: number; tone: 'ok' | 'warn' }>; total: number }
-export interface ForecastVisual { type: 'forecast'; x: string[]; history: number[]; forecast: number[]; low: number[]; high: number[]; yLabel: string; format: 'number' | 'percent' }
+export interface ForecastVisual { type: 'forecast'; x: string[]; history: number[]; forecast: number[]; low: number[]; high: number[]; yLabel: string; format: 'number' | 'percent'; bandPct?: number | null }
 export type Visual = LineVisual | BarsVisual | ScatterVisual | BandVisual | MeterVisual | ForecastVisual;
 export type MathMethod = 'regression' | 'forecast' | 'what_if';
 export type MathStepState = 'done' | 'running' | 'failed' | 'unwired' | 'pending';

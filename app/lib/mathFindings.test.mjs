@@ -33,6 +33,9 @@ describe('tool → Design method mapping', () => {
     assert.equal(resolveMathMethod('forecast_tool', null, 'forecast'), 'forecast');
     assert.equal(resolveMathMethod(null, 'what_if', null), 'what_if');
     assert.equal(resolveMathMethod(null, null, 'correlation'), null); // discovery correlation alone is not math chrome
+    // Model emits tool:"compute_pipeline" + pipeline_name:"linear_trend" today
+    assert.equal(resolveMathMethod('compute_pipeline', null, null, 'linear_trend'), 'regression');
+    assert.equal(resolveMathMethod('compute_pipeline', null, null, null), null);
   });
 });
 
@@ -77,7 +80,7 @@ describe('math fixture sample run', () => {
       [
         ['Regression', 'Done'],
         ['Forecast', 'Done'],
-        ['What-if', 'Failed'],
+        ['What-if', 'Not wired yet'],
       ],
     );
   });
@@ -128,6 +131,8 @@ describe('honesty ban list', () => {
       // "signal" alone is fine; ban is "signal to trade"
       assert.doesNotMatch(blob, rx);
     }
+    assert.doesNotMatch(blob, /Holt|\b80%\b|Model compute/i);
+    assert.match(JSON.stringify(mathFixture), /95%/);
   });
 
   it('math UI components and caveats contain none of the banned phrases', () => {
@@ -140,7 +145,12 @@ describe('honesty ban list', () => {
     for (const rel of files) {
       const text = readFileSync(new URL(rel, import.meta.url), 'utf8');
       for (const rx of MATH_BANNED) assert.doesNotMatch(text, rx, `${rel} ${rx}`);
+      assert.doesNotMatch(text, /Model compute/i, `${rel} Model compute`);
     }
+    const cards = readFileSync(new URL('../Components/research/FindingCards.tsx', import.meta.url), 'utf8');
+    assert.match(cards, /What-if isn’t available yet|What-if isn't available yet/);
+    assert.match(cards, /No scenario numbers were made up/);
+    assert.doesNotMatch(cards, /math\.mathStatus === 'failed' \|\| math\.mathStatus === 'unwired'/);
     const surface = Object.values(DEFAULT_CAVEAT).join('\n') + Object.values(METHOD_LABEL).join('\n');
     for (const rx of MATH_BANNED) assert.doesNotMatch(surface, rx);
   });
@@ -160,7 +170,7 @@ describe('parseMathBlock edge cases', () => {
         tool: 'forecast_tool',
         method: 'forecast',
         assumptions: ['Window: 12 weeks'],
-        params_used: { band: '80%' },
+        params_used: { band: '95%' },
         disclaimer: DEFAULT_CAVEAT.forecast,
         kpis: [{ label: 'Point', value: '100' }, { label: 'Band', value: '90–110' }],
       },
@@ -183,5 +193,22 @@ describe('buildMathSteps', () => {
     const steps = buildMathSteps(undefined, parsed.findings);
     assert.equal(steps.length, 3);
     assert.equal(steps[0].label, 'Regression');
+  });
+
+  it('does not promote unknown states to Done', () => {
+    const steps = buildMathSteps([
+      { id: 'x', method: 'regression', tool: 'linear_trend', label: 'Regression', state: 'mystery' },
+    ]);
+    assert.equal(steps[0].state, 'running');
+    assert.equal(mathStepStatusLabel(steps[0].state), 'Running');
+  });
+});
+
+describe('mathStepStatusLabel', () => {
+  it('keeps Failed for real failures and Not wired yet for unwired', () => {
+    assert.equal(mathStepStatusLabel('failed'), 'Failed');
+    assert.equal(mathStepStatusLabel('unwired'), 'Not wired yet');
+    assert.equal(mathStepStatusLabel('done'), 'Done');
+    assert.equal(mathStepStatusLabel('running'), 'Running');
   });
 });

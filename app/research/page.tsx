@@ -59,6 +59,7 @@ import { SuggestionChips } from '../Components/research/SuggestionChips';
 import { FindingCards } from '../Components/research/FindingCards';
 import { RunSteps } from '../Components/research/RunSteps';
 import { discoveryStatus, isDiscoveryRoute, parseFindings, reduceSteps, withoutFindingList, type ParsedFindings, type RunStep } from '../lib/findings.mjs';
+import mathFixture from '../lib/fixtures/findings.math.json';
 import { parseExtras } from '../lib/chatExtras.mjs';
 import { memoryToolStatus, queueStatus } from '../lib/runStatus.mjs';
 import { historyTurns } from '../lib/historyTurns.mjs';
@@ -419,6 +420,29 @@ function ChatInner() {
     const scoped = params.get('project') || params.get('projectId');
     if (scoped) setProjectId(scoped);
     if (params.get('mode') === 'research') setComposerMode('research');
+    // Temporary Design QA: /research?fixture=math — not linked from nav.
+    if (params.get('fixture') === 'math') {
+      const data = parseFindings(mathFixture);
+      if (data) {
+        setComposerMode('research');
+        setMessages([
+          {
+            id: 'fixture-math-user',
+            role: 'user',
+            content: 'Show Phase 1 math finding cards (Design QA fixture)',
+            mode: 'research',
+          },
+          {
+            id: 'fixture-math-assistant',
+            role: 'assistant',
+            content:
+              'Sample math run for Design QA. Regression uses linear_trend; Forecast is forecast_tool (OLS + 95% residual bands). What-if is not wired yet — no scenario numbers were made up.',
+            findings: data,
+            mode: 'research',
+          },
+        ]);
+      }
+    }
   }, [params]);
 
   useEffect(() => {

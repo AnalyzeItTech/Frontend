@@ -93,7 +93,10 @@ function parseForecast(v) {
   const all = [...forecast, ...low, ...high, ...history];
   if (n < 1 || low.length !== n || high.length !== n || history.length < 3 || x.length !== history.length + n || all.some((q) => q === null)) return null;
   if (low.some((l, i) => l > forecast[i] + 1e-9) || high.some((h, i) => h < forecast[i] - 1e-9)) return null;
-  return { type: 'forecast', x, history, forecast, low, high, yLabel: str(v.y_label, 60), format: v.format === 'percent' ? 'percent' : 'number' };
+  const bandRaw = v.band_pct ?? v.bandPct;
+  const bandPct = typeof bandRaw === 'number' && Number.isFinite(bandRaw) ? bandRaw : null;
+  return { type: 'forecast', x, history, forecast, low, high, yLabel: str(v.y_label, 60), format: v.format === 'percent' ? 'percent' : 'number', bandPct };
+
 }
 
 function parseBars(v) {
@@ -447,7 +450,7 @@ export function lineGeometry(v, width, height = 190, pad = { l: 46, r: 14, t: 14
   };
 }
 
-/** History, then the forecast joined to its last point, with the 80% range as a shaded band. Index i runs over history then forecast. */
+/** History, then the forecast joined to its last point, with the confidence range as a shaded band. Index i runs over history then forecast. */
 export function forecastGeometry(v, width, height = 210, pad = { l: 46, r: 14, t: 14, b: 26 }) {
   const nh = v.history.length;
   const n = nh + v.forecast.length;
@@ -595,7 +598,9 @@ export function chartAlt(f) {
   }
   if (v.type === 'forecast') {
     const j = v.forecast.length - 1;
-    return `Line chart of ${v.yLabel || 'values'} from ${formatPeriod(v.x[0])} to ${formatPeriod(v.x[v.history.length - 1])}, then a forecast for ${v.forecast.length} more period${v.forecast.length === 1 ? '' : 's'}. The last forecast, for ${formatPeriod(v.x[v.history.length + j])}, is about ${formatNumber(v.forecast[j], v.format)}, with an 80% range of ${formatNumber(v.low[j], v.format)} to ${formatNumber(v.high[j], v.format)}.`;
+    // Discovery Holt fixtures stay 80%; Phase 1 forecast_tool (OLS) sends band_pct: 95.
+    const band = Number.isFinite(v.bandPct) ? v.bandPct : 80;
+    return `Line chart of ${v.yLabel || 'values'} from ${formatPeriod(v.x[0])} to ${formatPeriod(v.x[v.history.length - 1])}, then a forecast for ${v.forecast.length} more period${v.forecast.length === 1 ? '' : 's'}. The last forecast, for ${formatPeriod(v.x[v.history.length + j])}, is about ${formatNumber(v.forecast[j], v.format)}, with a ${band}% range of ${formatNumber(v.low[j], v.format)} to ${formatNumber(v.high[j], v.format)}.`;
   }
   if (v.type === 'bars') {
     const hi = v.items.reduce((a, b) => (b.value > a.value ? b : a));

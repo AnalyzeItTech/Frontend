@@ -187,12 +187,25 @@ function KpiChips({ kpis }: { kpis: Array<{ label: string; value: string; note: 
   );
 }
 
-function MathEmpty({ methodLabel, canRetry, onRetry }: { methodLabel: string; canRetry?: boolean; onRetry?: () => void }) {
+function MathUnwiredEmpty({ methodLabel }: { methodLabel: string }) {
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-6 text-center">
+      <p className="text-sm text-[var(--text-primary)]">
+        {methodLabel === 'What-if' ? 'What-if isn’t available yet' : `${methodLabel} isn’t available yet`}
+      </p>
+      <p className="mt-1 text-xs" style={{ color: 'var(--finding-soft)' }}>
+        No scenario numbers were made up.
+      </p>
+    </div>
+  );
+}
+
+function MathFailedEmpty({ methodLabel, canRetry, onRetry }: { methodLabel: string; canRetry?: boolean; onRetry?: () => void }) {
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[color-mix(in_srgb,#F5EDE4_80%,var(--surface))] px-4 py-6 text-center">
       <p className="text-sm text-[var(--text-primary)]">Couldn’t complete {methodLabel}</p>
       <p className="mt-1 text-xs" style={{ color: 'var(--finding-soft)' }}>
-        {methodLabel === 'What-if' ? 'Stress / scenario step isn’t wired in Model compute yet.' : 'The calculation did not finish.'}
+        The calculation did not finish.
       </p>
       {canRetry && onRetry ? (
         <button type="button" onClick={onRetry} className="btn-secondary mt-3 text-xs">
@@ -239,7 +252,9 @@ function MathFindingCard({
   const from = provenanceLine(f);
   const assumeOpen = useDesktopAssumptionsOpen(math.assumptions.length);
   const [copied, setCopied] = useState(false);
-  const failed = math.mathStatus === 'failed' || math.mathStatus === 'unwired';
+  const unwired = math.mathStatus === 'unwired';
+  const failed = math.mathStatus === 'failed';
+  const showWorking = !unwired && !failed;
 
   const copy = async () => {
     try {
@@ -255,6 +270,7 @@ function MathFindingCard({
     <article
       id={`finding-${f.id}`}
       data-math-method={math.method}
+      data-math-status={math.mathStatus}
       data-chart-ref={math.chartRef || undefined}
       className={`app-card space-y-3 p-4 transition ring-offset-2 ring-offset-[var(--surface)] ${highlighted ? 'ring-2 ring-[var(--finding-accent)]' : ''}`}
       aria-labelledby={`${id}-t`}
@@ -269,15 +285,17 @@ function MathFindingCard({
               {fromTools}
             </span>
           ) : null}
-          {!failed ? <ConfidencePill f={f} /> : null}
+          {showWorking ? <ConfidencePill f={f} /> : null}
         </div>
       </div>
       <h4 id={`${id}-t`} className="text-[15px] font-medium leading-snug text-[var(--text-primary)]">
         {title}
       </h4>
 
-      {failed ? (
-        <MathEmpty methodLabel={math.methodLabel} canRetry={Boolean(signedIn && math.mathStatus === 'failed')} onRetry={onRetry} />
+      {unwired ? (
+        <MathUnwiredEmpty methodLabel={math.methodLabel} />
+      ) : failed ? (
+        <MathFailedEmpty methodLabel={math.methodLabel} canRetry={Boolean(signedIn)} onRetry={onRetry} />
       ) : (
         <>
           <KpiChips kpis={math.kpis} />
@@ -332,7 +350,7 @@ function MathFindingCard({
         ) : null}
       </div>
 
-      {!failed ? <Working f={f} source={source} /> : null}
+      {showWorking ? <Working f={f} source={source} /> : null}
     </article>
   );
 }

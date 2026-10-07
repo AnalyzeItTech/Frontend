@@ -22,7 +22,7 @@
    "method": "what_if",
    "label": "What-if",
    "state": "unwired",
-   "detail": "Stress step isn\u2019t wired yet",
+   "detail": "Stress step isn’t wired yet",
    "finding_id": "m3"
   }
  ],
@@ -34,12 +34,12 @@
    "method": "regression",
    "tool": "linear_trend",
    "target": "revenue vs. spend",
-   "title": "Regression \u2014 revenue vs. spend",
+   "title": "Regression — revenue vs. spend",
    "so_what": "Revenue tends to rise with spend on this series. That is a descriptive fit, not a claim that spend causes revenue.",
-   "headline": "OLS slope 2.41 (revenue per spend unit); R\u00b2 0.87 across 120 rows.",
+   "headline": "OLS slope 2.41 (revenue per spend unit); R² 0.87 across 120 rows.",
    "reasoning": [
     "linear_trend (OLS) on revenue vs spend.",
-    "R\u00b2 0.87; sample size 120; p-value 0.002."
+    "R² 0.87; sample size 120; p-value 0.002."
    ],
    "why": [
     "Series: revenue vs spend from your sales table.",
@@ -54,7 +54,7 @@
      "value": "2.41"
     },
     {
-     "label": "R\u00b2",
+     "label": "R²",
      "value": "0.870"
     },
     {
@@ -78,9 +78,9 @@
     "defaulted": true,
     "transform": "none"
    },
-   "caveat": "Descriptive fit on your series \u2014 not a trading signal.",
+   "caveat": "Descriptive fit on your series — not a trading signal.",
    "chart_ref": "m1-scatter",
-   "chart_caption": "Revenue vs spend \u00b7 last 90 days (defaulted)",
+   "chart_caption": "Revenue vs spend · last 90 days (defaulted)",
    "math_status": "done",
    "visual": {
     "type": "scatter",
@@ -268,7 +268,7 @@
      "note": "OLS"
     },
     {
-     "label": "R\u00b2",
+     "label": "R²",
      "value": "0.870",
      "n": 120,
      "note": null
@@ -297,11 +297,11 @@
    "method": "forecast",
    "tool": "forecast_tool",
    "target": "next 3 months",
-   "title": "Forecast \u2014 next 3 months",
-   "so_what": "Holt projection with an 80% band. It cannot see a price change or campaign that is not in the history.",
-   "headline": "Next month about 618; 80% range 570 to 666 (forecast_tool / seasonal Holt).",
+   "title": "Forecast — next 3 months",
+   "so_what": "OLS linear trend with a 95% residual band. It cannot see a price change or campaign that is not in the history.",
+   "headline": "Next month about 618; 95% range 570 to 666 (forecast_tool — OLS linear_trend + 95% residual bands).",
    "reasoning": [
-    "Seasonal Holt chosen on past hold-outs.",
+    "forecast_tool fits an OLS linear_trend on the series and widens a 95% residual band.",
     "Assumes the future behaves like the past."
    ],
    "why": [
@@ -315,11 +315,11 @@
     {
      "label": "Apr 2026",
      "value": "574.23",
-     "note": "80% 528.29\u2013620.17"
+     "note": "95% 528.29–620.17"
     },
     {
-     "label": "Band (80%)",
-     "value": "528.29 \u2013 620.17"
+     "label": "Band (95%)",
+     "value": "528.29 – 620.17"
     },
     {
      "label": "May 2026",
@@ -333,17 +333,18 @@
    "assumptions": [
     "Series: SUM(revenue) per month",
     "Window: 24 months of history",
-    "Method: seasonal Holt (forecast_tool)",
-    "Hold-outs: last 6 months used for method pick"
+    "Method: OLS linear_trend (forecast_tool)",
+    "Band: 95% residual",
+    "Hold-outs: last 6 months used for checks"
    ],
    "params_used": {
     "periods": 3,
-    "method": "seasonal_holt",
-    "band": "80%"
+    "method": "ols_linear_trend",
+    "band": "95%"
    },
-   "caveat": "Projection assumes the future behaves like the past \u2014 not a trading signal.",
+   "caveat": "Projection assumes the future behaves like the past — not a trading signal.",
    "chart_ref": "m2-forecast",
-   "chart_caption": "Revenue per month \u00b7 history + 3-month projection (80% band)",
+   "chart_caption": "Revenue per month · history + 3-month projection (95% residual band)",
    "math_status": "done",
    "visual": {
     "type": "forecast",
@@ -418,12 +419,13 @@
      656.65
     ],
     "y_label": "revenue per month",
-    "format": "number"
+    "format": "number",
+    "band_pct": 95
    },
    "figures": [
     {
      "label": "April 2026",
-     "value": "574.23  (80% range 528.29 to 620.17)",
+     "value": "574.23  (95% range 528.29 to 620.17)",
      "n": null,
      "note": null
     },
@@ -448,25 +450,25 @@
    "kind": "what_if",
    "kind_label": "What-if",
    "method": "what_if",
-   "target": "\u221210% price",
-   "title": "What-if \u2014 \u221210% price",
-   "so_what": "A stress / scenario step is not available from Model compute yet.",
+   "target": "−10% price",
+   "title": "What-if — −10% price",
+   "so_what": "A stress / scenario step is not available yet.",
    "headline": "What-if stress slice is not wired.",
    "reasoning": [],
    "why": [],
    "confidence": "check",
-   "confidence_note": "No scenario numbers until Backend exposes a stress tool.",
+   "confidence_note": "No scenario numbers until a stress step is available.",
    "strength": 0,
    "kpis": [],
    "assumptions": [
-    "Requested shock: \u221210% price",
-    "Stress tool: not wired in Model compute yet"
+    "Requested shock: −10% price",
+    "Stress step: not wired yet"
    ],
    "params_used": {
     "shock_pct": -10,
     "requested": true
    },
-   "caveat": "Scenario on your inputs \u2014 not a trading signal.",
+   "caveat": "Scenario on your inputs — not a trading signal.",
    "chart_ref": "m3-whatif",
    "chart_caption": "",
    "math_status": "unwired",
@@ -500,7 +502,7 @@
  },
  "partial": [],
  "notes": [
-  "Sample run for Phase 1 math UI. Regression and Forecast map to linear_trend and forecast_tool. What-if is an honest unwired placeholder."
+  "Sample run for Phase 1 math UI. Regression → linear_trend; Forecast → forecast_tool (OLS + 95% residual bands). What-if is an honest unwired placeholder."
  ],
  "scope": {
   "mode": "project",

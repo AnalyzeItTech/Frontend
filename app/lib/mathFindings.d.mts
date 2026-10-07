@@ -43,13 +43,14 @@ export const METHOD_LABEL: Record<MathMethod, string>;
 export const DEFAULT_CAVEAT: Record<MathMethod, string>;
 export const MATH_BANNED: RegExp[];
 
-export function resolveMathMethod(tool: unknown, method: unknown, kind: unknown): MathMethod | null;
+export function resolveMathMethod(tool: unknown, method: unknown, kind: unknown, pipelineName?: unknown): MathMethod | null;
 export function assumptionsFromPayload(assumptions: unknown, params: unknown): string[];
 export function deriveKpis(
   method: MathMethod,
   figures: Array<{ label: string; value: string; n: number | null; note: string }>,
   visual: Record<string, unknown> | null,
   metrics: Record<string, unknown> | null,
+  tool?: unknown,
 ): MathKpi[];
 export function parseMathBlock(raw: Record<string, unknown>): MathBlock | null;
 export function isMathFinding(f: { math?: MathBlock | null } | null | undefined): boolean;
