@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { parseFindings } from './findings.mjs';
+import { chartAlt, parseFindings } from './findings.mjs';
 import {
   DEFAULT_CAVEAT,
   MATH_BANNED,
@@ -138,6 +138,7 @@ describe('honesty ban list', () => {
   it('math UI components and caveats contain none of the banned phrases', () => {
     const files = [
       '../Components/research/FindingCards.tsx',
+      '../Components/research/FindingChart.tsx',
       '../Components/research/MathStepRail.tsx',
       '../Components/case/CaseResult.tsx',
       './fixtures/findings.math.json',
@@ -147,6 +148,12 @@ describe('honesty ban list', () => {
       for (const rx of MATH_BANNED) assert.doesNotMatch(text, rx, `${rel} ${rx}`);
       assert.doesNotMatch(text, /Model compute/i, `${rel} Model compute`);
     }
+    const chart = readFileSync(new URL('../Components/research/FindingChart.tsx', import.meta.url), 'utf8');
+    assert.doesNotMatch(chart, /80% range/);
+    assert.match(chart, /bandPct/);
+    const forecast = parsed.findings.find((f) => f.math?.method === 'forecast');
+    assert.equal(forecast.visual.bandPct, 95);
+    assert.match(chartAlt(forecast), /95% range of/);
     const cards = readFileSync(new URL('../Components/research/FindingCards.tsx', import.meta.url), 'utf8');
     assert.match(cards, /What-if isn’t available yet|What-if isn't available yet/);
     assert.match(cards, /No scenario numbers were made up/);
