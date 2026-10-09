@@ -6,6 +6,7 @@ import { getBillingQuote } from '../lib/billingApi';
 import { presentPlans, type MarketingQuote } from '../lib/planCatalog.mjs';
 import { useVisitorCountry } from '../lib/useVisitorCountry';
 import { CountryTrust } from '../Components/trust/CountryTrust';
+import { IntervalToggle, type Interval } from '../Components/trust/IntervalToggle';
 
 const CTA = { free: 'Create a free account', premium: 'Sign in to upgrade', premium_plus: 'Sign in to go VIP' } as const;
 const HREF = { free: '/login?tab=register', premium: '/login?next=/billing', premium_plus: '/login?next=/billing' } as const;
@@ -18,6 +19,7 @@ const HREF = { free: '/login?tab=register', premium: '/login?next=/billing', pre
 export function ProductsPlans({ initialQuote = null }: { initialQuote?: MarketingQuote }) {
   const [quote, setQuote] = useState<MarketingQuote>(initialQuote ?? null);
   const country = useVisitorCountry();
+  const [interval, setInterval] = useState<Interval>('monthly');
   useEffect(() => {
     let cancelled = false;
     getBillingQuote(country ?? 'IN')
@@ -34,8 +36,11 @@ export function ProductsPlans({ initialQuote = null }: { initialQuote?: Marketin
 
   return (
     <>
+    <div className="mb-4 flex justify-center">
+      <IntervalToggle value={interval} onChange={setInterval} />
+    </div>
     <div className="grid items-stretch gap-4 sm:grid-cols-3">
-      {presentPlans(quote).map((plan) => {
+      {presentPlans(quote, interval).map((plan) => {
         const recommended = plan.id === 'premium';
         return (
           <article
@@ -51,7 +56,7 @@ export function ProductsPlans({ initialQuote = null }: { initialQuote?: Marketin
             <div className="mt-4 min-h-[4.75rem]">
               <p className="font-serif text-3xl text-[#322C28] dark:text-[#F4EDE5]">
                 {plan.price}
-                <span className="font-sans text-base">/mo</span>
+                <span className="font-sans text-base">{plan.id === 'free' ? '/mo' : plan.period}</span>
               </p>
               <p className="text-xs text-[#5C534A] dark:text-[#C5B9AE]">{plan.note}</p>
             </div>

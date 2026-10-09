@@ -6,6 +6,7 @@ import { getBillingQuote } from '../../lib/billingApi';
 import { presentPlans, type MarketingQuote } from '../../lib/planCatalog.mjs';
 import { useVisitorCountry } from '../../lib/useVisitorCountry';
 import { CountryTrust } from '../trust/CountryTrust';
+import { IntervalToggle, type Interval } from '../trust/IntervalToggle';
 
 const CTA = { free: 'Create a free account', premium: 'Sign in to upgrade', premium_plus: 'Sign in to go VIP' } as const;
 const HREF = { free: '/login?tab=register', premium: '/login?next=/billing', premium_plus: '/login?next=/billing' } as const;
@@ -13,6 +14,7 @@ const HREF = { free: '/login?tab=register', premium: '/login?next=/billing', pre
 export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> = ({ initialQuote = null }) => {
   const [quote, setQuote] = useState<MarketingQuote>(initialQuote ?? null);
   const country = useVisitorCountry();
+  const [interval, setInterval] = useState<Interval>('monthly');
 
   useEffect(() => {
     let cancelled = false;
@@ -30,9 +32,8 @@ export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> =
     };
   }, [country]);
 
-  const tiers = presentPlans(quote).map((plan) => ({
+  const tiers = presentPlans(quote, interval).map((plan) => ({
     ...plan,
-    period: '/mo',
     popular: plan.id === 'premium',
     features: plan.id === 'free' ? plan.features : [...plan.features, 'Monthly billing after you sign in'],
     cta: CTA[plan.id],
@@ -56,6 +57,10 @@ export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> =
           Chat, dashboards, Globe, and connectors need an account. Paid plans are billed through Razorpay in your
           local currency (INR in India). The USD figure is a reference; the exact price is confirmed at checkout.
         </p>
+      </div>
+
+      <div className="flex justify-center">
+        <IntervalToggle value={interval} onChange={setInterval} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">

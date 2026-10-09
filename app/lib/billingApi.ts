@@ -72,6 +72,7 @@ export type CheckoutSession = {
   amount_usd?: number;
   currency?: string;
   country?: string | null;
+  interval?: BillingInterval;
   /** One-time checkout (used until a subscription plan is configured for the tier). */
   order_id?: string | null;
   /** Recurring checkout: Razorpay Subscriptions. */
@@ -99,12 +100,18 @@ declare global {
   }
 }
 
-export type BillingQuote = {
-  country?: string | null;
-  plans: {
+export type BillingInterval = 'monthly' | 'annual';
+
+type QuotePlans = {
     premium: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean };
     premium_plus: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean };
-  };
+};
+
+export type BillingQuote = {
+  country?: string | null;
+  plans: QuotePlans;
+  /** Yearly prices (ten months charged); absent on an older API. */
+  annual_plans?: QuotePlans;
 };
 
 export function detectBillingCountry(): string {
@@ -122,13 +129,15 @@ export async function getBillingQuote(country: string): Promise<BillingQuote> {
   });
   if (!res.ok) throw new Error(await readError(res, 'Could not load prices'));
   const data = (await res.json()) as BillingQuote;
-  for (const key of ['premium', 'premium_plus'] as const) {
-    const row = data?.plans?.[key];
-    if (!row) continue;
-    const n = coerceMoney(row.amount);
-    if (n != null) row.amount = n;
-    const usd = coerceMoney(row.amount_usd);
-    if (usd != null) row.amount_usd = usd;
+  for (const group of [data?.plans, data?.annual_plans]) {
+    for (const key of ['premium', 'premium_plus'] as const) {
+      const row = group?.[key];
+      if (!row) continue;
+      const n = coerceMoney(row.amount);
+      if (n != null) row.amount = n;
+      const usd = coerceMoney(row.amount_usd);
+      if (usd != null) row.amount_usd = usd;
+    }
   }
   return data;
 }
@@ -137,12 +146,14 @@ export async function startCheckout(
   plan: 'premium' | 'premium_plus',
   country?: string,
   phone?: string,
+  interval: BillingInterval = 'monthly',
 ): Promise<CheckoutSession> {
   const res = await fetch(`${API_V1}/billing/checkout`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({
       plan,
+      interval,
       country: country || detectBillingCountry(),
       ...(phone ? { phone } : {}),
     }),

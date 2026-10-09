@@ -122,8 +122,8 @@ describe('home and products show the same Premium price', () => {
     const home = read('app/Components/landing/PricingTeaserSection.tsx');
     const page = read('app/products/page.tsx');
     // Both cards go through presentPlans, so a page cannot format Premium on its own.
-    assert.match(products, /presentPlans\(quote\)/);
-    assert.match(home, /presentPlans\(quote\)/);
+    assert.match(products, /presentPlans\(quote(, interval)?\)/);
+    assert.match(home, /presentPlans\(quote(, interval)?\)/);
     assert.doesNotMatch(products, /priceLabel\(/);
     assert.doesNotMatch(home, /priceLabel\(/);
     assert.doesNotMatch(products, /Shown in USD for now/);
@@ -141,5 +141,24 @@ describe('deep read is described the way it works', () => {
     assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.includes('section by section') && f.includes('300,000')));
     assert.ok(!PLAN_FEATURES.free.some((f) => /section|deep/i.test(f)));
     assert.ok(!JSON.stringify(PLAN_FEATURES).match(/recursive|RLM|orchestrated/i));
+  });
+});
+
+describe('annual plans', () => {
+  const quote = {
+    plans: { premium: { currency: 'GBP', amount: 14, recurring: true }, premium_plus: { currency: 'GBP', amount: 37, recurring: true } },
+    annual_plans: { premium: { currency: 'GBP', amount: 140, recurring: true }, premium_plus: { currency: 'GBP', amount: 370, recurring: true } },
+  };
+  it('annual shows the yearly price per year, ten months of monthly', () => {
+    const premium = presentPlans(quote, 'annual').find((p) => p.id === 'premium');
+    assert.equal(premium.price, '£140.00');
+    assert.equal(premium.period, '/yr');
+    assert.match(premium.note, /per year.*\$190 USD reference/);
+    assert.equal(presentPlans(quote).find((p) => p.id === 'premium').price, '£14.00');
+  });
+  it('Free stays /mo and an API without annual prices falls back to the USD annual reference, never a monthly figure', () => {
+    assert.equal(presentPlans(quote, 'annual').find((p) => p.id === 'free').period, '/mo');
+    const old = presentPlans({ plans: quote.plans }, 'annual').find((p) => p.id === 'premium');
+    assert.equal(old.price, '$190');
   });
 });

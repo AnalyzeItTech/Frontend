@@ -16,7 +16,11 @@ import {
   startCheckout,
   type BillingQuote,
   type CheckoutSession,
+  type BillingInterval,
 } from '../lib/billingApi';
+import { useVisitorCountry } from '../lib/useVisitorCountry';
+import { ANNUAL_MONTHS } from '../lib/planCatalog.mjs';
+import { IntervalToggle } from '../Components/trust/IntervalToggle';
 import { PLAN_FEATURES, PLAN_NAMES, USD_REFERENCE } from '../lib/planCatalog.mjs';
 import { RetentionMeter } from '../Components/billing/RetentionMeter';
 
@@ -30,22 +34,27 @@ const PLAN_COPY: Record<
   premium_plus: { name: PLAN_NAMES.premium_plus, usdList: USD_REFERENCE.premium_plus, cadence: 'Billed monthly', perks: PLAN_FEATURES.premium_plus.slice(1) },
 };
 
-/** Razorpay charges INR; USD is reference only (matches marketing /#pricing). */
-const CHECKOUT_COUNTRY = 'IN';
+/** The quote rows for a billing period; an API without annual prices yields none, so annual shows "unavailable". */
+function planRows(quote: BillingQuote | null, interval: BillingInterval) {
+  return interval === 'annual' ? quote?.annual_plans : quote?.plans;
+}
 
-function planAmount(quote: BillingQuote | null, plan: PlanId): number | null {
-  const row = quote?.plans?.[plan];
+function planAmount(quote: BillingQuote | null, plan: PlanId, interval: BillingInterval): number | null {
+  const row = planRows(quote, interval)?.[plan];
   return coerceMoney(row?.amount);
 }
 
-function planCurrency(quote: BillingQuote | null, plan: PlanId): string {
-  const row = quote?.plans?.[plan];
+function planCurrency(quote: BillingQuote | null, plan: PlanId, interval: BillingInterval): string {
+  const row = planRows(quote, interval)?.[plan];
   const code = (row?.currency || 'INR').toUpperCase();
   return code || 'INR';
 }
 
 export default function BillingPage() {
   const router = useRouter();
+  // Prices and checkout follow the visitor's country (INR in India, their own currency elsewhere); until it is known, India.
+  const CHECKOUT_COUNTRY = useVisitorCountry() ?? 'IN';
+  const [interval, setInterval] = useState<BillingInterval>('monthly');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [quote, setQuote] = useState<BillingQuote | null>(null);
@@ -115,10 +124,10 @@ export default function BillingPage() {
   const review = useMemo(() => {
     if (!reviewPlan) return null;
     const meta = PLAN_COPY[reviewPlan];
-    const amount = planAmount(quote, reviewPlan);
-    const currency = planCurrency(quote, reviewPlan);
+    const amount = planAmount(quote, reviewPlan, interval);
+    const currency = planCurrency(quote, reviewPlan, interval);
     return { plan: reviewPlan, meta, amount, currency };
-  }, [reviewPlan, quote]);
+  }, [reviewPlan, quote, interval]);
 
   const openReview = (plan: PlanId) => {
     setError(null);
@@ -126,7 +135,7 @@ export default function BillingPage() {
       router.replace('/login?next=/billing');
       return;
     }
-    const amount = planAmount(quote, plan);
+    const amount = planAmount(quote, plan, interval);
     if (amount == null) {
       setError('Price is unavailable right now. Refresh and try again.');
       return;
@@ -140,7 +149,7 @@ export default function BillingPage() {
       router.replace('/login?next=/billing');
       return;
     }
-    const amount = planAmount(quote, reviewPlan);
+    const amount = planAmount(quote, reviewPlan, interval);
     if (amount == null) {
       setError('Price is unavailable. Checkout was not opened.');
       setReviewPlan(null);
@@ -150,7 +159,7 @@ export default function BillingPage() {
     setBusy(true);
     setError(null);
     try {
-      const session: CheckoutSession = await startCheckout(reviewPlan, CHECKOUT_COUNTRY);
+      const session: CheckoutSession = await startCheckout(reviewPlan, CHECKOUT_COUNTRY, undefined, interval);
       if (!isValidMoney(session.amount) || (!session.order_id && !session.subscription_id)) {
         throw new Error('Server returned an invalid checkout. Razorpay was not opened.');
       }
@@ -168,11 +177,15 @@ export default function BillingPage() {
     }
   };
 
-  const recurring = Boolean(quote?.plans.premium.recurring || quote?.plans.premium_plus.recurring);
-  const premiumAmt = planAmount(quote, 'premium');
-  const plusAmt = planAmount(quote, 'premium_plus');
-  const premiumCcy = planCurrency(quote, 'premium');
-  const plusCcy = planCurrency(quote, 'premium_plus');
+  const rows = planRows(quote, interval);
+  const recurring = Boolean(rows?.premium?.recurring || rows?.premium_plus?.recurring);
+  const annual = interval === 'annual';
+  const premiumAmt = planAmount(quote, 'premium', interval);
+  const plusAmt = planAmount(quote, 'premium_plus', interval);
+  const premiumCcy = planCurrency(quote, 'premium', interval);
+  const plusCcy = planCurrency(quote, 'premium_plus', interval);
+  const cadence = annual ? 'Billed yearly' : 'Billed monthly';
+  const usdRef = (usd: number) => (annual ? usd * ANNUAL_MONTHS : usd);
 
   return (
     <AppShell active="billing">
@@ -181,13 +194,13 @@ export default function BillingPage() {
         <p className="text-sm text-[var(--text-muted,#6B6155)]">
           {recurring ? (
             <>
-              Paid plans are <strong className="font-medium text-[var(--text,#3A342D)]">monthly subscriptions via Razorpay</strong>:
+              Paid plans are <strong className="font-medium text-[var(--text,#3A342D)]">{annual ? 'yearly' : 'monthly'} subscriptions via Razorpay</strong>:
               they renew automatically until you cancel, and you keep access until the end of the period you paid for. See{' '}
             </>
           ) : (
             <>
-              Paid plans are charged in <strong className="font-medium text-[var(--text,#3A342D)]">INR via Razorpay</strong>.
-              USD amounts are for reference only — same story as{' '}
+              Paid plans are charged in <strong className="font-medium text-[var(--text,#3A342D)]">{premiumCcy} via Razorpay</strong>.
+              Each payment covers {annual ? 'one year' : '30 days'}, and you can pay again any time. USD amounts are for reference only — same story as{' '}
             </>
           )}
           <Link href="/#pricing" className="underline underline-offset-2 hover:text-[#C45A42]">
@@ -195,6 +208,9 @@ export default function BillingPage() {
           </Link>
           .
         </p>
+        <div className="flex justify-center">
+          <IntervalToggle value={interval} onChange={setInterval} />
+        </div>
         <RetentionMeter />
 
         {me ? (
@@ -276,12 +292,12 @@ export default function BillingPage() {
               <section key={plan} className="app-card flex flex-col space-y-3 p-5">
                 <div>
                   <h2 className="font-serif text-xl text-[var(--text,#322C28)]">{meta.name}</h2>
-                  <p className="text-xs text-[var(--text-muted,#6B6155)]">{meta.cadence}</p>
+                  <p className="text-xs text-[var(--text-muted,#6B6155)]">{cadence}</p>
                 </div>
                 <div>
                   <p className="font-serif text-3xl text-[var(--text,#322C28)]">{priceLabel}</p>
                   <p className="text-xs text-[var(--text-muted,#6B6155)]">
-                    ${meta.usdList} USD reference · charged in {ccy} via Razorpay
+                    ${usdRef(meta.usdList)} USD reference · charged in {ccy} via Razorpay
                   </p>
                 </div>
                 <ul className="flex-1 space-y-1.5 text-sm text-[var(--text-muted,#6B6155)]">
@@ -330,7 +346,7 @@ export default function BillingPage() {
               </h2>
               <p className="text-sm text-[var(--text-muted,#6B6155)]">
                 Confirm details before opening Razorpay. Nothing is charged until you finish in the Razorpay window.
-                {recurring ? ' This renews monthly until you cancel.' : ''}
+                {recurring ? ` This renews ${annual ? 'yearly' : 'monthly'} until you cancel.` : ''}
               </p>
             </div>
             <dl className="space-y-2 text-sm">
@@ -347,12 +363,12 @@ export default function BillingPage() {
               <div className="flex justify-between gap-4">
                 <dt className="text-[var(--text-muted,#6B6155)]">Currency</dt>
                 <dd className="text-[var(--text,#322C28)]">
-                  {review.currency} (USD reference ${review.meta.usdList})
+                  {review.currency} (USD reference ${usdRef(review.meta.usdList)})
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-[var(--text-muted,#6B6155)]">Cadence</dt>
-                <dd className="text-[var(--text,#322C28)]">{review.meta.cadence}</dd>
+                <dd className="text-[var(--text,#322C28)]">{cadence}</dd>
               </div>
             </dl>
             <ul className="space-y-1 rounded-xl bg-[var(--surface-muted,#EEE4D6)]/60 px-3 py-2 text-xs text-[var(--text-muted,#6B6155)]">

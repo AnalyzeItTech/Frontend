@@ -3,6 +3,8 @@
 
 import { CONTEXT_RETENTION_TOKENS, RETENTION_HOT_TOKENS, formatContextRetention } from './contextWall.mjs';
 
+/** A year is charged as ten months. Matches the Backend's ANNUAL_MONTHS_CHARGED. */
+export const ANNUAL_MONTHS = 10;
 export const USD_REFERENCE = { free: 0, premium: 19, premium_plus: 49 };
 
 export const PLAN_NAMES = { free: 'Free', premium: 'Premium', premium_plus: 'VIP' };
@@ -71,13 +73,15 @@ export function priceLabel(row, usdFallback) {
   }
 }
 
-export function priceNote(row, usdFallback) {
+export function priceNote(row, usdFallback, annual = false) {
   if (usdFallback === 0) return 'No charge';
   const n = row && row.amount != null ? Number(row.amount) : NaN;
   if (!row || !Number.isFinite(n)) return `Shown in USD for now. Your live price appears at checkout (about $${usdFallback}).`;
   const ccy = row.currency || 'INR';
-  if (ccy === 'INR') return `INR per month via Razorpay · $${usdFallback} USD reference`;
-  return `${ccy} via Razorpay · 30 days per payment · $${usdFallback} USD reference`;
+  const per = annual ? 'per year' : 'per month';
+  if (ccy === 'INR' && row.recurring !== false) return `INR ${per} via Razorpay · $${usdFallback} USD reference`;
+  if (row.recurring) return `${ccy} ${per} via Razorpay · $${usdFallback} USD reference`;
+  return `${ccy} via Razorpay · ${annual ? '1 year' : '30 days'} per payment · $${usdFallback} USD reference`;
 }
 
 const PLAN_IDS = ['free', 'premium', 'premium_plus'];
@@ -89,17 +93,19 @@ const PLAN_IDS = ['free', 'premium', 'premium_plus'];
  * With no quote row, paid plans use the USD reference — a rupee figure is never invented.
  * @param {{ plans?: Record<string, { currency?: string, amount?: number | string | null }> } | null | undefined} quote
  */
-export function presentPlans(quote) {
+export function presentPlans(quote, interval = 'monthly') {
+  const annual = interval === 'annual';
   return PLAN_IDS.map((id) => {
-    const usd = USD_REFERENCE[id];
-    const row = id === 'free' ? { currency: 'INR', amount: 0 } : quote?.plans?.[id];
+    const usd = annual ? USD_REFERENCE[id] * ANNUAL_MONTHS : USD_REFERENCE[id];
+    const row = id === 'free' ? { currency: 'INR', amount: 0 } : (annual ? quote?.annual_plans : quote?.plans)?.[id];
     return {
       id,
       name: PLAN_NAMES[id],
       tagline: PLAN_TAGLINES[id],
       features: PLAN_FEATURES[id],
       price: priceLabel(row, usd),
-      note: priceNote(row, usd),
+      note: priceNote(row, usd, annual),
+      period: annual && id !== 'free' ? '/yr' : '/mo',
     };
   });
 }

@@ -1,5 +1,8 @@
 export function loadMarketingQuote(country?: string): Promise<{
   country?: string | null;
+  annual_plans?: Partial<
+    Record<'premium' | 'premium_plus', { currency?: string; amount?: number | string | null; amount_usd?: number; amount_display?: string; recurring?: boolean }>
+  >;
   plans?: Partial<
     Record<
       'premium' | 'premium_plus',
