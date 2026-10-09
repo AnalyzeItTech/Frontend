@@ -93,6 +93,7 @@ export function presentPlans(quote) {
       features: PLAN_FEATURES[id],
       price: priceLabel(row, usd),
       note: priceNote(row, usd),
+      localEstimate: row?.local_estimate ?? null,
     };
   });
 }

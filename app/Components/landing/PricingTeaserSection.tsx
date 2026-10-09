@@ -4,19 +4,23 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getBillingQuote } from '../../lib/billingApi';
 import { presentPlans, type MarketingQuote } from '../../lib/planCatalog.mjs';
+import { localPriceNote } from '../../lib/countryProfile.mjs';
+import { useVisitorCountry } from '../../lib/useVisitorCountry';
+import { CountryTrust } from '../trust/CountryTrust';
 
 const CTA = { free: 'Create a free account', premium: 'Sign in to upgrade', premium_plus: 'Sign in to go VIP' } as const;
 const HREF = { free: '/login?tab=register', premium: '/login?next=/billing', premium_plus: '/login?next=/billing' } as const;
 
 export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> = ({ initialQuote = null }) => {
   const [quote, setQuote] = useState<MarketingQuote>(initialQuote ?? null);
+  const country = useVisitorCountry();
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        // Razorpay India checkout — keep marketing aligned with Billing INR quotes.
-        const q = await getBillingQuote('IN');
+        // Billing is INR for everyone; the visitor's country only adds a local-currency estimate.
+        const q = await getBillingQuote(country ?? 'IN');
         if (!cancelled) setQuote(q);
       } catch {
         // Keep the quote already on screen. Dropping it would show USD after INR was known.
@@ -25,10 +29,11 @@ export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> =
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [country]);
 
   const tiers = presentPlans(quote).map((plan) => ({
     ...plan,
+    localNote: localPriceNote(plan.localEstimate, country),
     period: '/mo',
     popular: plan.id === 'premium',
     features: plan.id === 'free' ? plan.features : [...plan.features, 'Monthly billing after you sign in'],
@@ -78,7 +83,10 @@ export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> =
               <span className="font-serif text-4xl text-[#322C28] dark:text-[#F4EDE5]">{tier.price}</span>
               <span className="text-sm text-[#5C534A] dark:text-[#C5B9AE]">{tier.period}</span>
             </div>
-            <p className="text-xs text-[#5C534A] dark:text-[#C5B9AE] mb-6 leading-relaxed">{tier.note}</p>
+            <p className="text-xs text-[#5C534A] dark:text-[#C5B9AE] mb-6 leading-relaxed">
+              {tier.note}
+              {tier.localNote && <span className="block mt-1">{tier.localNote}</span>}
+            </p>
             <ul className="space-y-2.5 mb-8 flex-1">
               {tier.features.map((feature) => (
                 <li key={feature} className="text-sm text-[#3F3830] dark:text-[#C5B9AE] flex gap-2">
@@ -102,6 +110,8 @@ export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> =
           </div>
         ))}
       </div>
+
+      <CountryTrust className="max-w-4xl mx-auto" />
 
       <p className="text-center text-sm text-[#5C534A] dark:text-[#C5B9AE] max-w-2xl mx-auto">
         Hit a Free limit mid-research? Upgrade from Billing after sign-in — your work stays;

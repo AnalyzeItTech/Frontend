@@ -3,7 +3,7 @@ export function loadMarketingQuote(): Promise<{
   plans?: Partial<
     Record<
       'premium' | 'premium_plus',
-      { currency?: string; amount?: number | string | null; amount_usd?: number; amount_display?: string }
+      { currency?: string; amount?: number | string | null; amount_usd?: number; amount_display?: string; local_estimate?: { currency?: string; amount?: number | string | null } | null }
     >
   >;
 } | null>;

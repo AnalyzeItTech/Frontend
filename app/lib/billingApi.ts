@@ -101,8 +101,8 @@ declare global {
 export type BillingQuote = {
   country?: string | null;
   plans: {
-    premium: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean };
-    premium_plus: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean };
+    premium: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean; local_estimate?: { currency: string; amount: number } | null };
+    premium_plus: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean; local_estimate?: { currency: string; amount: number } | null };
   };
 };
 

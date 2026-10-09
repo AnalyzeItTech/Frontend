@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getBillingQuote } from '../lib/billingApi';
 import { presentPlans, type MarketingQuote } from '../lib/planCatalog.mjs';
+import { localPriceNote } from '../lib/countryProfile.mjs';
+import { useVisitorCountry } from '../lib/useVisitorCountry';
+import { CountryTrust } from '../Components/trust/CountryTrust';
 
 const CTA = { free: 'Create a free account', premium: 'Sign in to upgrade', premium_plus: 'Sign in to go VIP' } as const;
 const HREF = { free: '/login?tab=register', premium: '/login?next=/billing', premium_plus: '/login?next=/billing' } as const;
@@ -15,9 +18,10 @@ const HREF = { free: '/login?tab=register', premium: '/login?next=/billing', pre
  */
 export function ProductsPlans({ initialQuote = null }: { initialQuote?: MarketingQuote }) {
   const [quote, setQuote] = useState<MarketingQuote>(initialQuote ?? null);
+  const country = useVisitorCountry();
   useEffect(() => {
     let cancelled = false;
-    getBillingQuote('IN')
+    getBillingQuote(country ?? 'IN')
       .then((q) => {
         if (!cancelled) setQuote(q);
       })
@@ -27,9 +31,10 @@ export function ProductsPlans({ initialQuote = null }: { initialQuote?: Marketin
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [country]);
 
   return (
+    <>
     <div className="grid items-stretch gap-4 sm:grid-cols-3">
       {presentPlans(quote).map((plan) => {
         const recommended = plan.id === 'premium';
@@ -50,6 +55,9 @@ export function ProductsPlans({ initialQuote = null }: { initialQuote?: Marketin
                 <span className="font-sans text-base">/mo</span>
               </p>
               <p className="text-xs text-[#5C534A] dark:text-[#C5B9AE]">{plan.note}</p>
+              {localPriceNote(plan.localEstimate, country) && (
+                <p className="mt-1 text-xs text-[#5C534A] dark:text-[#C5B9AE]">{localPriceNote(plan.localEstimate, country)}</p>
+              )}
             </div>
             <ul className="mb-5 mt-4 flex-1 space-y-1.5 text-sm">
               {plan.features.map((f) => (
@@ -73,5 +81,7 @@ export function ProductsPlans({ initialQuote = null }: { initialQuote?: Marketin
         );
       })}
     </div>
+    <CountryTrust className="mt-6" />
+    </>
   );
 }

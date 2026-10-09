@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { COUNTRY_COOKIE, normalizeCountry } from './app/lib/countryProfile.mjs';
 import { AUTH_COOKIE, SESSION_COOKIE, decideHostRequest, publicHost } from './app/lib/personalHost.mjs';
 
 const PROTECTED_PREFIXES = [
@@ -68,12 +69,19 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(login);
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  // Visitor country from the edge, for marketing copy and price notes only. Public and not a security signal.
+  const country = normalizeCountry(request.headers.get('x-vercel-ip-country'));
+  if (country && request.cookies.get(COUNTRY_COOKIE)?.value !== country) {
+    response.cookies.set(COUNTRY_COOKIE, country, { path: '/', maxAge: 60 * 60 * 24, sameSite: 'lax' });
+  }
+  return response;
 }
 
 export const config = {
   matcher: [
     '/',
+    '/products',
     '/digest/:path*',
     '/digest',
     '/login',
