@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   IconLayoutDashboard,
@@ -102,6 +102,44 @@ interface DashboardCanvasProps {
 }
 
 
+type CanvasFilter = { dimension: string; value: string; sourceWidgetId: string } | null;
+
+const CanvasWidgetCell = memo(function CanvasWidgetCell({
+  widget,
+  idx,
+  count,
+  activeFilter,
+  onWidgetAction,
+  onRefine,
+  onMoveWidget,
+  onToggleWidth,
+}: {
+  widget: WidgetSpec;
+  idx: number;
+  count: number;
+  activeFilter: CanvasFilter;
+  onWidgetAction: (widgetId: string, action: string, payload?: unknown) => void;
+  onRefine?: (widget: WidgetSpec) => void;
+  onMoveWidget?: (from: number, to: number) => void;
+  onToggleWidth?: (widgetId: string) => void;
+}) {
+  return (
+    <WidgetErrorBoundary title={widget.title}>
+      <SandboxedWidgetRenderer
+        widget={widget}
+        activeFilter={activeFilter}
+        onWidgetAction={onWidgetAction}
+        onRefine={onRefine}
+        onMoveUp={onMoveWidget && idx > 0 ? () => onMoveWidget(idx, idx - 1) : undefined}
+        onMoveDown={onMoveWidget && idx < count - 1 ? () => onMoveWidget(idx, idx + 1) : undefined}
+        onToggleWidth={onToggleWidth}
+        isFirst={idx === 0}
+        isLast={idx === count - 1}
+      />
+    </WidgetErrorBoundary>
+  );
+});
+
 export function DashboardCanvas({
   projectName,
   projectId,
@@ -181,10 +219,31 @@ export function DashboardCanvas({
   };
   const dateRange = resolveDateRange(dateFilter.preset, new Date(), { from: dateFilter.from, to: dateFilter.to });
   const filterActive = Boolean(dateRange.from || dateRange.to);
-  const displayWidgets = filterActive ? widgets.map((w) => applyDateRange(w, dateRange)) : widgets;
+  const dateFrom = dateRange.from;
+  const dateTo = dateRange.to;
+  // Memoized so widget identity is stable across drag/hover renders (cells below are memo'd on it).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const displayWidgets = useMemo(() => (filterActive ? widgets.map((w) => applyDateRange(w, dateRange)) : widgets), [widgets, filterActive, dateFrom, dateTo]);
   const filterableCount = widgets.filter((w) => isDateFilterable(w)).length;
   const canAddManually = Boolean(onAddWidgetSpec);
   const openAddWidget = () => (canAddManually ? setIsAddOpen(true) : onAddWidget?.());
+
+  // Stable handler identities for the memo'd widget cells: they always call the latest props.
+  const cellProps = useRef({ onWidgetAction, onMoveWidget });
+  cellProps.current = { onWidgetAction, onMoveWidget };
+  const handleCellAction = useCallback((widgetId: string, action: string, payload?: unknown) => {
+    if (action === 'filter' && payload && typeof payload === 'object') {
+      const p = payload as any;
+      setActiveFilter({
+        dimension: p.dimension || 'ticker',
+        value: String(p.value || p.row || ''),
+        sourceWidgetId: widgetId,
+      });
+    } else {
+      cellProps.current.onWidgetAction?.(widgetId, action, payload);
+    }
+  }, []);
+  const handleCellMove = useCallback((from: number, to: number) => cellProps.current.onMoveWidget?.(from, to), []);
 
   // Sync mode from prop
   useEffect(() => { if (modeProp) setInternalMode(modeProp); }, [modeProp]);
@@ -1078,38 +1137,16 @@ export function DashboardCanvas({
                   setOverIndex(null);
                 }}
               >
-                <WidgetErrorBoundary title={widget.title}>
-                <SandboxedWidgetRenderer
+                <CanvasWidgetCell
                   widget={widget}
+                  idx={idx}
+                  count={displayWidgets.length}
                   activeFilter={activeFilter}
-                  onWidgetAction={(widgetId, action, payload) => {
-                    if (action === 'filter' && payload && typeof payload === 'object') {
-                      const p = payload as any;
-                      setActiveFilter({
-                        dimension: p.dimension || 'ticker',
-                        value: String(p.value || p.row || ''),
-                        sourceWidgetId: widgetId,
-                      });
-                    } else {
-                      onWidgetAction?.(widgetId, action, payload);
-                    }
-                  }}
+                  onWidgetAction={handleCellAction}
                   onRefine={onRefine}
-                  onMoveUp={
-                    onMoveWidget && idx > 0
-                      ? () => onMoveWidget(idx, idx - 1)
-                      : undefined
-                  }
-                  onMoveDown={
-                    onMoveWidget && idx < widgets.length - 1
-                      ? () => onMoveWidget(idx, idx + 1)
-                      : undefined
-                  }
+                  onMoveWidget={onMoveWidget ? handleCellMove : undefined}
                   onToggleWidth={onToggleWidgetWidth}
-                  isFirst={idx === 0}
-                  isLast={idx === widgets.length - 1}
                 />
-                </WidgetErrorBoundary>
               </div>
             );
           })}

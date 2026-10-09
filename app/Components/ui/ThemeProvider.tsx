@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -47,36 +47,39 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setMounted(true);
   }, []);
 
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem('analyzeit-theme', newTheme);
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
     document.documentElement.setAttribute('data-theme', newTheme);
-  };
+  }, []);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setTheme(theme === 'light' ? 'dark' : 'light');
-  };
+  }, [theme, setTheme]);
 
-  const setIncognito = (value: boolean) => {
+  const setIncognito = useCallback((value: boolean) => {
     setIncognitoState(value);
     sessionStorage.setItem('analyzeit-incognito', value ? '1' : '0');
     document.documentElement.setAttribute('data-incognito', value ? 'true' : 'false');
-  };
+  }, []);
 
-  const toggleIncognito = () => setIncognito(!isIncognito);
+  const toggleIncognito = useCallback(() => setIncognito(!isIncognito), [isIncognito, setIncognito]);
+
+  const value = useMemo<ThemeContextType>(
+    () => ({
+      theme: mounted ? theme : 'light',
+      toggleTheme,
+      setTheme,
+      isIncognito: mounted ? isIncognito : false,
+      setIncognito,
+      toggleIncognito,
+    }),
+    [mounted, theme, isIncognito, toggleTheme, setTheme, setIncognito, toggleIncognito],
+  );
 
   return (
-    <ThemeContext.Provider
-      value={{
-        theme: mounted ? theme : 'light',
-        toggleTheme,
-        setTheme,
-        isIncognito: mounted ? isIncognito : false,
-        setIncognito,
-        toggleIncognito,
-      }}
-    >
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
