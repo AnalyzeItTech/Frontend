@@ -1,4 +1,5 @@
 import { getAuthHeaders } from './auth';
+import { googleDriveAuthorizeBody, oauthRedirectUrl } from './connectorState.mjs';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_V1 = `${API_BASE}/v1`;
@@ -463,12 +464,50 @@ export async function importRecords(projectId: string, schemaId: string, file: F
 
 // ─── Live Connectors Fetchers ──────────────────────────────────────────────────
 
-export async function fetchAvailableConnectors(): Promise<any[]> {
+export interface AvailableConnector {
+  id: string;
+  name?: string;
+  description?: string;
+  icon?: string;
+  auth_mode?: 'oauth' | 'connection' | 'catalog' | string;
+  supports_connection?: boolean;
+  supports_oauth?: boolean;
+  oauth_configured?: boolean;
+  coming_soon?: boolean;
+  coming_soon_reason?: string | null;
+  /** Live Drive uses "available". Unset env is "not_configured". "configured" is accepted too. */
+  status?: 'available' | 'configured' | 'not_configured' | string;
+  live_pull_available?: boolean;
+  unavailable_reason?: string | null;
+}
+
+export async function fetchAvailableConnectors(): Promise<AvailableConnector[]> {
   const res = await fetch(`${API_V1}/connectors/available`, {
     headers: { ...getAuthHeaders() },
   });
-  if (!res.ok) return [];
-  return res.json();
+  if (!res.ok) throw await apiErrorFrom(res, 'Couldn’t load connectors.');
+  const data = await res.json();
+  if (!Array.isArray(data)) throw new Error('Couldn’t load connectors.');
+  return data;
+}
+
+/** POST /v1/connectors/google_drive/authorize { project_id } → HTTPS OAuth URL. */
+export async function authorizeGoogleDrive(projectId: string): Promise<string> {
+  const res = await fetch(`${API_V1}/connectors/google_drive/authorize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(googleDriveAuthorizeBody(projectId)),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    const message = typeof body?.detail === 'string'
+      ? body.detail
+      : 'Couldn’t start Google Drive authorization.';
+    throw new Error(message);
+  }
+  const url = oauthRedirectUrl(body);
+  if (!url) throw new Error('The server did not return a Google sign-in link.');
+  return url;
 }
 
 export async function fetchProjectConnectors(
@@ -578,15 +617,12 @@ export async function testSqlConnector(connectorId: string): Promise<{ ok: boole
   return res.json();
 }
 
-export async function syncConnector(connectorId: string): Promise<any> {
+export async function syncConnector(connectorId: string): Promise<unknown> {
   const res = await fetch(`${API_V1}/connectors/${connectorId}/sync`, {
     method: 'POST',
     headers: { ...getAuthHeaders() },
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || err.note || 'Sync failed');
-  }
+  if (!res.ok) throw await apiErrorFrom(res, 'Sync failed');
   return res.json();
 }
 

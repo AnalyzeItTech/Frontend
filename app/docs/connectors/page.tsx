@@ -4,7 +4,7 @@ import { DocPage } from '../../Components/docs/DocPage';
 
 export const metadata: Metadata = {
   title: 'Connectors: what you can connect — AnalyzeIt docs',
-  description: 'Which data sources AnalyzeIt can connect to today (Razorpay, Stripe, Salesforce, GitHub, SQL databases, public datasets), how access is controlled, the weekly digest, teammates, and what is still rolling out.',
+  description: 'Which data sources AnalyzeIt can connect to today (Razorpay, Stripe, Salesforce, GitHub, Google Drive when configured, SQL databases, public datasets), how access is controlled, the weekly digest, teammates, and what is still rolling out.',
   alternates: { canonical: '/docs/connectors' },
 };
 
@@ -16,6 +16,10 @@ export default function Page() {
         <li><strong>Razorpay</strong>, with a key id and secret. Read-only payments and refunds.</li>
         <li><strong>Stripe and Salesforce</strong>, with an API key or access token.</li>
         <li><strong>GitHub</strong>, through OAuth.</li>
+        <li>
+          <strong>Google Drive</strong>, through OAuth, only when the server reports it as configured.
+          If Drive app credentials are not set, the connectors page says it is unavailable instead of offering Connect.
+        </li>
         <li><strong>SQL databases</strong>, queried read-only.</li>
         <li><strong>Public datasets</strong> from Kaggle, Hugging Face and OpenML.</li>
         <li><strong>Your own files</strong>: CSV, spreadsheets, JSON and PDFs, uploaded into a project.</li>

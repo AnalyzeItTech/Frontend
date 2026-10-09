@@ -2,24 +2,49 @@
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ConnectorsView } from '../Components/dashboard/ConnectorsView';
 import { getProjects } from '../lib/chatApi';
 import { redactClientError } from '../lib/apiErrors';
 import { pickScopedProject } from '../lib/projectHome.mjs';
+import { readConnectorCallback, type ConnectorCallback } from '../lib/connectorState.mjs';
 import { AppShell } from '../Components/app/AppShell';
 import { PageTitle } from '../Components/app/PageTitle';
 import { WorkspaceStatus } from '../Components/app/WorkspaceStatus';
-import { IconArrowRight, IconDatabase, IconPlugConnected, IconShieldLock } from '@tabler/icons-react';
+import { IconArrowRight, IconShieldLock } from '@tabler/icons-react';
 
 const LOAD_TIMEOUT_MS = 12000;
 
 function ConnectorsPageInner() {
+  const router = useRouter();
   const params = useSearchParams();
   const requested = params.get('project') || params.get('projectId') || '';
   const [projectId, setProjectId] = useState<string>('');
   const [status, setStatus] = useState<'loading' | 'empty' | 'error' | 'content'>('loading');
   const [errorBody, setErrorBody] = useState<string | undefined>();
+  const parsedNotice = readConnectorCallback(params);
+  const [notice, setNotice] = useState<ConnectorCallback | null>(parsedNotice.kind === 'none' ? null : parsedNotice);
+  if (
+    parsedNotice.kind !== 'none'
+    && (notice?.kind !== parsedNotice.kind || notice.provider !== parsedNotice.provider || notice.message !== parsedNotice.message)
+  ) {
+    setNotice(parsedNotice);
+  }
+
+  useEffect(() => {
+    const parsed = readConnectorCallback(params);
+    if (parsed.kind === 'none') return;
+    const next = new URLSearchParams(params.toString());
+    for (const key of ['connected', 'error', 'error_description', 'connector_error', 'oauth_error', 'connected_error', 'code', 'state']) {
+      next.delete(key);
+    }
+    const callbackStatus = next.get('status');
+    if (callbackStatus && (callbackStatus.toLowerCase() === 'error' || callbackStatus.toLowerCase() === 'failed')) {
+      next.delete('status');
+    }
+    const qs = next.toString();
+    router.replace(qs ? `/connectors?${qs}` : '/connectors', { scroll: false });
+  }, [params, router]);
 
   const load = useCallback(() => {
     setStatus('loading');
@@ -88,26 +113,10 @@ function ConnectorsPageInner() {
         onRetry={load}
       >
         <div className="app-card mt-6 p-4">
-          {projectId ? <ConnectorsView projectId={projectId} /> : null}
+          {projectId ? <ConnectorsView projectId={projectId} notice={notice} /> : null}
         </div>
       </WorkspaceStatus>
-      <section className="mt-8 grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-6">
-          <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--coral)]/12 text-[var(--coral)]"><IconPlugConnected size={22} /></div>
-            <div>
-              <p className="font-serif text-xl text-[var(--text-primary)]">What “live” looks like</p>
-              <p className="text-xs text-[var(--text-muted)]">Illustrative preview — no data is connected here.</p>
-            </div>
-          </div>
-          <div className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)]/60 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <span className="flex items-center gap-2 text-sm font-medium"><IconDatabase size={16} /> Revenue warehouse</span>
-              <span className="rounded-full border border-[var(--success)]/30 bg-[var(--success)]/10 px-2.5 py-1 text-[11px] font-medium text-[var(--success)]">Connected</span>
-            </div>
-            <p className="mt-3 text-xs leading-relaxed text-[var(--text-muted)]">Example: 12 tables found · last synced a few minutes ago · ready for widget bindings</p>
-          </div>
-        </div>
+      <section className="mt-8">
         <div className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-6">
           <p className="font-serif text-xl text-[var(--text-primary)]">Built for careful access</p>
           <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">Queries are limited to a single SELECT, SQLite opens read-only and Postgres runs in a read-only transaction. Revoking a connection also revokes access at the provider where supported.</p>
