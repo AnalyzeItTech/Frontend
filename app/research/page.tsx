@@ -30,6 +30,7 @@ import {
   normalizeModelSize,
   optionsFromAllowlist,
   resolveInitialModelSize,
+  readStoredModelSize,
   writeStoredModelSize,
   type ModelOption,
   type ModelSize,
@@ -361,6 +362,9 @@ function ChatInner() {
   const [composerMode, setComposerMode] = useState<ComposerMode>('chat');
   const [modelSizeMax, setModelSizeMax] = useState<ModelSize>('small');
   const [selectedModelSize, setSelectedModelSize] = useState<ModelSize>('small');
+  // Only a size the person chose is sent. The plan's own size shown by default is not a choice, so the server can
+  // still pick the cheaper model for easy questions.
+  const [modelSizePicked, setModelSizePicked] = useState(false);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>(() =>
     allModelSizes().map((size) => ({ size, label: MODEL_SIZE_LABELS[size], available: true })),
   );
@@ -468,6 +472,8 @@ function ChatInner() {
         const maxAllowed = normalizeModelSize(snap.model_access);
         setModelSizeMax(maxAllowed);
         setSelectedModelSize(resolveInitialModelSize(maxAllowed));
+        const storedSize = readStoredModelSize();
+        setModelSizePicked(storedSize !== null && allowedModelSizes(maxAllowed).includes(storedSize));
         const fromEntitlements = optionsFromAllowlist(snap.available_models, maxAllowed);
         try {
           const catalog = await getModels();
@@ -974,7 +980,7 @@ function ChatInner() {
           incognito: isIncognito,
           history,
           includeClientContext: true,
-          modelSize: selectedModelSize,
+          modelSize: modelSizePicked ? selectedModelSize : undefined,
           // Contract: Model prefers context.research_mode (extractors.py); Backend A
           // should map this body field onto context when wired (currently ignored).
           researchMode: mode === 'research',
@@ -1559,7 +1565,7 @@ function ChatInner() {
         void refreshLlmQuota();
       }
     },
-    [armPostRunAd, awaitingAd, beginChatRun, composerMode, ingestChatRun, input, isIncognito, isStreaming, messages, pendingAttachments, projectId, refreshLlmQuota, refreshPromoteNudge, runId, selectedModelSize],
+    [armPostRunAd, awaitingAd, beginChatRun, composerMode, ingestChatRun, input, isIncognito, isStreaming, messages, pendingAttachments, projectId, refreshLlmQuota, refreshPromoteNudge, runId, selectedModelSize, modelSizePicked],
   );
 
   useEffect(() => {
@@ -2325,6 +2331,7 @@ function ChatInner() {
                         return;
                       }
                       setSelectedModelSize(next);
+                      setModelSizePicked(true);
                       writeStoredModelSize(next);
                     }}
                     title={
