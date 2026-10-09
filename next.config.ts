@@ -1,5 +1,22 @@
 import type { NextConfig } from "next";
 
+// Report-only first: violations show in the browser console without blocking anything.
+// Promote to `Content-Security-Policy` once a production pass shows no legitimate violations.
+const CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://checkout.razorpay.com https://va.vercel-scripts.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' https: wss: blob:",
+  "worker-src 'self' blob:",
+  "frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://*.googlesyndication.com https://*.doubleclick.net",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join('; ');
+
 const nextConfig: NextConfig = {
   // Public AdSense IDs — set via env at build time; no hardcoded publisher fallback.
   env: {
@@ -34,6 +51,7 @@ const nextConfig: NextConfig = {
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY },
           { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), payment=(self)' },
         ],
