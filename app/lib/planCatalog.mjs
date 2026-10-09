@@ -3,8 +3,8 @@
 
 import { CONTEXT_RETENTION_TOKENS, RETENTION_HOT_TOKENS, formatContextRetention } from './contextWall.mjs';
 
-/** A year is charged as ten months. Matches the Backend's ANNUAL_MONTHS_CHARGED. */
-export const ANNUAL_MONTHS = 10;
+/** A year is charged as nine months (25% off twelve). Matches the Backend's ANNUAL_MONTHS_CHARGED. */
+export const ANNUAL_MONTHS = 9;
 export const USD_REFERENCE = { free: 0, premium: 19, premium_plus: 49 };
 
 export const PLAN_NAMES = { free: 'Free', premium: 'Premium', premium_plus: 'VIP' };

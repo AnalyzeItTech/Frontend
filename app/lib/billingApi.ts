@@ -110,7 +110,7 @@ type QuotePlans = {
 export type BillingQuote = {
   country?: string | null;
   plans: QuotePlans;
-  /** Yearly prices (ten months charged); absent on an older API. */
+  /** Yearly prices (nine months charged, 25% off); absent on an older API. */
   annual_plans?: QuotePlans;
 };
 

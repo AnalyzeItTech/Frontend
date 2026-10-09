@@ -2,7 +2,7 @@
 
 export type Interval = 'monthly' | 'annual';
 
-/** Monthly / Annual switch shared by the home pricing section and /products. Annual is ten months for the price of twelve. */
+/** Monthly / Annual switch shared by the home pricing section and /products. Annual is nine months for the price of twelve (25% off). */
 export function IntervalToggle({ value, onChange }: { value: Interval; onChange: (next: Interval) => void }) {
   const item = (id: Interval, label: string, hint?: string) => (
     <button
@@ -21,7 +21,7 @@ export function IntervalToggle({ value, onChange }: { value: Interval; onChange:
   return (
     <div role="radiogroup" aria-label="Billing period" className="inline-flex items-center gap-1 rounded-full border border-[#4A4238]/15 dark:border-[#504740] p-1">
       {item('monthly', 'Monthly')}
-      {item('annual', 'Annual', '2 months free')}
+      {item('annual', 'Annual', 'Save 25%')}
     </div>
   );
 }
