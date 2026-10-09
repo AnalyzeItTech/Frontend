@@ -31,6 +31,14 @@ describe('the plan catalogue', () => {
     assert.ok(PLAN_FEATURES.premium.some((f) => f.includes('10M tokens a month')));
     assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.includes('50M tokens a month')));
   });
+  it('says output tokens count four times toward every monthly token budget', () => {
+    for (const plan of ['free', 'premium', 'premium_plus']) {
+      assert.ok(
+        PLAN_FEATURES[plan].some((f) => /tokens a month \(output counts four times\)/.test(f)),
+        plan,
+      );
+    }
+  });
   it('lists memory per plan using the same figures as the entitlement table', () => {
     assert.ok(PLAN_FEATURES.free.some((f) => f.startsWith('10M tokens of memory')));
     assert.ok(PLAN_FEATURES.premium.some((f) => f.startsWith('500M tokens of memory')));

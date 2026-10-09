@@ -13,14 +13,14 @@ export const PLAN_FEATURES = {
   free: [
     'Requires an AnalyzeIt account',
     '3 projects · 12 dashboard widgets',
-    '50,000 tokens a month · smaller model',
+    '50,000 tokens a month (output counts four times) · smaller model',
     '40 AI runs a month (weather, FX and math answers are free)',
     memory(CONTEXT_RETENTION_TOKENS.free, ' · 7-day artifacts'),
     'Sponsored units after research runs',
   ],
   premium: [
     'Everything in Free',
-    'Better model · 10M tokens a month',
+    'Better model · 10M tokens a month (output counts four times)',
     // Paid tiers: no AI-runs bullet. Do not invent a run count (Backend llm_runs_per_month is 0).
     '15 projects · 30 widgets · 3 running at once',
     memory(
@@ -32,7 +32,7 @@ export const PLAN_FEATURES = {
   ],
   premium_plus: [
     'Everything in Premium',
-    'Large model · 50M tokens a month',
+    'Large model · 50M tokens a month (output counts four times)',
     // Paid tiers: no AI-runs bullet. Do not invent a run count (Backend llm_runs_per_month is 0).
     '50 projects · 10 running at once',
     memory(
