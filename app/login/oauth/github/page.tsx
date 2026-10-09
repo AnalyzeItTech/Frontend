@@ -12,6 +12,7 @@ import {
   type AuthResult,
   type UserProfile,
 } from '../../../lib/auth';
+import { destinationAfterAuth, loadProgress, seedNewAccount } from '../../../lib/onboarding.mjs';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const API_V1 = `${API_BASE}/v1`;
@@ -83,11 +84,12 @@ function GitHubOAuthInner() {
 
         setAuthSession(result.token, result.user as UserProfile);
         await confirmAuthSession();
-        if (result.is_new) {
-          sessionStorage.setItem('analyzeit_auth_is_new', '1');
-        }
+        const userId = result.user?.id;
+        if (result.is_new && userId) seedNewAccount(localStorage, sessionStorage, userId);
         const next = safeNextPath(params.get('next'));
-        router.replace(next.startsWith('/login') ? '/research' : next);
+        const requested = next.startsWith('/login') ? '/research' : next;
+        const existing = userId ? loadProgress(localStorage, userId) : null;
+        router.replace(destinationAfterAuth(requested, Boolean(result.is_new), existing?.status));
       } catch (err: unknown) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'GitHub sign-in failed');

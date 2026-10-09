@@ -14,6 +14,7 @@ const PROTECTED_PREFIXES = [
   '/ops',
   '/memory',
   '/embeddings',
+  '/onboarding',
   '/digest',
 ];
 
@@ -104,5 +105,7 @@ export const config = {
     '/memory',
     '/embeddings/:path*',
     '/embeddings',
+    '/onboarding/:path*',
+    '/onboarding',
   ],
 };

@@ -16,7 +16,8 @@ import {
   IconCheck,
   IconAlertCircle,
 } from '@tabler/icons-react';
-import { ApiUnavailableError, SERVICE_UNAVAILABLE_MESSAGE, clearAuthSession, confirmAuthSession, fetchMe, getStoredToken, login, register, safeNextPath } from '../lib/auth';
+import { ApiUnavailableError, SERVICE_UNAVAILABLE_MESSAGE, clearAuthSession, confirmAuthSession, fetchMe, getStoredToken, getStoredUser, login, register, safeNextPath } from '../lib/auth';
+import { destinationAfterAuth, loadProgress, seedNewAccount } from '../lib/onboarding.mjs';
 import { GoogleSignInButton } from '../Components/auth/GoogleSignInButton';
 import { GitHubSignInButton } from '../Components/auth/GitHubSignInButton';
 
@@ -430,7 +431,11 @@ const SuccessState: React.FC<{ isNew: boolean }> = ({ isNew }) => {
   const [continueHref, setContinueHref] = useState('/research');
 
   useEffect(() => {
-    const dest = safeNextPath(new URLSearchParams(window.location.search).get('next'));
+    const requested = safeNextPath(new URLSearchParams(window.location.search).get('next'));
+    const user = getStoredUser();
+    if (isNew && user?.id) seedNewAccount(localStorage, sessionStorage, user.id);
+    const existing = user?.id ? loadProgress(localStorage, user.id) : null;
+    const dest = destinationAfterAuth(requested, isNew, existing?.status);
     setContinueHref(dest);
     if (!getStoredToken()) {
       return;
@@ -439,7 +444,7 @@ const SuccessState: React.FC<{ isNew: boolean }> = ({ isNew }) => {
       router.replace(dest);
     }, 600);
     return () => clearTimeout(timer);
-  }, [router]);
+  }, [isNew, router]);
 
   return (
     <motion.div
@@ -456,7 +461,7 @@ const SuccessState: React.FC<{ isNew: boolean }> = ({ isNew }) => {
         </h3>
         <p className="text-sm text-[#4A4238]/55 dark:text-[#C5B9AE]">
           {isNew
-            ? 'Your account is ready. Redirecting you now…'
+            ? 'Your account is ready. A short setup is next…'
             : "You're signed in. Redirecting to your dashboard…"}
         </p>
       </div>
