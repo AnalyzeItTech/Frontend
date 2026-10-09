@@ -35,6 +35,16 @@ describe('the plan catalogue', () => {
     assert.ok(PLAN_FEATURES.free.some((f) => f.startsWith('10M tokens of memory')));
     assert.ok(PLAN_FEATURES.premium.some((f) => f.startsWith('500M tokens of memory')));
     assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.startsWith('1B tokens of memory')));
+    assert.ok(PLAN_FEATURES.premium.some((f) => f.includes('25M hot-searchable')));
+    assert.ok(PLAN_FEATURES.premium_plus.some((f) => f.includes('50M hot-searchable')));
+  });
+  it('does not claim unlimited AI runs or invent Premium/VIP run counts', () => {
+    const text = JSON.stringify(PLAN_FEATURES);
+    assert.doesNotMatch(text, /unlimited/i);
+    // Paid tiers: drop the AI-runs bullet entirely (no Unlimited, no invented count, no token-cap substitute).
+    assert.ok(!PLAN_FEATURES.premium.some((f) => /AI runs/i.test(f)));
+    assert.ok(!PLAN_FEATURES.premium_plus.some((f) => /AI runs/i.test(f)));
+    assert.ok(PLAN_FEATURES.free.some((f) => f.includes('40 AI runs a month')));
   });
   it('does not sell Slack, Notion or email digests', () => {
     assert.ok(!/slack|notion|digest/i.test(JSON.stringify(PLAN_FEATURES)));

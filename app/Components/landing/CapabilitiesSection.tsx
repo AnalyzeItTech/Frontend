@@ -1,4 +1,5 @@
 import React from 'react';
+import { CONTEXT_RETENTION_TOKENS, formatContextRetention } from '../../lib/contextWall.mjs';
 
 interface Capability {
   id: string;
@@ -78,7 +79,7 @@ const CAPABILITIES: Capability[] = [
     bullets: [
       'Premium reads about 150,000 characters; VIP about 300,000',
       'Longer than that: the most relevant sections are read, and the answer says what was not',
-      'Your stored files are searched separately, with no size limit beyond your memory plan',
+      `Your stored files are searched separately, within your memory plan (Free ${formatContextRetention(CONTEXT_RETENTION_TOKENS.free)} · Premium ${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium)} · VIP ${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium_plus)} tokens)`,
     ],
   },
   {
