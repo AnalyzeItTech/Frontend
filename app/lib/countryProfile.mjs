@@ -1,6 +1,6 @@
 // Country-aware trust copy and price notes for marketing pages. Pure functions, no I/O.
 // Every claim here must already be true of the product or stated on /privacy, /refund, /dpa or /security.
-// What the visitor is actually charged is always INR via Razorpay; other currencies are estimates for reading only.
+// Prices follow the visitor's country: INR in India, their own currency elsewhere (the Backend quote decides which).
 
 export const COUNTRY_COOKIE = 'ai_country';
 
@@ -41,28 +41,6 @@ export function cookieCountry(cookieString) {
   return m ? normalizeCountry(decodeURIComponent(m[1])) : null;
 }
 
-function money(estimate) {
-  if (!estimate || !Number.isFinite(Number(estimate.amount)) || !estimate.currency) return null;
-  const whole = ['JPY', 'KRW', 'VND', 'CLP', 'ISK'].includes(estimate.currency);
-  try {
-    return new Intl.NumberFormat('en', {
-      style: 'currency',
-      currency: estimate.currency,
-      minimumFractionDigits: whole ? 0 : 2,
-      maximumFractionDigits: whole ? 0 : 2,
-    }).format(Number(estimate.amount));
-  } catch {
-    return `${estimate.currency} ${Number(estimate.amount).toFixed(2)}`;
-  }
-}
-
-/** Second line under a price. `estimate` is the quote row's `local_estimate`; absent means we say nothing about it. */
-export function localPriceNote(estimate, country) {
-  const shown = money(estimate);
-  if (!shown || country === 'IN') return null;
-  return `About ${shown}/mo in ${estimate.currency}. You are billed in INR; your bank converts at its own rate.`;
-}
-
 /**
  * What to show a visitor from `country` (two letters, or null when unknown).
  * `email` is the privacy contact, passed in so this file stays free of app imports.
@@ -75,7 +53,7 @@ export function trustProfile(country, email) {
   const points = [
     india
       ? { title: 'Billed in rupees', body: 'Paid plans are charged in INR through Razorpay. The price on this page is the price on your statement.' }
-      : { title: 'One clear currency', body: 'Paid plans are charged in INR through Razorpay. Where we can, we show an estimate in your currency for reading only.' },
+      : { title: 'Priced in your currency', body: 'Prices are shown and charged in your local currency through Razorpay where we support it, otherwise in USD. Your card issuer may add its own foreign-transaction fee.' },
     { title: 'Card details stay with Razorpay', body: 'We never store full card numbers. Payment is handled by Razorpay.' },
     { title: 'Cancel any time', body: 'Cancel from Billing whenever you like. If the service was materially unavailable, you can ask for a refund within 7 days of your first paid charge.' },
     law

@@ -1,20 +1,26 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { cookies, headers } from 'next/headers';
+import { normalizeCountry, COUNTRY_COOKIE } from '../lib/countryProfile.mjs';
 import { LegalLayout } from '../Components/legal/LegalLayout';
 import { loadMarketingQuote } from '../lib/marketingQuote.mjs';
 import { ProductsPlans } from './ProductsPlans';
 
 export const metadata: Metadata = {
   title: 'Products & pricing — AnalyzeIt',
-  description: 'AnalyzeIt plans: Free, Premium and VIP, billed monthly in INR via Razorpay. USD amounts are for reference; the exact INR price is confirmed at checkout.',
+  description: 'AnalyzeIt plans: Free, Premium and VIP, billed via Razorpay in your local currency (INR in India). USD amounts are for reference; the exact price is confirmed at checkout.',
 };
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProductsPage() {
-  // Same India quote the homepage renders. Seed it here so the HTML is whole rupees,
-  // not the USD-only fallback shown before the browser fetch returns.
-  const quote = await loadMarketingQuote();
+  // Seed the quote for the visitor's country so the first HTML is already in their currency
+  // (whole rupees in India), not the USD-only fallback shown before the browser fetch returns.
+  const country =
+    normalizeCountry((await headers()).get('x-vercel-ip-country')) ||
+    normalizeCountry((await cookies()).get(COUNTRY_COOKIE)?.value) ||
+    'IN';
+  const quote = await loadMarketingQuote(country);
   return (
     <LegalLayout
       title="Fair pricing for quiet research."
@@ -22,7 +28,7 @@ export default async function ProductsPage() {
       eyebrow={false}
       showHeroUpdated={false}
       quietOperator
-      subtitle="Paid plans are billed monthly in INR via Razorpay. The USD figure is a reference; the exact INR price is confirmed at checkout."
+      subtitle="Paid plans are billed through Razorpay in your local currency (INR in India). The USD figure is a reference; the exact price is confirmed at checkout."
     >
       <ProductsPlans initialQuote={quote} />
 

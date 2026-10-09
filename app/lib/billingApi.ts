@@ -1,5 +1,6 @@
 import { getAuthHeaders, getStoredToken } from './auth';
 import { parseApiFailure } from './apiErrors';
+import { cookieCountry } from './countryProfile.mjs';
 
 const API_V1 = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/v1`;
 
@@ -101,12 +102,14 @@ declare global {
 export type BillingQuote = {
   country?: string | null;
   plans: {
-    premium: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean; local_estimate?: { currency: string; amount: number } | null };
-    premium_plus: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean; local_estimate?: { currency: string; amount: number } | null };
+    premium: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean };
+    premium_plus: { amount: number; amount_usd: number; currency: string; amount_display: string; recurring?: boolean };
   };
 };
 
 export function detectBillingCountry(): string {
+  const fromEdge = typeof document !== 'undefined' ? cookieCountry(document.cookie) : null;
+  if (fromEdge) return fromEdge;
   const lang = typeof navigator !== 'undefined' ? navigator.language || 'en-US' : 'en-US';
   const region = lang.split('-')[1];
   return (region || 'US').toUpperCase();

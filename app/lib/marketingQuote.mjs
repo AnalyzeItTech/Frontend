@@ -10,11 +10,11 @@ function money(value) {
   return null;
 }
 
-/** India checkout quote (INR via Razorpay). Same endpoint the homepage asks for in the browser. */
-export async function loadMarketingQuote() {
+/** Checkout quote for a country (INR in India, the local currency elsewhere). Same endpoint the homepage asks for in the browser. */
+export async function loadMarketingQuote(country = 'IN') {
   const base = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
   try {
-    const res = await fetch(`${base}/v1/billing/quote?country=IN`, {
+    const res = await fetch(`${base}/v1/billing/quote?country=${encodeURIComponent(country || 'IN')}`, {
       cache: 'no-store',
       signal: AbortSignal.timeout(8000),
     });

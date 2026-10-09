@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getBillingQuote } from '../lib/billingApi';
 import { presentPlans, type MarketingQuote } from '../lib/planCatalog.mjs';
-import { localPriceNote } from '../lib/countryProfile.mjs';
 import { useVisitorCountry } from '../lib/useVisitorCountry';
 import { CountryTrust } from '../Components/trust/CountryTrust';
 
@@ -55,9 +54,6 @@ export function ProductsPlans({ initialQuote = null }: { initialQuote?: Marketin
                 <span className="font-sans text-base">/mo</span>
               </p>
               <p className="text-xs text-[#5C534A] dark:text-[#C5B9AE]">{plan.note}</p>
-              {localPriceNote(plan.localEstimate, country) && (
-                <p className="mt-1 text-xs text-[#5C534A] dark:text-[#C5B9AE]">{localPriceNote(plan.localEstimate, country)}</p>
-              )}
             </div>
             <ul className="mb-5 mt-4 flex-1 space-y-1.5 text-sm">
               {plan.features.map((f) => (

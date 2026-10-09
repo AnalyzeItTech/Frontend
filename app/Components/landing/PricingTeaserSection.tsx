@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getBillingQuote } from '../../lib/billingApi';
 import { presentPlans, type MarketingQuote } from '../../lib/planCatalog.mjs';
-import { localPriceNote } from '../../lib/countryProfile.mjs';
 import { useVisitorCountry } from '../../lib/useVisitorCountry';
 import { CountryTrust } from '../trust/CountryTrust';
 
@@ -19,7 +18,7 @@ export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> =
     let cancelled = false;
     void (async () => {
       try {
-        // Billing is INR for everyone; the visitor's country only adds a local-currency estimate.
+        // The quote is in the visitor's currency (INR for India).
         const q = await getBillingQuote(country ?? 'IN');
         if (!cancelled) setQuote(q);
       } catch {
@@ -33,7 +32,6 @@ export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> =
 
   const tiers = presentPlans(quote).map((plan) => ({
     ...plan,
-    localNote: localPriceNote(plan.localEstimate, country),
     period: '/mo',
     popular: plan.id === 'premium',
     features: plan.id === 'free' ? plan.features : [...plan.features, 'Monthly billing after you sign in'],
@@ -55,8 +53,8 @@ export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> =
           Fair pricing for quiet research.
         </h2>
         <p className="text-base text-[#3F3830] dark:text-[#E6DCD2]">
-          Chat, dashboards, Globe, and connectors need an account. Paid plans are billed monthly in INR
-          via Razorpay; the USD figure is a reference, and the exact INR price is confirmed at checkout.
+          Chat, dashboards, Globe, and connectors need an account. Paid plans are billed through Razorpay in your
+          local currency (INR in India). The USD figure is a reference; the exact price is confirmed at checkout.
         </p>
       </div>
 
@@ -83,10 +81,7 @@ export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> =
               <span className="font-serif text-4xl text-[#322C28] dark:text-[#F4EDE5]">{tier.price}</span>
               <span className="text-sm text-[#5C534A] dark:text-[#C5B9AE]">{tier.period}</span>
             </div>
-            <p className="text-xs text-[#5C534A] dark:text-[#C5B9AE] mb-6 leading-relaxed">
-              {tier.note}
-              {tier.localNote && <span className="block mt-1">{tier.localNote}</span>}
-            </p>
+            <p className="text-xs text-[#5C534A] dark:text-[#C5B9AE] mb-6 leading-relaxed">{tier.note}</p>
             <ul className="space-y-2.5 mb-8 flex-1">
               {tier.features.map((feature) => (
                 <li key={feature} className="text-sm text-[#3F3830] dark:text-[#C5B9AE] flex gap-2">

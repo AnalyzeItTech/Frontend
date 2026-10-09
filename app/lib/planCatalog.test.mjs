@@ -77,8 +77,11 @@ describe('priceLabel and priceNote', () => {
     assert.equal(priceNote(undefined, 0), 'No charge');
   });
   it('handles other currencies', () => {
-    assert.equal(priceLabel({ currency: 'USD', amount: 19 }, 19), 'USD 19.00');
-    assert.equal(priceLabel({ currency: 'JPY', amount: 2850.4 }, 19), 'JPY 2,850');
+    assert.equal(priceLabel({ currency: 'USD', amount: 19 }, 19), '$19.00');
+    assert.equal(priceLabel({ currency: 'GBP', amount: 14.37 }, 19), '£14.37');
+    assert.equal(priceLabel({ currency: 'CAD', amount: 25.9 }, 19), 'CA$25.90'); // never a bare "$" that reads as USD
+    assert.equal(priceLabel({ currency: 'JPY', amount: 2850.4 }, 19), '¥2,850');
+    assert.match(priceNote({ currency: 'GBP', amount: 14.37 }, 19), /^GBP via Razorpay · 30 days per payment/);
     assert.equal(priceNote({ currency: 'INR', amount: 1815 }, 19), 'INR per month via Razorpay · $19 USD reference');
   });
 });

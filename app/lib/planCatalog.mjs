@@ -63,14 +63,21 @@ export function priceLabel(row, usdFallback) {
   const ccy = row.currency || 'INR';
   if (ccy === 'INR') return `₹${Math.round(n).toLocaleString('en-IN')}`;
   const whole = ['JPY', 'KRW', 'VND', 'CLP', 'ISK'].includes(ccy);
-  return `${ccy} ${n.toLocaleString('en-US', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 })}`;
+  try {
+    // Whole units for display ("£15", not "£14.37") only when the amount is already whole; otherwise keep the pence.
+    return new Intl.NumberFormat('en', { style: 'currency', currency: ccy, currencyDisplay: 'symbol', minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 }).format(n);
+  } catch {
+    return `${ccy} ${n.toFixed(whole ? 0 : 2)}`;
+  }
 }
 
 export function priceNote(row, usdFallback) {
   if (usdFallback === 0) return 'No charge';
   const n = row && row.amount != null ? Number(row.amount) : NaN;
-  if (!row || !Number.isFinite(n)) return `Shown in USD for now. Your live INR price appears at checkout (about $${usdFallback}).`;
-  return `${row.currency || 'INR'} per month via Razorpay · $${usdFallback} USD reference`;
+  if (!row || !Number.isFinite(n)) return `Shown in USD for now. Your live price appears at checkout (about $${usdFallback}).`;
+  const ccy = row.currency || 'INR';
+  if (ccy === 'INR') return `INR per month via Razorpay · $${usdFallback} USD reference`;
+  return `${ccy} via Razorpay · 30 days per payment · $${usdFallback} USD reference`;
 }
 
 const PLAN_IDS = ['free', 'premium', 'premium_plus'];
@@ -93,7 +100,6 @@ export function presentPlans(quote) {
       features: PLAN_FEATURES[id],
       price: priceLabel(row, usd),
       note: priceNote(row, usd),
-      localEstimate: row?.local_estimate ?? null,
     };
   });
 }

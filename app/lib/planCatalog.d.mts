@@ -9,7 +9,7 @@ export type MarketingQuote = {
   plans?: Partial<
     Record<
       'premium' | 'premium_plus',
-      { currency?: string; amount?: number | string | null; amount_usd?: number; amount_display?: string; local_estimate?: { currency?: string; amount?: number | string | null } | null }
+      { currency?: string; amount?: number | string | null; amount_usd?: number; amount_display?: string}
     >
   >;
 } | null | undefined;
@@ -21,7 +21,6 @@ export type PresentedPlan = {
   features: string[];
   price: string;
   note: string;
-  localEstimate: { currency?: string; amount?: number | string | null } | null;
 };
 
 export function presentPlans(quote: MarketingQuote): PresentedPlan[];

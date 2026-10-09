@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeCountry, resolveCountry, cookieCountry, localPriceNote, trustProfile } from './countryProfile.mjs';
+import { normalizeCountry, resolveCountry, cookieCountry, trustProfile } from './countryProfile.mjs';
 
 test('country: cookie wins, then locale region, else null', () => {
   assert.equal(resolveCountry({ cookie: 'gb', language: 'en-US' }), 'GB');
@@ -33,10 +33,6 @@ test('trust: the refund claim keeps its condition and never promises money back 
   }
 });
 
-test('price note: only for a real estimate outside India; never invents one', () => {
-  assert.equal(localPriceNote(null, 'GB'), null);
-  assert.equal(localPriceNote({ currency: 'GBP', amount: 15.2 }, 'IN'), null);
-  assert.equal(localPriceNote({ currency: 'GBP' }, 'GB'), null);
-  assert.match(localPriceNote({ currency: 'GBP', amount: 15.2 }, 'GB'), /£15\.20.*billed in INR/);
-  assert.match(localPriceNote({ currency: 'JPY', amount: 2850 }, 'JP'), /¥2,850/);
+test('trust: outside India the currency point says the price is in the visitor currency', () => {
+  assert.match(trustProfile('GB', 'p@x.in').points[0].title, /your currency/i);
 });
