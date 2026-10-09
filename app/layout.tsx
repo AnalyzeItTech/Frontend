@@ -9,6 +9,7 @@ import { SkipToContent } from "./Components/ui/SkipToContent";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "./lib/site";
 import { buildSessionBootScript } from "./lib/personalHost.mjs";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 /** Public AdSense publisher ID — omit meta when unset (no hardcoded publisher). */
 const ADSENSE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID || "";
@@ -162,6 +163,7 @@ export default function RootLayout({
           </UIProvider>
         </ThemeProvider>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
