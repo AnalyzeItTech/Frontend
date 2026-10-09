@@ -420,8 +420,11 @@ function ChatInner() {
     const scoped = params.get('project') || params.get('projectId');
     if (scoped) setProjectId(scoped);
     if (params.get('mode') === 'research') setComposerMode('research');
-    // Temporary Design QA: /research?fixture=math — not linked from nav.
-    if (params.get('fixture') === 'math') {
+    // Design QA only: /research?fixture=math. Off in production builds unless NEXT_PUBLIC_ENABLE_FIXTURES=1,
+    // so a sample run is never shown to real users as if it were their own.
+    const fixturesAllowed =
+      process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_ENABLE_FIXTURES === '1';
+    if (fixturesAllowed && params.get('fixture') === 'math') {
       const data = parseFindings(mathFixture);
       if (data) {
         setComposerMode('research');
