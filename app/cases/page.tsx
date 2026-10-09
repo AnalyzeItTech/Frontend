@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DocPage } from '../Components/docs/DocPage';
+import { CASE_GROUP_ORDER, LIVE_CASES } from '../lib/liveCases.mjs';
 
 export const metadata: Metadata = {
   title: 'Worked examples — AnalyzeIt',
@@ -25,6 +26,18 @@ export default function Page() {
           </li>
         ))}
       </ul>
+      {CASE_GROUP_ORDER.map((group) => (
+        <section key={group}>
+          <h2>{group}</h2>
+          <ul className="!list-none !pl-0 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+            {LIVE_CASES.filter((c) => c.group === group).map((c) => (
+              <li key={c.slug}>
+                <Link href={`/cases/${c.slug}`}>{c.label}</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </DocPage>
   );
 }

@@ -1,0 +1,1120 @@
+{
+ "version": 1,
+ "findings": [
+  {
+   "id": "f1",
+   "kind": "change",
+   "kind_label": "Sudden change",
+   "title": "North (region): revenue per record was 60% lower than usual in March 2024",
+   "so_what": "That is far outside how North normally varies, so it is unlikely to be chance.",
+   "headline": "Average revenue per record for region = North was 60% below its usual level in 2024-03 (80.75 versus 204.02 across all months).",
+   "reasoning": [
+    "Based on 49 records that month; the gap is about 7.7 standard errors, far beyond chance even after comparing many groups and months."
+   ],
+   "why": [
+    "March 2024: 49 records averaging 80.75. Usual: 204.02 per record across 12 months.",
+    "Checked against every other group and month; this was the clearest standout."
+   ],
+   "confidence": "likely",
+   "confidence_note": "Very unlikely to be random ups and downs.",
+   "strength": 0.755,
+   "visual": {
+    "type": "line",
+    "x": [
+     "2024-01",
+     "2024-02",
+     "2024-03",
+     "2024-04",
+     "2024-05",
+     "2024-06",
+     "2024-07",
+     "2024-08",
+     "2024-09",
+     "2024-10",
+     "2024-11",
+     "2024-12"
+    ],
+    "series": [
+     {
+      "name": "North: average revenue per record",
+      "values": [
+       211.9475,
+       208.8881,
+       80.7541,
+       210.6196,
+       199.95,
+       222.6674,
+       208.3337,
+       193.9606,
+       209.477,
+       216.1597,
+       225.8471,
+       233.1522
+      ],
+      "role": "main"
+     },
+     {
+      "name": "Its usual level",
+      "values": [
+       204.0158,
+       204.0158,
+       204.0158,
+       204.0158,
+       204.0158,
+       204.0158,
+       204.0158,
+       204.0158,
+       204.0158,
+       204.0158,
+       204.0158,
+       204.0158
+      ],
+      "role": "baseline"
+     }
+    ],
+    "highlight": [
+     2
+    ],
+    "y_label": "Average revenue per record",
+    "format": "number"
+   },
+   "figures": [
+    {
+     "label": "March 2024",
+     "value": "80.75",
+     "n": 49,
+     "note": "60% below usual"
+    },
+    {
+     "label": "Usual level (all periods)",
+     "value": "204.02",
+     "n": null,
+     "note": null
+    },
+    {
+     "label": "January 2024",
+     "value": "211.95",
+     "n": 67,
+     "note": null
+    },
+    {
+     "label": "February 2024",
+     "value": "208.89",
+     "n": 59,
+     "note": null
+    },
+    {
+     "label": "April 2024",
+     "value": "210.62",
+     "n": 69,
+     "note": null
+    },
+    {
+     "label": "May 2024",
+     "value": "199.95",
+     "n": 69,
+     "note": null
+    },
+    {
+     "label": "June 2024",
+     "value": "222.67",
+     "n": 62,
+     "note": null
+    },
+    {
+     "label": "July 2024",
+     "value": "208.33",
+     "n": 70,
+     "note": null
+    },
+    {
+     "label": "August 2024",
+     "value": "193.96",
+     "n": 65,
+     "note": null
+    },
+    {
+     "label": "September 2024",
+     "value": "209.48",
+     "n": 80,
+     "note": null
+    },
+    {
+     "label": "October 2024",
+     "value": "216.16",
+     "n": 71,
+     "note": null
+    },
+    {
+     "label": "November 2024",
+     "value": "225.85",
+     "n": 56,
+     "note": null
+    }
+   ],
+   "sql": "SELECT strftime('%Y-%m', \"order_date\") AS p, \"region\" AS grp, COUNT(\"revenue\") AS n, AVG(\"revenue\") AS mean, SUM(\"revenue\"*\"revenue\") AS sq FROM \"sales\" WHERE \"order_date\" IS NOT NULL AND \"revenue\" IS NOT NULL AND \"region\" IS NOT NULL GROUP BY p, grp ORDER BY p",
+   "followups": [
+    "What happened with region North in March 2024?",
+    "Why did revenue for North move in March 2024?"
+   ],
+   "source": {
+    "table": "sales",
+    "origin": "project"
+   }
+  },
+  {
+   "id": "f2",
+   "kind": "outlier",
+   "kind_label": "Unusual value",
+   "title": "1 revenue value looks unusually large",
+   "so_what": "These could be typing errors or real one-off events. Check them before relying on totals.",
+   "headline": "1 unusual revenue value sits far outside the normal range (typical 292.88, spread 4,562): O00500 (250,000).",
+   "reasoning": [
+    "The most extreme is 54.7 standard deviations from the average. Worth checking whether it is an entry error or a real event."
+   ],
+   "why": [
+    "All the other revenue values sit between 8.45 and 399.93 (typical 209.62).",
+    "The most extreme value is 55 times the normal spread away from the average."
+   ],
+   "confidence": "confirmed",
+   "confidence_note": "Worked out directly from your data.",
+   "strength": 1.0,
+   "visual": {
+    "type": "band",
+    "low": 8.45,
+    "high": 399.93,
+    "center": 209.6189,
+    "values": [
+     {
+      "label": "O00500",
+      "value": 250000.0,
+      "flag": true
+     }
+    ],
+    "format": "number"
+   },
+   "figures": [
+    {
+     "label": "O00500",
+     "value": "250,000",
+     "n": null,
+     "note": null
+    }
+   ],
+   "sql": "SELECT \"order_id\" AS ref, \"revenue\" AS value FROM \"sales\" WHERE \"revenue\" IS NOT NULL AND ABS(\"revenue\" - 292.88239666666664) > 13685.619201111891 ORDER BY ABS(\"revenue\" - 292.88239666666664) DESC LIMIT 5",
+   "followups": [
+    "Show the unusual revenue rows"
+   ],
+   "source": {
+    "table": "sales",
+    "origin": "project"
+   }
+  },
+  {
+   "id": "f3",
+   "kind": "quality",
+   "kind_label": "Data quality",
+   "title": "1 repeated order id value, where each should be unique",
+   "so_what": "Repeats can mean double entries, which inflate totals.",
+   "headline": "1 repeated value in order id, which should be unique.",
+   "reasoning": [
+    "Repeats here usually mean double entries and inflate totals."
+   ],
+   "why": [
+    "3,000 rows but only 2,999 different order id values."
+   ],
+   "confidence": "confirmed",
+   "confidence_note": "Worked out directly from your data.",
+   "strength": 0.402,
+   "visual": {
+    "type": "meter",
+    "parts": [
+     {
+      "label": "Unique",
+      "value": 2999.0,
+      "tone": "ok"
+     },
+     {
+      "label": "Repeats",
+      "value": 1.0,
+      "tone": "warn"
+     }
+    ],
+    "total": 3000.0
+   },
+   "figures": [
+    {
+     "label": "O00010",
+     "value": "2 times",
+     "n": null,
+     "note": null
+    }
+   ],
+   "sql": "SELECT \"order_id\" AS dup_value, COUNT(*) AS times FROM \"sales\" GROUP BY dup_value HAVING COUNT(*) > 1 ORDER BY times DESC LIMIT 10",
+   "followups": [
+    "Show the duplicate order id rows"
+   ],
+   "source": {
+    "table": "sales",
+    "origin": "project"
+   }
+  },
+  {
+   "id": "f4",
+   "kind": "gap",
+   "kind_label": "Difference between groups",
+   "title": "Churned rate varies by plan: Free 49.4% versus Pro 16.6%",
+   "so_what": "Free is about 3.0 times Pro.",
+   "headline": "Churned rate differs by plan: Free is highest at 49.4%, Pro is lowest at 16.6% (197% apart).",
+   "reasoning": [
+    "Based on 1,201 and 723 rows; the gap is about 16.4 standard errors, well beyond chance."
+   ],
+   "why": [
+    "Based on 1,201 Free rows and 723 Pro rows.",
+    "Random sampling alone would almost never produce a gap this large."
+   ],
+   "confidence": "strong",
+   "confidence_note": "Far larger than random ups and downs can explain.",
+   "strength": 1.0,
+   "visual": {
+    "type": "bars",
+    "items": [
+     {
+      "label": "Free",
+      "value": 0.4938,
+      "n": 1201,
+      "highlight": true
+     },
+     {
+      "label": "Team",
+      "value": 0.1813,
+      "n": 353,
+      "highlight": false
+     },
+     {
+      "label": "Enterprise",
+      "value": 0.1789,
+      "n": 123,
+      "highlight": false
+     },
+     {
+      "label": "Pro",
+      "value": 0.166,
+      "n": 723,
+      "highlight": true
+     }
+    ],
+    "baseline": 0.3329,
+    "baseline_label": "Overall",
+    "format": "percent"
+   },
+   "figures": [
+    {
+     "label": "Free",
+     "value": "49.4%",
+     "n": 1201,
+     "note": null
+    },
+    {
+     "label": "Team",
+     "value": "18.1%",
+     "n": 353,
+     "note": null
+    },
+    {
+     "label": "Enterprise",
+     "value": "17.9%",
+     "n": 123,
+     "note": null
+    },
+    {
+     "label": "Pro",
+     "value": "16.6%",
+     "n": 723,
+     "note": null
+    }
+   ],
+   "sql": "SELECT \"plan\" AS grp, COUNT(\"churned\") AS n, AVG(\"churned\") AS mean, SUM(\"churned\"*\"churned\") AS sq FROM \"customers\" WHERE \"churned\" IS NOT NULL AND \"plan\" IS NOT NULL GROUP BY grp HAVING COUNT(\"churned\") >= 10",
+   "followups": [
+    "Why is churned rate highest for plan Free?"
+   ],
+   "source": {
+    "table": "customers",
+    "origin": "project"
+   }
+  },
+  {
+   "id": "f5",
+   "kind": "concentration",
+   "kind_label": "Depends on one group",
+   "title": "Free makes up 74% of support tickets",
+   "so_what": "Results depend heavily on this one plan.",
+   "headline": "Free accounts for 74% of all support tickets by plan.",
+   "reasoning": [
+    "The top three plan values together are 97% of the total, out of 4 in all."
+   ],
+   "why": [
+    "The top three plan values together are 97% of the total.",
+    "There are 4 plan values in all."
+   ],
+   "confidence": "confirmed",
+   "confidence_note": "Worked out directly from your data.",
+   "strength": 0.875,
+   "visual": {
+    "type": "bars",
+    "items": [
+     {
+      "label": "Free",
+      "value": 0.7376,
+      "n": null,
+      "highlight": true
+     },
+     {
+      "label": "Pro",
+      "value": 0.1576,
+      "n": null,
+      "highlight": false
+     },
+     {
+      "label": "Team",
+      "value": 0.0771,
+      "n": null,
+      "highlight": false
+     },
+     {
+      "label": "Enterprise",
+      "value": 0.0278,
+      "n": null,
+      "highlight": false
+     }
+    ],
+    "baseline": null,
+    "baseline_label": "",
+    "format": "percent"
+   },
+   "figures": [
+    {
+     "label": "Free",
+     "value": "73.8%",
+     "n": null,
+     "note": "5,475"
+    },
+    {
+     "label": "Pro",
+     "value": "15.8%",
+     "n": null,
+     "note": "1,170"
+    },
+    {
+     "label": "Team",
+     "value": "7.7%",
+     "n": null,
+     "note": "572"
+    },
+    {
+     "label": "Enterprise",
+     "value": "2.8%",
+     "n": null,
+     "note": "206"
+    }
+   ],
+   "sql": "SELECT \"plan\" AS grp, SUM(\"support_tickets\") AS total FROM \"customers\" WHERE \"support_tickets\" IS NOT NULL AND \"plan\" IS NOT NULL GROUP BY grp ORDER BY total DESC",
+   "followups": [
+    "How dependent are we on plan Free?"
+   ],
+   "source": {
+    "table": "customers",
+    "origin": "project"
+   }
+  },
+  {
+   "id": "f6",
+   "kind": "correlation",
+   "kind_label": "Move together",
+   "title": "Spend and visits rise and fall together",
+   "so_what": "When spend is higher, visits tends to be higher. That does not mean one causes the other.",
+   "headline": "Spend and visits rise together (correlation +0.99 across 400 rows).",
+   "reasoning": [
+    "This shows the two move together, not that one causes the other."
+   ],
+   "why": [
+    "Across 400 rows the two track each other closely (correlation +0.99; 1 would be a perfect match)."
+   ],
+   "confidence": "strong",
+   "confidence_note": "The two move together very consistently.",
+   "strength": 0.991,
+   "visual": {
+    "type": "scatter",
+    "points": [
+     [
+      54.8032,
+      187.3814
+     ],
+     [
+      60.376,
+      169.2866
+     ],
+     [
+      63.5674,
+      206.3994
+     ],
+     [
+      30.4874,
+      87.0333
+     ],
+     [
+      55.3581,
+      189.2469
+     ],
+     [
+      40.6714,
+      124.68
+     ],
+     [
+      82.8401,
+      251.6327
+     ],
+     [
+      11.2783,
+      31.962
+     ],
+     [
+      86.0111,
+      278.2666
+     ],
+     [
+      55.6139,
+      174.4632
+     ],
+     [
+      93.0664,
+      267.2802
+     ],
+     [
+      82.3624,
+      244.1467
+     ],
+     [
+      19.0324,
+      62.2401
+     ],
+     [
+      83.9245,
+      280.1012
+     ],
+     [
+      56.856,
+      178.4278
+     ],
+     [
+      3.416,
+      7.6056
+     ],
+     [
+      79.0867,
+      250.4685
+     ],
+     [
+      20.0915,
+      44.6305
+     ],
+     [
+      32.0806,
+      107.083
+     ],
+     [
+      66.4776,
+      193.5288
+     ],
+     [
+      92.9074,
+      297.0913
+     ],
+     [
+      50.6706,
+      166.1609
+     ],
+     [
+      4.4075,
+      16.4599
+     ],
+     [
+      54.3574,
+      161.7036
+     ],
+     [
+      48.3514,
+      151.3858
+     ],
+     [
+      77.8046,
+      235.6844
+     ],
+     [
+      51.5221,
+      136.241
+     ],
+     [
+      63.5305,
+      186.0111
+     ],
+     [
+      60.1042,
+      173.9046
+     ],
+     [
+      5.3596,
+      11.2144
+     ],
+     [
+      33.0474,
+      114.1547
+     ],
+     [
+      48.3884,
+      158.2026
+     ],
+     [
+      35.7242,
+      130.7571
+     ],
+     [
+      10.6416,
+      29.0447
+     ],
+     [
+      42.3934,
+      162.5507
+     ],
+     [
+      65.0859,
+      188.2119
+     ],
+     [
+      28.81,
+      77.9105
+     ],
+     [
+      52.7293,
+      140.5169
+     ],
+     [
+      29.7645,
+      97.5497
+     ],
+     [
+      68.2692,
+      207.1276
+     ],
+     [
+      43.2536,
+      112.7525
+     ],
+     [
+      9.7265,
+      36.6816
+     ],
+     [
+      25.9891,
+      73.4406
+     ],
+     [
+      78.0529,
+      247.0573
+     ],
+     [
+      51.1566,
+      148.9353
+     ],
+     [
+      27.0788,
+      94.4497
+     ],
+     [
+      16.2868,
+      68.5037
+     ],
+     [
+      13.1893,
+      34.0803
+     ],
+     [
+      2.2527,
+      3.5321
+     ],
+     [
+      53.4673,
+      164.6888
+     ],
+     [
+      12.336,
+      10.8521
+     ],
+     [
+      35.3516,
+      95.7817
+     ],
+     [
+      96.8985,
+      284.5839
+     ],
+     [
+      79.9699,
+      225.0494
+     ],
+     [
+      54.9501,
+      187.2974
+     ],
+     [
+      10.3371,
+      56.0327
+     ],
+     [
+      92.0799,
+      267.7295
+     ],
+     [
+      71.0681,
+      210.8298
+     ],
+     [
+      63.552,
+      201.7985
+     ],
+     [
+      50.4909,
+      126.4405
+     ],
+     [
+      13.414,
+      44.9369
+     ],
+     [
+      64.236,
+      182.8695
+     ],
+     [
+      35.773,
+      122.117
+     ],
+     [
+      3.6347,
+      7.6778
+     ],
+     [
+      24.6186,
+      95.5586
+     ],
+     [
+      23.3811,
+      74.8079
+     ],
+     [
+      68.4912,
+      227.7506
+     ],
+     [
+      69.6496,
+      212.1197
+     ],
+     [
+      45.4042,
+      138.4183
+     ],
+     [
+      32.6216,
+      111.6131
+     ],
+     [
+      74.8591,
+      235.3206
+     ],
+     [
+      96.0036,
+      304.5135
+     ],
+     [
+      43.3521,
+      162.7886
+     ],
+     [
+      78.807,
+      258.7831
+     ],
+     [
+      58.8013,
+      176.113
+     ],
+     [
+      54.8628,
+      179.8316
+     ],
+     [
+      33.3529,
+      118.7561
+     ],
+     [
+      61.2506,
+      179.2091
+     ],
+     [
+      11.2345,
+      53.2019
+     ],
+     [
+      12.877,
+      39.7384
+     ],
+     [
+      38.0233,
+      141.3112
+     ],
+     [
+      30.0533,
+      81.0502
+     ],
+     [
+      45.3029,
+      125.8444
+     ],
+     [
+      62.5216,
+      168.2569
+     ],
+     [
+      4.7389,
+      -2.3015
+     ],
+     [
+      35.4063,
+      105.3221
+     ],
+     [
+      92.151,
+      264.2909
+     ],
+     [
+      90.76,
+      261.9059
+     ],
+     [
+      83.211,
+      267.7958
+     ],
+     [
+      6.5537,
+      35.984
+     ],
+     [
+      98.6857,
+      285.9366
+     ],
+     [
+      12.6228,
+      42.198
+     ],
+     [
+      52.6308,
+      155.7852
+     ],
+     [
+      53.0831,
+      180.208
+     ],
+     [
+      2.6679,
+      18.5423
+     ],
+     [
+      18.6492,
+      56.9468
+     ],
+     [
+      93.7706,
+      300.9943
+     ],
+     [
+      14.28,
+      47.8333
+     ],
+     [
+      9.0904,
+      21.1384
+     ],
+     [
+      77.5818,
+      224.0163
+     ],
+     [
+      25.5363,
+      83.1611
+     ],
+     [
+      28.3386,
+      73.3718
+     ],
+     [
+      57.4712,
+      180.9809
+     ],
+     [
+      51.1192,
+      155.43
+     ],
+     [
+      17.8645,
+      59.1486
+     ],
+     [
+      4.2735,
+      10.6085
+     ],
+     [
+      84.0242,
+      255.0772
+     ],
+     [
+      9.6015,
+      24.1209
+     ],
+     [
+      48.1655,
+      137.5242
+     ],
+     [
+      15.7388,
+      61.1966
+     ],
+     [
+      29.0902,
+      96.7989
+     ],
+     [
+      18.9753,
+      52.31
+     ],
+     [
+      35.3353,
+      109.7788
+     ],
+     [
+      81.6172,
+      247.4649
+     ],
+     [
+      73.8769,
+      231.5545
+     ],
+     [
+      11.362,
+      5.6718
+     ],
+     [
+      9.1056,
+      31.1197
+     ],
+     [
+      24.9366,
+      66.8691
+     ],
+     [
+      98.4665,
+      302.4579
+     ],
+     [
+      18.321,
+      44.3368
+     ],
+     [
+      73.907,
+      215.5882
+     ],
+     [
+      17.4529,
+      53.7927
+     ],
+     [
+      31.9264,
+      110.1717
+     ],
+     [
+      73.7202,
+      217.6998
+     ],
+     [
+      79.4873,
+      240.8121
+     ],
+     [
+      96.0149,
+      287.063
+     ],
+     [
+      90.5852,
+      268.2909
+     ],
+     [
+      14.9804,
+      74.8727
+     ],
+     [
+      15.5213,
+      35.4036
+     ],
+     [
+      17.0578,
+      75.246
+     ],
+     [
+      18.734,
+      63.2037
+     ],
+     [
+      10.1288,
+      28.0133
+     ],
+     [
+      13.2074,
+      22.7607
+     ],
+     [
+      22.5672,
+      52.8747
+     ],
+     [
+      96.7129,
+      287.076
+     ],
+     [
+      17.1862,
+      60.0925
+     ],
+     [
+      78.4535,
+      231.6078
+     ],
+     [
+      83.2453,
+      242.2225
+     ],
+     [
+      42.4692,
+      117.6004
+     ],
+     [
+      88.6472,
+      260.4489
+     ],
+     [
+      83.1869,
+      222.6103
+     ],
+     [
+      30.9804,
+      101.076
+     ],
+     [
+      85.46,
+      264.7103
+     ],
+     [
+      43.5868,
+      141.0685
+     ],
+     [
+      75.1784,
+      232.3349
+     ],
+     [
+      11.2513,
+      29.9582
+     ],
+     [
+      48.5123,
+      138.8845
+     ],
+     [
+      34.6523,
+      97.8261
+     ],
+     [
+      84.6337,
+      265.2292
+     ],
+     [
+      17.8966,
+      58.3662
+     ]
+    ],
+    "x_label": "spend",
+    "y_label": "visits",
+    "fit": [
+     [
+      0.1321,
+      -1.0694
+     ],
+     [
+      98.6857,
+      298.2207
+     ]
+    ],
+    "r": 0.9911
+   },
+   "figures": [
+    {
+     "label": "Correlation",
+     "value": "+0.99",
+     "n": 400,
+     "note": null
+    }
+   ],
+   "sql": "SELECT COUNT(*), SUM(\"spend\"), SUM(\"visits\"), SUM(\"spend\"*\"visits\"), SUM(\"spend\"*\"spend\"), SUM(\"visits\"*\"visits\") FROM \"ads\" WHERE \"spend\" IS NOT NULL AND \"visits\" IS NOT NULL",
+   "followups": [
+    "Does spend drive visits?"
+   ],
+   "source": {
+    "table": "ads",
+    "origin": "project"
+   }
+  }
+ ],
+ "checked": {
+  "analyses": 23,
+  "queries": 34,
+  "by_kind": {
+   "concentration": 4,
+   "correlation": 2,
+   "quality": 3,
+   "gap": 6,
+   "trend": 1,
+   "change": 3,
+   "outlier": 4
+  },
+  "tables": [
+   {
+    "name": "sales",
+    "rows": 3000,
+    "total": 3000
+   },
+   {
+    "name": "customers",
+    "rows": 2400,
+    "total": 2400
+   },
+   {
+    "name": "ads",
+    "rows": 400,
+    "total": 400
+   }
+  ]
+ },
+ "partial": [
+  [
+   "sales",
+   3000,
+   9000
+  ]
+ ],
+ "notes": []
+}

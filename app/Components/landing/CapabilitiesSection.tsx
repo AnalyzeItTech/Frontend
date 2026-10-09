@@ -1,4 +1,5 @@
 import React from 'react';
+import { CONTEXT_RETENTION_TOKENS, formatContextRetention } from '../../lib/contextWall.mjs';
 
 interface Capability {
   id: string;
@@ -78,7 +79,7 @@ const CAPABILITIES: Capability[] = [
     bullets: [
       'Premium reads about 150,000 characters; VIP about 300,000',
       'Longer than that: the most relevant sections are read, and the answer says what was not',
-      'Your stored files are searched separately, with no size limit beyond your memory plan',
+      `Your stored files are searched separately, within your memory plan (Free ${formatContextRetention(CONTEXT_RETENTION_TOKENS.free)} · Premium ${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium)} · VIP ${formatContextRetention(CONTEXT_RETENTION_TOKENS.premium_plus)} tokens)`,
     ],
   },
   {
@@ -106,7 +107,7 @@ export const CapabilitiesSection: React.FC = () => {
       <div className="max-w-2xl space-y-4">
         <div className="inline-flex items-center gap-2 text-xs font-medium tracking-[0.18em] uppercase text-[#C45A42]">
           <span className="w-2 h-2 rounded-full bg-[#E3836C]" />
-          Core Capabilities
+          Also in the workspace
         </div>
         <h2 className="font-serif text-4xl sm:text-5xl font-normal text-[#4A4238] dark:text-[#F4EDE5] leading-tight">
           Everything you need to understand your business,{' '}

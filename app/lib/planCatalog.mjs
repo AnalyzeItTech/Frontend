@@ -1,7 +1,7 @@
 // One description of what each plan includes, used by the home page, /products and Billing so they cannot drift apart.
 // Numbers come from the Backend tier table (entitlements.py); change them there and here together.
 
-import { CONTEXT_RETENTION_TOKENS, formatContextRetention } from './contextWall.mjs';
+import { CONTEXT_RETENTION_TOKENS, RETENTION_HOT_TOKENS, formatContextRetention } from './contextWall.mjs';
 
 export const USD_REFERENCE = { free: 0, premium: 19, premium_plus: 49 };
 
@@ -13,25 +13,32 @@ export const PLAN_FEATURES = {
   free: [
     'Requires an AnalyzeIt account',
     '3 projects · 12 dashboard widgets',
-    '50,000 tokens a month · smaller model',
+    '50,000 tokens a month (output counts four times) · smaller model',
     '40 AI runs a month (weather, FX and math answers are free)',
     memory(CONTEXT_RETENTION_TOKENS.free, ' · 7-day artifacts'),
     'Sponsored units after research runs',
   ],
   premium: [
     'Everything in Free',
-    'Better model · 10M tokens a month',
-    'Unlimited AI runs',
+    'Better model · 10M tokens a month (output counts four times)',
+    // Paid tiers: no AI-runs bullet. Do not invent a run count (Backend llm_runs_per_month is 0).
     '15 projects · 30 widgets · 3 running at once',
-    memory(CONTEXT_RETENTION_TOKENS.premium, ' · 30-day artifacts'),
+    memory(
+      CONTEXT_RETENTION_TOKENS.premium,
+      ` · ${formatContextRetention(RETENTION_HOT_TOKENS.premium)} hot-searchable · 30-day artifacts`,
+    ),
     'Reads long pasted documents section by section (about 150,000 characters)',
     'Ad-free · personal link: yourname.analyzeit.in',
   ],
   premium_plus: [
     'Everything in Premium',
-    'Large model · 50M tokens a month',
+    'Large model · 50M tokens a month (output counts four times)',
+    // Paid tiers: no AI-runs bullet. Do not invent a run count (Backend llm_runs_per_month is 0).
     '50 projects · 10 running at once',
-    memory(CONTEXT_RETENTION_TOKENS.premium_plus, ' · searched across all your projects'),
+    memory(
+      CONTEXT_RETENTION_TOKENS.premium_plus,
+      ` · ${formatContextRetention(RETENTION_HOT_TOKENS.premium_plus)} hot-searchable · searched across all your projects`,
+    ),
     '90-day artifacts',
     'Priority when the agent is busy',
     'Reads long pasted documents section by section (about 300,000 characters)',
@@ -64,4 +71,28 @@ export function priceNote(row, usdFallback) {
   const n = row && row.amount != null ? Number(row.amount) : NaN;
   if (!row || !Number.isFinite(n)) return `Shown in USD for now. Your live INR price appears at checkout (about $${usdFallback}).`;
   return `${row.currency || 'INR'} per month via Razorpay · $${usdFallback} USD reference`;
+}
+
+const PLAN_IDS = ['free', 'premium', 'premium_plus'];
+
+/**
+ * Price line and note for Free, Premium and VIP from one quote.
+ * Home and /products both render this, so Premium cannot show a USD-only fallback
+ * on one page while the other shows whole rupees. USD stays in the note as a reference.
+ * With no quote row, paid plans use the USD reference — a rupee figure is never invented.
+ * @param {{ plans?: Record<string, { currency?: string, amount?: number | string | null }> } | null | undefined} quote
+ */
+export function presentPlans(quote) {
+  return PLAN_IDS.map((id) => {
+    const usd = USD_REFERENCE[id];
+    const row = id === 'free' ? { currency: 'INR', amount: 0 } : quote?.plans?.[id];
+    return {
+      id,
+      name: PLAN_NAMES[id],
+      tagline: PLAN_TAGLINES[id],
+      features: PLAN_FEATURES[id],
+      price: priceLabel(row, usd),
+      note: priceNote(row, usd),
+    };
+  });
 }

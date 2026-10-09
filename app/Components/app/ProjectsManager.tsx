@@ -22,6 +22,7 @@ import {
   type ProjectSummary,
 } from '../../lib/chatApi';
 import { duplicateProject } from '../../lib/exportApi';
+import { sharedProjects } from '../../lib/teamApi';
 
 type ConfirmState =
   | { kind: 'delete'; project: ProjectSummary }
@@ -44,6 +45,11 @@ export function ProjectsManager({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState>(null);
   const [draftName, setDraftName] = useState('');
+  const [shared, setShared] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    sharedProjects().then(setShared).catch(() => setShared([]));
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -167,6 +173,20 @@ export function ProjectsManager({
   };
 
   return (
+    <>
+    {shared.length ? (
+      <section aria-label="Shared with you" className="app-card mb-4 space-y-2 p-5">
+        <h2 className="text-sm font-medium text-[var(--text-primary)]">Shared with you</h2>
+        <ul className="divide-y divide-[var(--border)] text-sm">
+          {shared.map((p) => (
+            <li key={p.id} className="flex items-center justify-between py-2">
+              <Link href={`/project/${p.id}`} className="underline underline-offset-2">{p.name}</Link>
+              <span className="text-xs text-[var(--text-muted)]">view only</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ) : null}
     <section id="projects" className="app-card scroll-mt-24 space-y-4 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
@@ -417,5 +437,6 @@ export function ProjectsManager({
         ) : null}
       </AnimatePresence>
     </section>
+    </>
   );
 }

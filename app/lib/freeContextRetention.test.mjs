@@ -59,6 +59,7 @@ describe('Free context retention listing', () => {
     assert.match(catalogue, /CONTEXT_RETENTION_TOKENS\.premium\b/);
     assert.match(catalogue, /CONTEXT_RETENTION_TOKENS\.premium_plus/);
     assert.match(catalogue, /formatContextRetention/);
+    assert.doesNotMatch(catalogue, /unlimited/i);
   });
 
   it('does not advertise 250M retention or a 20,000-character Free wall', () => {

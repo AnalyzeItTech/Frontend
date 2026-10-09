@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DocPage } from '../../Components/docs/DocPage';
 import { PLAN_NAMES } from '../../lib/planCatalog.mjs';
-import { CONTEXT_RETENTION_TOKENS, formatContextRetention } from '../../lib/contextWall.mjs';
+import { CONTEXT_RETENTION_TOKENS, RETENTION_HOT_TOKENS, formatContextRetention } from '../../lib/contextWall.mjs';
 
 export const metadata: Metadata = {
   title: 'What AnalyzeIt memory stores and how it is used — AnalyzeIt docs',
@@ -26,6 +26,12 @@ export default function Page() {
         {PLAN_NAMES.premium} {f(CONTEXT_RETENTION_TOKENS.premium)}, {PLAN_NAMES.premium_plus} {f(CONTEXT_RETENTION_TOKENS.premium_plus)}.
         Your usage meter is on the <Link href="/memory">Memory page</Link>.
       </p>
+      <p>
+        Not every stored token is instantly searchable by meaning. {PLAN_NAMES.free} keeps the whole library hot
+        ({f(RETENTION_HOT_TOKENS.free)}). {PLAN_NAMES.premium} hot-searches about {f(RETENTION_HOT_TOKENS.premium)} of its{' '}
+        {f(CONTEXT_RETENTION_TOKENS.premium)}; {PLAN_NAMES.premium_plus} about {f(RETENTION_HOT_TOKENS.premium_plus)} of its{' '}
+        {f(CONTEXT_RETENTION_TOKENS.premium_plus)}. The rest stays reachable through summaries and exact words.
+      </p>
 
       <h2>How it is found again</h2>
       <p>
@@ -34,8 +40,8 @@ export default function Page() {
         opens the original passage and quotes it, rather than answering from a summary.
       </p>
       <p>
-        A very large library is not compared passage by passage by meaning: that part is limited by your plan. Everything stays reachable
-        through summaries and exact words, and the assistant can open the original text of anything it finds.
+        A very large library is not compared passage by passage by meaning: that part is the hot-searchable subset above. Everything stays
+        reachable through summaries and exact words, and the assistant can open the original text of anything it finds.
       </p>
 
       <h2>Citations</h2>

@@ -140,6 +140,11 @@
   --error: #C45B4A;
   --info: #79A8DF;
 
+  /* Discovery finding cards: one accent plus grey. Contrast on --surface: accent 5.25:1, soft text 5.9:1, neutral marks 3.3:1. */
+  --finding-accent: #B5472F;
+  --finding-soft: #6A6158;
+  --finding-neutral: #948B82;
+
   --background: #F5EEE5;
   --foreground: #3A342D;
   --card: #FFFCF8;
@@ -181,6 +186,11 @@
   --warning: #D98F3F;
   --error: #EF6C6C;
   --info: #79A8DF;
+
+  /* Discovery finding cards (dark): accent 6.7:1, soft text 6.9:1, neutral marks 4.8:1 on --surface. */
+  --finding-accent: #EA8069;
+  --finding-soft: #9AA1AE;
+  --finding-neutral: #7C8493;
   --danger: #C45B4A;
 
   --background: #0B0D10;
@@ -705,6 +715,90 @@ textarea:focus-visible {
   background: color-mix(in srgb, #e3836c 18%, transparent);
   color: #e3836c;
   border-color: color-mix(in srgb, #e3836c 40%, transparent);
+}
+
+/* Research home: cream prompt chips, coral on hover and focus. */
+.research-prompt-chip {
+  max-width: 100%;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.35;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.9rem;
+  text-align: center;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.research-prompt-chip:hover,
+.research-prompt-chip:focus-visible {
+  border-color: var(--coral);
+  color: var(--coral-dark);
+  background: color-mix(in srgb, var(--coral) 12%, var(--surface));
+}
+
+.dark .research-prompt-chip:hover,
+.dark .research-prompt-chip:focus-visible {
+  color: var(--coral-hover);
+}
+
+/* Composer Chat | Research | Globe. Active segment is coral; focus stays visible. */
+.composer-mode {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: stretch;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 2px;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.composer-mode-tab {
+  display: inline-flex;
+  min-height: 2.75rem;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  padding: 0 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.composer-mode-tab:hover {
+  color: var(--text, var(--text-primary));
+}
+
+.composer-mode-tab[aria-selected='true'] {
+  background: var(--coral);
+  color: #fff;
+  font-weight: 500;
+}
+
+.composer-mode-tab[aria-selected='true']:hover {
+  color: #fff;
+}
+
+.composer-mode-tab:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+  z-index: 1;
+}
+
+@media (min-width: 640px) {
+  .composer-mode-tab {
+    flex: 0 0 auto;
+    min-height: 2rem;
+    padding: 0 0.9rem;
+  }
 }
 
 .legal-prose strong {

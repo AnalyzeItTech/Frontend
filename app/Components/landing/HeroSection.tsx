@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { HeroAnswer } from './HeroAnswer';
 
 export const HeroSection: React.FC = () => {
   return (
@@ -10,70 +11,44 @@ export const HeroSection: React.FC = () => {
       <div className="flex items-center justify-between pointer-events-auto">
         <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-[#F3EDE4]/95 dark:bg-[#211E1C]/95 backdrop-blur-md border border-[#4A4238]/15 dark:border-[#3A3430] text-xs font-medium tracking-widest uppercase text-[#322C28] dark:text-[#F4EDE5] shadow-xs">
           <span className="w-2 h-2 rounded-full bg-[#9EBB9A] animate-pulse" />
-          <span>Analytics, made calm</span>
+          <span>Read-only · no customer details stored</span>
         </div>
       </div>
 
-      <div className="relative flex flex-col lg:flex-row lg:items-end justify-between gap-12 pointer-events-auto mt-auto pb-10">
+      <div className="relative flex flex-col lg:flex-row lg:items-start justify-between gap-12 pointer-events-auto mt-auto pb-10">
         <div
           id="hero-card"
-          className="max-w-2xl space-y-6 rounded-3xl bg-[#F3EDE4]/90 dark:bg-[#171514]/88 backdrop-blur-md border border-[#4A4238]/10 dark:border-[#3A3430] p-6 sm:p-8 shadow-sm"
+          className="max-w-2xl lg:max-w-xl space-y-6 rounded-3xl bg-[#F3EDE4]/90 dark:bg-[#171514]/88 backdrop-blur-md border border-[#4A4238]/10 dark:border-[#3A3430] p-6 sm:p-8 shadow-sm"
         >
-          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl tracking-tight text-[#322C28] dark:text-[#F4EDE5] font-normal leading-[1.08]">
+          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl tracking-tight text-[#322C28] dark:text-[#F4EDE5] font-normal leading-[1.08]">
             <span className="block font-sans text-sm sm:text-base tracking-[0.28em] uppercase font-medium text-[#C45A42] dark:text-[#EBA58F] mb-4">
-              AnalyzeIt
+              For online businesses on Razorpay
             </span>
-            See what your data <br className="hidden sm:inline" />
-            <em className="font-serif italic text-[#C45A42] dark:text-[#EBA58F]">already knows.</em>
+            Find where your payments are{' '}
+            <em className="font-serif italic text-[#C45A42] dark:text-[#EBA58F]">quietly failing.</em>
           </h1>
 
           <p className="text-base md:text-lg text-[#3F3830] dark:text-[#E6DCD2] font-normal max-w-xl leading-relaxed">
-            Ask in plain words. Get tool-backed answers with visible provenance — narratives, forecasts, and map-first exploration, without dashboard busywork.
+            Connect Razorpay, read-only, and ask what is going wrong. AnalyzeIt shows which payment method is failing, when it started and what refunds are costing you, with the exact numbers and the query behind each one.
           </p>
-
-          <div className="flex flex-wrap gap-2 pt-1">
-            {[
-              ['Weather in Mumbai', 'Weather in Mumbai'],
-              ['AAPL stock price', 'AAPL stock price'],
-              ['100 USD to INR', 'Convert 100 USD to INR'],
-              ['12 * 30', 'Calculate 12 * 30'],
-              ['10 km to miles', 'Convert 10 km to miles'],
-            ].map(([label, q]) => (
-              <Link
-                key={label}
-                href={`/demo?q=${encodeURIComponent(q)}`}
-                className="rounded-full border border-[#4A4238]/15 dark:border-[#3A3430] bg-[#FFF7F1]/80 dark:bg-[#211E1C] px-3 py-1.5 text-xs text-[#322C28] dark:text-[#F4EDE5] hover:border-[#E3836C]"
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
 
           <div className="flex flex-wrap items-center gap-4 pt-2">
             <Link
               href="/login?tab=register"
               className="inline-flex items-center justify-center px-8 py-4 rounded-full bg-[#E3836C] hover:bg-[#ED967F] active:bg-[#C96F5A] text-[#FFF7F1] font-medium text-base transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 whitespace-nowrap"
             >
-              Start exploring free
+              Connect Razorpay free
             </Link>
             <Link
-              href="/demo"
+              href="/case"
               className="inline-flex items-center gap-1.5 min-h-11 px-4 py-3 text-sm font-medium text-[#C45A42] dark:text-[#EBA58F] underline underline-offset-4 hover:text-[#322C28] dark:hover:text-[#F4EDE5] transition-colors"
             >
-              <span>Try it without signing up</span>
+              <span>Watch a real run, no signup</span>
             </Link>
-            <a
-              href="#capabilities"
-              className="inline-flex items-center gap-1.5 min-h-11 px-4 py-3 text-sm font-medium text-[#322C28] dark:text-[#E6DCD2] hover:text-[#C45A42] transition-colors"
-            >
-              <span>Skip to product</span>
-            </a>
           </div>
 
-          <p className="text-sm text-[#5C534A] dark:text-[#C5B9AE] font-normal max-w-xl leading-relaxed">
-            Simple calc, weather, FX, and stocks can resolve as From tools · 0 tokens — so you can see when a live tool answered, not a model.
-          </p>
         </div>
+        <HeroAnswer />
       </div>
 
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-auto">

@@ -1,0 +1,218 @@
+{
+ "version": 1,
+ "findings": [
+  {
+   "id": "f1",
+   "kind": "change",
+   "kind_label": "Sudden change",
+   "title": "Average GDP growth in 2009 was 123.9, far below its usual 141.98",
+   "so_what": "That is unusual compared with this series' own history.",
+   "headline": "Average GDP growth in 2009 was 123.9, far below its usual 141.98 (usual spread about 1.61).",
+   "reasoning": [
+    "About 11.2 times this series' usual spread away from its usual level, so it is not ordinary variation."
+   ],
+   "why": [
+    "2009: 123.9. Its usual level, allowing for any steady trend: 141.98.",
+    "Across 23 years, the series normally stays within about 1.61 of that level; this was 18.08 away."
+   ],
+   "confidence": "likely",
+   "confidence_note": "Very unlikely to be random ups and downs.",
+   "strength": 1.0,
+   "visual": {
+    "type": "line",
+    "x": [
+     "2000",
+     "2001",
+     "2002",
+     "2003",
+     "2004",
+     "2005",
+     "2006",
+     "2007",
+     "2008",
+     "2009",
+     "2010",
+     "2011",
+     "2012",
+     "2013",
+     "2014",
+     "2015",
+     "2016",
+     "2017",
+     "2018",
+     "2019",
+     "2020",
+     "2021",
+     "2022"
+    ],
+    "series": [
+     {
+      "name": "Average GDP growth",
+      "values": [
+       142.1062,
+       142.9478,
+       141.116,
+       141.3185,
+       144.0682,
+       140.0968,
+       142.0168,
+       144.8107,
+       144.4015,
+       123.9035,
+       142.7675,
+       143.6617,
+       141.9468,
+       141.0163,
+       141.8143,
+       142.6613,
+       142.969,
+       143.9778,
+       143.7282,
+       142.72,
+       139.9048,
+       142.04,
+       142.4732
+      ],
+      "role": "main"
+     },
+     {
+      "name": "Its usual level",
+      "values": [
+       141.3185,
+       142.0168,
+       143.0872,
+       142.1062,
+       142.4368,
+       142.7675,
+       142.4368,
+       141.6327,
+       141.8806,
+       141.9818,
+       142.3391,
+       142.3391,
+       142.8682,
+       143.3153,
+       142.8682,
+       142.38,
+       142.2566,
+       142.04,
+       141.9934,
+       142.4732,
+       142.8152,
+       142.969,
+       142.969
+      ],
+      "role": "baseline"
+     }
+    ],
+    "highlight": [
+     9
+    ],
+    "y_label": "Average GDP growth",
+    "format": "number"
+   },
+   "figures": [
+    {
+     "label": "2009",
+     "value": "123.9",
+     "n": null,
+     "note": "usual 141.98"
+    },
+    {
+     "label": "2006",
+     "value": "142.02",
+     "n": null,
+     "note": null
+    },
+    {
+     "label": "2007",
+     "value": "144.81",
+     "n": null,
+     "note": null
+    },
+    {
+     "label": "2008",
+     "value": "144.4",
+     "n": null,
+     "note": null
+    },
+    {
+     "label": "2010",
+     "value": "142.77",
+     "n": null,
+     "note": null
+    },
+    {
+     "label": "2011",
+     "value": "143.66",
+     "n": null,
+     "note": null
+    },
+    {
+     "label": "2012",
+     "value": "141.95",
+     "n": null,
+     "note": null
+    }
+   ],
+   "sql": "SELECT strftime('%Y', (CAST(\"year\" AS INTEGER) || '-01-01')) AS period, AVG(\"GDP_growth\") AS GDP_growth_average FROM \"gdp\" WHERE (CAST(\"year\" AS INTEGER) || '-01-01') IS NOT NULL AND \"GDP_growth\" IS NOT NULL GROUP BY period ORDER BY period",
+   "followups": [
+    "Why was GDP growth so low in 2009?"
+   ],
+   "source": {
+    "table": "gdp",
+    "origin": "online",
+    "url": "https://api.worldbank.org/v2/country/all/indicator/NY.GDP.MKTP.KD.ZG"
+   },
+   "provenance": {
+    "host": "api.worldbank.org",
+    "publisher": "international",
+    "fetched_at": "2026-10-05T10:00Z",
+    "latest": "2022-01-01"
+   }
+  }
+ ],
+ "checked": {
+  "analyses": 5,
+  "queries": 10,
+  "by_kind": {
+   "change": 1,
+   "trend": 1,
+   "gap": 1,
+   "outlier": 1,
+   "quality": 1
+  },
+  "tables": [
+   {
+    "name": "gdp",
+    "rows": 138,
+    "total": 138
+   }
+  ]
+ },
+ "partial": [],
+ "notes": [],
+ "scope": {
+  "mode": "online",
+  "sources": [
+   {
+    "table": "gdp",
+    "title": "GDP growth (annual %)",
+    "url": "https://api.worldbank.org/v2/country/all/indicator/NY.GDP.MKTP.KD.ZG",
+    "host": "api.worldbank.org",
+    "publisher": "international",
+    "fetched_at": "2026-10-05T10:00Z",
+    "latest": "2022-01-01",
+    "rows_loaded": 138,
+    "rows_total": 138,
+    "method": "worldbank",
+    "notes": [
+     "The table had one column per year (2000 to 2022); it was reshaped to one row per year."
+    ]
+   }
+  ],
+  "account": [
+   "Found a World Bank series: GDP growth (annual %)."
+  ]
+ }
+}

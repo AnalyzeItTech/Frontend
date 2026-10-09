@@ -3,12 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../ui/Toast';
 import { AgentAccessPanel } from './AgentAccessPanel';
+import { DigestPanel } from './DigestPanel';
+import { TeamPanel } from './TeamPanel';
 import { SyncedDataLinks } from './SyncedDataLinks';
 import { useConfirm } from '../ui/ConfirmDialog';
 import {
   IconPlugConnected,
   IconBrandStripe,
+  IconCurrencyRupee,
   IconBrandGithub,
+  IconBrandGoogleDrive,
   IconCloud,
   IconRefresh,
   IconCheck,
@@ -25,21 +29,36 @@ import {
   fetchAvailableConnectors,
   fetchProjectConnectors,
   authorizeConnector,
+  authorizeGoogleDrive,
   syncConnector,
   revokeConnector,
   connectProvider,
   updateConnector,
+  type AvailableConnector,
   type Connector,
 } from '../../lib/customObjectsApi';
+import {
+  availableConnectorIds,
+  connectionForProvider,
+  connectorSetupState,
+  dataModeLabel,
+  providerLabel,
+  readSyncResult,
+  syncFailureView,
+  type ConnectorCallback,
+  type SyncResultView,
+} from '../../lib/connectorState.mjs';
 
 interface ConnectorsViewProps {
   projectId: string;
+  notice?: ConnectorCallback | null;
 }
 
 type FormKind =
   | 'postgres'
   | 'sqlite'
   | 'stripe'
+  | 'razorpay'
   | 'salesforce'
   | 'kaggle'
   | 'huggingface'
@@ -48,13 +67,17 @@ type FormKind =
 
 type AuthMode = 'oauth' | 'connection' | 'catalog';
 
-export function ConnectorsView({ projectId }: ConnectorsViewProps) {
+export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps) {
   const toast = useToast();
   const confirm = useConfirm();
-  const [available, setAvailable] = useState<any[]>([]);
+  const [available, setAvailable] = useState<AvailableConnector[]>([]);
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [syncReports, setSyncReports] = useState<Record<string, SyncResultView>>({});
+  const [authorizingId, setAuthorizingId] = useState<string | null>(null);
+  const [authorizeErrors, setAuthorizeErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState<FormKind>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sqlBusy, setSqlBusy] = useState(false);
@@ -66,6 +89,8 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
   const [pgPassword, setPgPassword] = useState('');
   const [sqlitePath, setSqlitePath] = useState('');
   const [stripeKey, setStripeKey] = useState('');
+  const [rzpKeyId, setRzpKeyId] = useState('');
+  const [rzpSecret, setRzpSecret] = useState('');
   const [sfInstance, setSfInstance] = useState('');
   const [sfToken, setSfToken] = useState('');
   const [sfUsername, setSfUsername] = useState('');
@@ -84,6 +109,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
   const loadData = async () => {
     if (!projectId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const [avail, conns] = await Promise.all([
         fetchAvailableConnectors(),
@@ -92,25 +118,62 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       setAvailable(avail);
       setConnectors(conns);
     } catch (err) {
-      console.error('Failed to load connectors:', err);
+      setAvailable([]);
+      setConnectors([]);
+      setLoadError(err instanceof Error ? err.message : 'Couldn’t load connectors.');
     } finally {
       setLoading(false);
     }
   };
 
+  const callbackProvider = notice?.kind === 'success' ? notice.provider || 'connected' : '';
+
   useEffect(() => {
     loadData();
   }, [projectId]);
 
+  // OAuth returns to /connectors?connected=google_drive. Refetch the project
+  // connector rows so the new Drive connection is the one just saved.
+  useEffect(() => {
+    if (!projectId || !callbackProvider) return;
+    let cancelled = false;
+    fetchProjectConnectors(projectId, { strict: true })
+      .then((rows) => {
+        if (!cancelled) setConnectors(rows);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Couldn’t refresh connectors.');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, callbackProvider]);
+
   const handleConnectOAuth = async (provider: string) => {
+    setAuthorizeErrors((prev) => ({ ...prev, [provider]: '' }));
+    setAuthorizingId(provider);
     try {
+      if (provider === 'google_drive') {
+        // Drive authorize takes { project_id } only. The backend owns the redirect
+        // and sends the browser back to /connectors?connected=google_drive.
+        const url = await authorizeGoogleDrive(projectId);
+        window.location.assign(url);
+        return;
+      }
       const redirectUri = window.location.origin + '/dashboard';
       const res = await authorizeConnector(projectId, provider, redirectUri);
-      if (res.auth_url) {
+      if (res.auth_url && /^https:\/\//i.test(res.auth_url)) {
         window.open(res.auth_url, '_blank', 'width=600,height=700');
+        setAuthorizingId(null);
+        return;
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to initiate OAuth');
+      throw new Error('The server did not return a sign-in link.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Couldn’t start authorization.';
+      setAuthorizeErrors((prev) => ({ ...prev, [provider]: message }));
+      setAuthorizingId(null);
     }
   };
 
@@ -126,6 +189,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       };
     }
     if (form === 'stripe') return { api_key: stripeKey };
+    if (form === 'razorpay') return { key_id: rzpKeyId.trim(), key_secret: rzpSecret.trim() };
     if (form === 'salesforce') {
       if (sfAdvanced) {
         return {
@@ -167,6 +231,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       setEditingId(null);
       setPgPassword('');
       setStripeKey('');
+      setRzpSecret('');
       setSfToken('');
       setSfPassword('');
       setSfClientSecret('');
@@ -181,16 +246,25 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
 
   const handleSync = async (connectorId: string) => {
     setSyncingId(connectorId);
+    setSyncReports((prev) => {
+      const next = { ...prev };
+      delete next[connectorId];
+      return next;
+    });
     try {
-      const result = await syncConnector(connectorId);
-      if (result?.status === 'skipped' || result?.data_mode === 'preview') {
-        toast.toast(result.note || 'Live provider pull is not available yet. Credentials stay in the vault.');
-      } else if (result?.note) {
-        toast.toast(result.note);
+      const parsed = readSyncResult(await syncConnector(connectorId));
+      setSyncReports((prev) => ({ ...prev, [connectorId]: parsed }));
+      if (parsed.toast) {
+        if (parsed.phase === 'failed' || parsed.ingestStatus === 'failed') toast.error(parsed.toast);
+        else toast.toast(parsed.toast);
       }
       await loadData();
-    } catch (err: any) {
-      toast.error(err.message || 'Sync failed');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Sync failed';
+      const failure = syncFailureView(message);
+      setSyncReports((prev) => ({ ...prev, [connectorId]: failure }));
+      if (failure.phase === 'failed') toast.error(failure.toast || message);
+      else toast.toast(failure.toast || message);
     } finally {
       setSyncingId(null);
     }
@@ -216,6 +290,12 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
     string,
     { name: string; icon: React.ReactNode; desc: string; authMode: AuthMode }
   > = {
+    razorpay: {
+      name: 'Razorpay',
+      icon: <IconCurrencyRupee className="w-6 h-6 text-[var(--coral)]" />,
+      desc: 'Read-only payments and refunds, kept current, so you can ask where payments fail and when it started. Customer email, phone, card and UPI details are never stored.',
+      authMode: 'connection',
+    },
     stripe: {
       name: 'Stripe Connect',
       icon: <IconBrandStripe className="w-6 h-6 text-[var(--coral)]" />,
@@ -232,6 +312,12 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       name: 'GitHub Repositories',
       icon: <IconBrandGithub className="w-6 h-6 text-neutral-800 dark:text-neutral-100" />,
       desc: 'OAuth connect. Sync your repos into AnalyzeIt objects (read-only live pull).',
+      authMode: 'oauth',
+    },
+    google_drive: {
+      name: 'Google Drive',
+      icon: <IconBrandGoogleDrive className="w-6 h-6 text-[var(--text-primary)]" />,
+      desc: 'Read-only sync of Drive files. Docs, Sheets, and Slides export to text or CSV.',
       authMode: 'oauth',
     },
     postgres: {
@@ -266,20 +352,22 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
     },
   };
 
-  const providerIds =
-    available.length > 0
-      ? available.map((a) => a.id as string)
-      : ['stripe', 'salesforce', 'github', 'postgres', 'sqlite', 'kaggle', 'huggingface', 'openml'];
+  const providerIds = availableConnectorIds(available);
 
-  const allProviders = providerIds.map((id) => ({
-    id,
-    ...(PROVIDER_METAS[id] || {
-      name: id,
-      icon: <IconDatabase className="w-6 h-6" />,
-      desc: '',
-      authMode: (available.find((a) => a.id === id)?.auth_mode as AuthMode) || 'oauth',
-    }),
-  }));
+  // Razorpay first: it is the connection most of our users can actually use.
+  const orderedIds = [...providerIds].sort((a, b) => Number(b === 'razorpay') - Number(a === 'razorpay'));
+  const allProviders = orderedIds.map((id) => {
+    const row = available.find((item) => item.id === id);
+    const meta = PROVIDER_METAS[id];
+    return {
+      id,
+      name: row?.name || meta?.name || providerLabel(id),
+      icon: meta?.icon || <IconDatabase className="w-6 h-6" />,
+      desc: row?.description || meta?.desc || '',
+      authMode: (meta?.authMode || row?.auth_mode || 'oauth') as AuthMode,
+      setup: connectorSetupState(row),
+    };
+  });
 
   const openForm = (kind: FormKind, connector?: Connector) => {
     setForm(kind);
@@ -293,7 +381,9 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
       ? 'PostgreSQL'
       : form === 'sqlite'
         ? 'SQLite'
-        : form === 'stripe'
+        : form === 'razorpay'
+          ? 'Razorpay'
+          : form === 'stripe'
           ? 'Stripe'
           : form === 'salesforce'
             ? 'Salesforce'
@@ -308,6 +398,8 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
   return (
     <div className="flex flex-col gap-6 w-full">
       <AgentAccessPanel projectId={projectId} />
+      <DigestPanel projectId={projectId} />
+      <TeamPanel projectId={projectId} />
       <SyncedDataLinks projectId={projectId} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-white/10">
         <div>
@@ -316,8 +408,7 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
             Your sources
           </h2>
           <p className="text-xs text-[var(--text-muted)] dark:text-neutral-400 mt-1">
-            OAuth, API keys, SQL, and online datasets (Kaggle, Hugging Face, OpenML). Credentials stay
-            vault-encrypted.
+            Only sources this server reports as configured are listed. Credentials stay vault-encrypted.
           </p>
         </div>
 
@@ -403,6 +494,35 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                   className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
                   value={pgPassword}
                   onChange={(e) => setPgPassword(e.target.value)}
+                />
+              </label>
+            </div>
+          )}
+          {form === 'razorpay' && (
+            <div className="space-y-3">
+              <p className="text-xs text-[var(--text-muted)]">
+                In Razorpay, open Account &amp; Settings, then API Keys, and generate a key. Paste the key id and secret here. AnalyzeIt only reads payments and refunds, never
+                moves money, and never stores customer email, phone, card or UPI details. Start with a test-mode key if you want to look first.
+              </p>
+              <label className="block text-xs text-[var(--text-muted)]">
+                Key id (starts with rzp_live_ or rzp_test_)
+                <input
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                  value={rzpKeyId}
+                  onChange={(e) => setRzpKeyId(e.target.value)}
+                  placeholder="rzp_live_…"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </label>
+              <label className="block text-xs text-[var(--text-muted)]">
+                Key secret
+                <input
+                  type="password"
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                  value={rzpSecret}
+                  onChange={(e) => setRzpSecret(e.target.value)}
+                  autoComplete="off"
                 />
               </label>
             </div>
@@ -596,70 +716,101 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
         </div>
       )}
 
+      {notice && notice.kind !== 'none' ? (
+        <div
+          role={notice.kind === 'error' ? 'alert' : 'status'}
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            notice.kind === 'error'
+              ? 'border-[var(--danger)]/30 bg-[var(--danger)]/10 text-[var(--danger)]'
+              : 'border-[var(--success)]/30 bg-[var(--success)]/10 text-[var(--success)]'
+          }`}
+        >
+          {notice.kind === 'success'
+            ? `${notice.message} The list below is refreshed from the server.`
+            : notice.message}
+        </div>
+      ) : null}
+
+      {loadError ? (
+        <div role="alert" className="rounded-2xl border border-[var(--danger)]/30 bg-[var(--danger)]/10 p-4 text-sm text-[var(--danger)]">
+          <p>{loadError}</p>
+          <button type="button" onClick={loadData} className="mt-3 min-h-11 rounded-xl bg-[var(--coral)] px-4 text-xs font-semibold text-white">
+            Try again
+          </button>
+        </div>
+      ) : null}
+
+      {!loading && !loadError && allProviders.length === 0 ? (
+        <p className="text-sm text-[var(--text-secondary)]">
+          No connectors are configured on this server.
+        </p>
+      ) : null}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {allProviders.map((p) => {
-          const activeConn = connectors.find((c) => c.provider === p.id && (c.status === 'connected' || c.status === 'healthy'));
-          const isConnected = Boolean(activeConn);
-          const isSyncing = syncingId === activeConn?.id;
-          const availMeta = available.find((a) => a.id === p.id) as
-            | {
-                coming_soon?: boolean;
-                coming_soon_reason?: string;
-                oauth_configured?: boolean;
-                supports_connection?: boolean;
-                auth_mode?: string;
-              }
-            | undefined;
-          const isComingSoon = !isConnected && Boolean(availMeta?.coming_soon);
-          const comingSoonHint = availMeta?.coming_soon_reason || 'Coming soon';
-          const hasError = connectors.some((c) => c.provider === p.id && c.status === 'error');
-          const oauthReady = Boolean(availMeta?.oauth_configured) || p.id === 'github';
-          const canConnectForm =
-            p.authMode === 'connection' ||
-            p.authMode === 'catalog' ||
-            Boolean(availMeta?.supports_connection) ||
-            p.id === 'stripe' ||
-            p.id === 'salesforce';
+          const activeConn = connectionForProvider(connectors, p.id);
+          const isHealthy = Boolean(activeConn && (activeConn.status === 'connected' || activeConn.status === 'healthy'));
+          const hasError = activeConn?.status === 'error';
+          const isLinked = Boolean(activeConn);
+          const isSyncing = Boolean(activeConn && syncingId === activeConn.id);
+          const setup = p.setup;
+          const isUnavailable = !isLinked && setup.kind === 'unavailable';
+          const isComingSoon = !isLinked && setup.kind === 'coming_soon';
+          const oauthReady = setup.kind === 'ready' && setup.oauth;
+          const canConnectForm = setup.kind === 'ready' && setup.connection && (
+            p.id === 'postgres' || p.id === 'sqlite' || p.id === 'stripe' || p.id === 'salesforce'
+            || p.id === 'kaggle' || p.id === 'huggingface' || p.id === 'openml'
+          );
+          const syncReport = activeConn ? syncReports[activeConn.id] : undefined;
+          const authorizeError = authorizeErrors[p.id];
 
           return (
             <div
               key={p.id}
-              className={`flex flex-col justify-between p-6 rounded-2xl border transition-all ${
-                isConnected
+              className={`flex flex-col justify-between p-5 sm:p-6 rounded-2xl border transition-all ${
+                isHealthy
                   ? 'bg-[var(--surface)] border-[var(--success)]/35 shadow-sm'
-                  : 'bg-[var(--surface)] border-[var(--border)] hover:border-[var(--border-strong)]'
+                  : 'bg-[var(--surface)] border-[var(--border)]'
               }`}
             >
               <div>
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-xl bg-[var(--surface-2)]">{p.icon}</div>
-                    <div>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-3 rounded-xl bg-[var(--surface-2)] shrink-0">{p.icon}</div>
+                    <div className="min-w-0">
                       <h3 className="font-semibold text-[var(--text-primary)] text-base">{p.name}</h3>
                       <span className="text-[11px] font-mono text-[var(--text-muted)]">
-                        {p.authMode === 'catalog'
-                          ? 'Online dataset'
-                          : p.authMode === 'connection'
-                            ? 'Read-only SQL'
-                            : 'OAuth 2.0'}
+                        {p.id === 'google_drive'
+                          ? 'OAuth 2.0 · read-only'
+                          : p.authMode === 'catalog'
+                            ? 'Online dataset'
+                            : (p.id === 'stripe' || p.id === 'salesforce') && setup.connection && !setup.oauth
+                              ? 'API key'
+                              : p.authMode === 'connection'
+                                ? 'Read-only SQL'
+                                : 'OAuth 2.0'}
                       </span>
                     </div>
                   </div>
 
-                  {isConnected ? (
-                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--success)]/10 text-[var(--success)] text-xs font-medium border border-[var(--success)]/25">
+                  {isHealthy ? (
+                    <span className="flex shrink-0 items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--success)]/10 text-[var(--success)] text-xs font-medium border border-[var(--success)]/25">
                       <IconCheck className="w-3.5 h-3.5" /> Connected
                     </span>
                   ) : hasError ? (
-                    <span className="px-2.5 py-1 rounded-full bg-[var(--danger)]/10 text-[var(--danger)] text-xs font-medium border border-[var(--danger)]/25">
-                      Error
+                    <span className="shrink-0 px-2.5 py-1 rounded-full bg-[var(--danger)]/10 text-[var(--danger)] text-xs font-medium border border-[var(--danger)]/25">
+                      Needs attention
+                    </span>
+                  ) : isUnavailable ? (
+                    <span className="shrink-0 px-2.5 py-1 rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-medium border border-[var(--border)]">
+                      Unavailable
                     </span>
                   ) : isComingSoon ? (
-                    <span className="px-2.5 py-1 rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-medium border border-[var(--border)]">
+                    <span className="shrink-0 px-2.5 py-1 rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-medium border border-[var(--border)]">
                       Coming soon
                     </span>
                   ) : (
-                    <span className="px-2.5 py-1 rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-medium border border-[var(--border)]">
+                    <span className="shrink-0 px-2.5 py-1 rounded-full bg-[var(--surface-muted)] text-[var(--text-muted)] text-xs font-medium border border-[var(--border)]">
                       Ready to connect
                     </span>
                   )}
@@ -667,99 +818,141 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
 
                 <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-4">{p.desc}</p>
 
-                {isConnected && activeConn && (
+                {isLinked && activeConn && (
                   <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] mb-4 text-xs">
-                    <div className="flex items-center justify-between text-[var(--text-muted)]">
+                    <div className="flex items-center justify-between gap-3 text-[var(--text-muted)]">
                       <span className="flex items-center gap-1">
-                        <IconClock className="w-3.5 h-3.5" /> Last activity:
+                        <IconClock className="w-3.5 h-3.5" /> Last sync
                       </span>
-                      <span className="font-mono text-[var(--text-primary)]">
+                      <span className="font-mono text-[var(--text-primary)] text-right">
                         {activeConn.last_sync_at
-                          ? new Date(activeConn.last_sync_at).toLocaleTimeString()
-                          : 'Connected'}
+                          ? new Date(activeConn.last_sync_at).toLocaleString()
+                          : 'No sync time reported'}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-[var(--text-muted)]">
-                      <span className="flex items-center gap-1">
-                        <IconDatabase className="w-3.5 h-3.5" /> Data mode:
-                      </span>
-                      <span className="font-mono text-amber-700 dark:text-amber-300">
-                        {activeConn.data_mode === 'live_readonly'
-                          ? 'Live read-only'
-                          : activeConn.data_mode === 'seed_demo'
-                            ? 'Sample fixtures'
-                            : 'Preview'}
-                      </span>
-                    </div>
-                    {p.authMode === 'connection' && (
-                      <p className="text-[10px] text-neutral-400 font-mono mt-1">
+                    {dataModeLabel(activeConn.data_mode) ? (
+                      <div className="flex items-center justify-between gap-3 text-[var(--text-muted)]">
+                        <span className="flex items-center gap-1">
+                          <IconDatabase className="w-3.5 h-3.5" /> Data mode
+                        </span>
+                        <span className="font-mono text-[var(--text-primary)]">
+                          {dataModeLabel(activeConn.data_mode)}
+                        </span>
+                      </div>
+                    ) : null}
+                    {activeConn.error_message ? (
+                      <p className="text-[var(--danger)]">{activeConn.error_message}</p>
+                    ) : null}
+                    {p.authMode === 'connection' && p.id !== 'stripe' && p.id !== 'salesforce' && (
+                      <p className="text-[10px] text-neutral-400 font-mono mt-1 break-all">
                         id={activeConn.id} — bind widgets with query_type=sql_query
                       </p>
                     )}
                     {p.authMode === 'catalog' && activeConn.connection_meta?.dataset && (
-                      <p className="text-[10px] text-neutral-400 font-mono mt-1">
+                      <p className="text-[10px] text-neutral-400 font-mono mt-1 break-all">
                         dataset={String(activeConn.connection_meta.dataset)}
                       </p>
+                    )}
+                    {(isSyncing || syncReport) && (
+                      <div role="status" className="mt-1 border-t border-[var(--border)] pt-2 text-[var(--text-secondary)]">
+                        <p>{isSyncing ? 'Sync in progress' : (syncReport?.headline || 'Sync returned.')}</p>
+                        {!isSyncing && syncReport?.note && syncReport.note !== syncReport.headline ? (
+                          <p className="mt-1">{syncReport.note}</p>
+                        ) : null}
+                        {!isSyncing && syncReport?.dataMode ? (
+                          <p className="mt-1">Data mode: {dataModeLabel(syncReport.dataMode)}</p>
+                        ) : null}
+                        {!isSyncing && syncReport?.truncated ? (
+                          <p className="mt-1">This listing was truncated, so it does not include every file.</p>
+                        ) : null}
+                        {syncReport && syncReport.counts.length > 0 ? (
+                          <ul className="mt-1 space-y-0.5">
+                            {syncReport.counts.map((count) => (
+                              <li key={count.key} className="flex justify-between gap-3 font-mono text-[var(--text-primary)]">
+                                <span>{count.label}</span>
+                                <span>{count.value}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                        {!isSyncing && syncReport && (syncReport.phase === 'failed' || syncReport.ingestStatus === 'failed') && syncReport.errors.length > 0 ? (
+                          <ul className="mt-1 space-y-0.5 text-[var(--danger)]">
+                            {syncReport.errors.map((error) => (
+                              <li key={error}>{error}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
                     )}
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-between gap-3 pt-4 border-t border-[var(--border)]">
-                {isConnected && activeConn ? (
+              <div className="flex flex-col gap-3 pt-4 border-t border-[var(--border)] sm:flex-row sm:items-center sm:justify-between">
+                {isLinked && activeConn ? (
                   <>
                     <button
+                      type="button"
                       onClick={() => handleSync(activeConn.id)}
                       disabled={isSyncing}
-                      className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
+                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--coral)] px-3.5 text-xs font-medium text-white transition-colors hover:bg-[var(--coral-dark)] disabled:opacity-50 sm:w-auto"
                     >
                       <IconRefresh className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                       <span>
                         {isSyncing
-                          ? 'Working…'
-                          : p.authMode === 'connection'
+                          ? 'Sync in progress'
+                          : p.authMode === 'connection' && p.id !== 'stripe' && p.id !== 'salesforce'
                             ? 'Test connection'
                             : 'Sync'}
                       </span>
                     </button>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-end gap-1">
                       {canConnectForm && (
                         <button
+                          type="button"
                           onClick={() => openForm(p.id as FormKind, activeConn)}
-                          className="px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs"
+                          className="min-h-11 px-3 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                         >
                           Edit
                         </button>
                       )}
                       <button
+                        type="button"
                         onClick={() => handleDisconnect(activeConn.id, p.name)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--danger)] text-xs transition-colors"
+                        className="inline-flex min-h-11 items-center gap-1.5 px-3 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--danger)]"
                       >
                         <IconTrash className="w-3.5 h-3.5" />
                         <span>Disconnect</span>
                       </button>
                     </div>
                   </>
-                ) : isComingSoon ? (
-                  <span className="ml-auto text-xs text-[var(--text-muted)]">{comingSoonHint}</span>
+                ) : isUnavailable || isComingSoon ? (
+                  <p className="text-xs leading-relaxed text-[var(--text-muted)]">{setup.reason}</p>
                 ) : (
-                  <div className="flex flex-wrap gap-2 ml-auto">
-                    {oauthReady && p.authMode !== 'catalog' && p.authMode !== 'connection' && (
+                  <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+                    {oauthReady && (
                       <button
+                        type="button"
                         onClick={() => handleConnectOAuth(p.id)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white text-xs font-semibold transition-colors shadow-sm"
+                        disabled={authorizingId === p.id}
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--coral)] px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[var(--coral-dark)] disabled:opacity-50 sm:w-auto"
                       >
-                        <span>Connect {p.name}</span>
+                        <span>
+                          {authorizingId === p.id
+                            ? (p.id === 'google_drive' ? 'Opening Google…' : 'Opening…')
+                            : `Connect ${p.name}`}
+                        </span>
                         <IconArrowUpRight className="w-4 h-4" />
                       </button>
                     )}
                     {canConnectForm && (
                       <button
+                        type="button"
                         onClick={() => openForm(p.id as FormKind)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-colors shadow-sm ${
-                          oauthReady && p.authMode !== 'catalog' && p.authMode !== 'connection'
-                            ? 'border border-[var(--border)] text-[var(--text-primary)] bg-[var(--surface)]'
-                            : 'bg-[var(--coral)] hover:bg-[var(--coral-dark)] text-white'
+                        className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-xs font-semibold shadow-sm transition-colors sm:w-auto ${
+                          oauthReady
+                            ? 'border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]'
+                            : 'bg-[var(--coral)] text-white hover:bg-[var(--coral-dark)]'
                         }`}
                       >
                         <span>
@@ -772,6 +965,9 @@ export function ConnectorsView({ projectId }: ConnectorsViewProps) {
                         <IconArrowUpRight className="w-4 h-4" />
                       </button>
                     )}
+                    {authorizeError ? (
+                      <p role="alert" className="w-full text-xs text-[var(--danger)] sm:text-right">{authorizeError}</p>
+                    ) : null}
                   </div>
                 )}
               </div>

@@ -6,15 +6,15 @@ export const ClosingCTASection: React.FC = () => {
     <section className="relative py-32 md:py-48 px-6 md:px-16 max-w-5xl mx-auto text-center space-y-8 pointer-events-auto">
       <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EBA58F]/15 dark:bg-[#5A332C]/40 border border-[#EBA58F]/30 dark:border-[#8A4D40]/50 text-xs font-mono tracking-widest uppercase text-[#4A4238]/70 dark:text-[#C5B9AE]">
         <span className="w-1.5 h-1.5 rounded-full bg-[#E3836C]" />
-        Begin Quietly
+        Start with your payments
       </div>
 
       <h2 className="font-serif text-5xl sm:text-6xl md:text-7xl text-[#4A4238] dark:text-[#F4EDE5] font-normal leading-[1.08] max-w-3xl mx-auto">
-        Data clarity shouldn&apos;t feel exhausting.
+        Find out what your payments are quietly losing.
       </h2>
 
       <p className="text-base md:text-lg text-[#4A4238]/70 dark:text-[#C5B9AE] max-w-xl mx-auto leading-relaxed">
-        A quieter, more thoughtful way to understand your business numbers and move forward with confidence.
+        Connect Razorpay, ask what is going wrong, and check every figure yourself.
       </p>
 
       <div className="pt-4 space-y-3">

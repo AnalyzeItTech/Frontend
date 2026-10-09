@@ -15,6 +15,7 @@ const PROTECTED_PREFIXES = [
   '/memory',
   '/embeddings',
   '/onboarding',
+  '/digest',
 ];
 
 // UI gate only: the API enforces real auth on every call. The AUTH_COOKIE flag is client-set,
@@ -73,6 +74,8 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/',
+    '/digest/:path*',
+    '/digest',
     '/login',
     '/login/:path*',
     '/auth/:path*',

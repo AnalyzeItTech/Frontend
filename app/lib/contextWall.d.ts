@@ -3,6 +3,11 @@ export const CONTEXT_RETENTION_TOKENS: {
   premium: number;
   premium_plus: number;
 };
+export const RETENTION_HOT_TOKENS: {
+  free: number;
+  premium: number;
+  premium_plus: number;
+};
 export const FREE_CLIENT_CONTEXT_LIMIT: number;
 
 export function formatContextRetention(tokens: number): string;

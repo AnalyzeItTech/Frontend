@@ -68,6 +68,7 @@ import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer'
 import { LayoutSwitcher } from '../Components/dashboard/LayoutSwitcher';
 import { ModulePipelineView } from '../Components/dashboard/ModulePipelineView';
 import { SampleDataBanner, StarterKits } from '../Components/starter/StarterKits';
+import { MemoryHomeCard } from '../Components/memory/MemoryHomeCard';
 import {
   DASHBOARD_EMPTY,
   RESEARCH_STARTERS,
@@ -972,6 +973,9 @@ export default function DashboardPage() {
             <div className="mb-4">
               <SampleDataBanner projectId={activeProjectId} refreshKey={kitRefresh} onRemoved={refreshActiveProjectLayout} />
             </div>
+          ) : null}
+          {studioTab === 'canvas' && !isLoadingProjects && !slugGate && !workspaceError ? (
+            <MemoryHomeCard />
           ) : null}
           {studioTab === 'canvas' && (
             <>

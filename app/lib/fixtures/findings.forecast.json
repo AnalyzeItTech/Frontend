@@ -1,0 +1,214 @@
+{
+ "findings": {
+  "version": 1,
+  "findings": [
+   {
+    "id": "f1",
+    "kind": "forecast",
+    "kind_label": "Forecast",
+    "title": "Revenue is expected to be about 1,984 over the next 3 months",
+    "so_what": "When tested on 19 past forecasts it was typically off by about 5% a month, against about 11% for repeating the latest value. It assumes the future behaves like the past, so it cannot see a price change, a campaign or anything new.",
+    "headline": "revenue total over the next 3 months: expected 1,984, 80% range 1,840 to 2,128 (method: seasonal holt, tested on 19 past forecasts).",
+    "reasoning": [
+     "revenue total over the next 3 months: expected 1,984, 80% range 1,840 to 2,128 (method: seasonal holt, tested on 19 past forecasts).",
+     "Series: SUM(revenue) per month, 45 periods."
+    ],
+    "why": [
+     "Based on 45 months of history, from January 2023 to September 2026.",
+     "The method follows the recent level and direction and repeats the cycle's usual ups and downs. It was chosen because it predicted the past best of 7 methods tried.",
+     "The yearly pattern was included, because there are at least two full cycles of history to learn it from."
+    ],
+    "confidence": "likely",
+    "confidence_note": "In tests on past data it beat simply repeating the latest value, and its range held the real value about as often as it claims.",
+    "strength": 1.0,
+    "visual": {
+     "type": "forecast",
+     "x": [
+      "2023-01",
+      "2023-02",
+      "2023-03",
+      "2023-04",
+      "2023-05",
+      "2023-06",
+      "2023-07",
+      "2023-08",
+      "2023-09",
+      "2023-10",
+      "2023-11",
+      "2023-12",
+      "2024-01",
+      "2024-02",
+      "2024-03",
+      "2024-04",
+      "2024-05",
+      "2024-06",
+      "2024-07",
+      "2024-08",
+      "2024-09",
+      "2024-10",
+      "2024-11",
+      "2024-12",
+      "2025-01",
+      "2025-02",
+      "2025-03",
+      "2025-04",
+      "2025-05",
+      "2025-06",
+      "2025-07",
+      "2025-08",
+      "2025-09",
+      "2025-10",
+      "2025-11",
+      "2025-12",
+      "2026-01",
+      "2026-02",
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+      "2026-07",
+      "2026-08",
+      "2026-09",
+      "2026-10",
+      "2026-11",
+      "2026-12"
+     ],
+     "history": [
+      595.87,
+      617.21,
+      589.48,
+      585.78,
+      581.86,
+      528.63,
+      444.25,
+      424.61,
+      410.95,
+      430.64,
+      489.98,
+      570.2,
+      622.16,
+      685.01,
+      677.4,
+      656.29,
+      646.56,
+      604.74,
+      496.4,
+      485.79,
+      491.32,
+      547.56,
+      539.74,
+      617.13,
+      709.49,
+      746.74,
+      793.43,
+      744.55,
+      694.39,
+      649.39,
+      589.28,
+      583.75,
+      546.75,
+      553.92,
+      601.75,
+      663.33,
+      734.28,
+      760.8,
+      799.49,
+      754.97,
+      793.92,
+      706.76,
+      635.47,
+      593.14,
+      598.9
+     ],
+     "forecast": [
+      618.3901,
+      648.0685,
+      717.2908
+     ],
+     "low": [
+      570.4122,
+      594.3412,
+      653.1969
+     ],
+     "high": [
+      666.368,
+      701.7957,
+      781.3848
+     ],
+     "y_label": "revenue per month",
+     "format": "number"
+    },
+    "figures": [
+     {
+      "label": "October 2026",
+      "value": "618.39  (80% range 570.41 to 666.37)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "November 2026",
+      "value": "648.07  (80% range 594.34 to 701.8)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "December 2026",
+      "value": "717.29  (80% range 653.2 to 781.38)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "Total over 3 months",
+      "value": "1,984  (80% range 1,840 to 2,128)",
+      "n": null,
+      "note": null
+     },
+     {
+      "label": "Typical miss in past tests",
+      "value": "5% per month",
+      "n": 19,
+      "note": null
+     },
+     {
+      "label": "Methods compared (typical miss per month)",
+      "value": "seasonal holt 31.02; log seasonal holt 35.41; seasonal naive 53.15; naive 76.46; drift 79.38",
+      "n": null,
+      "note": null
+     }
+    ],
+    "sql": "SELECT strftime('%Y-%m', \"order_date\") AS period, SUM(\"revenue\") AS value, COUNT(*) AS records FROM \"sales\" WHERE \"order_date\" IS NOT NULL AND \"revenue\" IS NOT NULL GROUP BY period ORDER BY period",
+    "followups": [
+     "What changed in revenue?",
+     "What stands out in my data?"
+    ],
+    "source": {
+     "table": "sales",
+     "origin": "project"
+    },
+    "provenance": {}
+   }
+  ],
+  "checked": {
+   "analyses": 7,
+   "queries": 3,
+   "by_kind": {
+    "forecast": 7
+   },
+   "tables": [
+    {
+     "name": "sales",
+     "rows": 270,
+     "total": 270
+    }
+   ]
+  },
+  "partial": [],
+  "notes": [],
+  "scope": {
+   "mode": "project",
+   "sources": [],
+   "account": []
+  }
+ },
+ "text": "Revenue is expected to be about 1,984 over the next 3 months. When tested on 19 past forecasts it was typically off by about 5% a month, against about 11% for repeating the latest value. It assumes the future behaves like the past, so it cannot see a price change, a campaign or anything new.\n\n**What the forecast says**\n- October 2026: 618.39  (80% range 570.41 to 666.37)\n- November 2026: 648.07  (80% range 594.34 to 701.8)\n- December 2026: 717.29  (80% range 653.2 to 781.38)\n- Total over 3 months: 1,984  (80% range 1,840 to 2,128)\n- Typical miss in past tests: 5% per month\n- Methods compared (typical miss per month): seasonal holt 31.02; log seasonal holt 35.41; seasonal naive 53.15; naive 76.46; drift 79.38\n\n**Worth knowing**\n- The yearly pattern was included, because there are at least two full cycles of history to learn it from."
+}

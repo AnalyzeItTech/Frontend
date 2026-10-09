@@ -1,0 +1,265 @@
+{
+ "question": "What is going wrong with my payments?",
+ "dataset": "sample data: 6,000 made-up payments for a made-up shop, with a UPI problem planted to show what the output looks like. It is not a real business",
+ "findings": {
+  "version": 1,
+  "findings": [
+   {
+    "id": "f1",
+    "kind": "gap",
+    "kind_label": "Difference between groups",
+    "title": "Failed rate varies by method: upi 9.6% versus card 2.8%",
+    "so_what": "upi is about 3.4 times card.",
+    "headline": "Failed rate differs by method: upi is highest at 9.6%, card is lowest at 2.8% (238% apart).",
+    "reasoning": [
+     "Based on 3,315 and 1,513 rows; the gap is about 10.1 standard errors, well beyond chance."
+    ],
+    "why": [
+     "Based on 3,315 upi rows and 1,513 card rows.",
+     "Random sampling alone would almost never produce a gap this large."
+    ],
+    "confidence": "strong",
+    "confidence_note": "Far larger than random ups and downs can explain.",
+    "strength": 1.0,
+    "visual": {
+     "type": "bars",
+     "items": [
+      {
+       "label": "upi",
+       "value": 0.0959,
+       "n": 3315,
+       "highlight": true
+      },
+      {
+       "label": "netbanking",
+       "value": 0.0528,
+       "n": 663,
+       "highlight": false
+      },
+      {
+       "label": "wallet",
+       "value": 0.0373,
+       "n": 509,
+       "highlight": false
+      },
+      {
+       "label": "card",
+       "value": 0.0284,
+       "n": 1513,
+       "highlight": true
+      }
+     ],
+     "baseline": 0.0692,
+     "baseline_label": "Overall",
+     "format": "percent"
+    },
+    "figures": [
+     {
+      "label": "upi",
+      "value": "9.6%",
+      "n": 3315,
+      "note": null
+     },
+     {
+      "label": "netbanking",
+      "value": "5.3%",
+      "n": 663,
+      "note": null
+     },
+     {
+      "label": "wallet",
+      "value": "3.7%",
+      "n": 509,
+      "note": null
+     },
+     {
+      "label": "card",
+      "value": "2.8%",
+      "n": 1513,
+      "note": null
+     }
+    ],
+    "sql": "SELECT \"method\" AS grp, COUNT((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) AS n, AVG((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) AS mean, SUM((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)*(CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) AS sq, COUNT(CASE WHEN (CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END) > 0 THEN 1 END) AS npos, AVG(CASE WHEN (CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END) > 0 THEN ln((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) END) AS lmean, SUM(CASE WHEN (CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END) > 0 THEN ln((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END))*ln((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) END) AS lsq FROM \"payments\" WHERE (CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END) IS NOT NULL AND \"method\" IS NOT NULL GROUP BY grp HAVING COUNT((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) >= 10",
+    "followups": [
+     "Why is failed rate highest for method upi?"
+    ],
+    "source": {
+     "table": "payments",
+     "origin": "project"
+    },
+    "provenance": {}
+   },
+   {
+    "id": "f2",
+    "kind": "change",
+    "kind_label": "Sudden change",
+    "title": "Failed rate rose from 5.8% to 9.3% starting September 2026, almost all of it in method upi (7.4% to 14.4%)",
+    "so_what": "That is about 66 more failed rows than the earlier rate would have given, out of 1,904.",
+    "headline": "The failed rate rose from 5.8% to 9.3% starting September 2026, almost all of it in method upi (7.4% to 14.4%).",
+    "reasoning": [
+     "Before: 238 of 4,096 rows (5.8%). After: 177 of 1,904 rows (9.3%).",
+     "The best split point was searched among 9 possible ones, and the result still stands far beyond chance."
+    ],
+    "why": [
+     "4,096 rows before and 1,904 rows after.",
+     "A change this large and this lasting is very unlikely from random variation."
+    ],
+    "confidence": "check",
+    "confidence_note": "Probably real, but close to the edge of what chance can explain.",
+    "strength": 0.466,
+    "visual": {
+     "type": "line",
+     "x": [
+      "2026-01",
+      "2026-02",
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+      "2026-07",
+      "2026-08",
+      "2026-09",
+      "2026-10",
+      "2026-11",
+      "2026-12"
+     ],
+     "series": [
+      {
+       "name": "failed rate",
+       "values": [
+        0.0474,
+        0.0557,
+        0.0643,
+        0.0748,
+        0.0595,
+        0.0428,
+        0.0636,
+        0.0582,
+        0.0885,
+        0.0901,
+        0.1052,
+        0.0884
+       ],
+       "role": "main"
+      }
+     ],
+     "highlight": [
+      8
+     ],
+     "y_label": "failed rate",
+     "format": "percent"
+    },
+    "figures": [
+     {
+      "label": "January 2026",
+      "value": "4.7%",
+      "n": 527,
+      "note": null
+     },
+     {
+      "label": "February 2026",
+      "value": "5.6%",
+      "n": 503,
+      "note": null
+     },
+     {
+      "label": "March 2026",
+      "value": "6.4%",
+      "n": 529,
+      "note": null
+     },
+     {
+      "label": "April 2026",
+      "value": "7.5%",
+      "n": 508,
+      "note": null
+     },
+     {
+      "label": "May 2026",
+      "value": "6.0%",
+      "n": 487,
+      "note": null
+     },
+     {
+      "label": "June 2026",
+      "value": "4.3%",
+      "n": 537,
+      "note": null
+     },
+     {
+      "label": "July 2026",
+      "value": "6.4%",
+      "n": 472,
+      "note": null
+     },
+     {
+      "label": "August 2026",
+      "value": "5.8%",
+      "n": 533,
+      "note": null
+     },
+     {
+      "label": "September 2026",
+      "value": "8.8%",
+      "n": 452,
+      "note": null
+     },
+     {
+      "label": "October 2026",
+      "value": "9.0%",
+      "n": 477,
+      "note": null
+     },
+     {
+      "label": "November 2026",
+      "value": "10.5%",
+      "n": 466,
+      "note": null
+     },
+     {
+      "label": "December 2026",
+      "value": "8.8%",
+      "n": 509,
+      "note": null
+     }
+    ],
+    "sql": "SELECT strftime('%Y-%m', \"created_at\") AS period, COUNT((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) AS n, SUM((CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END)) AS events FROM \"payments\" WHERE \"created_at\" IS NOT NULL AND (CASE WHEN \"status\" IS NULL OR TRIM(\"status\") = '' THEN NULL WHEN LOWER(TRIM(\"status\")) = 'failed' THEN 1 ELSE 0 END) IS NOT NULL GROUP BY period ORDER BY period",
+    "followups": [
+     "What changed around September 2026?"
+    ],
+    "source": {
+     "table": "payments",
+     "origin": "project"
+    },
+    "provenance": {}
+   }
+  ],
+  "checked": {
+   "analyses": 16,
+   "queries": 34,
+   "by_kind": {
+    "change": 5,
+    "trend": 1,
+    "gap": 4,
+    "concentration": 2,
+    "outlier": 1,
+    "correlation": 2,
+    "quality": 1
+   },
+   "tables": [
+    {
+     "name": "payments",
+     "rows": 6000,
+     "total": 6000
+    }
+   ]
+  },
+  "partial": [],
+  "notes": [],
+  "scope": {
+   "mode": "project",
+   "sources": [],
+   "account": []
+  }
+ }
+}

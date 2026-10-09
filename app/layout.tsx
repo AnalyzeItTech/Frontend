@@ -32,6 +32,8 @@ export const metadata: Metadata = {
     "data chat",
     "ask your data",
     "live data tools",
+    "find insights in data",
+    "public datasets",
   ],
   authors: [{ name: SITE_NAME, url: SITE_URL }],
   alternates: {

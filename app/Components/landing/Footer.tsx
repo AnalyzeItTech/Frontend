@@ -47,7 +47,10 @@ export const Footer: React.FC = () => {
             <li><Link href="/login" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Sign In</Link></li>
             <li><Link href="/login?tab=register" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Create account</Link></li>
             <li><Link href="/demo" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Try the demo</Link></li>
+            <li><Link href="/case" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Watch a case run</Link></li>
             <li><Link href="/docs" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Docs</Link></li>
+            <li><Link href="/guides" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Guides</Link></li>
+            <li><Link href="/cases" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Worked examples</Link></li>
             <li><Link href="/changelog" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Changelog</Link></li>
             <li><Link href="/contact" className="hover:text-[#E3836C] dark:hover:text-[#E3836C] transition-colors">Contact Support</Link></li>
           </ul>
