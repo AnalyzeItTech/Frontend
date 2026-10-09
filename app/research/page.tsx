@@ -9,7 +9,6 @@ import {
   IconCopy,
   IconFile,
   IconLayoutDashboard,
-  IconMessageDots,
   IconPlus,
   IconSearch,
   IconSend,
@@ -20,7 +19,7 @@ import {
   IconCheck,
   IconPlayerStop,
 } from '@tabler/icons-react';
-import { getStoredToken, getStoredUser } from '../lib/auth';
+import { getAuthHeaders, getStoredToken, getStoredUser } from '../lib/auth';
 import { claimAdExtend, getEntitlements, getModels, startAdExtendChallenge } from '../lib/billingApi';
 import { formatLlmRunsLeft, isLlmMonthlyQuotaError, parseLlmQuota, type LlmQuota } from '../lib/llmQuota';
 import {
@@ -48,13 +47,19 @@ import {
 import { SandboxedWidgetRenderer } from '../Components/dashboard/WidgetRenderer';
 import { PermissionRequestCard, type PermissionDecision } from '../Components/chat/PermissionRequestCard';
 import { DataChangeCard, type DataChangeStatus } from '../Components/chat/DataChangeCard';
-import { decideDataChange, setAgentAccess } from '../lib/agentAccessApi';
+import { decideBulkChange, decideDataChange, setAgentAccess, undoBulkChange } from '../lib/agentAccessApi';
+import { BulkChangeCard, type BulkChangeStatus } from '../Components/chat/BulkChangeCard';
+import { explainBulkError, parseBulkProposal, type BulkProposal } from '../lib/bulkChange.mjs';
 import { explainApplyError, type ChangeProposal } from '../lib/dataChange.mjs';
 import { AdSlot, AD_LOAD_TIMEOUT_MS, isAdPlacementConfigured } from '../Components/ads/AdSlot';
 import { shouldShowPostRunAd } from '../lib/adCadence';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
 import { ChartCard, type ChartSpec } from '../Components/research/ChartCard';
 import { SuggestionChips } from '../Components/research/SuggestionChips';
+import { FindingCards } from '../Components/research/FindingCards';
+import { RunSteps } from '../Components/research/RunSteps';
+import { discoveryStatus, isDiscoveryRoute, parseFindings, reduceSteps, withoutFindingList, type ParsedFindings, type RunStep } from '../lib/findings.mjs';
+import mathFixture from '../lib/fixtures/findings.math.json';
 import { parseExtras } from '../lib/chatExtras.mjs';
 import { memoryToolStatus, queueStatus } from '../lib/runStatus.mjs';
 import { historyTurns } from '../lib/historyTurns.mjs';
@@ -82,6 +87,8 @@ import {
   uploadChatAttachment,
   type ChatAttachment,
 } from '../lib/attachmentsApi';
+import { ComposerModeControl } from '../Components/research/ComposerModeControl';
+import { ResearchEmptyState } from '../Components/research/ResearchEmptyState';
 import { SourceChips, type ResearchSource } from '../Components/research/SourceChips';
 import { AppShell } from '../Components/app/AppShell';
 import { ChatMiniGlobe } from '../Components/globe/ChatMiniGlobe';
@@ -129,12 +136,17 @@ interface ChatMessage {
   /** Real places the answer is about, for 'Open on globe'. */
   places?: Array<{ name: string; lat: number; lon: number }>;
   suggestions?: string[];
+  /** Discovery: what stood out in the user's data, as cards with charts and the working. */
+  findings?: ParsedFindings | null;
+  /** Discovery: the live step list while it runs. */
+  steps?: RunStep[];
   widget?: WidgetSpec;
   proposal?: { action_id: string; project_id?: string };
   /** The assistant needs the user's one-time decision on reading this project's data. */
   permission?: { project_id: string; decision: PermissionDecision; busy?: boolean; error?: string };
   /** A data change the assistant proposed; applied only after the user approves. */
   dataChange?: { action_id: string; project_id: string; proposal: ChangeProposal; status: DataChangeStatus; error?: string };
+  bulkChange?: { action_id: string; project_id: string; proposal: BulkProposal; status: BulkChangeStatus; result?: { changed?: number; skipped?: number; restored?: number; left_alone?: number } | null; error?: string };
   streaming?: boolean;
   status?: string;
   /** 0-token tool fast-path — never label as AI-written */
@@ -165,6 +177,12 @@ const ZERO_TOKEN_TOOL_LABELS: Record<string, string> = {
   calculator: 'calculator',
   currency_converter: 'FX',
   stock_lookup: 'stock',
+  linear_trend: 'Regression',
+  forecast_tool: 'Forecast',
+  forecasting_ml: 'Forecast',
+  arima: 'Forecast',
+  correlation: 'Correlation',
+  correlation_finder: 'Correlation',
 };
 
 function contentDeniesWebSearch(content: string | undefined): boolean {
@@ -339,8 +357,6 @@ function ChatInner() {
   const router = useRouter();
   const { isIncognito } = useTheme();
   const { beginChatRun, ingestChatRun } = useGlobe();
-  const user = getStoredUser();
-  const firstName = user?.name?.split(' ')[0] || 'there';
 
   const [composerMode, setComposerMode] = useState<ComposerMode>('chat');
   const [modelSizeMax, setModelSizeMax] = useState<ModelSize>('small');
@@ -404,6 +420,32 @@ function ChatInner() {
     const scoped = params.get('project') || params.get('projectId');
     if (scoped) setProjectId(scoped);
     if (params.get('mode') === 'research') setComposerMode('research');
+    // Design QA only: /research?fixture=math. Off in production builds unless NEXT_PUBLIC_ENABLE_FIXTURES=1,
+    // so a sample run is never shown to real users as if it were their own.
+    const fixturesAllowed =
+      process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_ENABLE_FIXTURES === '1';
+    if (fixturesAllowed && params.get('fixture') === 'math') {
+      const data = parseFindings(mathFixture);
+      if (data) {
+        setComposerMode('research');
+        setMessages([
+          {
+            id: 'fixture-math-user',
+            role: 'user',
+            content: 'Show Phase 1 math finding cards (Design QA fixture)',
+            mode: 'research',
+          },
+          {
+            id: 'fixture-math-assistant',
+            role: 'assistant',
+            content:
+              'Sample math run for Design QA. Regression uses linear_trend; Forecast is forecast_tool (OLS + 95% residual bands). What-if is not wired yet — no scenario numbers were made up.',
+            findings: data,
+            mode: 'research',
+          },
+        ]);
+      }
+    }
   }, [params]);
 
   useEffect(() => {
@@ -704,15 +746,20 @@ function ChatInner() {
       const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const res = await fetch(`${base}/v1/shares`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'AnalyzeIt result', text, run_id: shareRunId || '' }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ title: 'AnalyzeIt result', text, run_id: shareRunId || '', expires_in_days: 30 }),
       });
+      if (res.status === 409) {
+        const body = (await res.json().catch(() => ({}))) as { detail?: { message?: string } };
+        setError(body.detail?.message || 'This answer cannot be shared.');
+        return;
+      }
       if (!res.ok) throw new Error('share failed');
       const data = (await res.json()) as { path?: string };
       const url = `${window.location.origin}${data.path || ''}`;
       await navigator.clipboard.writeText(url);
       setError(null);
-      setDashStatus('Share link copied.');
+      setDashStatus('Report link copied. It works for 30 days; you can turn it off from Profile.');
     } catch {
       setError('Could not create a share link.');
     }
@@ -844,6 +891,8 @@ function ChatInner() {
       let proposalMeta: { action_id: string; project_id?: string } | undefined;
       let sources: ResearchSource[] = [];
       let extras = parseExtras(null) as ReturnType<typeof parseExtras>;
+      let findingsData: ParsedFindings | null = null;
+      let discoverySteps: RunStep[] = [];
       let streamed = '';
       let hintTools: string[] = [];
       let zeroTokenTool: string | null = null;
@@ -964,7 +1013,9 @@ function ChatInner() {
               const fromRoute = parseZeroTokenTool(reason) || parseZeroTokenTool(routeField);
               if (fromRoute) zeroTokenTool = fromRoute;
               const nextMode = event.payload?.response_mode === 'report' ? 'report' : 'chat';
-              const ztStatus = zeroTokenTool
+              const ztStatus = isDiscoveryRoute(reason)
+                ? 'Looking through your data…'
+                : zeroTokenTool
                 ? `Looking up via ${labelZeroTokenTool(zeroTokenTool)}…`
                 : nextMode === 'report'
                   ? 'Generating report…'
@@ -1021,7 +1072,7 @@ function ChatInner() {
                     name: hint || undefined,
                   });
                 }
-                const memoryStatus = memoryToolStatus(name, args);
+                const memoryStatus = name === 'data_discovery' ? 'Looking through your data…' : memoryToolStatus(name, args);
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantId
@@ -1054,6 +1105,14 @@ function ChatInner() {
                   ),
                 );
               }
+              return;
+            }
+
+            if (event.event === 'tool_progress' && event.payload?.tool === 'data_discovery') {
+              discoverySteps = reduceSteps(discoverySteps, event.payload);
+              const stepsNow = discoverySteps;
+              const statusNow = discoveryStatus(event.payload);
+              setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, status: statusNow, steps: stepsNow } : m)));
               return;
             }
 
@@ -1199,6 +1258,7 @@ function ChatInner() {
             if (event.event === 'final') {
               const finalPayload = (event.payload || {}) as Record<string, unknown>;
               extras = parseExtras(finalPayload);
+              findingsData = parseFindings(finalPayload.findings);
               const usage = finalPayload.usage as Record<string, unknown> | undefined;
               if (usage) {
                 const fromUsage = parseContextBudget({
@@ -1255,6 +1315,22 @@ function ChatInner() {
               if (pid) {
                 setMessages((prev) =>
                   prev.map((m) => (m.id === assistantId ? { ...m, permission: { project_id: pid, decision: null } } : m)),
+                );
+              }
+              return;
+            }
+
+            if (event.event === 'ui_proposal' && event.payload.action === 'object_bulk_change') {
+              const actionId = typeof event.payload.action_id === 'string' ? event.payload.action_id : '';
+              const pid = typeof event.payload.project_id === 'string' ? event.payload.project_id : '';
+              const proposal = parseBulkProposal(event.payload.proposal);
+              if (actionId && pid && proposal) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, bulkChange: { action_id: actionId, project_id: pid, proposal, status: 'pending' as BulkChangeStatus } }
+                      : m,
+                  ),
                 );
               }
               return;
@@ -1356,6 +1432,8 @@ function ChatInner() {
                     charts: extras.charts as ChartSpec[],
                     places: extras.places,
                     suggestions: extras.suggestions,
+                    findings: findingsData,
+                    steps: undefined,
                     widget: widget || m.widget,
                     proposal: proposalMeta || m.proposal,
                     streaming: false,
@@ -1549,6 +1627,39 @@ function ChatInner() {
     }
   };
 
+  const decideBulk = async (msgId: string, approve: boolean) => {
+    const change = messages.find((m) => m.id === msgId)?.bulkChange;
+    if (!change) return;
+    patchMessage(msgId, (m) => ({ ...m, bulkChange: { ...change, status: 'applying', error: undefined } }));
+    try {
+      const res = await decideBulkChange(change.project_id, change.action_id, approve);
+      patchMessage(msgId, (m) => ({ ...m, bulkChange: { ...change, status: approve ? 'applied' : 'rejected', result: res.bulk ?? null } }));
+    } catch (err) {
+      const status = (err as { status?: number }).status ?? 0;
+      patchMessage(msgId, (m) => ({
+        ...m,
+        bulkChange: { ...change, status: 'error', error: explainBulkError(status, err instanceof Error ? err.message : undefined) },
+      }));
+    }
+  };
+
+  const undoBulk = async (msgId: string) => {
+    const change = messages.find((m) => m.id === msgId)?.bulkChange;
+    if (!change) return;
+    patchMessage(msgId, (m) => ({ ...m, bulkChange: { ...change, status: 'undoing', error: undefined } }));
+    try {
+      const res = await undoBulkChange(change.project_id, change.action_id);
+      patchMessage(msgId, (m) => ({ ...m, bulkChange: { ...change, status: 'undone', result: res.bulk, error: undefined } }));
+    } catch (err) {
+      const status = (err as { status?: number }).status ?? 0;
+      // the change itself is still in place, so the card goes back to showing it as applied
+      patchMessage(msgId, (m) => ({
+        ...m,
+        bulkChange: { ...change, status: 'applied', error: explainBulkError(status, err instanceof Error ? err.message : undefined) },
+      }));
+    }
+  };
+
   const latestProposalMeta = [...messages].reverse().find((m) => m.proposal)?.proposal;
 
   return (
@@ -1653,33 +1764,7 @@ function ChatInner() {
               {/* User stays on the trailing edge; the reply sits on the opposite side of the globe. */}
               <div className="flex w-full flex-col gap-4">
               {messages.length === 0 && (
-                <div className="flex min-h-[min(28rem,70%)] flex-col justify-center py-6 sm:py-10">
-                  <div className="app-card space-y-5 bg-[var(--surface)]/92 p-6 shadow-lg backdrop-blur-md sm:p-8">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-card,14px)] bg-[var(--coral,#EA8069)]/12 text-[var(--coral,#EA8069)]">
-                      <IconMessageDots size={22} />
-                    </div>
-                    <div className="space-y-2">
-                      <h1 className="font-serif text-[28px] leading-[1.15] tracking-tight text-[var(--text,#3A342D)] dark:text-[var(--text-primary)]">
-                        Ask what your data already knows
-                      </h1>
-                      <p className="text-sm leading-relaxed text-[var(--text-muted,#81786F)]">
-                        Hi {firstName}. Chat for a quiet read of the numbers. Switch to Research when you need live sources.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      {prompts.map((prompt) => (
-                        <button
-                          key={prompt}
-                          type="button"
-                          onClick={() => void sendMessage(prompt)}
-                          className="rounded-full border border-[var(--coral,#EA8069)]/35 bg-[var(--coral,#EA8069)]/10 px-3.5 py-2 text-left text-xs font-medium text-[var(--coral-dark,#C96551)] transition-colors hover:bg-[var(--coral,#EA8069)]/18"
-                        >
-                          {prompt}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <ResearchEmptyState prompts={prompts} onPick={(prompt) => void sendMessage(prompt)} />
               )}
 
               {messages.map((msg, msgIndex) => {
@@ -1698,7 +1783,7 @@ function ChatInner() {
                           ? isIncognito
                             ? 'rounded-2xl rounded-tr-md border border-violet-400/40 bg-violet-50/95 px-4 py-3 text-sm text-violet-950 shadow-sm backdrop-blur-md dark:border-violet-400/30 dark:bg-violet-950/70 dark:text-violet-50'
                             : 'rounded-2xl rounded-tr-md border border-[var(--border)] bg-[var(--surface)]/95 px-4 py-3 text-sm text-[var(--text-primary)] shadow-sm backdrop-blur-md'
-                          : 'app-card max-w-full bg-[var(--surface)]/92 px-4 py-3 text-sm shadow-sm backdrop-blur-md'
+                          : `app-card max-w-full bg-[var(--surface)]/92 px-4 py-3 text-sm shadow-sm backdrop-blur-md${msg.findings ? ' w-full' : ''}`
                       }`}
                     >
                       {!isUser && msg.mode === 'research' && (
@@ -1787,7 +1872,7 @@ function ChatInner() {
                         ) : isUser ? (
                           <p className="whitespace-pre-wrap">{msg.content}</p>
                         ) : msg.content ? (
-                          <ChatMarkdown text={msg.content} />
+                          <ChatMarkdown text={msg.findings && !msg.streaming ? withoutFindingList(msg.content) : msg.content} />
                         ) : msg.streaming || msg.softFail ? null : (
                           <ChatMarkdown text="…" />
                         )}
@@ -1859,9 +1944,10 @@ function ChatInner() {
                         </button>
                       ) : null}
 
-                      {!isUser && msg.status && msg.streaming && (
+                      {!isUser && msg.status && msg.streaming && !msg.steps?.length && (
                         <p className="text-[11px] font-mono text-[var(--text-muted)]">{msg.status}</p>
                       )}
+                      {!isUser && msg.streaming && msg.steps?.length ? <RunSteps steps={msg.steps} /> : null}
 
                       {!isUser && msg.sources && msg.sources.length > 0 && (
                         <SourceChips sources={msg.sources} />
@@ -1928,6 +2014,22 @@ function ChatInner() {
                         />
                       )}
 
+                      {!isUser && msg.bulkChange && (
+                        <BulkChangeCard
+                          projectId={msg.bulkChange.project_id}
+                          proposal={msg.bulkChange.proposal}
+                          status={msg.bulkChange.status}
+                          result={msg.bulkChange.result}
+                          error={msg.bulkChange.error}
+                          onApprove={() => void decideBulk(msg.id, true)}
+                          onReject={() => void decideBulk(msg.id, false)}
+                          onUndo={() => void undoBulk(msg.id)}
+                        />
+                      )}
+
+                      {!isUser && !msg.streaming && msg.findings ? (
+                        <FindingCards data={msg.findings} disabled={isStreaming} signedIn onAsk={(q) => void sendMessage(q)} />
+                      ) : null}
                       {!isUser && !msg.streaming && msg.charts?.map((c, ci) => <ChartCard key={ci} chart={c} />)}
                       {!isUser && !msg.streaming && msg.places?.length ? (
                         <button
@@ -1939,7 +2041,7 @@ function ChatInner() {
                           Open {msg.places.length === 1 ? msg.places[0].name : `${msg.places.length} places`} on the globe
                         </button>
                       ) : null}
-                      {!isUser && !msg.streaming && msgIndex === messages.length - 1 && msg.suggestions?.length ? (
+                      {!isUser && !msg.streaming && !msg.findings && msgIndex === messages.length - 1 && msg.suggestions?.length ? (
                         <SuggestionChips
                           suggestions={msg.suggestions}
                           disabled={isStreaming}
@@ -2060,50 +2162,8 @@ function ChatInner() {
             {/* Composer — pinned to the bottom of the chat column */}
             <div className="relative z-10 shrink-0 border-t border-[var(--border)]/70 bg-[var(--bg)]/70 px-3 py-3 backdrop-blur-md sm:px-6">
               <div className="mx-auto max-w-3xl space-y-2">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div
-                    role="tablist"
-                    aria-label="Conversation mode"
-                    className="inline-flex min-h-8 items-center rounded-full border border-[var(--border)] bg-[var(--surface,#FFFCF8)] p-0.5 shadow-sm"
-                  >
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={composerMode === 'chat'}
-                      onClick={() => setComposerMode('chat')}
-                      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium transition-colors ${
-                        composerMode === 'chat'
-                          ? 'bg-[var(--coral,#EA8069)] text-white'
-                          : 'text-[var(--text-muted,#81786F)] hover:text-[var(--text,#3A342D)]'
-                      }`}
-                    >
-                      <IconMessageDots size={14} />
-                      Chat
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={composerMode === 'research'}
-                      onClick={() => setComposerMode('research')}
-                      title="Research uses live web and geo tools"
-                      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium transition-colors ${
-                        composerMode === 'research'
-                          ? 'bg-[var(--coral,#EA8069)] text-white'
-                          : 'text-[var(--text-muted,#81786F)] hover:text-[var(--text,#3A342D)]'
-                      }`}
-                    >
-                      <IconSearch size={14} />
-                      Research
-                    </button>
-                    <Link
-                      href="/globe"
-                      role="tab"
-                      className="inline-flex min-h-8 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium text-[var(--text-muted,#81786F)] hover:text-[var(--text,#3A342D)]"
-                    >
-                      <IconWorld size={14} />
-                      Globe
-                    </Link>
-                  </div>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <ComposerModeControl mode={composerMode} onMode={setComposerMode} />
                   <span
                     title="Message frequency hints prepared in your browser before send"
                     className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface,#FFFCF8)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-muted,#81786F)]"

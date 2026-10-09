@@ -8,24 +8,24 @@ interface ComparisonRow {
 
 const COMPARISONS: ComparisonRow[] = [
   {
-    topic: 'Place & context',
-    oldWay: 'A tiny map widget buried under filters, or a chat that cannot hand off a location.',
-    analyzeIt: 'Map-first Globe with search, pins, and Ask-about-place straight into Research.',
+    topic: 'Getting your data in',
+    oldWay: 'Export a file from Razorpay, upload it to a chatbot, and do it all again next week.',
+    analyzeIt: 'Connect once. When you ask, the data is refreshed first if it is more than a few minutes old.',
   },
   {
-    topic: 'Answers you can trust',
-    oldWay: 'Generic chat that blurs tools, models, and made-up prose.',
-    analyzeIt: 'Provenance chips, From tools · 0 tokens when a live tool suffices, Prepared on device for CSR hints.',
+    topic: 'Knowing what to ask',
+    oldWay: 'You have to already suspect the problem before you can ask about it.',
+    analyzeIt: 'It checks every status, method and bank for you and shows what is out of line, and when it started.',
   },
   {
-    topic: 'Dashboards & structure',
-    oldWay: 'Cold admin boards and half-broken Connect buttons.',
-    analyzeIt: 'Calm studio canvases plus honest connector status and clear objects.',
+    topic: 'Trusting the number',
+    oldWay: 'A chat may compute a figure or may estimate it, and you often cannot tell which.',
+    analyzeIt: 'Every figure comes from a query you can read. The checks were tested on data with nothing wrong, to measure how often they cry wolf.',
   },
   {
-    topic: 'Large corpora',
-    oldWay: 'Marketing that implies stuffing a billion tokens into one API call.',
-    analyzeIt: 'Tiered deep context — focused, compressed, or RLM-orchestrated inspect — framed honestly.',
+    topic: 'Your customers’ details',
+    oldWay: 'Exports often include customer emails and phone numbers, and the whole file goes to a third-party chat.',
+    analyzeIt: 'Only revenue fields are read. Customer email, phone, card and UPI details are never stored.',
   },
 ];
 
@@ -40,16 +40,16 @@ export const ComparisonSection: React.FC = () => {
       <div className="max-w-2xl space-y-4">
         <div className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-[#4A4238]/60 dark:text-[#91867E]">
           <span className="w-1.5 h-1.5 rounded-full bg-[#E3836C]" />
-          Why Calm Matters
+          Why not a chatbot?
         </div>
         <h2 className="font-serif text-4xl md:text-5xl text-[#4A4238] dark:text-[#F4EDE5] font-normal leading-tight">
-          Most analytics tools make you{' '}
+          You can upload a file to a chatbot. Here is{' '}
           <em className="font-serif italic text-[#E3836C]">
-            work for the answer.
+            what changes when it is every week.
           </em>
         </h2>
         <p className="text-base text-[#4A4238]/70 dark:text-[#C5B9AE]">
-          Dashboards were built for displaying widgets, not making decisions. AnalyzeIt replaces screen fatigue with quiet clarity.
+          For a one-off question, a general chatbot is fine. For your payments, week after week, you want the data connected, the problem found without being asked, and numbers you can check.
         </p>
       </div>
 
@@ -58,7 +58,7 @@ export const ComparisonSection: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 bg-[#F3EDE4]/90 dark:bg-[#292522] p-6 md:px-10 text-xs font-mono uppercase tracking-wider text-[#4A4238]/70 dark:text-[#C5B9AE] border-b border-[#4A4238]/08 dark:border-[#3A3430]">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#4A4238]/30 dark:bg-[#C5B9AE]/40" />
-            The Traditional Way
+            Uploading a file to a chatbot
           </div>
           <div className="hidden md:flex items-center gap-2 text-[#E3836C]">
             <span className="w-2 h-2 rounded-full bg-[#E3836C]" />

@@ -3,11 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../ui/Toast';
 import { AgentAccessPanel } from './AgentAccessPanel';
+import { DigestPanel } from './DigestPanel';
+import { TeamPanel } from './TeamPanel';
 import { SyncedDataLinks } from './SyncedDataLinks';
 import { useConfirm } from '../ui/ConfirmDialog';
 import {
   IconPlugConnected,
   IconBrandStripe,
+  IconCurrencyRupee,
   IconBrandGithub,
   IconBrandGoogleDrive,
   IconCloud,
@@ -55,6 +58,7 @@ type FormKind =
   | 'postgres'
   | 'sqlite'
   | 'stripe'
+  | 'razorpay'
   | 'salesforce'
   | 'kaggle'
   | 'huggingface'
@@ -85,6 +89,8 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
   const [pgPassword, setPgPassword] = useState('');
   const [sqlitePath, setSqlitePath] = useState('');
   const [stripeKey, setStripeKey] = useState('');
+  const [rzpKeyId, setRzpKeyId] = useState('');
+  const [rzpSecret, setRzpSecret] = useState('');
   const [sfInstance, setSfInstance] = useState('');
   const [sfToken, setSfToken] = useState('');
   const [sfUsername, setSfUsername] = useState('');
@@ -183,6 +189,7 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
       };
     }
     if (form === 'stripe') return { api_key: stripeKey };
+    if (form === 'razorpay') return { key_id: rzpKeyId.trim(), key_secret: rzpSecret.trim() };
     if (form === 'salesforce') {
       if (sfAdvanced) {
         return {
@@ -224,6 +231,7 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
       setEditingId(null);
       setPgPassword('');
       setStripeKey('');
+      setRzpSecret('');
       setSfToken('');
       setSfPassword('');
       setSfClientSecret('');
@@ -282,6 +290,12 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
     string,
     { name: string; icon: React.ReactNode; desc: string; authMode: AuthMode }
   > = {
+    razorpay: {
+      name: 'Razorpay',
+      icon: <IconCurrencyRupee className="w-6 h-6 text-[var(--coral)]" />,
+      desc: 'Read-only payments and refunds, kept current, so you can ask where payments fail and when it started. Customer email, phone, card and UPI details are never stored.',
+      authMode: 'connection',
+    },
     stripe: {
       name: 'Stripe Connect',
       icon: <IconBrandStripe className="w-6 h-6 text-[var(--coral)]" />,
@@ -340,7 +354,9 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
 
   const providerIds = availableConnectorIds(available);
 
-  const allProviders = providerIds.map((id) => {
+  // Razorpay first: it is the connection most of our users can actually use.
+  const orderedIds = [...providerIds].sort((a, b) => Number(b === 'razorpay') - Number(a === 'razorpay'));
+  const allProviders = orderedIds.map((id) => {
     const row = available.find((item) => item.id === id);
     const meta = PROVIDER_METAS[id];
     return {
@@ -365,7 +381,9 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
       ? 'PostgreSQL'
       : form === 'sqlite'
         ? 'SQLite'
-        : form === 'stripe'
+        : form === 'razorpay'
+          ? 'Razorpay'
+          : form === 'stripe'
           ? 'Stripe'
           : form === 'salesforce'
             ? 'Salesforce'
@@ -380,6 +398,8 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
   return (
     <div className="flex flex-col gap-6 w-full">
       <AgentAccessPanel projectId={projectId} />
+      <DigestPanel projectId={projectId} />
+      <TeamPanel projectId={projectId} />
       <SyncedDataLinks projectId={projectId} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-white/10">
         <div>
@@ -474,6 +494,35 @@ export function ConnectorsView({ projectId, notice = null }: ConnectorsViewProps
                   className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
                   value={pgPassword}
                   onChange={(e) => setPgPassword(e.target.value)}
+                />
+              </label>
+            </div>
+          )}
+          {form === 'razorpay' && (
+            <div className="space-y-3">
+              <p className="text-xs text-[var(--text-muted)]">
+                In Razorpay, open Account &amp; Settings, then API Keys, and generate a key. Paste the key id and secret here. AnalyzeIt only reads payments and refunds, never
+                moves money, and never stores customer email, phone, card or UPI details. Start with a test-mode key if you want to look first.
+              </p>
+              <label className="block text-xs text-[var(--text-muted)]">
+                Key id (starts with rzp_live_ or rzp_test_)
+                <input
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                  value={rzpKeyId}
+                  onChange={(e) => setRzpKeyId(e.target.value)}
+                  placeholder="rzp_live_…"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </label>
+              <label className="block text-xs text-[var(--text-muted)]">
+                Key secret
+                <input
+                  type="password"
+                  className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+                  value={rzpSecret}
+                  onChange={(e) => setRzpSecret(e.target.value)}
+                  autoComplete="off"
                 />
               </label>
             </div>

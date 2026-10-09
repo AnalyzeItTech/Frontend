@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Navbar } from './Navbar';
 import { InspectDrawer, DrawerDetail } from './InspectDrawer';
 import { LandingProgressContext } from './LandingProgressContext';
-import { LoadingScreen } from '../ui/LoadingScreen';
 
 const SceneCanvas = dynamic(
   () => import('../3d/SceneCanvas').then((mod) => mod.SceneCanvas),
@@ -13,19 +12,12 @@ const SceneCanvas = dynamic(
 );
 
 export function LandingExperience({ children }: { children: React.ReactNode }) {
-  const [isLoading, setIsLoading] = useState(true);
   const [showSkip, setShowSkip] = useState(true);
   const [isCanvasVisible, setIsCanvasVisible] = useState(true);
   const [inspectedDetail, setInspectedDetail] = useState<DrawerDetail | null>(null);
   const scrollProgressRef = useRef(0);
 
-  const handleLoadComplete = useCallback(() => {
-    setIsLoading(false);
-  }, []);
-
   useEffect(() => {
-    if (isLoading) return;
-
     let ticking = false;
     let lastSkip = true;
     let lastVisible = true;
@@ -76,7 +68,7 @@ export function LandingExperience({ children }: { children: React.ReactNode }) {
     compute();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [isLoading]);
+  }, []);
 
   const contextValue = useMemo(
     () => ({ setInspectedDetail }),
@@ -89,9 +81,7 @@ export function LandingExperience({ children }: { children: React.ReactNode }) {
       className="relative min-h-screen bg-transparent text-ink selection:bg-coral/30 selection:text-ink overflow-x-hidden"
       style={{ ['--nav-h' as string]: '96px' }}
     >
-      {isLoading && <LoadingScreen onComplete={handleLoadComplete} />}
-
-      {!isLoading && showSkip && (
+      {showSkip && (
         <a
           href="#capabilities"
           className="fixed bottom-5 right-5 z-30 min-h-11 px-4 rounded-full bg-[#322C28] text-[#FFF7F1] text-sm font-medium shadow-lg pointer-events-auto inline-flex items-center xl:right-8"
@@ -108,19 +98,13 @@ export function LandingExperience({ children }: { children: React.ReactNode }) {
       <InspectDrawer detail={inspectedDetail} onClose={() => setInspectedDetail(null)} />
       <SceneCanvas
         scrollProgressRef={scrollProgressRef}
-        isLoaded={!isLoading}
+        isLoaded
         isCanvasVisible={isCanvasVisible}
       />
-      {!isLoading && <Navbar />}
+      <Navbar />
 
       <LandingProgressContext.Provider value={contextValue}>
-        <div
-          className={`transition-opacity duration-500 ${
-            isLoading ? 'opacity-0 pointer-events-none' : 'opacity-100'
-          }`}
-        >
-          {children}
-        </div>
+        {children}
       </LandingProgressContext.Provider>
     </div>
   );

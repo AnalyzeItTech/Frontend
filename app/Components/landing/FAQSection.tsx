@@ -29,7 +29,7 @@ const FAQS: FAQItem[] = [
   {
     question: 'Can my whole team collaborate in one workspace?',
     answer:
-      'Yes. Project sharing links and role-aware UI redaction are available. Full team invites, Slack digests, and Notion delivery are still rolling out.',
+      'You can share a result or project with a link that you can switch off at any time.',
   },
 ];
 

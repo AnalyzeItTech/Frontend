@@ -55,7 +55,9 @@ import { getStoredUser, type UserProfile } from '../lib/auth';
 import { getEntitlements } from '../lib/billingApi';
 import { PermissionRequestCard, type PermissionDecision } from '../Components/chat/PermissionRequestCard';
 import { DataChangeCard, type DataChangeStatus } from '../Components/chat/DataChangeCard';
-import { decideDataChange, setAgentAccess } from '../lib/agentAccessApi';
+import { decideBulkChange, decideDataChange, setAgentAccess, undoBulkChange } from '../lib/agentAccessApi';
+import { BulkChangeCard, type BulkChangeStatus } from '../Components/chat/BulkChangeCard';
+import { explainBulkError, parseBulkProposal, type BulkProposal } from '../lib/bulkChange.mjs';
 import { explainApplyError, type ChangeProposal } from '../lib/dataChange.mjs';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
 import { ChatMarkdown } from '../Components/chat/ChatMarkdown';
@@ -97,6 +99,7 @@ interface Message {
   proposalActionId?: string;
   permission?: { project_id: string; decision: PermissionDecision; busy?: boolean; error?: string };
   dataChange?: { action_id: string; project_id: string; proposal: ChangeProposal; status: DataChangeStatus; error?: string };
+  bulkChange?: { action_id: string; project_id: string; proposal: BulkProposal; status: BulkChangeStatus; result?: { changed?: number; skipped?: number; restored?: number; left_alone?: number } | null; error?: string };
 }
 
 function NewProjectContent() {
@@ -959,6 +962,22 @@ function NewProjectContent() {
         return;
       }
 
+      if (event.event === 'ui_proposal' && event.payload.action === 'object_bulk_change') {
+        const actionId = typeof event.payload.action_id === 'string' ? event.payload.action_id : '';
+        const pid = typeof event.payload.project_id === 'string' ? event.payload.project_id : '';
+        const proposal = parseBulkProposal(event.payload.proposal);
+        if (actionId && pid && proposal) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, bulkChange: { action_id: actionId, project_id: pid, proposal, status: 'pending' as BulkChangeStatus } }
+                : m
+            )
+          );
+        }
+        return;
+      }
+
       if (event.event === 'ui_proposal' && event.payload.action === 'object_mutation' && event.payload.proposal) {
         const actionId = typeof event.payload.action_id === 'string' ? event.payload.action_id : '';
         const pid = typeof event.payload.project_id === 'string' ? event.payload.project_id : '';
@@ -1192,6 +1211,32 @@ function NewProjectContent() {
         ...m,
         dataChange: { ...change, status: 'error', error: explainApplyError(status, err instanceof Error ? err.message : undefined) },
       }));
+    }
+  };
+
+  const decideBulk = async (msgId: string, approve: boolean) => {
+    const change = messages.find((m) => m.id === msgId)?.bulkChange;
+    if (!change) return;
+    patchMessage(msgId, (m) => ({ ...m, bulkChange: { ...change, status: 'applying', error: undefined } }));
+    try {
+      const res = await decideBulkChange(change.project_id, change.action_id, approve);
+      patchMessage(msgId, (m) => ({ ...m, bulkChange: { ...change, status: approve ? 'applied' : 'rejected', result: res.bulk ?? null } }));
+    } catch (err) {
+      const status = (err as { status?: number }).status ?? 0;
+      patchMessage(msgId, (m) => ({ ...m, bulkChange: { ...change, status: 'error', error: explainBulkError(status, err instanceof Error ? err.message : undefined) } }));
+    }
+  };
+
+  const undoBulk = async (msgId: string) => {
+    const change = messages.find((m) => m.id === msgId)?.bulkChange;
+    if (!change) return;
+    patchMessage(msgId, (m) => ({ ...m, bulkChange: { ...change, status: 'undoing', error: undefined } }));
+    try {
+      const res = await undoBulkChange(change.project_id, change.action_id);
+      patchMessage(msgId, (m) => ({ ...m, bulkChange: { ...change, status: 'undone', result: res.bulk, error: undefined } }));
+    } catch (err) {
+      const status = (err as { status?: number }).status ?? 0;
+      patchMessage(msgId, (m) => ({ ...m, bulkChange: { ...change, status: 'applied', error: explainBulkError(status, err instanceof Error ? err.message : undefined) } }));
     }
   };
 
@@ -1575,6 +1620,19 @@ function NewProjectContent() {
                         error={msg.dataChange.error}
                         onApprove={() => void decideChange(msg.id, true)}
                         onReject={() => void decideChange(msg.id, false)}
+                      />
+                    )}
+
+                    {msg.bulkChange && (
+                      <BulkChangeCard
+                        projectId={msg.bulkChange.project_id}
+                        proposal={msg.bulkChange.proposal}
+                        status={msg.bulkChange.status}
+                        result={msg.bulkChange.result}
+                        error={msg.bulkChange.error}
+                        onApprove={() => void decideBulk(msg.id, true)}
+                        onReject={() => void decideBulk(msg.id, false)}
+                        onUndo={() => void undoBulk(msg.id)}
                       />
                     )}
 

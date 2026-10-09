@@ -10,9 +10,11 @@ export const metadata: Metadata = {
 
 const BLURBS: Record<string, string> = {
   '/docs/how-answers-work': 'When a live tool answers, when a model does, and what happens when a tool fails.',
+  '/docs/discovery': 'Finding what stands out, bringing in public data with its source, and changing many records with a preview and undo.',
   '/docs/plans': 'Exactly what Free, Premium and VIP include, in numbers.',
   '/docs/memory': 'What “memory” stores, how it is searched, how to see and delete it.',
   '/docs/connectors': 'What you can connect today and what is still rolling out.',
+  '/guides': 'Short practical guides: what changed in your numbers, real change or noise, public data, messy CSVs.',
   '/changelog': 'What shipped, dated, including what is not finished.',
 };
 

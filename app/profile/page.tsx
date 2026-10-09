@@ -20,6 +20,7 @@ import { cancelSubscription, getBillingHistory, getEntitlements } from '../lib/b
 import { getUserUsage, type UserUsageData } from '../lib/exportApi';
 import { parseLlmQuota } from '../lib/llmQuota';
 import { profileInitials, profileMonthUsage, profileTierName } from '../lib/profileHero.mjs';
+import { SharedLinks } from '../Components/app/SharedLinks';
 import { RetentionMeter } from '../Components/billing/RetentionMeter';
 import { ThemeToggle } from '../Components/ui/ThemeToggle';
 import { IncognitoToggle } from '../Components/ui/IncognitoToggle';
@@ -219,7 +220,7 @@ function ProfileInner() {
                       <>
                         {monthUsage.used?.toLocaleString()}
                         <span className="ml-2 align-middle font-sans text-sm font-medium text-[var(--text-muted)]">
-                          Unlimited
+                          No run ceiling
                         </span>
                       </>
                     ) : (
@@ -426,6 +427,8 @@ function ProfileInner() {
                 onCountChange={setProjectCount}
               />
             </motion.div>
+
+            <SharedLinks />
 
             <motion.section
               initial={{ opacity: 0, y: 10 }}
