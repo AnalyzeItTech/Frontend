@@ -8,6 +8,7 @@ import { CHANGELOG } from './changelog.mjs';
 import { GUIDES, readMinutes, wordCount } from './guides.mjs';
 import { LIVE_CASES } from './liveCases.mjs';
 import { parseFindings } from './findings.mjs';
+import { MATH_BANNED } from './mathFindings.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
 
@@ -172,5 +173,21 @@ describe('contact addresses', () => {
       }
     }
     assert.deepEqual(hits, []);
+  });
+});
+
+
+describe('Phase 1 math honesty', () => {
+  it('math finding chrome has none of the trading/quant theater phrases', () => {
+    const paths = [
+      'app/Components/research/FindingCards.tsx',
+      'app/Components/research/MathStepRail.tsx',
+      'app/lib/fixtures/findings.math.json',
+      'app/Components/case/CaseResult.tsx',
+    ];
+    for (const rel of paths) {
+      const text = fs.readFileSync(path.join(root, rel), 'utf8');
+      for (const rx of MATH_BANNED) assert.doesNotMatch(text, rx, `${rel}: ${rx}`);
+    }
   });
 });

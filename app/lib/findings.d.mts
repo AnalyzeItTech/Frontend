@@ -4,14 +4,26 @@ export interface BarsVisual { type: 'bars'; items: Array<{ label: string; value:
 export interface ScatterVisual { type: 'scatter'; points: Array<[number, number]>; xLabel: string; yLabel: string; fit: Array<[number, number]> | null; r: number | null }
 export interface BandVisual { type: 'band'; low: number; high: number; center: number; values: Array<{ label: string; value: number; flag: boolean }>; format: 'number' | 'percent' }
 export interface MeterVisual { type: 'meter'; parts: Array<{ label: string; value: number; tone: 'ok' | 'warn' }>; total: number }
-export interface ForecastVisual { type: 'forecast'; x: string[]; history: number[]; forecast: number[]; low: number[]; high: number[]; yLabel: string; format: 'number' | 'percent' }
+export interface ForecastVisual { type: 'forecast'; x: string[]; history: number[]; forecast: number[]; low: number[]; high: number[]; yLabel: string; format: 'number' | 'percent'; bandPct?: number | null }
 export type Visual = LineVisual | BarsVisual | ScatterVisual | BandVisual | MeterVisual | ForecastVisual;
+export type MathMethod = 'regression' | 'forecast' | 'what_if';
+export type MathStepState = 'done' | 'running' | 'failed' | 'unwired' | 'pending';
+export interface MathKpi { label: string; value: string; note: string }
+export interface MathBlock {
+  method: MathMethod; methodLabel: string; tool: string | null; kpis: MathKpi[]; assumptions: string[];
+  caveat: string; chartRef: string | null; chartCaption: string; mathStatus: MathStepState; target: string;
+  structured: { method: MathMethod; kpis: MathKpi[]; assumptions: string[]; chartRef: string | null; caveat: string; sources: string[] };
+}
+export interface MathStepRailItem {
+  id: string; method: MathMethod; label: string; state: MathStepState; detail: string; findingId: string;
+}
 export interface Finding {
   id: string; kind: string; kindLabel: string; title: string; soWhat: string; headline: string; reasoning: string[]; why: string[];
   confidence: string; confidenceLabel: string; confidenceTone: Tone; confidenceNote: string; strength: number; visual: Visual | null;
   figures: Array<{ label: string; value: string; n: number | null; note: string }>; sql: string; followups: string[];
   source: { table: string; origin: 'project' | 'online'; url: string };
   provenance: { host: string; publisher: string; publisherLabel: string; fetchedAt: string; latest: string | null } | null;
+  math: MathBlock | null;
 }
 export interface FindingsScope {
   mode: 'project' | 'online';
@@ -24,6 +36,7 @@ export interface ParsedFindings {
   partial: Array<{ table: string; loaded: number; total: number }>;
   notes: string[];
   scope: FindingsScope;
+  mathSteps: MathStepRailItem[];
 }
 export interface RunStep { id: string; label: string; state: 'pending' | 'running' | 'done'; detail: string }
 export const MAX_FINDINGS: number; export const MAX_POINTS: number; export const MAX_BARS: number; export const MAX_SCATTER: number; export const MAX_FIGURES: number; export const MAX_FORECAST: number;

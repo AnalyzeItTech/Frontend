@@ -4,6 +4,7 @@
 // (React renders them as text nodes), numbers must be finite, every list is capped, and an unknown version means "no cards".
 
 import { niceTicks } from './chatExtras.mjs';
+import { buildMathSteps, parseMathBlock } from './mathFindings.mjs';
 
 export const MAX_FINDINGS = 8;
 export const MAX_POINTS = 72;
@@ -12,7 +13,7 @@ export const MAX_SCATTER = 150;
 export const MAX_FIGURES = 14;
 export const MAX_FORECAST = 24;
 
-const KINDS = new Set(['change', 'trend', 'gap', 'concentration', 'outlier', 'correlation', 'quality', 'seasonal', 'run', 'forecast']);
+const KINDS = new Set(['change', 'trend', 'gap', 'concentration', 'outlier', 'correlation', 'quality', 'seasonal', 'run', 'forecast', 'regression', 'what_if']);
 const CONFIDENCE = {
   confirmed: { label: 'Confirmed in the data', tone: 'ok' },
   fact: { label: 'Confirmed in the data', tone: 'ok' },
@@ -32,6 +33,8 @@ const KIND_LABELS = {
   seasonal: 'Repeating pattern',
   run: 'Lasting shift',
   forecast: 'Forecast',
+  regression: 'Regression',
+  what_if: 'What-if',
 };
 
 const finite = (n) => typeof n === 'number' && Number.isFinite(n);
@@ -90,7 +93,10 @@ function parseForecast(v) {
   const all = [...forecast, ...low, ...high, ...history];
   if (n < 1 || low.length !== n || high.length !== n || history.length < 3 || x.length !== history.length + n || all.some((q) => q === null)) return null;
   if (low.some((l, i) => l > forecast[i] + 1e-9) || high.some((h, i) => h < forecast[i] - 1e-9)) return null;
-  return { type: 'forecast', x, history, forecast, low, high, yLabel: str(v.y_label, 60), format: v.format === 'percent' ? 'percent' : 'number' };
+  const bandRaw = v.band_pct ?? v.bandPct;
+  const bandPct = typeof bandRaw === 'number' && Number.isFinite(bandRaw) ? bandRaw : null;
+  return { type: 'forecast', x, history, forecast, low, high, yLabel: str(v.y_label, 60), format: v.format === 'percent' ? 'percent' : 'number', bandPct };
+
 }
 
 function parseBars(v) {
@@ -191,6 +197,7 @@ function parseFinding(raw, index) {
       url: safeUrl(src.url),
     },
     provenance: parseProvenance(raw.provenance),
+    math: parseMathBlock(raw),
   };
 }
 
@@ -258,6 +265,7 @@ export function parseFindings(payload) {
       .filter((p) => Array.isArray(p) && Number.isInteger(p[1]) && Number.isInteger(p[2]))
       .map((p) => ({ table: str(p[0], 60), loaded: p[1], total: p[2] })),
     notes: strList(payload.notes, 4, 240),
+    mathSteps: buildMathSteps(payload.math_steps, findings),
   };
 }
 
@@ -286,6 +294,9 @@ const CHECK_LABELS = {
   quality: ['data-quality check', 'data-quality checks'],
   seasonal: ['repeating-pattern check', 'repeating-pattern checks'],
   run: ['lasting-shift check', 'lasting-shift checks'],
+  forecast: ['forecast', 'forecasts'],
+  regression: ['regression', 'regressions'],
+  what_if: ['what-if scenario', 'what-if scenarios'],
 };
 
 /** "6 changes over time, 2 trends, …": what was looked at, so 'nothing else stood out' means something. */
@@ -439,7 +450,7 @@ export function lineGeometry(v, width, height = 190, pad = { l: 46, r: 14, t: 14
   };
 }
 
-/** History, then the forecast joined to its last point, with the 80% range as a shaded band. Index i runs over history then forecast. */
+/** History, then the forecast joined to its last point, with the confidence range as a shaded band. Index i runs over history then forecast. */
 export function forecastGeometry(v, width, height = 210, pad = { l: 46, r: 14, t: 14, b: 26 }) {
   const nh = v.history.length;
   const n = nh + v.forecast.length;
@@ -587,7 +598,9 @@ export function chartAlt(f) {
   }
   if (v.type === 'forecast') {
     const j = v.forecast.length - 1;
-    return `Line chart of ${v.yLabel || 'values'} from ${formatPeriod(v.x[0])} to ${formatPeriod(v.x[v.history.length - 1])}, then a forecast for ${v.forecast.length} more period${v.forecast.length === 1 ? '' : 's'}. The last forecast, for ${formatPeriod(v.x[v.history.length + j])}, is about ${formatNumber(v.forecast[j], v.format)}, with an 80% range of ${formatNumber(v.low[j], v.format)} to ${formatNumber(v.high[j], v.format)}.`;
+    // Discovery Holt fixtures stay 80%; Phase 1 forecast_tool (OLS) sends band_pct: 95.
+    const band = Number.isFinite(v.bandPct) ? v.bandPct : 80;
+    return `Line chart of ${v.yLabel || 'values'} from ${formatPeriod(v.x[0])} to ${formatPeriod(v.x[v.history.length - 1])}, then a forecast for ${v.forecast.length} more period${v.forecast.length === 1 ? '' : 's'}. The last forecast, for ${formatPeriod(v.x[v.history.length + j])}, is about ${formatNumber(v.forecast[j], v.format)}, with a ${band}% range of ${formatNumber(v.low[j], v.format)} to ${formatNumber(v.high[j], v.format)}.`;
   }
   if (v.type === 'bars') {
     const hi = v.items.reduce((a, b) => (b.value > a.value ? b : a));

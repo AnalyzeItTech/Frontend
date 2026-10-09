@@ -1,0 +1,512 @@
+{
+ "version": 1,
+ "math_steps": [
+  {
+   "id": "m1",
+   "method": "regression",
+   "tool": "linear_trend",
+   "label": "Regression",
+   "state": "done",
+   "finding_id": "m1"
+  },
+  {
+   "id": "m2",
+   "method": "forecast",
+   "tool": "forecast_tool",
+   "label": "Forecast",
+   "state": "done",
+   "finding_id": "m2"
+  },
+  {
+   "id": "m3",
+   "method": "what_if",
+   "label": "What-if",
+   "state": "unwired",
+   "detail": "Stress step isn’t wired yet",
+   "finding_id": "m3"
+  }
+ ],
+ "findings": [
+  {
+   "id": "m1",
+   "kind": "regression",
+   "kind_label": "Regression",
+   "method": "regression",
+   "tool": "linear_trend",
+   "target": "revenue vs. spend",
+   "title": "Regression — revenue vs. spend",
+   "so_what": "Revenue tends to rise with spend on this series. That is a descriptive fit, not a claim that spend causes revenue.",
+   "headline": "OLS slope 2.41 (revenue per spend unit); R² 0.87 across 120 rows.",
+   "reasoning": [
+    "linear_trend (OLS) on revenue vs spend.",
+    "R² 0.87; sample size 120; p-value 0.002."
+   ],
+   "why": [
+    "Series: revenue vs spend from your sales table.",
+    "Window: last 90 days (defaulted)."
+   ],
+   "confidence": "likely",
+   "confidence_note": "Fit is strong on this window; still descriptive only.",
+   "strength": 0.87,
+   "kpis": [
+    {
+     "label": "Slope",
+     "value": "2.41"
+    },
+    {
+     "label": "R²",
+     "value": "0.870"
+    },
+    {
+     "label": "n",
+     "value": "120",
+     "note": "sample size"
+    },
+    {
+     "label": "p-value",
+     "value": "0.002"
+    }
+   ],
+   "assumptions": [
+    "Series: revenue vs spend (sales table)",
+    "Window: last 90 days (defaulted)",
+    "Transform: none",
+    "Hold-outs: none"
+   ],
+   "params_used": {
+    "window_days": 90,
+    "defaulted": true,
+    "transform": "none"
+   },
+   "caveat": "Descriptive fit on your series — not a trading signal.",
+   "chart_ref": "m1-scatter",
+   "chart_caption": "Revenue vs spend · last 90 days (defaulted)",
+   "math_status": "done",
+   "visual": {
+    "type": "scatter",
+    "points": [
+     [
+      67.55,
+      189.05
+     ],
+     [
+      30.09,
+      86.77
+     ],
+     [
+      76.28,
+      178.96
+     ],
+     [
+      17.82,
+      20.92
+     ],
+     [
+      47.97,
+      140.04
+     ],
+     [
+      55.48,
+      148.06
+     ],
+     [
+      12.39,
+      50.1
+     ],
+     [
+      59.04,
+      179.04
+     ],
+     [
+      29.84,
+      56.16
+     ],
+     [
+      10.58,
+      20.08
+     ],
+     [
+      82.52,
+      205.63
+     ],
+     [
+      23.99,
+      54.27
+     ],
+     [
+      96.15,
+      239.61
+     ],
+     [
+      18.7,
+      63.87
+     ],
+     [
+      86.27,
+      193.96
+     ],
+     [
+      75.68,
+      174.57
+     ],
+     [
+      58.26,
+      169.71
+     ],
+     [
+      59.68,
+      152.89
+     ],
+     [
+      84.65,
+      189.67
+     ],
+     [
+      61.96,
+      137.06
+     ],
+     [
+      73.41,
+      201.33
+     ],
+     [
+      36.04,
+      102.54
+     ],
+     [
+      17.18,
+      54.3
+     ],
+     [
+      35.02,
+      104.65
+     ],
+     [
+      67.21,
+      162.55
+     ],
+     [
+      28.86,
+      94.54
+     ],
+     [
+      34.03,
+      117.99
+     ],
+     [
+      64.82,
+      158.14
+     ],
+     [
+      25.4,
+      71.81
+     ],
+     [
+      44.15,
+      107.74
+     ],
+     [
+      99.06,
+      236.09
+     ],
+     [
+      71.62,
+      166.9
+     ],
+     [
+      85.86,
+      221.03
+     ],
+     [
+      12.89,
+      30.25
+     ],
+     [
+      38.39,
+      103.14
+     ],
+     [
+      94.86,
+      252.93
+     ],
+     [
+      88.87,
+      215.8
+     ],
+     [
+      45.61,
+      146.05
+     ],
+     [
+      92.31,
+      220.81
+     ],
+     [
+      32.2,
+      93.2
+     ]
+    ],
+    "x_label": "spend",
+    "y_label": "revenue",
+    "fit": [
+     [
+      10,
+      36.1
+     ],
+     [
+      100,
+      253.0
+     ]
+    ],
+    "r": 0.933
+   },
+   "figures": [
+    {
+     "label": "Slope",
+     "value": "2.41",
+     "n": 120,
+     "note": "OLS"
+    },
+    {
+     "label": "R²",
+     "value": "0.870",
+     "n": 120,
+     "note": null
+    },
+    {
+     "label": "p-value",
+     "value": "0.002",
+     "n": null,
+     "note": null
+    }
+   ],
+   "sql": "SELECT spend, revenue FROM sales WHERE order_date >= date('now','-90 days')",
+   "followups": [
+    "How sensitive is revenue to a 10% spend change?",
+    "Forecast revenue for the next month"
+   ],
+   "source": {
+    "table": "sales",
+    "origin": "project"
+   }
+  },
+  {
+   "id": "m2",
+   "kind": "forecast",
+   "kind_label": "Forecast",
+   "method": "forecast",
+   "tool": "forecast_tool",
+   "target": "next 3 months",
+   "title": "Forecast — next 3 months",
+   "so_what": "OLS linear trend with a 95% residual band. It cannot see a price change or campaign that is not in the history.",
+   "headline": "Next month about 618; 95% range 570 to 666 (forecast_tool — OLS linear_trend + 95% residual bands).",
+   "reasoning": [
+    "forecast_tool fits an OLS linear_trend on the series and widens a 95% residual band.",
+    "Assumes the future behaves like the past."
+   ],
+   "why": [
+    "Based on 24 months of monthly revenue.",
+    "Yearly pattern included (two+ cycles)."
+   ],
+   "confidence": "likely",
+   "confidence_note": "Hold-out miss about 5% a month vs 11% naive.",
+   "strength": 0.8,
+   "kpis": [
+    {
+     "label": "Apr 2026",
+     "value": "574.23",
+     "note": "95% 528.29–620.17"
+    },
+    {
+     "label": "Band (95%)",
+     "value": "528.29 – 620.17"
+    },
+    {
+     "label": "May 2026",
+     "value": "591.12"
+    },
+    {
+     "label": "Jun 2026",
+     "value": "608.01"
+    }
+   ],
+   "assumptions": [
+    "Series: SUM(revenue) per month",
+    "Window: 24 months of history",
+    "Method: OLS linear_trend (forecast_tool)",
+    "Band: 95% residual",
+    "Hold-outs: last 6 months used for checks"
+   ],
+   "params_used": {
+    "periods": 3,
+    "method": "ols_linear_trend",
+    "band": "95%"
+   },
+   "caveat": "Projection assumes the future behaves like the past — not a trading signal.",
+   "chart_ref": "m2-forecast",
+   "chart_caption": "Revenue per month · history + 3-month projection (95% residual band)",
+   "math_status": "done",
+   "visual": {
+    "type": "forecast",
+    "x": [
+     "2024-03",
+     "2024-04",
+     "2024-05",
+     "2024-06",
+     "2024-07",
+     "2024-08",
+     "2024-09",
+     "2024-10",
+     "2024-11",
+     "2024-12",
+     "2025-01",
+     "2025-02",
+     "2025-03",
+     "2025-04",
+     "2025-05",
+     "2025-06",
+     "2025-07",
+     "2025-08",
+     "2025-09",
+     "2025-10",
+     "2025-11",
+     "2025-12",
+     "2026-01",
+     "2026-02",
+     "2026-04",
+     "2026-05",
+     "2026-06"
+    ],
+    "history": [
+     494.21,
+     521.65,
+     527.91,
+     543.34,
+     546.1,
+     543.33,
+     533.55,
+     507.85,
+     499.45,
+     497.34,
+     514.04,
+     531.15,
+     550.19,
+     563.91,
+     597.87,
+     603.05,
+     608.46,
+     587.76,
+     587.62,
+     553.13,
+     558.1,
+     544.92,
+     549.23,
+     562.97
+    ],
+    "forecast": [
+     574.23,
+     591.12,
+     608.01
+    ],
+    "low": [
+     528.29,
+     543.83,
+     559.37
+    ],
+    "high": [
+     620.17,
+     638.41,
+     656.65
+    ],
+    "y_label": "revenue per month",
+    "format": "number",
+    "band_pct": 95
+   },
+   "figures": [
+    {
+     "label": "April 2026",
+     "value": "574.23  (95% range 528.29 to 620.17)",
+     "n": null,
+     "note": null
+    },
+    {
+     "label": "Typical miss in past tests",
+     "value": "5% per month",
+     "n": 6,
+     "note": null
+    }
+   ],
+   "sql": "SELECT strftime('%Y-%m', order_date) AS period, SUM(revenue) AS value FROM sales GROUP BY period ORDER BY period",
+   "followups": [
+    "What changed recently in revenue?"
+   ],
+   "source": {
+    "table": "sales",
+    "origin": "project"
+   }
+  },
+  {
+   "id": "m3",
+   "kind": "what_if",
+   "kind_label": "What-if",
+   "method": "what_if",
+   "target": "−10% price",
+   "title": "What-if — −10% price",
+   "so_what": "A stress / scenario step is not available yet.",
+   "headline": "What-if stress slice is not wired.",
+   "reasoning": [],
+   "why": [],
+   "confidence": "check",
+   "confidence_note": "No scenario numbers until a stress step is available.",
+   "strength": 0,
+   "kpis": [],
+   "assumptions": [
+    "Requested shock: −10% price",
+    "Stress step: not wired yet"
+   ],
+   "params_used": {
+    "shock_pct": -10,
+    "requested": true
+   },
+   "caveat": "Scenario on your inputs — not a trading signal.",
+   "chart_ref": "m3-whatif",
+   "chart_caption": "",
+   "math_status": "unwired",
+   "visual": null,
+   "figures": [],
+   "sql": "",
+   "followups": [
+    "Ask again once stress scenarios are available"
+   ],
+   "source": {
+    "table": "sales",
+    "origin": "project"
+   }
+  }
+ ],
+ "checked": {
+  "analyses": 3,
+  "queries": 2,
+  "by_kind": {
+   "regression": 1,
+   "forecast": 1,
+   "what_if": 1
+  },
+  "tables": [
+   {
+    "name": "sales",
+    "rows": 270,
+    "total": 270
+   }
+  ]
+ },
+ "partial": [],
+ "notes": [
+  "Sample run for Phase 1 math UI. Regression → linear_trend; Forecast → forecast_tool (OLS + 95% residual bands). What-if is an honest unwired placeholder."
+ ],
+ "scope": {
+  "mode": "project",
+  "sources": [],
+  "account": []
+ }
+}

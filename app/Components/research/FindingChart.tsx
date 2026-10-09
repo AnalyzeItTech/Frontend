@@ -293,6 +293,8 @@ function ForecastChart({ finding, v }: { finding: Finding; v: ForecastVisual }) 
   const [ref, width] = useWidth();
   const g = forecastGeometry(v, width);
   const nh = v.history.length;
+  // Discovery Holt fixtures stay 80%; Phase 1 forecast_tool (OLS) sends band_pct: 95.
+  const bandPct = Number.isFinite(v.bandPct) ? (v.bandPct as number) : 80;
   const [active, setActive] = useState<number | null>(null);
   const pos = active ?? g.points.length - 1;
   const cur = g.points[Math.min(pos, g.points.length - 1)];
@@ -310,7 +312,7 @@ function ForecastChart({ finding, v }: { finding: Finding; v: ForecastVisual }) 
           {cur ? (
             <span className="shrink-0 tabular-nums text-[var(--text-primary)]">
               {cur.label}: <b>{cur.valueLabel}</b>
-              {cur.future ? ` (80% range ${cur.lowLabel} to ${cur.highLabel})` : ''}
+              {cur.future ? ` (${bandPct}% range ${cur.lowLabel} to ${cur.highLabel})` : ''}
             </span>
           ) : null}
         </div>
@@ -358,7 +360,7 @@ function ForecastChart({ finding, v }: { finding: Finding; v: ForecastVisual }) 
           <svg width="22" height="10" aria-hidden="true">
             <rect x="0" y="1" width="22" height="8" fill={ACCENT} fillOpacity={0.3} />
           </svg>
-          80% range
+          {bandPct}% range
         </li>
       </ul>
     </div>
