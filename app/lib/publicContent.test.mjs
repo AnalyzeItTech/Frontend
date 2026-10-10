@@ -72,21 +72,15 @@ describe('the landing page', () => {
     assert.ok(!fs.existsSync(path.join(root, 'app/Components/ui/LoadingScreen.tsx')));
     assert.doesNotMatch(read('app/Components/landing/HeroSection.tsx') + exp, /CALIBRATING/i);
   });
-  it('names a pain for one kind of customer, and shows a real output on labelled sample data', () => {
+  it('is minimal: one headline and a start-analyzing action, with nothing to connect first', () => {
     const hero = read('app/Components/landing/HeroSection.tsx');
-    assert.match(hero, /<HeroAnswer \/>/);
-    assert.match(hero, /Razorpay/);
-    assert.match(hero, /failing/);
+    assert.match(hero, /Start analyzing now/);
+    assert.match(hero, /href="\/login\?tab=register"/);
+    assert.doesNotMatch(hero, /Razorpay|Connect your/i, 'the hero asks for no connection');
     assert.doesNotMatch(hero, /Weather in Mumbai|AAPL|12 \* 30|globe|map-first/i, 'the hero is about one thing');
-    assert.match(read('app/page.tsx'), /<LeaksSection \/>/);
-    const ex = JSON.parse(read('app/lib/fixtures/hero.example.json'));
-    const parsed = parseFindings(ex.findings);
-    assert.ok(parsed && parsed.findings.length === 2);
-    assert.ok(parsed.findings.every((f) => f.visual && /\d/.test(f.title)), 'the figures come from the run, not from hand-typed copy');
-    assert.match(ex.dataset, /sample data/);           // the caption must say it is not a real business
-    assert.match(ex.dataset, /not a real business/);
-    const code = read('app/Components/landing/HeroAnswer.tsx').replace(/className="[^"]*"/g, '').replace(/import .*;/g, '');
-    assert.doesNotMatch(code, /\d{2,}/, 'no figure is typed into the component');
+    const page = read('app/page.tsx');
+    assert.match(page, /<HeroSection \/>/);
+    assert.match(page, /<Footer \/>/);
   });
   it('compares itself honestly with uploading a file to a chatbot', () => {
     const cmp = read('app/Components/landing/ComparisonSection.tsx');
