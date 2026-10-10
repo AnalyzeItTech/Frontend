@@ -83,8 +83,8 @@ describe('the landing page', () => {
     const parsed = parseFindings(ex.findings);
     assert.ok(parsed && parsed.findings.length === 2);
     assert.ok(parsed.findings.every((f) => f.visual && /\d/.test(f.title)), 'the figures come from the run, not from hand-typed copy');
-    assert.match(ex.dataset, /sample data/);           // the caption must say it is not a real business
-    assert.match(ex.dataset, /not a real business/);
+    assert.match(ex.dataset, /public dataset/);          // the caption must name the source and say it is public
+    assert.match(ex.dataset, /public domain/);
     const code = read('app/Components/landing/HeroAnswer.tsx').replace(/className="[^"]*"/g, '').replace(/import .*;/g, '');
     assert.doesNotMatch(code, /\d{2,}/, 'no figure is typed into the component');
   });
