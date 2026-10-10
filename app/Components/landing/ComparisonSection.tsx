@@ -9,7 +9,7 @@ interface ComparisonRow {
 const COMPARISONS: ComparisonRow[] = [
   {
     topic: 'Getting your data in',
-    oldWay: 'Export a file from Razorpay, upload it to a chatbot, and do it all again next week.',
+    oldWay: 'Export a file from your payment provider, upload it to a chatbot, and do it all again next week.',
     analyzeIt: 'Connect once. When you ask, the data is refreshed first if it is more than a few minutes old.',
   },
   {

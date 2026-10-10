@@ -25,7 +25,7 @@ export function HeroAnswer() {
         <FindingCards data={parsed} />
       </div>
       <figcaption className="mt-2 text-xs leading-relaxed text-[#5C534A] dark:text-[#C5B9AE]">
-        This is {example.dataset}. Connect your own Razorpay account to see yours. Open &ldquo;Show the working&rdquo; on a card for the exact figures and the query behind it.
+        This is {example.dataset}. Connect your own payment account to see yours. Open &ldquo;Show the working&rdquo; on a card for the exact figures and the query behind it.
       </figcaption>
     </figure>
   );

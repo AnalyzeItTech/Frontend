@@ -14,7 +14,7 @@ export const ClosingCTASection: React.FC = () => {
       </h2>
 
       <p className="text-base md:text-lg text-[#4A4238]/70 dark:text-[#C5B9AE] max-w-xl mx-auto leading-relaxed">
-        Connect Razorpay, ask what is going wrong, and check every figure yourself.
+        Connect your payments, ask what is going wrong, and check every figure yourself.
       </p>
 
       <div className="pt-4 space-y-3">

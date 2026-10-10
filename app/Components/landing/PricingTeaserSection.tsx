@@ -54,7 +54,7 @@ export const PricingTeaserSection: React.FC<{ initialQuote?: MarketingQuote }> =
           Fair pricing for quiet research.
         </h2>
         <p className="text-base text-[#3F3830] dark:text-[#E6DCD2]">
-          Chat, dashboards, Globe, and connectors need an account. Paid plans are billed through Razorpay in your
+          Chat, dashboards, Globe, and connectors need an account. Paid plans are billed through our payment processor in your
           local currency (INR in India). The USD figure is a reference; the exact price is confirmed at checkout.
         </p>
       </div>

@@ -45,7 +45,7 @@ export const LeaksSection: React.FC = () => (
 
       <ol className="grid gap-6 md:grid-cols-3 text-sm leading-relaxed">
         {[
-          ['1. Connect', 'Paste a Razorpay key id and secret. AnalyzeIt only reads payments and refunds, and never stores customer email, phone, card or UPI details.'],
+          ['1. Connect', 'Connect your payment provider with a read-only key. AnalyzeIt only reads payments and refunds, and never stores customer email, phone, card or UPI details.'],
           ['2. Ask', 'Ask “what is going wrong with my payments?”. The data is refreshed first if it has not been for a few minutes.'],
           ['3. Check', 'Each finding shows the exact figures and the query behind it, so you can verify it or hand it to your developer.'],
         ].map(([h, b]) => (
@@ -57,7 +57,7 @@ export const LeaksSection: React.FC = () => (
       </ol>
 
       <p className="text-sm text-[#4A4238]/75 dark:text-[#C5B9AE]">
-        Not on Razorpay? Upload any payments or orders file and ask the same question. <Link href="/docs/discovery" className="text-[#C45A42] underline underline-offset-2">How it works</Link>.
+        Prefer not to connect? Upload any payments or orders file and ask the same question. <Link href="/docs/discovery" className="text-[#C45A42] underline underline-offset-2">How it works</Link>.
       </p>
     </div>
   </section>
