@@ -89,3 +89,20 @@ test('parseTableAt parses pipe tables with alignment and ragged rows', () => {
   assert.equal(parseTableAt(['not | a table', 'plain'], 0), null);
   assert.equal(parseTableAt(['a | b'], 0), null);
 });
+
+test('category charts keep their names, put them on the x axis and leave room for the bars', () => {
+  const ex = parseExtras({ charts: [{ type: 'bar', title: 'Sales', categories: ['North', 'South', 'East'], series: [{ name: 's', points: [[0, 5], [1, 9], [2, 4]] }] }] });
+  assert.deepEqual(ex.charts[0].categories, ['North', 'South', 'East']);
+  const g = chartGeometry(ex.charts[0], 560, 240);
+  assert.deepEqual(g.xTicks.map((t) => t.v), ['North', 'South', 'East']);
+  assert.equal(g.series[0].points[1].xv, 'South');
+  assert.ok(g.series[0].points[0].x > g.pad.l && g.series[0].points[2].x < g.width - g.pad.r);   // bars sit inside the plot
+  assert.ok(g.unitPx > 0);
+});
+
+test('category names that do not match the points are dropped, and plain charts are unchanged', () => {
+  assert.equal(parseExtras({ charts: [{ type: 'bar', categories: ['a'], series: [{ name: 's', points: [[0, 1], [3, 2]] }] }] }).charts[0].categories, undefined);
+  const plain = parseExtras({ charts: [{ type: 'line', series: [{ name: 's', points: [[2020, 1], [2021, 2]] }] }] });
+  assert.equal(plain.charts[0].categories, undefined);
+  assert.deepEqual(chartGeometry(plain.charts[0]).xTicks.map((t) => t.v), [2020, 2021]);
+});

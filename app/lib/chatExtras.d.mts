@@ -6,6 +6,7 @@ export interface ParsedChart {
   source: string;
   sourceUrl: string;
   series: Array<{ name: string; points: Array<[number, number]> }>;
+  categories?: string[];
 }
 export interface ParsedPlace {
   name: string;
@@ -21,9 +22,11 @@ export interface ChartGeometry {
   width: number;
   height: number;
   pad: { l: number; r: number; t: number; b: number };
-  series: Array<{ name: string; color: string; d: string; points: Array<{ x: number; y: number; xv: number; yv: number }> }>;
+  series: Array<{ name: string; color: string; d: string; points: Array<{ x: number; y: number; xv: number | string; yv: number }> }>;
   yTicks: Array<{ v: number; y: number }>;
-  xTicks: Array<{ v: number; x: number }>;
+  xTicks: Array<{ v: number | string; x: number }>;
+  /** Pixels per x unit (bar width is derived from it). */
+  unitPx: number;
   baselineY: number;
 }
 export interface ParsedTable {

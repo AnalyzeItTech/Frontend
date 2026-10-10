@@ -11,6 +11,8 @@ export interface ChartSpec {
   source: string;
   sourceUrl: string;
   series: Array<{ name: string; points: Array<[number, number]> }>;
+  /** Names for the x axis when x is a position (bar charts of categories). */
+  categories?: string[];
 }
 
 /** Dependency-free SVG chart for research answers: hover/focus readout, legend, data-table fallback. */
@@ -22,6 +24,9 @@ export function ChartCard({ chart }: { chart: ChartSpec }) {
   const active = hover ? geo.series[hover.si]?.points[hover.pi] : null;
   const activeName = hover ? geo.series[hover.si]?.name : '';
   const years = useMemo(() => [...new Set(chart.series.flatMap((s) => s.points.map((p) => p[0])))].sort((a, b) => a - b), [chart]);
+  const asBars = chart.type === 'bar' && !!chart.categories?.length;
+  const visible = geo.series.map((_, i) => i).filter((i) => !hidden.has(i));
+  const barW = Math.max(4, Math.min(48, (geo.unitPx * 0.8) / Math.max(1, visible.length)));
 
   const toggle = (i: number) =>
     setHidden((prev) => {
@@ -78,8 +83,26 @@ export function ChartCard({ chart }: { chart: ChartSpec }) {
           {geo.series.map((s, si) =>
             hidden.has(si) ? null : (
               <g key={s.name}>
-                <path d={s.d} fill="none" stroke={s.color} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
-                {s.points.map((p, pi) => (
+                {asBars
+                  ? s.points.map((p, pi) => {
+                      const slot = visible.indexOf(si) - (visible.length - 1) / 2;
+                      const x = p.x + slot * barW - barW / 2;
+                      return (
+                        <rect
+                          key={`b${pi}`}
+                          x={x}
+                          y={Math.min(p.y, geo.baselineY)}
+                          width={barW}
+                          height={Math.max(1, Math.abs(geo.baselineY - p.y))}
+                          rx={2}
+                          fill={s.color}
+                          opacity={hover?.si === si && hover?.pi === pi ? 1 : 0.85}
+                          onMouseEnter={() => setHover({ si, pi })}
+                        />
+                      );
+                    })
+                  : <path d={s.d} fill="none" stroke={s.color} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />}
+                {(asBars ? [] : s.points).map((p, pi) => (
                   <circle
                     key={pi}
                     cx={p.x}
@@ -142,7 +165,7 @@ export function ChartCard({ chart }: { chart: ChartSpec }) {
             <tbody>
               {years.map((y) => (
                 <tr key={y} className="border-t border-[var(--border)]">
-                  <td className="py-1 pr-3">{y}</td>
+                  <td className="py-1 pr-3">{chart.categories?.[y] ?? y}</td>
                   {chart.series.map((s) => {
                     const pt = s.points.find((p) => p[0] === y);
                     return (

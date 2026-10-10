@@ -20,6 +20,9 @@ export function parseExtras(payload) {
       if (points.length) series.push({ name: String(s.name || '').slice(0, 40) || 'Series', points });
     }
     if (!series.length) continue;
+    // Optional category names for the x axis (x is then the position in this list): bars for "North / South", not years.
+    const names = (Array.isArray(raw.categories) ? raw.categories : []).slice(0, 400).map((c) => String(c).slice(0, 24));
+    const onNames = names.length > 0 && series.every((s) => s.points.every(([x]) => Number.isInteger(x) && x >= 0 && x < names.length));
     charts.push({
       type: raw.type === 'bar' ? 'bar' : 'line',
       title: String(raw.title || '').slice(0, 120),
@@ -28,6 +31,7 @@ export function parseExtras(payload) {
       source: String(raw.source || '').slice(0, 60),
       sourceUrl: /^https?:\/\//i.test(String(raw.source_url || '')) ? String(raw.source_url) : '',
       series,
+      ...(onNames ? { categories: names } : {}),
     });
   }
 
@@ -76,8 +80,11 @@ export function chartGeometry(chart, width = 560, height = 240, pad = { l: 52, r
   const all = chart.series.flatMap((s) => s.points);
   const xs = all.map((p) => p[0]);
   const ys = all.map((p) => p[1]);
-  const xMin = Math.min(...xs);
-  const xMax = Math.max(...xs);
+  const named = Array.isArray(chart.categories) && chart.categories.length > 0;
+  // Bars need room either side so the first and last do not hang over the plot edge.
+  const bar = chart.type === 'bar' && named;
+  const xMin = Math.min(...xs) - (bar ? 0.5 : 0);
+  const xMax = Math.max(...xs) + (bar ? 0.5 : 0);
   const yTicks = niceTicks(Math.min(...ys, ...(chart.type === 'bar' ? [0] : [])), Math.max(...ys), 5);
   const yMin = yTicks[0];
   const yMax = yTicks[yTicks.length - 1];
@@ -86,7 +93,7 @@ export function chartGeometry(chart, width = 560, height = 240, pad = { l: 52, r
   const sx = (x) => pad.l + (xMax === xMin ? iw / 2 : ((x - xMin) / (xMax - xMin)) * iw);
   const sy = (y) => pad.t + ih - (yMax === yMin ? ih / 2 : ((y - yMin) / (yMax - yMin)) * ih);
   const series = chart.series.map((s, i) => {
-    const pts = s.points.map(([x, y]) => ({ x: sx(x), y: sy(y), xv: x, yv: y }));
+    const pts = s.points.map(([x, y]) => ({ x: sx(x), y: sy(y), xv: named ? chart.categories[x] ?? x : x, yv: y }));
     return {
       name: s.name,
       color: SERIES_COLORS[i % SERIES_COLORS.length],
@@ -94,15 +101,19 @@ export function chartGeometry(chart, width = 560, height = 240, pad = { l: 52, r
       d: pts.map((p, j) => `${j ? 'L' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(''),
     };
   });
-  const xTickCount = Math.min(6, new Set(xs).size);
+  const xTickCount = Math.min(named ? 8 : 6, new Set(xs).size);
+  const lo = Math.min(...xs);
+  const hi = Math.max(...xs);
   const xTicks = Array.from({ length: xTickCount }, (_, i) => {
-    const v = xTickCount === 1 ? xMin : Math.round(xMin + ((xMax - xMin) * i) / (xTickCount - 1));
-    return { v, x: sx(v) };
+    const v = xTickCount === 1 ? lo : Math.round(lo + ((hi - lo) * i) / (xTickCount - 1));
+    return { v: named ? chart.categories[v] ?? v : v, x: sx(v) };
   });
+  const step = Math.max(1, new Set(xs).size) > 1 ? iw / (xMax - xMin) : iw;   // pixels per x unit, for bar width
   return {
     width, height, pad, series,
     yTicks: yTicks.map((v) => ({ v, y: sy(v) })),
     xTicks,
+    unitPx: step,
     baselineY: sy(Math.max(yMin, Math.min(0, yMax))),
   };
 }
