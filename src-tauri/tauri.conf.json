@@ -1,0 +1,48 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "AnalyzeIt",
+  "version": "0.1.0",
+  "identifier": "in.analyzeit.desktop",
+  "build": {
+    "frontendDist": "../desktop-dist",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "node scripts/build-desktop.mjs"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "AnalyzeIt",
+        "width": 1280,
+        "height": 840,
+        "minWidth": 960,
+        "minHeight": 640,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "devtools": false,
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' tauri: asset: http://localhost:3000 http://localhost:8000 https://analyzeit.in; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://checkout.razorpay.com https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:8000 http://localhost:3000 https: wss: blob:; frame-src 'self' https://accounts.google.com https://checkout.razorpay.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self';"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Productivity",
+    "shortDescription": "AnalyzeIt Desktop Analytics Workspace",
+    "longDescription": "AnalyzeIt native desktop client for data analytics, interactive exploration, and AI-driven insights.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}

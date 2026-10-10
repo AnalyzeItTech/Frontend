@@ -1,7 +1,7 @@
 // The try-out page: plain-words copy for its limits. The stream itself is read with parseDemoStream (demoChat.mjs).
 
 export const TRYOUT_EXAMPLES = [
-  { label: 'Is my sales spike real?', question: 'How can I tell whether a one-week spike in sales is real or just random noise?' },
+  { label: 'Is a sales spike real?', question: 'In general, how do I tell whether a one-week spike in a shop\'s sales is real or just random noise?' },
   { label: 'A/B test result', question: 'Explain what a p-value of 0.03 does and does not tell me about an A/B test.' },
   { label: 'Why conversion drops', question: 'What are the most common reasons a website conversion rate suddenly drops?' },
   { label: 'Practice datasets', question: 'Which free public datasets are good for practising business analysis, and what can I learn from each?' },

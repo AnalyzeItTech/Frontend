@@ -1,0 +1,127 @@
+import type { NextConfig } from "next";
+
+// Report-only first: violations show in the browser console without blocking anything.
+// Promote to `Content-Security-Policy` once a production pass shows no legitimate violations.
+const CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://checkout.razorpay.com https://va.vercel-scripts.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  "connect-src 'self' https: wss: blob:",
+  "worker-src 'self' blob:",
+  "frame-src 'self' https://accounts.google.com https://checkout.razorpay.com https://*.googlesyndication.com https://*.doubleclick.net",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join('; ');
+
+const nextConfig: NextConfig = {
+  output: "export",
+  // Public AdSense IDs — set via env at build time; no hardcoded publisher fallback.
+  env: {
+    ...(process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
+      ? { NEXT_PUBLIC_ADSENSE_CLIENT_ID: process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID }
+      : {}),
+    ...(process.env.NEXT_PUBLIC_ADSENSE_SLOT_POST_RUN
+      ? { NEXT_PUBLIC_ADSENSE_SLOT_POST_RUN: process.env.NEXT_PUBLIC_ADSENSE_SLOT_POST_RUN }
+      : {}),
+    ...(process.env.NEXT_PUBLIC_ADSENSE_SLOT_SESSION
+      ? { NEXT_PUBLIC_ADSENSE_SLOT_SESSION: process.env.NEXT_PUBLIC_ADSENSE_SLOT_SESSION }
+      : {}),
+    ...(process.env.NEXT_PUBLIC_ADSENSE_SLOT_VIDEO
+      ? { NEXT_PUBLIC_ADSENSE_SLOT_VIDEO: process.env.NEXT_PUBLIC_ADSENSE_SLOT_VIDEO }
+      : {}),
+  },
+  async headers() {
+    return [
+      {
+        source: '/ads.txt',
+        headers: [
+          { key: 'Content-Type', value: 'text/plain; charset=utf-8' },
+          { key: 'Cache-Control', value: 'public, max-age=300, must-revalidate' },
+          { key: 'Content-Disposition', value: 'inline' },
+        ],
+      },
+      {
+        // GIS + One Tap: allow referrer on http localhost; COOP for popup/FedCM fallbacks
+        source: '/:path*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer-when-downgrade' },
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), payment=(self)' },
+        ],
+      },
+    ];
+  },
+  async redirects() {
+    return [
+      // Do NOT redirect /Dashboard ↔ /dashboard.
+      // On case-insensitive macOS both paths are one folder; on Linux/Vercel
+      // a permanent /Dashboard→/dashboard redirect fights Next case
+      // canonicalization and causes ERR_TOO_MANY_REDIRECTS.
+      {
+        source: '/settings',
+        destination: '/profile',
+        permanent: false,
+      },
+      {
+        source: '/settings/:path*',
+        destination: '/profile',
+        permanent: false,
+      },
+      {
+        source: '/Settings',
+        destination: '/profile',
+        permanent: false,
+      },
+      {
+        source: '/refunds',
+        destination: '/refund',
+        permanent: false,
+      },
+      {
+        source: '/terms-and-conditions',
+        destination: '/terms',
+        permanent: false,
+      },
+      {
+        source: '/cancellation-and-refund',
+        destination: '/refund',
+        permanent: false,
+      },
+      {
+        source: '/shipping-and-exchange',
+        destination: '/shipping',
+        permanent: false,
+      },
+      {
+        source: '/contact-us',
+        destination: '/contact',
+        permanent: false,
+      },
+      {
+        source: '/pricing',
+        destination: '/products',
+        permanent: false,
+      },
+      {
+        source: '/home',
+        destination: '/research',
+        permanent: false,
+      },
+      {
+        source: '/home/:path*',
+        destination: '/research',
+        permanent: false,
+      },
+    ];
+  },
+};
+
+export default nextConfig;
