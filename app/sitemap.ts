@@ -6,6 +6,7 @@ import { LIVE_CASES, LIVE_CASES_UPDATED } from './lib/liveCases.mjs';
 const publicPaths: { path: string; changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency']; priority: number }[] = [
   { path: '/', changeFrequency: 'weekly', priority: 1 },
   { path: '/demo', changeFrequency: 'monthly', priority: 0.95 },
+  { path: '/try', changeFrequency: 'monthly', priority: 0.95 },
   { path: '/case', changeFrequency: 'monthly', priority: 0.9 },
   { path: '/products', changeFrequency: 'weekly', priority: 0.9 },
   { path: '/docs', changeFrequency: 'monthly', priority: 0.8 },
