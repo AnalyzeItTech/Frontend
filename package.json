@@ -10,16 +10,12 @@
     "test": "node --test app/lib/proxyGate.test.mjs app/lib/publicContent.test.mjs app/lib/demoChat.test.mjs app/lib/tryout.test.mjs app/lib/planCatalog.test.mjs app/lib/warmThrottle.test.mjs app/lib/historyTurns.test.mjs app/lib/findings.test.mjs app/lib/mathFindings.test.mjs app/lib/bulkChange.test.mjs app/lib/caseRun.test.mjs app/lib/digestView.test.mjs app/lib/teamView.test.mjs app/lib/rolloutPanel.test.mjs app/lib/memorySourceRow.test.mjs app/lib/memoryCitations.test.mjs app/lib/runStatus.test.mjs app/lib/refreshOnOpen.test.mjs app/Components/globe/liveOverlays.test.mjs app/Components/globe/dataQuality.test.mjs app/Components/globe/globeVisual.test.mjs app/lib/contextWall.test.mjs app/lib/freeContextRetention.test.mjs app/lib/noFreeTrial.test.mjs app/lib/personalHost.test.mjs app/Components/app/appNav.test.mjs app/lib/profileHero.test.mjs app/lib/projectHome.test.mjs app/lib/dashboardView.test.mjs app/lib/retry.test.mjs app/lib/chatExtras.test.mjs app/lib/recordsView.test.mjs app/lib/dashboardTools.test.mjs app/lib/dataChange.test.mjs app/Components/globe/scene.test.mjs app/Components/globe/askGlobe.test.mjs app/Components/map/facingSet.test.mjs app/Components/globe/deviceTier.test.mjs app/Components/map/sourcePinsGl.test.mjs app/lib/starterKits.test.mjs app/lib/researchHome.test.mjs app/lib/connectorState.test.mjs app/lib/onboarding.test.mjs app/lib/countryProfile.test.mjs",
     "test:globe": "node --test app/Components/globe/askGlobe.test.mjs app/Components/globe/liveOverlays.test.mjs app/Components/globe/dataQuality.test.mjs app/Components/globe/globeVisual.test.mjs",
     "postinstall": "node scripts/copy-maplibre-workers.mjs",
-    "prebuild": "node scripts/copy-maplibre-workers.mjs",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "prebuild": "node scripts/copy-maplibre-workers.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",
     "@tabler/icons-react": "^3.48.0",
-    "@tauri-apps/plugin-opener": "^2.7.0",
     "@types/three": "^0.186.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
@@ -35,8 +31,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@tauri-apps/api": "^2.12.2",
-    "@tauri-apps/cli": "^2.12.1",
     "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
