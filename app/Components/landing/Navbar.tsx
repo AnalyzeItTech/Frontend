@@ -17,6 +17,14 @@ export const Navbar: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const scrollTo = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+    setMobileMenuOpen(false);
+  };
+
   return (
     <>
       {/* Floating Pill Header */}
@@ -45,6 +53,41 @@ export const Navbar: React.FC = () => {
 
           {/* Desktop Navigation Links */}
           <div className="hidden md:flex items-center gap-5 text-sm font-medium tracking-wide text-[#322C28]">
+            <button
+              type="button"
+              onClick={() => scrollTo('capabilities')}
+              className="hover:text-[#C45A42] transition-colors cursor-pointer min-h-11 px-1"
+            >
+              Capabilities
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollTo('how-it-works')}
+              className="hover:text-[#C45A42] transition-colors cursor-pointer min-h-11 px-1"
+            >
+              How It Works
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollTo('comparison')}
+              className="hover:text-[#C45A42] transition-colors cursor-pointer min-h-11 px-1"
+            >
+              Why not a chatbot
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollTo('pricing')}
+              className="hover:text-[#C45A42] transition-colors cursor-pointer min-h-11 px-1"
+            >
+              Pricing
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollTo('faq')}
+              className="hover:text-[#C45A42] transition-colors cursor-pointer min-h-11 px-1"
+            >
+              FAQ
+            </button>
           </div>
 
           {/* Auth Actions */}
@@ -88,6 +131,41 @@ export const Navbar: React.FC = () => {
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-30 bg-[#E9DDD2]/98 backdrop-blur-2xl flex flex-col items-center justify-center gap-6 text-sm font-mono tracking-widest uppercase md:hidden text-[#403934]">
+          <button
+            type="button"
+            onClick={() => scrollTo('capabilities')}
+            className="text-base text-[#403934] hover:text-[#E3836C] transition-colors"
+          >
+            Capabilities
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollTo('how-it-works')}
+            className="text-base text-[#403934] hover:text-[#E3836C] transition-colors"
+          >
+            How It Works
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollTo('comparison')}
+            className="text-base text-[#403934] hover:text-[#E3836C] transition-colors"
+          >
+            Why not a chatbot
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollTo('pricing')}
+            className="text-base text-[#403934] hover:text-[#E3836C] transition-colors"
+          >
+            Pricing
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollTo('faq')}
+            className="text-base text-[#403934] hover:text-[#E3836C] transition-colors"
+          >
+            FAQ
+          </button>
           <div className="pt-4 flex gap-4">
             <Link
               href="/login"
