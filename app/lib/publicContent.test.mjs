@@ -75,8 +75,8 @@ describe('the landing page', () => {
   it('names a pain for one kind of customer, and shows a real output on labelled sample data', () => {
     const hero = read('app/Components/landing/HeroSection.tsx');
     assert.match(hero, /<HeroAnswer \/>/);
-    assert.match(hero, /Razorpay/);
-    assert.match(hero, /failing/);
+    assert.match(hero, /Start analyzing now/);
+    assert.doesNotMatch(hero, /Razorpay|Connect your/i, 'the hero card asks for no connection');
     assert.doesNotMatch(hero, /Weather in Mumbai|AAPL|12 \* 30|globe|map-first/i, 'the hero is about one thing');
     assert.match(read('app/page.tsx'), /<LeaksSection \/>/);
     const ex = JSON.parse(read('app/lib/fixtures/hero.example.json'));
