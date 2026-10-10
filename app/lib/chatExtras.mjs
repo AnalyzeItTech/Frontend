@@ -35,6 +35,25 @@ export function parseExtras(payload) {
     });
   }
 
+  // Result tables (a pivot, the rows of a query). Everything is re-checked and capped: this crosses a network boundary.
+  const tables = [];
+  for (const raw of Array.isArray(p.tables) ? p.tables.slice(0, 2) : []) {
+    if (!raw || typeof raw !== 'object' || !Array.isArray(raw.columns) || !Array.isArray(raw.rows)) continue;
+    const columns = raw.columns.slice(0, 8).map((c) => String(c).slice(0, 40));
+    const rows = raw.rows
+      .filter((r) => Array.isArray(r))
+      .slice(0, 30)
+      .map((r) => columns.map((_, i) => (typeof r[i] === 'number' && Number.isFinite(r[i]) ? r[i] : String(r[i] ?? '').slice(0, 60))));
+    if (!columns.length || !rows.length) continue;
+    const total = Number(raw.total_rows);
+    tables.push({
+      title: String(raw.title || '').slice(0, 120),
+      columns,
+      rows,
+      totalRows: Number.isFinite(total) && total >= rows.length ? total : rows.length,
+    });
+  }
+
   const places = [];
   for (const pl of Array.isArray(p.places) ? p.places.slice(0, 8) : []) {
     const lat = Number(pl?.lat);
@@ -49,7 +68,7 @@ export function parseExtras(payload) {
     if (t.length >= 3 && t.length <= 140 && !suggestions.includes(t)) suggestions.push(t);
     if (suggestions.length >= 4) break;
   }
-  return { charts, places, suggestions };
+  return { charts, tables, places, suggestions };
 }
 
 /** "Nice" axis ticks: [min..max] split into ~count round steps. */

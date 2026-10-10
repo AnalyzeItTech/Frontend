@@ -17,7 +17,7 @@ test('parseExtras accepts good payloads and normalises names', () => {
 
 test('parseExtras rejects junk instead of throwing', () => {
   for (const bad of [null, undefined, 5, 'x', [], {}, { charts: 'no', places: 7, suggestions: {} }]) {
-    assert.deepEqual(parseExtras(bad), { charts: [], places: [], suggestions: [] });
+    assert.deepEqual(parseExtras(bad), { charts: [], tables: [], places: [], suggestions: [] });
   }
   const out = parseExtras({
     charts: [{ series: [{ name: 'x', points: [['a', 1], [1, NaN], [1, Infinity]] }] }, { series: [] }, null],
@@ -105,4 +105,23 @@ test('category names that do not match the points are dropped, and plain charts 
   const plain = parseExtras({ charts: [{ type: 'line', series: [{ name: 's', points: [[2020, 1], [2021, 2]] }] }] });
   assert.equal(plain.charts[0].categories, undefined);
   assert.deepEqual(chartGeometry(plain.charts[0]).xTicks.map((t) => t.v), [2020, 2021]);
+});
+
+test('result tables are validated, capped and keep numbers as numbers', () => {
+  const ex = parseExtras({ tables: [{ title: 'Revenue by region', columns: ['region', 'total'], rows: [['N', 25], ['S', '20'], ['E', null]], total_rows: 3 }] });
+  assert.deepEqual(ex.tables[0].rows, [['N', 25], ['S', '20'], ['E', '']]);
+  assert.equal(ex.tables[0].title, 'Revenue by region');
+  assert.equal(ex.tables[0].totalRows, 3);
+});
+
+test('a huge or malformed table cannot break the page', () => {
+  const big = { columns: Array.from({ length: 20 }, (_, i) => `c${i}`), rows: Array.from({ length: 100 }, () => Array.from({ length: 20 }, () => 'x'.repeat(200))), total_rows: 100 };
+  const t = parseExtras({ tables: [big, { columns: ['a'] }, 'nope', { columns: [], rows: [] }, big, big] }).tables;
+  assert.equal(t.length, 1);                                   // the malformed ones are dropped, and at most two are taken from the list
+  assert.equal(t[0].columns.length, 8);
+  assert.equal(t[0].rows.length, 30);
+  assert.equal(t[0].rows[0][0].length, 60);
+  assert.equal(t[0].totalRows, 100);
+  assert.deepEqual(parseExtras(undefined).tables, []);
+  assert.deepEqual(parseExtras({ tables: [{ columns: ['a'], rows: [[Infinity]] }] }).tables[0].rows, [['Infinity']]);
 });

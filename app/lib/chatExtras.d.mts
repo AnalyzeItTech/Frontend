@@ -8,6 +8,13 @@ export interface ParsedChart {
   series: Array<{ name: string; points: Array<[number, number]> }>;
   categories?: string[];
 }
+export interface ResultTable {
+  title: string;
+  columns: string[];
+  rows: Array<Array<string | number>>;
+  /** Rows in the full result; the table shows the first ones. */
+  totalRows: number;
+}
 export interface ParsedPlace {
   name: string;
   lat: number;
@@ -15,6 +22,7 @@ export interface ParsedPlace {
 }
 export interface ParsedExtras {
   charts: ParsedChart[];
+  tables: ResultTable[];
   places: ParsedPlace[];
   suggestions: string[];
 }

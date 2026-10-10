@@ -56,12 +56,13 @@ import { AdSlot, AD_LOAD_TIMEOUT_MS, isAdPlacementConfigured } from '../Componen
 import { shouldShowPostRunAd } from '../lib/adCadence';
 import { SessionStartAd } from '../Components/ads/SessionStartAd';
 import { ChartCard, type ChartSpec } from '../Components/research/ChartCard';
+import { TableCard } from '../Components/research/TableCard';
 import { SuggestionChips } from '../Components/research/SuggestionChips';
 import { FindingCards } from '../Components/research/FindingCards';
 import { RunSteps } from '../Components/research/RunSteps';
 import { discoveryStatus, isDiscoveryRoute, parseFindings, reduceSteps, withoutFindingList, type ParsedFindings, type RunStep } from '../lib/findings.mjs';
 import mathFixture from '../lib/fixtures/findings.math.json';
-import { parseExtras } from '../lib/chatExtras.mjs';
+import { parseExtras, type ResultTable } from '../lib/chatExtras.mjs';
 import { memoryToolStatus, queueStatus } from '../lib/runStatus.mjs';
 import { historyTurns } from '../lib/historyTurns.mjs';
 import { useWarmAgent } from '../lib/useWarmAgent';
@@ -134,6 +135,8 @@ interface ChatMessage {
   memoryCitations?: MemoryCitation[];
   /** Structured extras from the Model: charts from real data and context-aware follow-ups. */
   charts?: ChartSpec[];
+  /** Result tables (a pivot, the rows of a query). */
+  tables?: ResultTable[];
   /** Real places the answer is about, for 'Open on globe'. */
   places?: Array<{ name: string; lat: number; lon: number }>;
   suggestions?: string[];
@@ -1436,6 +1439,7 @@ function ChatInner() {
                     sources: resolvedSources,
                     memoryCitations: normalizeMemorySources(response.memorySources),
                     charts: extras.charts as ChartSpec[],
+                    tables: extras.tables,
                     places: extras.places,
                     suggestions: extras.suggestions,
                     findings: findingsData,
@@ -2037,6 +2041,7 @@ function ChatInner() {
                         <FindingCards data={msg.findings} disabled={isStreaming} signedIn onAsk={(q) => void sendMessage(q)} />
                       ) : null}
                       {!isUser && !msg.streaming && msg.charts?.map((c, ci) => <ChartCard key={ci} chart={c} />)}
+                      {!isUser && !msg.streaming && msg.tables?.map((t, ti) => <TableCard key={ti} table={t} />)}
                       {!isUser && !msg.streaming && msg.places?.length ? (
                         <button
                           type="button"
